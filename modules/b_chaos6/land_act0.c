@@ -1,0 +1,183 @@
+/* the stage's land for act 0: its table, entries and motion. it also holds
+ * the texlist its textures load into, their names, and the name of the pvm
+ * they load from */
+#include <ninja.h>
+
+#include "b_chaos6/dat_0ca4b788.h" /* NOLINT(misc-include-cleaner) */
+#include "b_chaos6/land_act0.h"
+#include "collision/world.h"
+
+#define TEXT_1_LENGTH 10
+#define TEXT_2_LENGTH 12
+#define TEXT_3_LENGTH 10
+#define TEXT_4_LENGTH 10
+#define TEXT_5_LENGTH 11
+#define TEXT_6_LENGTH 11
+#define TEXT_7_LENGTH 10
+#define TEXT_8_LENGTH 11
+#define TEXT_9_LENGTH 11
+#define TEXT_10_LENGTH 13
+#define TEXT_11_LENGTH 13
+#define TEXT_12_LENGTH 9
+#define TEXT_13_LENGTH 12
+#define TEXT_14_LENGTH 12
+#define TEXT_15_LENGTH 11
+#define TEXT_16_LENGTH 11
+#define TEXT_17_LENGTH 12
+#define TEXT_18_LENGTH 13
+#define TEXT_19_LENGTH 10
+#define TEXT_20_LENGTH 10
+#define TEXT_21_LENGTH 8
+#define TEXT_22_LENGTH 13
+#define TEXT_23_LENGTH 11
+#define TEXT_24_LENGTH 12
+#define TEXT_25_LENGTH 16
+#define TEXT_26_LENGTH 12
+#define TEXT_27_LENGTH 8
+#define TEXT_28_LENGTH 9
+#define TEXT_29_LENGTH 9
+#define TEXT_30_LENGTH 10
+#define TEXT_31_LENGTH 9
+#define TEXT_32_LENGTH 9
+#define TEXT_33_LENGTH 10
+#define TEXT_34_LENGTH 10
+#define TEXT_35_LENGTH 9
+#define TEXT_36_LENGTH 10
+#define TEXT_37_LENGTH 10
+#define TEXT_38_LENGTH 8
+#define TEXT_39_LENGTH 9
+#define TEXT_40_LENGTH 10
+#define TEXT_41_LENGTH 10
+#define TEXT_42_LENGTH 10
+#define TEXT_43_LENGTH 10
+#define TEXT_44_LENGTH 9
+#define TEXT_45_LENGTH 9
+#define TEXT_46_LENGTH 9
+#define TEXT_47_LENGTH 9
+#define TEXT_48_LENGTH 11
+#define TEXT_49_LENGTH 11
+#define TEXT_50_LENGTH 11
+#define TEXT_51_LENGTH 10
+#define TEXT_52_LENGTH 10
+#define TEXT_53_LENGTH 10
+#define TEXT_54_LENGTH 9
+#define TEXT_55_LENGTH 9
+#define TEXT_56_LENGTH 9
+#define TEXT_57_LENGTH 9
+#define TEXT_58_LENGTH 9
+#define TEXT_59_LENGTH 9
+#define TEXT_60_LENGTH 9
+#define TEXT_61_LENGTH 9
+#define TEXT_62_LENGTH 9
+#define TEXT_63_LENGTH 10
+#define TEXT_64_LENGTH 10
+#define TEXT_65_LENGTH 9
+#define TEXT_66_LENGTH 9
+#define TEXT_67_LENGTH 10
+#define TEXT_68_LENGTH 10
+#define TEXT_69_LENGTH 10
+#define TEXT_70_LENGTH 10
+#define TEXT_71_LENGTH 9
+#define TEXT_72_LENGTH 9
+#define TEXT_73_LENGTH 10
+#define TEXT_74_LENGTH 10
+#define TEXT_75_LENGTH 8
+#define TEXT_76_LENGTH 9
+#define TEXT_77_LENGTH 11
+#include "b_chaos6/land_act0/text.inc"
+
+extern NJS_ACTION dat_0ca6f364;
+
+/* the objects the land's entries name */
+extern NJS_OBJECT dat_0ca5486c;
+extern NJS_OBJECT dat_0ca5521c;
+extern NJS_OBJECT dat_0ca55794;
+extern NJS_OBJECT dat_0ca55d24;
+extern NJS_OBJECT dat_0ca563cc;
+extern NJS_OBJECT dat_0ca56690;
+extern NJS_OBJECT dat_0ca56954;
+extern NJS_OBJECT dat_0ca571fc;
+extern NJS_OBJECT dat_0ca582a4;
+extern NJS_OBJECT dat_0ca59488;
+extern NJS_OBJECT dat_0ca59a98;
+extern NJS_OBJECT dat_0ca5a0e0;
+extern NJS_OBJECT dat_0ca5a298;
+extern NJS_OBJECT dat_0ca5a46c;
+extern NJS_OBJECT dat_0ca5a7cc;
+extern NJS_OBJECT dat_0ca5aa48;
+extern NJS_OBJECT dat_0ca5b98c;
+extern NJS_OBJECT dat_0ca5bee0;
+extern NJS_OBJECT dat_0ca5cf6c;
+extern NJS_OBJECT dat_0ca5d534;
+extern NJS_OBJECT dat_0ca5dad0;
+extern NJS_OBJECT dat_0ca5ddfc;
+extern NJS_OBJECT dat_0ca5e42c;
+extern NJS_OBJECT dat_0ca5e758;
+extern NJS_OBJECT dat_0ca5e78c;
+extern NJS_OBJECT dat_0ca5e7c0;
+extern NJS_OBJECT dat_0ca5e7f4;
+extern NJS_OBJECT dat_0ca5e828;
+extern NJS_OBJECT dat_0ca5e85c;
+extern NJS_OBJECT dat_0ca5e890;
+extern NJS_OBJECT dat_0ca5e8c4;
+extern NJS_OBJECT dat_0ca5e8f8;
+extern NJS_OBJECT dat_0ca5e92c;
+extern NJS_OBJECT dat_0ca5e960;
+extern NJS_OBJECT dat_0ca5e994;
+extern NJS_OBJECT dat_0ca5e9c8;
+extern NJS_OBJECT dat_0ca5e9fc;
+extern NJS_OBJECT dat_0ca5ea30;
+extern NJS_OBJECT dat_0ca5ea64;
+extern NJS_OBJECT dat_0ca5ea98;
+extern NJS_OBJECT dat_0ca5eacc;
+extern NJS_OBJECT dat_0ca5eb00;
+extern NJS_OBJECT dat_0ca5eb34;
+extern NJS_OBJECT dat_0ca5eb68;
+extern NJS_OBJECT dat_0ca6c134;
+extern NJS_OBJECT dat_0ca6f42c;
+
+static NJS_TEXNAME chaos6_act0_land_textures[77] = {
+    {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
+    {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
+    {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},
+    {TEXT_13, 0, 0}, {TEXT_14, 0, 0}, {TEXT_15, 0, 0}, {TEXT_16, 0, 0},
+    {TEXT_17, 0, 0}, {TEXT_18, 0, 0}, {TEXT_19, 0, 0}, {TEXT_20, 0, 0},
+    {TEXT_21, 0, 0}, {TEXT_22, 0, 0}, {TEXT_23, 0, 0}, {TEXT_24, 0, 0},
+    {TEXT_25, 0, 0}, {TEXT_26, 0, 0}, {TEXT_27, 0, 0}, {TEXT_28, 0, 0},
+    {TEXT_29, 0, 0}, {TEXT_30, 0, 0}, {TEXT_31, 0, 0}, {TEXT_32, 0, 0},
+    {TEXT_33, 0, 0}, {TEXT_34, 0, 0}, {TEXT_35, 0, 0}, {TEXT_36, 0, 0},
+    {TEXT_37, 0, 0}, {TEXT_38, 0, 0}, {TEXT_39, 0, 0}, {TEXT_40, 0, 0},
+    {TEXT_41, 0, 0}, {TEXT_42, 0, 0}, {TEXT_43, 0, 0}, {TEXT_44, 0, 0},
+    {TEXT_45, 0, 0}, {TEXT_46, 0, 0}, {TEXT_47, 0, 0}, {TEXT_48, 0, 0},
+    {TEXT_49, 0, 0}, {TEXT_50, 0, 0}, {TEXT_51, 0, 0}, {TEXT_52, 0, 0},
+    {TEXT_53, 0, 0}, {TEXT_54, 0, 0}, {TEXT_55, 0, 0}, {TEXT_56, 0, 0},
+    {TEXT_57, 0, 0}, {TEXT_58, 0, 0}, {TEXT_59, 0, 0}, {TEXT_60, 0, 0},
+    {TEXT_61, 0, 0}, {TEXT_62, 0, 0}, {TEXT_63, 0, 0}, {TEXT_64, 0, 0},
+    {TEXT_65, 0, 0}, {TEXT_66, 0, 0}, {TEXT_67, 0, 0}, {TEXT_68, 0, 0},
+    {TEXT_69, 0, 0}, {TEXT_70, 0, 0}, {TEXT_71, 0, 0}, {TEXT_72, 0, 0},
+    {TEXT_73, 0, 0}, {TEXT_74, 0, 0}, {TEXT_75, 0, 0}, {TEXT_76, 0, 0},
+    {TEXT_77, 0, 0},
+};
+static NJS_TEXLIST chaos6_act0_land_texlist = {
+#include "b_chaos6/land_act0/chaos6_act0_land_texlist.inc"
+};
+static struct land_entry chaos6_act0_land_entries[46] = {
+#include "b_chaos6/land_act0/chaos6_act0_land_entries.inc"
+};
+static struct land_motion chaos6_act0_land_motions[1] = {
+#include "b_chaos6/land_act0/chaos6_act0_land_motions.inc"
+};
+
+#pragma section HEAD
+/* the name of the pvm the land's textures load from. a body is an
+ * initializer the build extracts from the disc, and it can point only at a
+ * named symbol. so the name is an array, not a string literal. SHC aligns
+ * an array to 1 and a literal to 4. the array is the object's only
+ * constant, so it starts where the literal would */
+static const char chaos6_act0_land_pvm[10] = {
+#include "b_chaos6/land_act0/chaos6_act0_land_pvm.inc"
+};
+struct land_table chaos6_act0_land = {
+#include "b_chaos6/land_act0/chaos6_act0_land.inc"
+};
+#pragma section

@@ -1,0 +1,26 @@
+# EV0089.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0089_head
+0x0cb80008  ev0089_script
+0x0cb802cc  event_sound_destroy
+0x0cb802dc  event_sound_step
+0x0cb8037e  event_sound_hold
+0x0cb803de  event_sound_move_volume
+0x0cb80404  event_sound_move_pan
+0x0cb8042a  event_sound_move_pitch
+0x0cb80450  event_sound_init
+0x0cb80478  event_sound_stop_all
+0x0cb804d6  event_sound_start
+0x0cb80516  event_sound_stop
+0x0cb80590  event_sound_fade_volume
+0x0cb805bc  event_sound_fade_pan
+0x0cb805e8  event_sound_fade_pitch
+0x0cb80614  event_sound_play
+0x0cb80710  ev0089_textures
+0x0cb83178  dat_0cb83178
+0x0cb83608  ev0089_knuckles_motion
+0x0cb83614  ev0089_knuckles_action
+0x0cb83620  event_sound_count
+0x0cb83624  event_sounds
+0x0cb83628  event_sound_next

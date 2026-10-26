@@ -1,0 +1,171 @@
+# STG03.PRS, Twinkle Park
+#
+# section  start       end
+P          0x0c900000  0x0c917080
+D          0x0c917080  0x0c9f7130
+C          0x0c9f7130  0x0c9f95f0
+B          0x0c9f95f0  0x0c9fc0b0
+CFISH      0x0c9fc0b0  0x0c9fc428
+DFISH      0x0c9fc428  0x0ca273e4
+#
+# source                              section  start       end
+# act 1's land, which 1ST_READ.BIN's world_lands names and no code reads, names the texlist; the act table texture.c's twinkle_acts names loads it. the names start C on 8, and acts 0 and 2 repeat names of this act's, which SHC keeps one copy of in one file, so each act's names are a file of their own. the texnames meet act 2's land on 8, the texlist meets them on 8, and the first model's material meets the texlist on 8, each with no fill: one file or two build the same, and the bytes leave the lands and the rest of the act's data to this object or others
+modules/stg03/land1_textures.c         C        0x0c9f7130  0x0c9f751d
+modules/stg03/land1_textures.c         D        0x0c91a7a0  0x0c91abc8
+# act 0's land names the texlist. the names start on 8 where act 1's object's next string would start on 4, so the bytes don't part the acts there; the names the acts repeat do. the texnames meet a model on 8 with no fill, where one file or two build the same. the texlist follows them, and the first model's materials the texlist, each off 8, so this object holds them; the strips after them start on 8 with no fill, where one file or two build the same
+modules/stg03/land0_textures.c         C        0x0c9f7520  0x0c9f7653
+modules/stg03/land0_textures.c         D        0x0c9673f8  0x0c9675e0
+# act 2's land names the texlist. the names start on 8, 5 bytes past act 0's. the texnames meet a model on 8 with no fill, and the texlist starts on 8 straight after its texnames and ends on 8, each with no fill, where one file or two build the same. the texlist's pointer to the texnames is consistent with one object. the bytes leave the texlist to the texnames' object, to that of act 2's models after it, or to one of its own
+modules/stg03/land2_textures.c         C        0x0c9f7658  0x0c9f77ef
+modules/stg03/land2_textures.c         D        0x0c98e190  0x0c98e300
+# the last of the objects act 2's land's entries name, at 0x0c91a770, which lie in a generated row; nothing else reads it. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9a0af4, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as the objects' texnames start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to object_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg03/dat_0c9a0ac0.c           D        0x0c9a0ac0  0x0c9a0af4
+# the stage's pvm list names the texlist first. the names start on 8 where act 2's object's next string would start on 4, so the bytes don't part them from act 2's names, and the texnames start on 8 right after the zero word dat_0c9a0ac0.c's row describes, which nothing points at. the texlist starts on 8 straight after its texnames, and the first model's materials meet it so, each with no fill, where one file or two build the same. the texlist's pointer to the texnames is consistent with one object, and the bytes leave the rest of the objects' models to this object or others. were that word an unread datum of dat_0c9a0ac0.c's object, the objects' names and texnames could be that object's, and so act 2's models' and land2_textures.c's, were it theirs
+modules/stg03/object_textures.c        C        0x0c9f77f0  0x0c9f7c18
+modules/stg03/object_textures.c        D        0x0c9a0af8  0x0c9a0f80
+# coaster.c reads the twinkles' texlist and scenery.c the candles', and the pvm lists name both. the candles' names follow the twinkles' off 8 in C, so the two lists are one file's. the names meet the objects' on 8 with no fill, and the twinkles' texnames meet the motion before them so, where one file or two build the same: the bytes leave them to the motion's object, to object_textures.c's, were the objects' models and motions its, or to one of their own. the candles' texlist ends 4 bytes short of the pvm list on 8, past where their object's next item would start on 4
+modules/stg03/effect_textures.c        C        0x0c9f7c18  0x0c9f7cf9
+modules/stg03/effect_textures.c        D        0x0c9bfe90  0x0c9bff84
+# 1ST_READ.BIN's stage_pvms names twinkle_pvms, which texture_load_stage reads to its null past the first four rows, and texture.c's twinkle_acts names act 0's, act 1's and act 2's rows of twinkle_act_pvms, which it reads by count; no code here reads them. they hold only strings and pointers, and meet on 8 with no fill, in C and in D, where one file or two build the same. their names start on 8, 7 bytes past the candles' names, and end 5 bytes short of scenery.c's constants on 8, past where their object's next item would start on 4, and twinkle_pvms starts on 8, 4 bytes past the candles' texlist: consistent with an object of their own, or one each. scenery.c's data meets the act rows on 8 with no fill, but C parts them from its object
+modules/stg03/pvms.c                   C        0x0c9f7d00  0x0c9f7dd3
+modules/stg03/pvms.c                   D        0x0c9bff88  0x0c9c0038
+modules/stg03/scenery.c                P        0x0c900000  0x0c900f00
+modules/stg03/scenery.c                D        0x0c9c0038  0x0c9c031c
+modules/stg03/scenery.c                C        0x0c9f7dd8  0x0c9f7e48
+modules/stg03/barrel.c                 P        0x0c900f00  0x0c9015d0
+modules/stg03/barrel.c                 D        0x0c9c0320  0x0c9c0460
+modules/stg03/barrel.c                 C        0x0c9f7e48  0x0c9f7e68
+modules/stg03/bowling.c                P        0x0c9015e0  0x0c902f40
+modules/stg03/bowling.c                D        0x0c9c0460  0x0c9c07d8
+modules/stg03/bowling.c                C        0x0c9f7e68  0x0c9f7e88
+modules/stg03/catapult.c               P        0x0c902f40  0x0c903800
+modules/stg03/coaster.c                P        0x0c903800  0x0c904200
+modules/stg03/coaster.c                D        0x0c9c07d8  0x0c9c095c
+modules/stg03/coaster.c                C        0x0c9f7e88  0x0c9f7eb8
+# one object, though double_door_draw meets door_b_step's pool at 0x0c9046e0 with no fill: double_door_shapes follows door_shape off 8, at 0x0c9c0994
+modules/stg03/doors.c                  P        0x0c904200  0x0c904ba0
+modules/stg03/doors.c                  D        0x0c9c0960  0x0c9c0c24
+modules/stg03/platforms.c              P        0x0c904ba0  0x0c9053a0
+modules/stg03/platforms.c              D        0x0c9c0c28  0x0c9c0c90
+# go_round_horses_draw starts on 32 at 0x0c905700 with no fill; split there, the code builds the same
+modules/stg03/go_round.c               P        0x0c9053a0  0x0c905c2a
+modules/stg03/go_round.c               D        0x0c9c0c90  0x0c9c0d30
+modules/stg03/monitor.c                P        0x0c905c40  0x0c905fe0
+modules/stg03/monitor.c                D        0x0c9c0d30  0x0c9c0d64
+modules/stg03/monitor.c                C        0x0c9f7eb8  0x0c9f7f03
+modules/stg03/pirates.c                P        0x0c905fe0  0x0c906620
+modules/stg03/pirates.c                D        0x0c9c0d68  0x0c9c0dd4
+modules/stg03/pit.c                    P        0x0c906620  0x0c906b40
+modules/stg03/pit.c                    D        0x0c9c0dd8  0x0c9c0e48
+modules/stg03/pit.c                    C        0x0c9f7f08  0x0c9f7f4d
+# 64 zero bytes from B's start that nothing points into, here or in 1ST_READ.BIN, and tp_ring.c's B starts on 8 straight after them. they aren't fill: B starts on 8 past cart_debug.c's constants, and the linker leaves at most 7 bytes before an object on 8, so they are the storage of one object or more. those are the B of objects that link ahead of tp_ring.c (scenery.c, barrel.c, bowling.c, catapult.c, coaster.c, doors.c, platforms.c, go_round.c, monitor.c, pirates.c or pit.c), of tp_ring.c, whose B meets them on 8 with no fill, though no code of these reads them, or of objects of data alone, which the bytes leave open. with no code reading them, they are placed as one object of data alone, storage with no initializer and no type
+modules/stg03/dat_0c9f95f0.c          B        0x0c9f95f0  0x0c9f9630
+modules/stg03/tp_ring.c                P        0x0c906b40  0x0c906fc0
+modules/stg03/tp_ring.c                D        0x0c9c0e48  0x0c9c0f1c
+modules/stg03/tp_ring.c                B        0x0c9f9630  0x0c9f9650
+# 8 zero bytes from 0x0c9c0f20, between tp_ring.c's data, which ends 4 bytes past 8, and roof.c's on 8, which nothing in the image or 1ST_READ.BIN points at. the word before them is the linker's fill the rule verifies, or tp_ring.c's last word nothing reads. the 8 can't be fill, as an object after tp_ring.c's would start at 0x0c9c0f20, so they are tp_ring.c's data, roof.c's, were its object to start there, or an object's of data alone, which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type, as B_EGM3's 16 head bytes are
+modules/stg03/dat_0c9c0f20.c           D        0x0c9c0f20  0x0c9c0f28
+modules/stg03/roof.c                   P        0x0c906fc0  0x0c907340
+modules/stg03/roof.c                   D        0x0c9c0f28  0x0c9c0f5c
+modules/stg03/shutter.c                P        0x0c907340  0x0c907780
+modules/stg03/shutter.c                D        0x0c9c0f60  0x0c9c0f94
+# 1ST_READ.BIN's path_lists names act 1's list, which path_create_tasks reads to its null, and coaster.c follows twinkle_coaster_path; no step function runs these paths. the first path follows its points off 8, as the second path's points follow it, so those three are one object's; the third path follows its points off 8, as the list follows the third path, so those three are one object's. the second path and the third's points each start on 8 straight after the item before with no fill, where one file or several build the same. the points start on 8, 4 bytes past shutter.c's data, and the list's null ends 4 bytes short of twinkle.c's data on 8, each past where an object's next item would start on 4. the bytes leave them to one object of data alone or several, or to mirror.c's, which links between shutter.c and twinkle.c and places no data, though its code doesn't read them
+modules/stg03/paths.c                  D        0x0c9c0f98  0x0c9c2914
+modules/stg03/mirror.c                 P        0x0c907780  0x0c907c40
+modules/stg03/mirror.c                 B        0x0c9f9650  0x0c9f971c
+modules/stg03/twinkle.c                P        0x0c907c40  0x0c908600
+modules/stg03/twinkle.c                D        0x0c9c2918  0x0c9c2de0
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds meet twinkle.c's data on 8 with no fill, but the names start on 8, 4 bytes past twinkle.c's constants, where its next item would start on 4: as one file, the names start 4 bytes early, so C parts them from twinkle.c's object unless the word at 0x0c9f7f8c is an unread constant of its, and the fill rule verifies the 4 bytes. as one file with an unread constant word after twinkle.c's own, the names and the kinds start where the image has them, and nothing here or in 1ST_READ.BIN points at the word. the names end 6 bytes short of scripts.c's constants on 8, which the fill rule verifies; as one file, in either order, those constants come ahead of the names, so they are no object of the scripts'. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to cycle.c's, were the list its, to twinkle.c's, were the word at 0x0c9f7f8c an unread constant of its, though neither one's code reads them, or to one of data alone
+modules/stg03/kinds.c                  C        0x0c9f7f90  0x0c9f83da
+modules/stg03/kinds.c                  D        0x0c9c2de0  0x0c9c3510
+# the list 1ST_READ.BIN's object_lists names for acts 0 to 2, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, and cycle.c's data meets it so: one file or two build the same at each, and the bytes leave it to the kinds' object, to cycle.c's, though its code doesn't read it, or to one of its own. twinkle.c's data meets the kinds on 8 with no fill too, and C parts its object from their names by the word at 0x0c9f7f8c, so it holds them, and the list past them, only were that word an unread constant of its. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/stg03/object_list.c            D        0x0c9c3510  0x0c9c3518
+modules/stg03/twinkle.c                C        0x0c9f7f50  0x0c9f7f8c
+modules/stg03/cycle.c                  P        0x0c908600  0x0c908728
+modules/stg03/cycle.c                  D        0x0c9c3518  0x0c9c3548
+# 1ST_READ.BIN's death_zones names the array, and its death_zone_step and knuckles.c read the entry for the act in hand; no code here reads it. the stage has three acts, so the array has three entries, as STG01's and STG02's have. the word after it, at 0x0c9c3b74, which nothing reads, is fill the rule verifies, as buyon_shapes.c's shapes start on 8; a fourth, null entry there would build the same. the lists start on 8 with no fill after the zones' models, generated, and each list and the array start on 8 straight after the item before with no fill, where one file or several build the same. the array's pointers to the lists are consistent with one object. the bytes leave them to the models' object, to cycle.c's, were the models its, though its code doesn't read them, or to one of data alone. were the word the array's fourth entry, the shapes would meet the array on 8 with no fill, and their object, buyon.c's among others, could hold them too, though buyon.c's code doesn't read them
+modules/stg03/death_zones.c            D        0x0c9c3b20  0x0c9c3b74
+# the buyon's four collision shapes, which buyon.c reads and registers with collision_init, as many as buyon_shapes.h gives it. they start on 8 past the word after the death zones' array, which death_zones.c's row describes, and buyon.c's vertices meet them on 8 with no fill, where one file or two build the same. buyon.c places no data, so its object could hold them, and the vertices and parts after them; the bytes leave them to buyon.c's, to the vertices' object, to death_zones.c's, were the word before them its, or to one of their own
+modules/stg03/buyon_shapes.c           D        0x0c9c3b78  0x0c9c3c48
+# the table 1ST_READ.BIN's stage_scripts names at 0x0c9f8688, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 6 bytes past the kinds' last name, which the fill rule verifies: as one file, in either order, its constants come ahead of the names, so they are no object of the kinds'. the last text ends 6 bytes short of buyon.c's constants on 8, which the fill rule verifies: as one file, in either order, buyon.c's constants come ahead of the texts, so they are no object of buyon.c's. the bytes leave them to an object of their own, or to one with data and no constants that links between the kinds' object and buyon.c's: the list's, were the list an object of its own, cycle.c's, were the kinds not its, though its code doesn't read them, the death zones' models', death_zones.c's, or the buyon's shapes', were those not buyon.c's
+modules/stg03/scripts.c                C        0x0c9f83e0  0x0c9f8aea
+modules/stg03/buyon.c                  P        0x0c908740  0x0c90a720
+modules/stg03/buyon.c                  C        0x0c9f8af0  0x0c9f8afc
+modules/stg03/buyon.c                  B        0x0c9f9720  0x0c9f97e0
+# buyon.c reads the texlist, and the stage's pvm list names it. the names start on 8, 4 bytes past buyon.c's constants, past where buyon.c's next item would start on 4, so C parts them from its object. the texnames meet the buyon's parts, generated, on 8 with no fill, where one file or two build the same, the texlist follows them and the first model's materials the texlist, each off 8, so this object holds them, and the strips after them start on 8 with no fill. the bytes leave them to the parts' object, were it other than buyon.c's, or to one of their own
+modules/stg03/buyon_textures.c         C        0x0c9f8b00  0x0c9f8ba8
+modules/stg03/buyon_textures.c         D        0x0c9c3db0  0x0c9c3ef0
+# twinkle.c draws the sky and reads the texlist, and the stage's pvm list names it. the texnames follow the sky's root node off 8, so this object holds it; the node meets its model, generated, on 8 with no fill, where one file or two build the same. the texlist ends 4 bytes short of the next model's material on 8, past where one object's next item would start: that zero word, which nothing points at, is fill the rule verifies, as dat_0c9d5d58.c's material starts on 8, or a last word of this object nothing reads. the names meet the buyon's on 8 with no fill, but fish.c's data lies between their D, so the buyon's object holds none of this. fish.c's data meets the model on 8 with no fill, but fish.c's D is the same 0x5e0 bytes in STG01, relocation allowed for, and ends D there, so its object holds none of it either. the bytes leave it to the model's object, to shareobj_textures.c's, were the zero word and the models after it its, or to one of its own
+modules/stg03/sky_textures.c           C        0x0c9f8ba8  0x0c9f8bb8
+modules/stg03/sky_textures.c           D        0x0c9d5d00  0x0c9d5d54
+# the material, strips, colors, meshset and points the model at 0x0c9d5e6c names, which the stage's data reaches from 0x0c9f70d4. they start on 8 past the zero word after the sky's texlist, which the fill rule verifies, or a last word of the sky's object nothing reads. each item after the material follows the one before off 8, so they are one object's, and the model's normals meet the points on 8 with no fill, where one file or two build the same. the bytes leave them to the generated model's object, to sky_textures.c's, were the word its, or to one of their own
+modules/stg03/dat_0c9d5d58.c           D        0x0c9d5d58  0x0c9d5e18
+# the cart, panels, planets and other shared objects read the texlist, and the act table names it. the names meet the sky's on 8 with no fill and end 6 bytes short of cart_stopper.c's constants on 8, past where their object's next item would start on 4. the texnames meet a model on 8, as the texlist meets them and the first model's materials it, each with no fill, where one file or two build the same. the bytes leave them to the object of the models before them, to sky_textures.c's, were those models and the zero word before them its, or to one of their own
+modules/stg03/shareobj_textures.c      C        0x0c9f8bb8  0x0c9f8f5a
+modules/stg03/shareobj_textures.c      D        0x0c9dd210  0x0c9dd698
+modules/stg01/fish.c                   P        0x0c90a720  0x0c90c31a
+modules/stg01/fish.c                   D        0x0c9d4ff0  0x0c9d55d0
+# stopper_object, which cart_stopper.c's code reads, and which stopper_action and the object at 0x0c9f29cc in the generated row before name. it starts on 8 straight after its model with no fill, where one file or two build the same, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9f39c4, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as cart_stopper.c's data starts on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to cart_stopper.c's, were the word an unread datum of its, or to one of data alone
+modules/stg03/stopper_object.c         D        0x0c9f3990  0x0c9f39c4
+modules/stg03/cart_stopper.c           P        0x0c90c320  0x0c90ca00
+modules/stg03/cart_stopper.c           D        0x0c9f39c8  0x0c9f3a1c
+modules/stg03/cart_stopper.c           C        0x0c9f8f60  0x0c9f8f88
+modules/stg03/cart_stopper.c           B        0x0c9f97e0  0x0c9f984c
+modules/stg03/cart.c                   P        0x0c90ca00  0x0c912c40
+modules/stg03/cart.c                   D        0x0c9f3a20  0x0c9f3c58
+modules/stg03/cart.c                   C        0x0c9f8f88  0x0c9f9098
+modules/stg03/cart.c                   B        0x0c9f9850  0x0c9f9910
+modules/stg03/cart_dash_panel.c        P        0x0c912c40  0x0c913040
+modules/stg03/cart_dash_panel.c        D        0x0c9f3c58  0x0c9f3c94
+modules/stg03/cart_dash_panel.c        C        0x0c9f9098  0x0c9f90bc
+modules/stg03/cart_dash_panel.c        B        0x0c9f9910  0x0c9f9914
+modules/stg03/cart_jump_panel.c        P        0x0c913040  0x0c913460
+modules/stg03/cart_jump_panel.c        D        0x0c9f3c98  0x0c9f3d70
+modules/stg03/cart_jump_panel.c        C        0x0c9f90c0  0x0c9f90f2
+modules/stg03/cart_jump_panel.c        B        0x0c9f9918  0x0c9f991c
+modules/stg03/arch.c                   P        0x0c913460  0x0c9143c0
+modules/stg03/arch.c                   D        0x0c9f3d70  0x0c9f3e24
+modules/stg03/arch.c                   C        0x0c9f90f8  0x0c9f9169
+modules/stg03/panel.c                  P        0x0c9143c0  0x0c9145c0
+modules/stg03/planets.c                P        0x0c9145c0  0x0c914800
+modules/stg03/planets.c                D        0x0c9f3e28  0x0c9f3e40
+modules/stg03/rocket.c                 P        0x0c914800  0x0c914ca0
+modules/stg03/satellite.c              P        0x0c914ca0  0x0c914f20
+modules/stg03/satellite.c              D        0x0c9f3e40  0x0c9f3ea8
+modules/minicart/ship.c                P        0x0c914f20  0x0c915618
+modules/minicart/ship.c                C        0x0c9f9170  0x0c9f91d3
+modules/stg03/cart_debug.c             P        0x0c915620  0x0c917080
+modules/stg03/cart_debug.c             D        0x0c9f3ea8  0x0c9f41cc
+# cart.c reads cart_start_routes and cart_no_route, cart.c and cart_debug.c read cart_routes, and cart_debug.c reads camera_demo_keys, the keys' pointer; each route's points are its own array, and the route tables name each. the points start on 8, 4 bytes past cart_debug.c's last datum, past where its next item would start on 4, and cart_debug.c is the last code object to link, so only objects of data alone can hold them. the point arrays at 0x0c9f462c and 0x0c9f5f1c follow the one before off 8, so each pair is one object's. every other array, and each table after them, starts on 8 straight after the item before with no fill, where one file or several build the same, and the tables' pointers to the points are consistent with one object
+modules/stg03/cart_routes.c            D        0x0c9f41d0  0x0c9f70a4
+# cart.c draws the first list's ten models; nothing here reads the other two. the lists start on 8, 4 bytes past the keys' pointer, past where its object's next item would start on 4, so they are no part of that object, and like it, of data alone. the second list follows the first off 8, and the third starts on 8 straight after the second with no fill, where one file or two build the same; the third list's null ends 4 bytes short of C on 8
+modules/stg03/cart_pieces.c            D        0x0c9f70a8  0x0c9f712c
+modules/stg03/cart_debug.c             C        0x0c9f91d8  0x0c9f95ea
+modules/stg03/cart_debug.c             B        0x0c9f9920  0x0c9fc0b0
+# CFISH holds the names its texnames point at, each once, in the order they first name them; one file with fish.c or two build the same, so the bytes leave open whether fish.c's object holds both sections. texnames of different kinds share names, such as the one at 0x0c9fc108 that eleven kinds' texnames point at, and each kind's texnames lie after the models before them, so the texture lists and models are one compile. the actions, from 0x0ca1fe50 to the end of DFISH, name no string: they meet fish_ryu_object on 8 with no fill, and fish_sb_swim_ang1, fish_sb_hooked_ang1, fish_an_swim_ang1, fish_an_hooked_ang1, fish_an_ke_bite_ang1, fish_una_swim_ang1 and fish_una_hooked_ang1 each start on 8 straight after the item before. as a source of their own the actions build the same, so the bytes leave open whether this object holds them
+modules/stg01/fish_models.c            CFISH    0x0c9fc0b0  0x0c9fc424
+modules/stg01/fish_models.c            DFISH    0x0c9fc428  0x0ca273e4
+#
+# generated data ranges
+# the three acts' lands, which world_lands names, and their entries
+gen/stg03/d_0c917080.c                 D        0x0c917080  0x0c91a7a0
+# act 1's models, past land1_textures.c's texlist
+gen/stg03/d_0c91abc8.c                 D        0x0c91abc8  0x0c9571e8
+gen/stg03/d_0c9571e8.c                 D        0x0c9571e8  0x0c9673f8
+# act 0's models, past land0_textures.c's materials
+gen/stg03/d_0c9675e0.c                 D        0x0c9675e0  0x0c98e190
+# act 2's models, past land2_textures.c's texlist, to the object before dat_0c9a0ac0.c's, which meets them on 8 with no fill
+gen/stg03/d_0c98e300.c                 D        0x0c98e300  0x0c9a0ac0
+# the objects' models and motions, past object_textures.c's texlist, to the motion before effect_textures.c's texnames
+gen/stg03/d_0c9a0f80.c                 D        0x0c9a0f80  0x0c9bfe90
+# the death zones' six models, which death_zones.c's lists name and no code reads. they meet cycle.c's data on 8 with no fill, and the lists meet them so: the bytes leave them to the lists' object, to cycle.c's, or to one of their own
+gen/stg03/d_0c9c3548.c                 D        0x0c9c3548  0x0c9c3b20
+# buyon.c's vertices and parts, which its code reads, to the buyon's textures. the row is no evidence of the data's extent
+gen/stg03/d_0c9c3c48.c                 D        0x0c9c3c48  0x0c9c3db0
+# the buyon's models, past buyon_textures.c's materials
+gen/stg03/d_0c9c3ef0.c                 D        0x0c9c3ef0  0x0c9d4ff0
+gen/stg03/d_0c9d55d0.c                 D        0x0c9d55d0  0x0c9d5d00
+# models from the normals of dat_0c9d5d58.c's model, to obj_shareobj's texnames
+gen/stg03/d_0c9d5e18.c                 D        0x0c9d5e18  0x0c9dd210
+# the shared objects' models, past shareobj_textures.c's materials, to stopper_object's model, which stopper_object.c's object meets on 8 with no fill
+gen/stg03/d_0c9dd698.c                 D        0x0c9dd698  0x0c9f3990

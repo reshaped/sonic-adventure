@@ -1,0 +1,34 @@
+# EV0038.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0038_head
+0x0cb80008  ev0038_script
+0x0cb80b78  find_slot
+0x0cb80b98  event_move
+0x0cb80c8a  event_move_turn_degrees
+0x0cb80e48  event_move_turn
+0x0cb80f96  event_follow
+0x0cb81052  event_follow_turn
+0x0cb81168  event_follow_angles
+0x0cb81236  event_follow_facing
+0x0cb8135e  event_follow_weld0
+0x0cb81424  event_follow_weld1
+0x0cb814ce  event_move_stop
+0x0cb815b2  event_move_stop_all
+0x0cb8166e  event_mover_init
+0x0cb8169c  event_mover_step
+0x0cb81df0  event_mover_draw
+0x0cb81df4  event_mover_destroy
+0x0cb81e34  event_shapes_set_firm
+0x0cb81e60  event_shapes_clear_firm_players
+0x0cb81e90  ev0038_punch_keys
+0x0cb81f24  ev0038_punch
+0x0cb81fc8  ev0038_textures
+0x0cb8425c  ev0038_tails_action_0
+0x0cb87b40  ev0038_tails_action_1
+0x0cb89fa4  ev0038_knuckles_action_0
+0x0cb8cf08  ev0038_knuckles_action_1
+0x0cb8eb10  dat_0cb8eb10
+0x0cb8efa0  ev0038_knuckles_motion_2
+0x0cb8efac  ev0038_knuckles_action_2
+0x0cb8efb8  event_movers

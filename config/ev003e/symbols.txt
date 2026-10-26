@@ -1,0 +1,42 @@
+# EV003E.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev003e_head
+0x0cb80008  ev003e_script
+0x0cb80e78  event_fade_draw
+0x0cb80f22  event_fade_step
+0x0cb80f44  event_fade_destroy
+0x0cb80f48  event_fade_init
+0x0cb80f56  event_fade_create
+0x0cb80fb0  event_fade_set_speed
+0x0cb80fb8  event_fade_set_alpha
+0x0cb80fec  event_fade_set_color
+0x0cb80ffc  event_fade_set_depth
+0x0cb81004  event_sound_destroy
+0x0cb81014  event_sound_step
+0x0cb810b6  event_sound_hold
+0x0cb81116  event_sound_move_volume
+0x0cb8113c  event_sound_move_pan
+0x0cb81162  event_sound_move_pitch
+0x0cb81188  event_sound_init
+0x0cb811b0  event_sound_stop_all
+0x0cb8120e  event_sound_start
+0x0cb8124e  event_sound_stop
+0x0cb812c8  event_sound_fade_volume
+0x0cb812f4  event_sound_fade_pan
+0x0cb81320  event_sound_fade_pitch
+0x0cb8134c  event_sound_play
+0x0cb813d8  ev003e_points
+0x0cb82128  ev003e_path
+0x0cb82130  ev003e_amber
+0x0cb82134  ev003e_black
+0x0cb82138  ev003e_upgrades
+0x0cb8213c  ev003e_upgrades_saved
+0x0cb82140  ev003e_textures
+0x0cb91f44  ev003e_tails_action_0
+0x0cb93fa8  ev003e_tails_action_1
+0x0cb947fc  ev003e_tails_action_2
+0x0cb96ad0  event_fade_corners
+0x0cb96af0  event_sound_count
+0x0cb96af4  event_sounds
+0x0cb96af8  event_sound_next

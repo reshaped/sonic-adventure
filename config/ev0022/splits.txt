@@ -1,0 +1,33 @@
+# EV0022.PRS, Tikal at the altar, Sonic's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81350
+C          0x0cb81350  0x0cb81450
+D          0x0cb81450  0x0cba9df4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0022/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0022/script.c               P        0x0cb80008  0x0cb80b6c
+events/ev0022/script.c               C        0x0cb81350  0x0cb813dd
+events/ev0022/script.c               D        0x0cb81450  0x0cb81494
+events/shared/fade.c                  P        0x0cb80b6c  0x0cb80cf8
+events/shared/fade.c                  D        0x0cba72c8  0x0cba72e8
+events/shared/chao.c                  P        0x0cb80cf8  0x0cb80f8c
+events/shared/sound.c                 P        0x0cb80f8c  0x0cb8134c
+events/shared/sound.c                 D        0x0cba9de8  0x0cba9df4
+# position keys of a node of ev0022_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb81588, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0022/dat_0cb81498.c          D        0x0cb81498  0x0cb81588
+# ev0022_chao_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to fade.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cba71b0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0022/chao_action_2.c         D        0x0cba72b0  0x0cba72c4
+# the names of the textures that the texture name table at 0x0cba72e8 in this object's data names: after the table at 0x0cba72e8, each item to a material at 0x0cba7374 starts off 8, so they share its object. the names and the data from 0x0cba72e8 to 0x0cba7388 in D are the least those joins make one object's, and this source holds no more. script.c's and chao.c's code read event_chao_texlist, which names the table at 0x0cba72e8. they start on 8 after script.c's constants, where script.c's next string would, and end 7 bytes short of D on 8. they are chao.c's, which has no constants or data row and can link between them, whose code reads event_chao_texlist; or an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. script.c, whose code reads event_chao_texlist, can't hold them while dat_0cb81498.c's, chao_action_2.c's and fade.c's data, between its own and the tables, is theirs. fade.c can't hold them: it links in events without them. sound.c can't hold them: it links in events without them. the 3 bytes of 0xff before them are script.c's data or the linker's fill: not padding, as script.c's next item on 4 would start where the names do; the 7 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 7 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/shared/chao_textures.c         C        0x0cb813e0  0x0cb81449
+# its data, from 0x0cba72e8 to 0x0cba7388: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after fade.c's data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into fade.c's data before it and the generated data after it. event_chao_material, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0068, EV008F, EV00BA, EV00F7, EV00FE and EV0160 hold the same bytes, but for the words that point into the image, with the same names in C, and chao.c reads event_chao_texlist in each: consistent with one object each of them links, as eggmobile_textures.c is
+events/shared/chao_textures.c         D        0x0cba72e8  0x0cba7388
+#
+# generated data ranges
+gen/ev0022/d_0cb81588.c               D        0x0cb81588  0x0cba72b0
+gen/ev0022/d_0cba7388.c               D        0x0cba7388  0x0cba9de8

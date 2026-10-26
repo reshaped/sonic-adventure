@@ -1,0 +1,149 @@
+; the writer of a macroblock predicted from one reference frame. it adds the
+; coded blocks' residuals to the prediction and copies the result to the
+; output
+
+; struct mpv_mb_param's field offsets
+MB_CLIP:        .EQU    0
+MB_BLOCKS:      .EQU    4
+MB_PRED:        .EQU    8
+
+        .EXPORT     _MPVACMC_OneMakeMbTaSub
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; void MPVACMC_OneMakeMbTaSub(Uint8 *write, struct mpv_mb_param *mb,
+;                             Uint32 cbp)
+; add each coded block's 64 residuals to its block of the prediction at
+; mb->pred, in place: pixel p and residual r become mb->clip[p + r]. block i
+; is coded when bit 31 - i of cbp is set, and its residuals start at
+; mb->blocks + 64 * i. each of the six blocks then goes on to write, 384 bytes
+; in all. mb->pred and write must be 8-byte aligned. the loop over a coded
+; block reads one pixel and one residual past the block. a PREF follows each
+; 32 bytes written to write. at a store queue address, the PREF sends the
+; queue to memory
+; @asm operand: zero-displacement, MOV.L @(MB_CLIP,R5),R0 at 0x8ceb1d48 loads
+; through a zero displacement
+_MPVACMC_OneMakeMbTaSub:
+        MOV.L       @(MB_CLIP,R5),R0
+        MOV         R6,R7
+        MOV.L       @(MB_BLOCKS,R5),R6
+        MOV.L       @(MB_PRED,R5),R5
+        MOV.L       R14,@-R15
+        FSCHG                               ; FMOV moves pairs to the next FSCHG
+        MOV.L       R13,@-R15
+        MOV         #64,R14
+        MOV.L       R12,@-R15
+        SHLL        R14
+        MOV.L       R11,@-R15
+        MOV         #6,R12
+        MOV.L       R10,@-R15
+?block:
+        SHLL        R7
+        BT          ?add
+        ADD         R14,R6                  ; past an uncoded block's residuals
+?add:
+        BF          ?copy
+        MOV         R5,R3
+        MOV.B       @R5+,R1
+        MOV         #8,R13
+        MOV.W       @R6+,R2
+        EXTU.B      R1,R1
+?row:
+        MOV.B       @R5+,R10
+        ADD         R2,R1
+        MOV.W       @R6+,R11
+        MOV.B       @(R0,R1),R1
+        EXTU.B      R10,R10
+        MOV.B       @R5+,R2
+        ADD         R11,R10
+        MOV.B       @(R0,R10),R10
+        MOV.B       R1,@R3
+        ADD         #1,R3
+        MOV.B       R10,@R3
+        ADD         #1,R3
+        MOV.W       @R6+,R1
+        MOV.B       @R5+,R11
+        EXTU.B      R2,R2
+        MOV.W       @R6+,R10
+        ADD         R1,R2
+        MOV.B       @(R0,R2),R2
+        EXTU.B      R11,R11
+        MOV.B       @R5+,R1
+        ADD         R10,R11
+        MOV.B       @(R0,R11),R11
+        MOV.B       R2,@R3
+        ADD         #1,R3
+        MOV.B       R11,@R3
+        ADD         #1,R3
+        MOV.W       @R6+,R2
+        MOV.B       @R5+,R10
+        EXTU.B      R1,R1
+        MOV.W       @R6+,R11
+        ADD         R2,R1
+        MOV.B       @(R0,R1),R1
+        EXTU.B      R10,R10
+        MOV.B       @R5+,R2
+        ADD         R11,R10
+        MOV.B       @(R0,R10),R10
+        MOV.B       R1,@R3
+        ADD         #1,R3
+        MOV.B       R10,@R3
+        ADD         #1,R3
+        MOV.W       @R6+,R1
+        MOV.B       @R5+,R11
+        EXTU.B      R2,R2
+        MOV.W       @R6+,R10
+        ADD         R1,R2
+        MOV.B       @(R0,R2),R2
+        EXTU.B      R11,R11
+        MOV.B       @R5+,R1
+        ADD         R10,R11
+        MOV.B       @(R0,R11),R11
+        DT          R13
+        MOV.B       R2,@R3
+        ADD         #1,R3
+        MOV.B       R11,@R3
+        ADD         #1,R3
+        MOV.W       @R6+,R2
+        BF/S        ?row
+        EXTU.B      R1,R1
+        ADD         #-65,R5                 ; back over the block and one pixel
+        ADD         #-2,R6
+?copy:
+        FMOV        @R5+,DR0
+        FMOV        @R5+,DR2
+        FMOV        @R5+,DR4
+        FMOV        @R5+,DR6
+        FMOV        DR0,@R4
+        ADD         #8,R4
+        FMOV        DR2,@R4
+        ADD         #8,R4
+        FMOV        DR4,@R4
+        ADD         #8,R4
+        FMOV        DR6,@R4
+        PREF        @R4
+        ADD         #8,R4
+        FMOV        @R5+,DR0
+        FMOV        @R5+,DR2
+        FMOV        @R5+,DR4
+        FMOV        @R5+,DR6
+        FMOV        DR0,@R4
+        ADD         #8,R4
+        FMOV        DR2,@R4
+        ADD         #8,R4
+        FMOV        DR4,@R4
+        ADD         #8,R4
+        FMOV        DR6,@R4
+        DT          R12
+        PREF        @R4
+        BF/S        ?block
+        ADD         #8,R4
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        FSCHG
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+
+        .END

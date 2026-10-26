@@ -1,0 +1,45 @@
+# EV001E.PRS, the jungle pyramid rises
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb861a0
+C          0x0cb861a0  0x0cb86608
+D          0x0cb86608  0x0cb9b4f4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev001e/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev001e/script.c               P        0x0cb80008  0x0cb809c8
+events/ev001e/script.c               C        0x0cb861a0  0x0cb86212
+events/ev001e/script.c               D        0x0cb86c00  0x0cb86c0c
+events/shared/move.c                  P        0x0cb809c8  0x0cb814ec
+events/shared/move.c                  D        0x0cb9afa8  0x0cb9afd0
+events/shared/mover.c                 P        0x0cb814ec  0x0cb81c84
+# follows mover.c with no fill; one file or two build the same. the editor follows fade.c in EV0071, where as one file the code runs 4 bytes shorter and 9,876 of its 11,772 bytes differ
+events/shared/path_editor.c           P        0x0cb81c84  0x0cb848f8
+events/shared/path_editor.c           C        0x0cb86218  0x0cb865e8
+events/shared/path_editor.c           D        0x0cb9afd0  0x0cb9b4dc
+# follows path_editor.c with no fill; as one file, the code runs 4 bytes longer. 931 of its first 12,340 bytes differ
+events/shared/sound.c                 P        0x0cb848f8  0x0cb84cb8
+events/shared/sound.c                 D        0x0cb9b4e0  0x0cb9b4ec
+events/shared/stopwatch.c             P        0x0cb84cb8  0x0cb84e3c
+events/shared/stopwatch.c             C        0x0cb865e8  0x0cb86601
+events/shared/stopwatch.c             D        0x0cb9b4f0  0x0cb9b4f4
+events/shared/light.c                 P        0x0cb84e3c  0x0cb84f70
+events/shared/sdk/sscanf.c            P        0x0cb84f70  0x0cb84fac
+events/shared/sdk/strchr.c            P        0x0cb84fac  0x0cb84fc8
+events/shared/sdk/_fmtin.c           P        0x0cb84fc8  0x0cb85e40
+events/shared/sdk/_stf.c              P        0x0cb85e40  0x0cb85ecc
+events/shared/sdk/_calcfpow.c         P        0x0cb85ecc  0x0cb8608c
+events/shared/sdk/_calcint.c          P        0x0cb8608c  0x0cb86138
+events/shared/sdk/_packf.c            P        0x0cb86138  0x0cb8619c
+# position keys of a node of ev001e_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and move.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb87040, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev001e/dat_0cb86c10.c          D        0x0cb86c10  0x0cb87040
+# ev001e_sonic_action_6 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to move.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb9ab00 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev001e/sonic_action_6.c        D        0x0cb9af90  0x0cb9afa4
+#
+# generated data ranges
+gen/ev001e/d_0cb86608.c               D        0x0cb86608  0x0cb86c00
+gen/ev001e/d_0cb87040.c               D        0x0cb87040  0x0cb9af90

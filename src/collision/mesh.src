@@ -1,0 +1,1093 @@
+; collision meshes: their pools, the buckets that sort a new mesh's polygons
+; by z, and the searches for a mesh's surfaces at a point
+;
+; a pool's free records lie in a list linked through next. an allocation
+; never takes the list's last record, so the head it reads next through is
+; never null
+;
+; a mesh lists its polygons in the order of their centers' z, to within a
+; bucket. a search walks only the polygons of its window, whose centers lie
+; within the mesh's span of the point's z. it starts at the mesh's first
+; polygon when that one's center is at or past the window's low end, and
+; walks forward. failing that, it starts at the last polygon when that one's
+; center is at or before the high end, and walks back. otherwise it skips
+; forward to the window. a forward walk stops at a center at or past the
+; high end, and a backward one at a center before the low end. a bucket's
+; polygons aren't in order, so a walk can stop before a polygon of its
+; window. a search reads the centers of the mesh's first and last polygons
+; with no test for null
+;
+; a search and its polygon tests share registers outside SHC's calling
+; interface:
+;   R12     the polygon under test, PG_POINTS past its start
+;   R13     the mesh's world flags
+;   R14     the query
+;   FR6     the window's low end, and FR7 its high end
+;   FR8-10  the query's point
+;   FR11    _mesh_margin
+; a test keeps FR6 to FR11, which SHC lets a call change. it changes FR12
+; and FR15, which SHC has a call keep, and the search saves them at entry
+
+; byte offsets of struct polygon's fields, as polygon.h declares them, and
+; the size of each of its points
+PG_NEXT:        .EQU    0
+PG_PREV:        .EQU    4
+PG_CENTER:      .EQU    8               ; then radius, which is squared
+PG_POINTS:      .EQU    24              ; vertex[0] to vertex[2]
+PG_SIZE:        .EQU    64
+POINT_SIZE:     .EQU    12
+
+; byte offsets of struct collision_mesh's fields, as polygon.h declares
+; them. the first mesh in collision_mesh_list has for prev the list's
+; address, negated. a mesh's address is negative as a signed 32-bit number,
+; so a prev of 0 or more is the list's
+CM_NEXT:        .EQU    0
+CM_PREV:        .EQU    4
+CM_OBJECT:      .EQU    8
+CM_FLAGS:       .EQU    12              ; the object's world flags
+CM_POLYGONS:    .EQU    16              ; its first and last polygons
+CM_LAST:        .EQU    20
+CM_SPAN:        .EQU    40              ; the most z a polygon of it spans
+CM_SIZE:        .EQU    64
+
+; byte offsets of the fields of struct floor_query and struct
+; height_query: the point, then the floor or the surface below
+Q_POS:          .EQU    0
+Q_FOUND:        .EQU    12
+Q_FLAGS:        .EQU    16
+Q_ANG_X:        .EQU    20
+Q_ANG_Z:        .EQU    24
+Q_LEVEL:        .EQU    28
+Q_NORMAL:       .EQU    32
+Q_ABOVE:        .EQU    32              ; struct surface's size: below to above
+
+; the buckets a new mesh's polygons sort into by z. each is a list's first
+; and last polygons, and takes 16 of z, 1 << BUCKET_BITS
+BUCKETS:        .EQU    128
+BUCKET_BITS:    .EQU    4
+BK_FIRST:       .EQU    0
+BK_LAST:        .EQU    4
+BK_SIZE:        .EQU    8
+
+        .IMPORT     _asinf
+        .IMPORT     _atan2
+        .EXPORT     _polygon_pool_init
+        .EXPORT     _collision_mesh_add_polygon
+        .EXPORT     _collision_mesh_pool_init
+        .EXPORT     _collision_mesh_alloc
+        .EXPORT     _collision_mesh_free
+        .EXPORT     _vector_length_squared
+        .EXPORT     _mesh_point_distance2
+        .EXPORT     _mesh_point_distance2_across
+        .EXPORT     _collision_mesh_clear_buckets
+        .EXPORT     _polygon_alloc
+        .EXPORT     _collision_mesh_take_buckets
+        .EXPORT     _polygon_find_floor
+        .EXPORT     _polygon_find_heights
+        .EXPORT     _matrix_calc_point
+        .EXPORT     _collision_mesh_list
+
+        .SECTION    P,CODE,ALIGN=32
+
+; void polygon_pool_init(struct polygon *polygons, int count)
+; link polygons[0..count) into the free list, in order
+; @asm operand: zero-displacement, MOV.L R1,@(PG_NEXT,R4) at 0x8c02d8aa stores
+; through a zero displacement
+_polygon_pool_init:
+        MOV.L       #_free_polygons,R0
+        MOV.L       R4,@R0
+        MOV         R4,R1
+        ADD         #PG_SIZE,R1
+        ADD         #-1,R5
+?link:
+        MOV.L       R1,@(PG_NEXT,R4)
+        ADD         #PG_SIZE,R4
+        ADD         #PG_SIZE,R1
+        DT          R5
+        BF/S        ?link
+        MOV         #0,R0
+        MOV.L       R0,@(PG_NEXT,R4)
+        RTS
+        NOP
+
+; struct polygon *collision_mesh_add_polygon(struct collision_mesh *mesh)
+; take a free polygon and put it first in the mesh's list
+; @asm operand: zero-displacement, MOV.L @(PG_NEXT,R0),R3 at 0x8c02d8c4 loads
+; through a zero displacement
+_collision_mesh_add_polygon:
+        MOV.L       #_free_polygons,R1
+        MOV.L       @R1,R0
+        MOV.L       @(PG_NEXT,R0),R3
+        TST         R3,R3
+        BT          ?none
+        MOV.L       R3,@R1
+        MOV.L       @(CM_POLYGONS,R4),R2
+        MOV.L       R2,@(PG_NEXT,R0)
+        TST         R2,R2
+        BT          ?only
+        BRA         ?first
+        MOV.L       R0,@(PG_PREV,R2)
+?only:
+        MOV.L       R0,@(CM_LAST,R4)
+?first:
+        MOV.L       R0,@(CM_POLYGONS,R4)
+        MOV         #0,R3
+        RTS
+        MOV.L       R3,@(PG_PREV,R0)
+?none:
+        RTS
+        MOV         #0,R0
+
+; void collision_mesh_pool_init(struct collision_mesh *meshes, int count)
+; link meshes[0..count) into the free list, in order, and empty
+; collision_mesh_list
+; @asm operand: zero-displacement, MOV.L R1,@(CM_NEXT,R4) at 0x8c02d8f4 stores
+; through a zero displacement
+_collision_mesh_pool_init:
+        MOV.L       #_free_meshes,R0
+        MOV.L       R4,@R0
+        MOV         R4,R1
+        ADD         #CM_SIZE,R1
+        ADD         #-1,R5
+?link:
+        MOV.L       R1,@(CM_NEXT,R4)
+        ADD         #CM_SIZE,R4
+        ADD         #CM_SIZE,R1
+        DT          R5
+        BF/S        ?link
+        MOV         #0,R0
+        MOV.L       R0,@(CM_NEXT,R4)
+        MOV.L       #_collision_mesh_list,R4
+        MOV.L       R0,@R4
+        RTS
+        NOP
+
+; struct collision_mesh *collision_mesh_alloc(void)
+; take a free mesh and put it first in collision_mesh_list
+; @asm operand: zero-displacement, MOV.L @(CM_NEXT,R0),R3 at 0x8c02d918 loads
+; through a zero displacement
+_collision_mesh_alloc:
+        MOV.L       #_free_meshes,R1
+        MOV.L       @R1,R0
+        MOV.L       @(CM_NEXT,R0),R3
+        TST         R3,R3
+        BT          ?none
+        MOV.L       R3,@R1
+        MOV.L       #_collision_mesh_list,R4
+        MOV.L       @R4,R2
+        MOV.L       R2,@(CM_NEXT,R0)
+        TST         R2,R2
+        BT          ?first
+        MOV.L       R0,@(CM_PREV,R2)
+?first:
+        MOV.L       R0,@R4
+        NEG         R4,R4
+        RTS
+        MOV.L       R4,@(CM_PREV,R0)
+?none:
+        RTS
+        MOV         #0,R0
+
+; R4 = a mesh in collision_mesh_list. take it out of the list, and put it
+; first in the free list
+; @asm operand: zero-displacement, MOV.L @(CM_NEXT,R4),R2 at 0x8c02d940 loads
+; through a zero displacement
+_mesh_release:
+        MOV.L       @(CM_NEXT,R4),R2
+        MOV.L       @(CM_PREV,R4),R3
+        TST         R2,R2
+        BT          ?last
+        MOV.L       R3,@(CM_PREV,R2)
+?last:
+        CMP/PZ      R3                      ; 0 or more: the list's, negated
+        BT          ?first
+        BRA         ?free
+        MOV.L       R2,@(CM_NEXT,R3)
+?first:
+        NEG         R3,R3
+        MOV.L       R2,@R3
+?free:
+        MOV.L       #_free_meshes,R1
+        MOV.L       @R1,R0
+        MOV.L       R4,@R1
+        MOV.L       R0,@(CM_NEXT,R4)
+        RTS
+        NOP
+
+; void collision_mesh_free(struct collision_mesh *mesh)
+; splice the mesh's polygon list onto the front of the free list, set its
+; object to null, and go on to _mesh_release
+; @asm operand: zero-displacement, MOV.L R0,@(PG_NEXT,R3) at 0x8c02d97a stores
+; through a zero displacement
+_collision_mesh_free:
+        MOV.L       @(CM_POLYGONS,R4),R2
+        MOV.L       @(CM_LAST,R4),R3
+        TST         R2,R2
+        BT          ?empty
+        TST         R3,R3
+        BT          ?empty
+        MOV.L       #_free_polygons,R1
+        MOV.L       @R1,R0
+        MOV.L       R2,@R1
+        MOV.L       R0,@(PG_NEXT,R3)
+?empty:
+        MOV         #0,R0
+        BRA         _mesh_release
+        MOV.L       R0,@(CM_OBJECT,R4)
+
+; Float vector_length_squared(Float x, Float y, Float z)
+; the square of the vector's length
+; @asm operand: fipr-registers, FIPR FV4,FV4 at 0x8c02d98a
+_vector_length_squared:
+        FLDI0       FR7
+        FIPR        FV4,FV4                 ; FR7 = x*x + y*y + z*z
+        RTS
+        FMOV.S      FR7,FR0
+
+; Float mesh_point_distance2(NJS_POINT3 *from, NJS_POINT3 *to)
+; the square of the distance between the points
+; @asm operand: fipr-registers, FIPR FV4,FV4 at 0x8c02d9a4
+_mesh_point_distance2:
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R4+,FR5
+        FMOV.S      @R4+,FR6
+        FMOV.S      @R5+,FR0
+        FSUB        FR0,FR4
+        FMOV.S      @R5+,FR0
+        FSUB        FR0,FR5
+        FMOV.S      @R5+,FR0
+        FSUB        FR0,FR6
+        FLDI0       FR7
+        FIPR        FV4,FV4
+        RTS
+        FMOV.S      FR7,FR0
+
+; Float mesh_point_distance2_across(NJS_POINT3 *from, NJS_POINT3 *to)
+; the square of the distance between the points, leaving out y
+; @asm operand: fipr-registers, FIPR FV4,FV4 at 0x8c02d9be
+_mesh_point_distance2_across:
+        FMOV.S      @R4+,FR4
+        ADD         #4,R4
+        FMOV.S      @R4+,FR6
+        FMOV.S      @R5+,FR0
+        FSUB        FR0,FR4
+        ADD         #4,R5
+        FMOV.S      @R5+,FR0
+        FSUB        FR0,FR6
+        FLDI0       FR5
+        FLDI0       FR7
+        FIPR        FV4,FV4
+        RTS
+        FMOV.S      FR7,FR0
+
+; void collision_mesh_clear_buckets(void)
+; empty every bucket
+; @asm open: no inspect rule reads its MOV.L of 128, where C writes MOV.W
+_collision_mesh_clear_buckets:
+        MOV         #0,R0
+        MOV.L       #_mesh_buckets,R1
+        MOV.L       #BUCKETS,R7
+?bucket:
+        MOV.L       R0,@R1
+        MOV.L       R0,@(BK_LAST,R1)
+        DT          R7
+        BF/S        ?bucket
+        ADD         #BK_SIZE,R1
+        RTS
+        NOP
+
+; struct polygon *polygon_alloc(Float z)
+; take a free polygon and put it first in the bucket for z
+; @asm operand: zero-displacement, MOV.L @(PG_NEXT,R0),R3 at 0x8c02da04 loads
+; through a zero displacement
+_polygon_alloc:
+        FTRC        FR4,FPUL
+        MOV.L       #_mesh_buckets,R4
+        STS         FPUL,R0
+        MOV         #-BUCKET_BITS,R2
+        SHAD        R2,R0
+        ADD         #BUCKETS/2,R0
+        CMP/PZ      R0
+        BT          ?clamp_high
+        MOV         #0,R0
+?clamp_high:
+        MOV         #BUCKETS-1,R2
+        CMP/GT      R2,R0
+        BF          ?clamped
+        MOV         R2,R0
+?clamped:
+        SHLL2       R0
+        SHLL        R0
+        ADD         R0,R4
+        MOV.L       #_free_polygons,R1
+        MOV.L       @R1,R0
+        MOV.L       @(PG_NEXT,R0),R3
+        TST         R3,R3
+        BT          ?none
+        MOV.L       R3,@R1
+        MOV.L       @(BK_FIRST,R4),R2
+        MOV.L       R2,@(PG_NEXT,R0)
+        TST         R2,R2
+        BT          ?only
+        BRA         ?first
+        MOV.L       R0,@(PG_PREV,R2)
+?only:
+        MOV.L       R0,@(BK_LAST,R4)
+?first:
+        MOV.L       R0,@(BK_FIRST,R4)
+        MOV         #0,R3
+        RTS
+        MOV.L       R3,@(PG_PREV,R0)
+?none:
+        RTS
+        MOV         #0,R0
+
+; void collision_mesh_take_buckets(struct collision_mesh *mesh)
+; join the buckets' lists, lowest z first, into the mesh's list
+; @asm operand: zero-displacement, MOV.L R0,@(PG_NEXT,R5) at 0x8c02da5e stores
+; through a zero displacement
+_collision_mesh_take_buckets:
+        MOV.L       #_mesh_buckets,R1
+        MOV.L       #BUCKETS,R7
+        MOV         #0,R5
+?empty:
+        MOV.L       @R1,R0
+        TST         R0,R0
+        BF          ?begin
+        ADD         #BK_SIZE,R1
+        DT          R7
+        BF          ?empty
+        BRA         ?end
+        NOP
+?begin:
+        MOV.L       R0,@(CM_POLYGONS,R4)
+        MOV.L       @(BK_LAST,R1),R5
+        ADD         #BK_SIZE,R1
+        ADD         #-1,R7
+        CMP/PL      R7
+        BF          ?end
+?join:
+        MOV.L       @R1,R0
+        TST         R0,R0
+        BT          ?next
+        MOV.L       R0,@(PG_NEXT,R5)
+        MOV.L       R5,@(PG_PREV,R0)
+        MOV.L       @(BK_LAST,R1),R5
+?next:
+        ADD         #BK_SIZE,R1
+        DT          R7
+        BF          ?join
+?end:
+        MOV.L       R5,@(CM_LAST,R4)
+        RTS
+        NOP
+        .ALIGN      32
+
+; Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
+;                         Uint32 flags)
+; find the object's mesh in collision_mesh_list, and walk it, testing each
+; polygon near the point with _mesh_test_floor. flags, in R6, goes unread
+; @asm operand: zero-displacement, MOV.L @(CM_NEXT,R1),R1 at 0x8c02da92 loads
+; through a zero displacement
+_polygon_find_floor:
+        MOV         #0,R0
+        MOV.L       R0,@(Q_FOUND,R4)
+        MOV.L       #_collision_mesh_list,R1
+        MOV.L       @R1,R1
+        TST         R1,R1
+        BT          ?none
+?mesh:
+        MOV.L       @(CM_OBJECT,R1),R0
+        CMP/EQ      R0,R5
+        BT          ?found
+        MOV.L       @(CM_NEXT,R1),R1
+        TST         R1,R1
+        BF          ?mesh
+?none:
+        RTS
+        MOV         #0,R0
+?found:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        STS.L       PR,@-R15
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        MOV         R4,R14
+        MOV         #0,R0
+        MOV.L       #_mesh_found,R2
+        MOV.L       R0,@R2
+        MOV.L       @(CM_POLYGONS,R1),R12
+        MOV.L       @(CM_LAST,R1),R3
+        MOV.L       @(CM_FLAGS,R1),R13
+        MOV         #Q_POS+8,R0
+        FMOV.S      @(R0,R14),FR6
+        MOV         #CM_SPAN,R0
+        FMOV.S      @(R0,R1),FR14
+        FMOV.S      FR6,FR7
+        FSUB        FR14,FR6                ; FR6 = z - span, the window's
+        FADD        FR14,FR7                ; low end, and FR7 = z + span
+        MOV         R14,R0
+        FMOV.S      @R0+,FR8
+        FMOV.S      @R0+,FR9
+        FMOV.S      @R0+,FR10
+        MOV         #PG_CENTER+8,R0
+        FMOV.S      @(R0,R12),FR1
+        FCMP/GT     FR1,FR6
+        BF          ?forward
+        FMOV.S      @(R0,R3),FR2
+        FCMP/GT     FR7,FR2
+        BF          ?backward
+?skip:
+        MOV.L       @(PG_NEXT,R12),R12
+        ; @bug memory: the walk can take address 0 for a polygon, once the
+        ; skip runs R12 past the mesh's last to null. the skip tests the center
+        ; of the polygon it has just left, not of the one it moved to. so it
+        ; stops one polygon past the first whose center is at or past the
+        ; window's low end, and that one goes untested. when that one is the
+        ; mesh's last, R12 is null. the test is FCMP/GT FR1,FR6 at 0x8c02dae4,
+        ; on FR1 as loaded before MOV.L at 0x8c02dae2 moved R12 on.
+        ; polygon_find_heights's skip tests the center it moves to
+        FCMP/GT     FR1,FR6
+        FMOV.S      @(R0,R12),FR1
+        BT          ?skip
+?forward:
+        MOV.L       #_mesh_margin,R0
+        FMOV.S      @R0,FR11
+?ahead:
+        ADD         #PG_CENTER,R12
+        FMOV.S      @R12+,FR0
+        FMOV.S      @R12+,FR1
+        FMOV.S      @R12+,FR2
+        FCMP/GT     FR2,FR7
+        BF          ?done
+        FMOV.S      @R12+,FR15              ; near when the squared distance
+        FADD        FR11,FR15               ; is at most radius + margin
+        FSUB        FR8,FR0
+        FMUL        FR0,FR0
+        FCMP/GT     FR15,FR0
+        BT          ?next
+        FSUB        FR9,FR1
+        FMUL        FR1,FR1
+        FADD        FR0,FR1
+        FCMP/GT     FR15,FR1
+        BT          ?next
+        FSUB        FR10,FR2
+        FMUL        FR2,FR2
+        FADD        FR1,FR2
+        FCMP/GT     FR15,FR2
+        BT          ?next
+        BSR         _mesh_test_floor
+        NOP
+?next:
+        ADD         #-PG_POINTS,R12
+        MOV.L       @(PG_NEXT,R12),R12
+        TST         R12,R12
+        BF          ?ahead
+        BRA         ?done
+        NOP
+?backward:
+        MOV         R3,R12
+        MOV.L       #_mesh_margin,R0
+        FMOV.S      @R0,FR11
+?behind:
+        ADD         #PG_CENTER,R12
+        FMOV.S      @R12+,FR0
+        FMOV.S      @R12+,FR1
+        FMOV.S      @R12+,FR2
+        FCMP/GT     FR2,FR6
+        BT          ?done
+        FMOV.S      @R12+,FR15
+        FADD        FR11,FR15
+        FSUB        FR8,FR0
+        FMUL        FR0,FR0
+        FCMP/GT     FR15,FR0
+        BT          ?prev
+        FSUB        FR9,FR1
+        FMUL        FR1,FR1
+        FADD        FR0,FR1
+        FCMP/GT     FR15,FR1
+        BT          ?prev
+        FSUB        FR10,FR2
+        FMUL        FR2,FR2
+        FADD        FR1,FR2
+        FCMP/GT     FR15,FR2
+        BT          ?prev
+        BSR         _mesh_test_floor
+        NOP
+?prev:
+        ADD         #-PG_POINTS,R12
+        MOV.L       @(PG_PREV,R12),R12
+        TST         R12,R12
+        BF          ?behind
+?done:
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,PR
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        MOV.L       #_mesh_found,R0
+        RTS
+        MOV.L       @R0,R0
+
+; test the polygon at R12 against the floor query at R14. it counts when
+; the point's x and z lie inside its three sides, not on one, and it isn't
+; edge-on, as _mesh_edge_on_y2 says. its level at the point becomes the
+; floor when the query has none, or by the test the @bug below describes.
+; taking a floor sets _mesh_found
+; @asm operand: fipr-registers, FIPR FV8,FV0 at 0x8c02dbf2
+_mesh_test_floor:
+        STS.L       PR,@-R15
+        FLDI0       FR15
+        MOV         R12,R4
+        MOV         R4,R5
+        ADD         #POINT_SIZE,R5
+        MOV         R14,R6
+        FMOV.S      @R6+,FR4
+        ADD         #4,R6
+        BSR         _mesh_edge_side
+        FMOV.S      @R6+,FR5
+        BSR         _mesh_edge_side
+        FMOV.S      FR0,FR12
+        FMUL        FR0,FR12                ; two sides agree when their
+        FCMP/GT     FR15,FR12               ; product is over 0
+        BF          ?out
+        ADD         #-3*POINT_SIZE,R5
+        BSR         _mesh_edge_side
+        FMOV.S      FR0,FR12
+        FMUL        FR0,FR12
+        FCMP/GT     FR15,FR12
+        BF          ?out
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        MOV         R12,R7
+        FMOV.S      @R7+,FR0
+        FMOV.S      @R7+,FR1
+        FMOV.S      @R7+,FR2
+        FMOV.S      @R7+,FR3
+        FMOV.S      @R7+,FR4
+        FMOV.S      @R7+,FR5
+        FMOV.S      @R7+,FR6
+        FMOV.S      @R7+,FR7
+        BSR         _mesh_triangle_normal
+        FMOV.S      @R7+,FR8
+        FMOV.S      FR10,FR4
+        FMUL        FR4,FR4
+        MOV.L       #_mesh_edge_on_y2,R0
+        FMOV.S      @R0,FR3
+        FCMP/GT     FR3,FR4
+        BF          ?skip
+        FLDI0       FR3
+        FMOV.S      FR9,FR8
+        FMOV.S      FR10,FR9
+        FMOV.S      FR11,FR10
+        FLDI0       FR11
+        FIPR        FV8,FV0                 ; FR3 = normal . first point
+        FNEG        FR3
+        MOV         R14,R0
+        FMOV.S      @R0+,FR0
+        ADD         #4,R0
+        FMOV.S      @R0+,FR2
+        FMUL        FR10,FR2
+        FMUL        FR8,FR0
+        FADD        FR2,FR0
+        FADD        FR3,FR0
+        FNEG        FR0
+        FDIV        FR9,FR0                 ; FR0 = the plane's y at x and z
+        FMOV.S      FR0,FR15
+        MOV.L       @(Q_FOUND,R14),R0
+        CMP/EQ      #0,R0
+        BT          ?take
+        ; @bug logic: a later polygon replaces the floor when the kept
+        ; level less FR9 is over the distance from FR9 to the new level. FR9
+        ; held the point's y until _mesh_triangle_normal, and now holds the
+        ; normal's y. the kept level's difference also keeps its sign, since
+        ; the second FABS takes FR0's again. FSUB FR9,FR0 at 0x8c02dc12,
+        ; FSUB FR9,FR1 at 0x8c02dc1a and FCMP/GT FR0,FR1 at 0x8c02dc1e make
+        ; the test, and FABS FR0 at 0x8c02dc1c is the second FABS
+        FSUB        FR9,FR0
+        FABS        FR0
+        MOV         #Q_LEVEL,R0
+        FMOV.S      @(R0,R14),FR1
+        FSUB        FR9,FR1
+        FABS        FR0
+        FCMP/GT     FR0,FR1
+        BF          ?skip
+?take:
+        MOV.L       #_mesh_found,R1
+        MOV         #1,R0
+        MOV.L       R0,@R1
+        MOV.L       R0,@(Q_FOUND,R14)
+        MOV.L       R13,@(Q_FLAGS,R14)
+        MOV         #Q_LEVEL,R0
+        FMOV.S      FR15,@(R0,R14)
+        FMOV.S      FR8,FR4
+        FMOV.S      FR9,FR5
+        FMOV.S      FR10,FR6
+        BSR         _mesh_unit_normal
+        NOP
+        MOV         #Q_NORMAL+12,R0
+        ADD         R14,R0
+        FMOV.S      FR6,@-R0
+        FMOV.S      FR5,@-R0
+        FMOV.S      FR4,@-R0
+        MOV.L       #_atan2,R0              ; atan2(normal.x, normal.y)
+        JSR         @R0
+        NOP
+        MOV.L       #_mesh_angle_per_radian,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FNEG        FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        MOV.L       R0,@(Q_ANG_Z,R14)
+        MOV         #Q_NORMAL+8,R0
+        ADD         R14,R0
+        FMOV.S      @R0,FR4
+        MOV.L       #_asinf,R0              ; asinf(normal.z)
+        JSR         @R0
+        NOP
+        MOV.L       #_mesh_angle_per_radian,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        MOV.L       R0,@(Q_ANG_X,R14)
+?skip:
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+?out:
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; make the vector in FR4 to FR6 a unit vector, in place. it changes FR7
+; @asm operand: fipr-registers, FIPR FV4,FV4 at 0x8c02dc9a
+_mesh_unit_normal:
+        FLDI0       FR7
+        FIPR        FV4,FV4
+        FSRRA       FR7
+        FMUL        FR7,FR6
+        FMUL        FR7,FR5
+        RTS
+        FMUL        FR7,FR4
+
+; FR9 to FR11 = (b - a) x (c - a), the normal of the triangle whose points
+; a, b and c are in FR0 to FR8. its length is twice the triangle's area.
+; FR0 to FR2 keep a, and FR3 to FR8 and FR15 change
+; @asm open: no inspect rule reads FR0 to FR3 at its entry
+_mesh_triangle_normal:
+        FSUB        FR0,FR3
+        FSUB        FR1,FR4
+        FSUB        FR2,FR5
+        FSUB        FR0,FR6
+        FSUB        FR1,FR7
+        FSUB        FR2,FR8
+        FMOV.S      FR4,FR9
+        FMUL        FR8,FR9
+        FMOV.S      FR5,FR15
+        FMUL        FR7,FR15
+        FSUB        FR15,FR9
+        FMOV.S      FR5,FR10
+        FMUL        FR6,FR10
+        FMOV.S      FR3,FR15
+        FMUL        FR8,FR15
+        FSUB        FR15,FR10
+        FMOV.S      FR3,FR11
+        FMUL        FR7,FR11
+        FMOV.S      FR4,FR15
+        FMUL        FR6,FR15
+        RTS
+        FSUB        FR15,FR11
+
+; R4 = a and R5 = b, two points of a polygon, and FR4 and FR5 = x and z.
+; FR0 = (x - a.x)(b.z - a.z) - (z - a.z)(b.x - a.x). its sign says which
+; side of the line through a and b, across x and z, the point lies on, and
+; it is 0 on the line. R4 and R5 come back a point further on, and FR1 to
+; FR3 change
+; @asm open: no inspect rule reads the advanced R4 and R5 it leaves its callers
+_mesh_edge_side:
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R5+,FR2
+        FSUB        FR0,FR2
+        ADD         #4,R4
+        ADD         #4,R5
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R5+,FR3
+        FSUB        FR1,FR3
+        FNEG        FR0
+        FNEG        FR1
+        FADD        FR4,FR0
+        FADD        FR5,FR1
+        FMUL        FR3,FR0
+        FMUL        FR2,FR1
+        RTS
+        FSUB        FR1,FR0
+        .ALIGN      32
+
+; Bool polygon_find_heights(struct height_query *query, NJS_OBJECT *object,
+;                           Uint32 flags)
+; find the object's mesh in collision_mesh_list, start each level
+; _mesh_level_start past the point's y, and walk the mesh, testing each
+; polygon near the point with _mesh_test_heights. flags, in R6, goes unread
+; @asm operand: zero-displacement, MOV.L @(CM_NEXT,R1),R1 at 0x8c02dd14 loads
+; through a zero displacement
+_polygon_find_heights:
+        MOV         #0,R0
+        MOV.L       R0,@(Q_FOUND,R4)
+        MOV.L       R0,@(Q_FOUND+Q_ABOVE,R4)
+        MOV.L       #_collision_mesh_list,R1
+        MOV.L       @R1,R1
+        TST         R1,R1
+        BT          ?none
+?mesh:
+        MOV.L       @(CM_OBJECT,R1),R0
+        CMP/EQ      R0,R5
+        BT          ?found
+        MOV.L       @(CM_NEXT,R1),R1
+        TST         R1,R1
+        BF          ?mesh
+?none:
+        RTS
+        MOV         #0,R0
+?found:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        STS.L       PR,@-R15
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        MOV         R4,R14
+        MOV         #0,R0
+        MOV.L       #_mesh_found,R2
+        MOV.L       R0,@R2
+        MOV.L       @(CM_POLYGONS,R1),R12
+        MOV.L       @(CM_LAST,R1),R3
+        MOV.L       @(CM_FLAGS,R1),R13
+        MOV         #Q_POS+8,R0
+        FMOV.S      @(R0,R14),FR6
+        MOV         #CM_SPAN,R0
+        FMOV.S      @(R0,R1),FR14
+        FMOV.S      FR6,FR7
+        FSUB        FR14,FR6
+        FADD        FR14,FR7
+        MOV         R14,R0
+        FMOV.S      @R0+,FR8
+        FMOV.S      @R0+,FR9
+        FMOV.S      @R0+,FR10
+        MOV.L       #_mesh_level_start,R0
+        FMOV.S      @R0,FR1
+        FMOV.S      FR1,FR2
+        FADD        FR9,FR1
+        FNEG        FR2
+        FADD        FR9,FR2
+        MOV         #Q_LEVEL,R0
+        FMOV.S      FR2,@(R0,R14)
+        MOV         #Q_LEVEL+Q_ABOVE,R0
+        FMOV.S      FR1,@(R0,R14)
+        MOV         #PG_CENTER+8,R0
+        FMOV.S      @(R0,R12),FR1
+        FCMP/GT     FR1,FR6
+        BF          ?forward
+        FMOV.S      @(R0,R3),FR2
+        FCMP/GT     FR7,FR2
+        BF          ?backward
+?skip:
+        MOV.L       @(PG_NEXT,R12),R12
+        FMOV.S      @(R0,R12),FR1
+        FCMP/GT     FR1,FR6
+        BT          ?skip
+?forward:
+        MOV.L       #_mesh_margin,R0
+        FMOV.S      @R0,FR11
+?ahead:
+        ADD         #PG_CENTER,R12
+        FMOV.S      @R12+,FR0
+        FMOV.S      @R12+,FR1
+        FMOV.S      @R12+,FR2
+        FCMP/GT     FR2,FR7
+        BF          ?done
+        FMOV.S      @R12+,FR15
+        FADD        FR11,FR15
+        FSUB        FR8,FR0
+        FMUL        FR0,FR0
+        FCMP/GT     FR15,FR0
+        BT          ?next
+        FSUB        FR9,FR1
+        FMUL        FR1,FR1
+        FADD        FR0,FR1
+        FCMP/GT     FR15,FR1
+        BT          ?next
+        FSUB        FR10,FR2
+        FMUL        FR2,FR2
+        FADD        FR1,FR2
+        FCMP/GT     FR15,FR2
+        BT          ?next
+        BSR         _mesh_test_heights
+        NOP
+?next:
+        ADD         #-PG_POINTS,R12
+        MOV.L       @(PG_NEXT,R12),R12
+        TST         R12,R12
+        BF          ?ahead
+        BRA         ?done
+        NOP
+?backward:
+        MOV         R3,R12
+        MOV.L       #_mesh_margin,R0
+        FMOV.S      @R0,FR11
+?behind:
+        ADD         #PG_CENTER,R12
+        FMOV.S      @R12+,FR0
+        FMOV.S      @R12+,FR1
+        FMOV.S      @R12+,FR2
+        FCMP/GT     FR2,FR6
+        BT          ?done
+        FMOV.S      @R12+,FR15
+        FADD        FR11,FR15
+        FSUB        FR8,FR0
+        FMUL        FR0,FR0
+        FCMP/GT     FR15,FR0
+        BT          ?prev
+        FSUB        FR9,FR1
+        FMUL        FR1,FR1
+        FADD        FR0,FR1
+        FCMP/GT     FR15,FR1
+        BT          ?prev
+        FSUB        FR10,FR2
+        FMUL        FR2,FR2
+        FADD        FR1,FR2
+        FCMP/GT     FR15,FR2
+        BT          ?prev
+        BSR         _mesh_test_heights
+        NOP
+?prev:
+        ADD         #-PG_POINTS,R12
+        MOV.L       @(PG_PREV,R12),R12
+        TST         R12,R12
+        BF          ?behind
+?done:
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,PR
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        MOV.L       #_mesh_found,R0
+        RTS
+        MOV.L       @R0,R0
+
+; test the polygon at R12 against the height query at R14. it counts as
+; for _mesh_test_floor. a level at or under the point's y replaces below
+; when it is higher than below's, or below has none. a level over the
+; point's y replaces above when it is no higher than above's, or above has
+; none. taking a surface sets _mesh_found. it changes R11, which
+; polygon_find_heights saves
+; @asm operand: fipr-registers, FIPR FV8,FV0 at 0x8c02de92
+_mesh_test_heights:
+        STS.L       PR,@-R15
+        FLDI0       FR15
+        MOV         R12,R4
+        MOV         R4,R5
+        ADD         #POINT_SIZE,R5
+        MOV         R14,R6
+        FMOV.S      @R6+,FR4
+        ADD         #4,R6
+        BSR         _mesh_edge_side
+        FMOV.S      @R6+,FR5
+        BSR         _mesh_edge_side
+        FMOV.S      FR0,FR12
+        FMUL        FR0,FR12
+        FCMP/GT     FR15,FR12
+        BF          ?out
+        ADD         #-3*POINT_SIZE,R5
+        BSR         _mesh_edge_side
+        FMOV.S      FR0,FR12
+        FMUL        FR0,FR12
+        FCMP/GT     FR15,FR12
+        BF          ?out
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        MOV         R12,R7
+        FMOV.S      @R7+,FR0
+        FMOV.S      @R7+,FR1
+        FMOV.S      @R7+,FR2
+        FMOV.S      @R7+,FR3
+        FMOV.S      @R7+,FR4
+        FMOV.S      @R7+,FR5
+        FMOV.S      @R7+,FR6
+        FMOV.S      @R7+,FR7
+        BSR         _mesh_triangle_normal
+        FMOV.S      @R7+,FR8
+        FMOV.S      FR10,FR4
+        FMUL        FR4,FR4
+        MOV.L       #_mesh_edge_on_y2,R0
+        FMOV.S      @R0,FR3
+        FCMP/GT     FR3,FR4
+        BF          ?skip
+        FLDI0       FR3
+        FMOV.S      FR9,FR8
+        FMOV.S      FR10,FR9
+        FMOV.S      FR11,FR10
+        FLDI0       FR11
+        FIPR        FV8,FV0
+        FNEG        FR3
+        MOV         R14,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMUL        FR10,FR2
+        FMUL        FR8,FR0
+        FADD        FR2,FR0
+        FADD        FR3,FR0
+        FNEG        FR0
+        FDIV        FR9,FR0
+        FMOV.S      FR0,FR15
+        MOV         R14,R11
+        FCMP/GT     FR1,FR0
+        BT          ?above
+        MOV.L       @(Q_FOUND,R11),R0
+        CMP/EQ      #0,R0
+        BT          ?take
+        MOV         #Q_LEVEL,R0
+        FMOV.S      @(R0,R11),FR1
+        FCMP/GT     FR1,FR0
+        BF          ?skip
+        BRA         ?take
+        NOP
+?above:
+        ADD         #Q_ABOVE,R11
+        MOV.L       @(Q_FOUND,R11),R0
+        CMP/EQ      #0,R0
+        BT          ?take
+        MOV         #Q_LEVEL,R0
+        FMOV.S      @(R0,R11),FR1
+        FCMP/GT     FR1,FR0
+        BT          ?skip
+?take:
+        MOV.L       #_mesh_found,R1
+        MOV         #1,R0
+        MOV.L       R0,@R1
+        MOV.L       R0,@(Q_FOUND,R11)
+        MOV.L       R13,@(Q_FLAGS,R11)
+        MOV         #Q_LEVEL,R0
+        FMOV.S      FR15,@(R0,R11)
+        FMOV.S      FR8,FR4
+        FMOV.S      FR9,FR5
+        FMOV.S      FR10,FR6
+        BSR         _mesh_unit_normal
+        NOP
+        MOV         #Q_NORMAL+12,R0
+        ADD         R11,R0
+        FMOV.S      FR6,@-R0
+        FMOV.S      FR5,@-R0
+        FMOV.S      FR4,@-R0
+        MOV.L       #_atan2,R0
+        JSR         @R0
+        NOP
+        MOV.L       #_mesh_angle_per_radian,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FNEG        FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        MOV.L       R0,@(Q_ANG_Z,R11)
+        MOV         #Q_NORMAL+8,R0
+        ADD         R11,R0
+        FMOV.S      @R0,FR4
+        MOV.L       #_asinf,R0
+        JSR         @R0
+        NOP
+        MOV.L       #_mesh_angle_per_radian,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        MOV.L       R0,@(Q_ANG_X,R11)
+?skip:
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+?out:
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; void matrix_calc_point(NJS_POINT3 *point)
+; transform the point in place by the matrix in XMTRX, translation included
+; @asm open: no inspect rule reads FV0 filled by three loads and FLDI1 FR3
+; before its FTRV
+_matrix_calc_point:
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FMOV.S      FR2,@-R4
+        FMOV.S      FR1,@-R4
+        FMOV.S      FR0,@-R4
+        RTS
+        NOP
+        .ALIGN      8
+
+; the first free polygon and the first free mesh
+_free_polygons:
+        .RES.L      1
+_free_meshes:
+        .RES.L      1
+; struct collision_mesh *collision_mesh_list
+; the first mesh in use
+_collision_mesh_list:
+        .RES.L      1
+; whether the search under way has taken a surface, which it returns
+_mesh_found:
+        .RES.L      1
+        .ALIGN      32
+
+_mesh_buckets:
+        .RES.B      BUCKETS*BK_SIZE
+
+; a polygon is near the point when the squared distance from its center is
+; at most its radius, a square already, plus this, which is 30 squared
+_mesh_margin:
+        .FDATA.S    F'900.0
+; Ninja angles in a radian, 65536 / 2 pi or 10430.38, cut to 10430
+_mesh_angle_per_radian:
+        .FDATA.S    F'10430.0
+; a polygon is edge-on when its normal's y, squared, is no more than this.
+; that y is twice the area of the polygon's projection on x and z, and the
+; level divides by it
+_mesh_edge_on_y2:
+        .DATA.L     H'38D1B717              ; 0.0001
+; how far below and above the point's y a height query's levels start. a
+; side with no surface keeps its start
+_mesh_level_start:
+        .FDATA.S    F'220.0
+
+        .END

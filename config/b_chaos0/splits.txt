@@ -1,0 +1,78 @@
+# B_CHAOS0.PRS, Chaos 0
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900160
+CHEAD      0x0c900160  0x0c9001d8
+DHEAD      0x0c9001d8  0x0c900280
+P          0x0c900280  0x0c9053e0
+D          0x0c9053e0  0x0c95f950
+C          0x0c95f950  0x0c95fde3
+B          0x0c95fde8  0x0c9600d0
+#
+# source                              section  start       end
+modules/b_chaos0/chaos0.c              PHEAD    0x0c900000  0x0c9000e0
+modules/b_chaos0/chaos0.c              P        0x0c900280  0x0c900340
+modules/b_chaos0/event_modes.c         PHEAD    0x0c9000e0  0x0c900160
+# the land 1ST_READ.BIN's world_lands names. it ends 4 bytes short of the object list, which starts on 8 at 0x0c900200, past where the land's object's next item would start on 4, and nothing points into the 4 bytes, which is consistent with separate objects. boss.c's pool names the land, at 0x0c902df8, and brain_offset, past both lists, at 0x0c90288c, and the gap leaves boss.c's head data room for one of them only. the land is an object's of data alone, chaos0.c's or event_modes.c's, linked ahead of boss.c, whose code doesn't read it, or boss.c's, with brain_offset another object's, which the bytes leave open: with the land in boss.c and brain_offset in an object of its own, the image builds the same. it is placed as one of data alone, with brain_offset boss.c's. the bytes don't say whether its entries, in D's generated range, share its object
+modules/b_chaos0/land.c                DHEAD    0x0c9001d8  0x0c9001fc
+# the list 1ST_READ.BIN's object_lists names. the bytes don't say whether its kinds at 0x0c91ccf0 share its object. kinds.c holds them and their nine names, which open C
+modules/b_chaos0/object_list.c         DHEAD    0x0c900200  0x0c900208
+# the list 1ST_READ.BIN's stage_pvms names; its names start CHEAD, and its list meets the object list on 8 with no fill, where one file or two build the same
+modules/b_chaos0/pvms.c                CHEAD    0x0c900160  0x0c9001d5
+modules/b_chaos0/pvms.c                DHEAD    0x0c900208  0x0c900258
+# Chaos 0's motion, action and textures, the effect, object and land textures with the texlists the code, the pvm list and the land name, and the first grass model. the action and the textures follow the motion off 8. the effect's and object's names follow Chaos 0's off 8, the land's share strings with the object's, and the land's textures, its texlist and the grass model follow the object texlist off 8, so all are one object's. the motion starts on 8 straight after the generated data, and a material meets the grass's root node on 8 at 0x0c94eac0: the bytes don't say whether either shares this object. the names start on 8, 7 bytes past the kinds' names, 4 past where their object's next string would start
+modules/b_chaos0/textures.c            D        0x0c94cf40  0x0c94eac0
+modules/b_chaos0/textures.c            C        0x0c95f9a0  0x0c95fc53
+# a list of 18 textures, its texlist, and six texlists of three of them, none of which the image names. the texlists start on 8 straight after the textures, and name them. one file or two build the same there. the textures start on 8 straight after the generated data, and chaos0_poles meets the last texlist on 8: the bytes don't say whether either shares this object. the names start on 8, 5 bytes past the textures' above, 4 past where that object's next string would start, and boss.c's constants start a byte past the last
+modules/b_chaos0/dat_0c95eb50.c        D        0x0c95eb50  0x0c95ec60
+modules/b_chaos0/dat_0c95eb50.c        C        0x0c95fc58  0x0c95fcd7
+# brain_offset, which boss.c's pool names at 0x0c90288c, follows the pvm list on 8 with no fill. it is boss.c's, with the land another object's, the pvm list's object's, an object's of data alone, or that of an object linked after the lists, whose code doesn't read it, which the bytes leave open
+modules/b_chaos0/boss.c                DHEAD    0x0c900258  0x0c900264
+modules/b_chaos0/boss.c                P        0x0c900340  0x0c902e40
+# from stretch_hides, which chaos0_shapes follows off 8, to jump_heights, which fight.c's node_origin follows on 8 with no gap. the textures in dat_0c95eb50.c point to strings in C ahead of boss.c's constants, and SHC writes an object's strings after its constants, so they are an earlier object's. from 0x0c95ec60 to 0x0c95f3e8 the build does not decide whose the data is: only boss.c's pool names chaos0_poles, at 0x0c9004e0, and chaos0_ribbon, at 0x0c902714
+modules/b_chaos0/boss.c                D        0x0c95f3e8  0x0c95f598
+modules/b_chaos0/boss.c                C        0x0c95fcd8  0x0c95fcf4
+# chaos0_hands, which fight.c sets, follows form_time on 8 with no gap; the build does not decide whose it is
+modules/b_chaos0/boss.c                B        0x0c95fde8  0x0c95fe50
+modules/b_chaos0/fight.c               P        0x0c902e40  0x0c903580
+modules/b_chaos0/fight.c               D        0x0c95f598  0x0c95f5c7
+modules/b_chaos0/fight.c               C        0x0c95fcf8  0x0c95fd04
+modules/b_chaos0/wobble.c              P        0x0c903580  0x0c903940
+modules/b_chaos0/wobble.c              D        0x0c95f718  0x0c95f76e
+modules/b_chaos0/rain.c                P        0x0c903940  0x0c903cc0
+modules/b_chaos0/rain.c                D        0x0c95f770  0x0c95f828
+modules/b_chaos0/rain.c                C        0x0c95fd50  0x0c95fd5f
+modules/b_chaos0/hint.c                P        0x0c903cc0  0x0c903da0
+modules/b_chaos0/hint.c                D        0x0c95f828  0x0c95f838
+modules/b_chaos0/hint.c                C        0x0c95fd60  0x0c95fde3
+modules/b_chaos0/grass.c               P        0x0c903da0  0x0c903e20
+modules/b_chaos0/helicopter.c          P        0x0c903e20  0x0c904060
+modules/b_chaos0/helicopter.c          D        0x0c95f838  0x0c95f844
+modules/b_chaos0/helicopter.c          B        0x0c960060  0x0c96006c
+modules/b_chaos0/patrol_car.c          P        0x0c904060  0x0c9050a0
+modules/b_chaos0/patrol_car.c          D        0x0c95f848  0x0c95f8e0
+modules/b_chaos0/patrol_car.c          B        0x0c960070  0x0c9600d0
+modules/b_chaos0/clock.c               P        0x0c9050a0  0x0c905300
+modules/b_chaos0/clock.c               D        0x0c95f8e0  0x0c95f914
+modules/b_chaos0/pole.c                P        0x0c905300  0x0c9053e0
+modules/b_chaos0/pole.c                D        0x0c95f918  0x0c95f94c
+# the node chaos0_land's last entry names. it starts on 8 straight after its model, generated, where one file or two build the same. kinds.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, kinds.c's, were the zero word its, chaos0.c's or event_modes.c's, which link between with no row in D, though their code doesn't read it, or land.c's, object_list.c's or pvms.c's, objects of head data alone that can link between
+modules/b_chaos0/dat_0c91ccb8.c        D        0x0c91ccb8  0x0c91ccec
+# the 9 kinds the object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the names open C. the textures' names start on 8, 7 bytes past the last, 4 past where this object's next string would start, which is consistent with separate objects, and the fill rule verifies the 7 bytes. the kinds start on 8, 4 bytes past dat_0c91ccb8.c's node, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the node's object. they end 4 past 8, where dat_0c91cda8.c's material starts on 8 4 bytes on. that zero word is the fill the rule takes, or a word of this object nothing reads. the bytes leave the kinds to an object of their own, the object list's, as B_EGM3's list shares its kinds' object, the node's before them, were the zero word that object's, chaos0.c's or event_modes.c's, which link between in both sections with no row there, though their code doesn't read them, or land.c's or pvms.c's, objects of head data alone that can link between
+modules/b_chaos0/kinds.c               C        0x0c95f950  0x0c95f999
+modules/b_chaos0/kinds.c               D        0x0c91ccf0  0x0c91cda4
+# a node of Chaos 0's body, under chaos0_body_object, and its model, with which the tree's data opens; the welds and the alpha nodes name the node too. it starts on 8, 4 bytes past kinds.c's data, where the kinds' object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a word of the kinds' object nothing reads, and either builds the same. the tree's next model starts on 8 straight after the node, at 0x0c91cf98, where one file or two build the same. the generated rest of the tree is consistent with one object with it. the object is one of data alone, the generated tree's, kinds.c's, were the zero word its, chaos0.c's or event_modes.c's, which link between with no row in D, though their code doesn't read it, or land.c's, object_list.c's or pvms.c's, objects of head data alone that can link between
+modules/b_chaos0/dat_0c91cda8.c        D        0x0c91cda8  0x0c91cf98
+#
+# generated data ranges
+# ends where dat_0c91ccb8.c's node starts on 8, straight after its model
+gen/b_chaos0/d_0c9053e0.c              D        0x0c9053e0  0x0c91ccb8
+# from the model that follows dat_0c91cda8.c's node in the tree's data, whose material starts on 8 straight after it
+gen/b_chaos0/d_0c91cf98.c              D        0x0c91cf98  0x0c945670
+gen/b_chaos0/d_0c945670.c              D        0x0c945670  0x0c94cf40
+gen/b_chaos0/d_0c94eac0.c              D        0x0c94eac0  0x0c95eb50
+gen/b_chaos0/d_0c95ec60.c              D        0x0c95ec60  0x0c95f3e8
+# ten 32-byte records nothing names, here or in 1ST_READ.BIN, each a name in C, a word of bss and numbers, and 16 zero bytes. their names are the generated row in C at 0x0c95fd08, and no source writes the records with values: no reader gives them a type. a literal is its own file's, so the records and the names are one object's. the byte before the records, where fight.c's data ends, runs to where fight.c's next item would start on 4. it is fight.c's padding, were the records fight.c's, or the linker's fill. their names start an object on 8, as that row gives, so the row declares start 8, and the splicer writes the byte as the linker's fill, which fight.c's padding would equal. wobble.c's data meets the last record on 8 with no fill. the object is fight.c's, were the 4 bytes before the names a constant of its own, wobble.c's, though its code doesn't read them, event_modes.c's, which links between in both sections with no row there, or one of data alone. the bss words the records point at, from 0x0c95fedc, follow chaos0_wobble_motion, chaos0_wobble_rest and chaos0_wobble_radii, which wobble.c reads: consistent with wobble.c's object, not proof
+gen/b_chaos0/d_0c95f5c8.c              D        0x0c95f5c8  0x0c95f718  start 8
+# the names of the ten records at 0x0c95f5c8: they start on 8, 4 bytes past fight.c's constants, where its next string would start on 4, and rain.c's constants meet the last on 8 with no fill. the 4 bytes, which nothing here or in 1ST_READ.BIN points at, are the linker's fill or, were the names fight.c's, a constant of fight.c's: the row declares start 8, and the splicer writes them as the linker's fill, the likelier reading, not a proven one. the names have the records' owners: fight.c, wobble.c, event_modes.c or an object of data alone
+gen/b_chaos0/d_0c95fd08.c              C        0x0c95fd08  0x0c95fd50  start 8

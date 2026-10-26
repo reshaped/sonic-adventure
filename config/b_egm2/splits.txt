@@ -1,0 +1,103 @@
+# B_EGM2.PRS, the Egg Walker
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900120
+CHEAD      0x0c900120  0x0c9001b0
+DHEAD      0x0c9001b0  0x0c900260
+P          0x0c900260  0x0c908200
+C          0x0c908200  0x0c909890
+D          0x0c909890  0x0c992704
+B          0x0c992708  0x0c992cb2
+#
+# source                              section  start       end
+modules/b_egm2/egg_walker.c            P        0x0c900260  0x0c901120
+modules/b_egm2/egg_walker.c            C        0x0c908200  0x0c908224
+modules/b_egm2/egg_walker.c            D        0x0c909890  0x0c909891
+modules/b_egm2/egg_walker.c            B        0x0c992708  0x0c99270c
+modules/b_egm2/parts.c                 P        0x0c901120  0x0c9017c0
+modules/b_egm2/parts.c                 C        0x0c908228  0x0c9083d8
+modules/b_egm2/parts.c                 D        0x0c909898  0x0c909cd8
+modules/b_egm2/parts.c                 B        0x0c992710  0x0c992930
+# the Egg Walker's six lists of textures and their texlists. from the sky's on, each list of names starts off 8 straight after the one before, so those five are one file's. the common list's names meet the sky's on 8, where one object's next string would start on 4 too, and its texlist meets the sky's textures on 8 with no fill, so one file or two build the same there. the names meet parts.c's constants on 8 with no fill, and the textures start on 8 straight after the welds at 0x0c909e90 in the generated row: the bytes leave them to an object of their own or, with the generated data between, parts.c's, though its code doesn't read them. the last texlist ends 4 past 8, and dat_0c90a368.c's nodes start on 8 4 bytes on, at 0x0c90a368: the zero word between, which nothing reads, is the linker's fill, as the fill rule takes it, or a last word of this object
+modules/b_egm2/textures.c              C        0x0c9083d8  0x0c908847
+modules/b_egm2/textures.c              D        0x0c909ea8  0x0c90a364
+# three nodes of the Egg Walker, which egg_walker_actions animate, and the models of the second and third, with which the tree's data opens; each node's parent in the tree names it. the second's material follows the first node off 8, the second model's normals its points, the third's material the second node, and from the third model's strips to the third node each item follows the one before off 8. but seven items start on 8 straight after the item before, with no fill: the second model's strips, colors, meshset, points and model, at 0x0c90a3b0, 0x0c90a3e8, 0x0c90a448, 0x0c90a460 and 0x0c90a598, the second node, at 0x0c90a5c0, and the third model's strips, at 0x0c90a658. one file or several build the same at each of those seams, so the bytes join only those runs. the pointers between the parts are consistent with one object, and each part from a seam on could be another object's: one of data alone, jump.c's or pvms.c's, which can link between, or, with everything after it, the generated tree's. they start on 8, 4 bytes past textures.c's last texlist, where that object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of textures.c's object nothing reads, and either builds the same. the tree's next model starts on 8 straight after the third node, at 0x0c90ac38, where one file or two build the same, and the generated rest of the tree is consistent with one object with them. the object is one of data alone, the generated tree's, textures.c's, were the zero word its, jump.c's, which links between with no row in D, though its code doesn't read it, or pvms.c's, an object of head data alone that can link between
+modules/b_egm2/dat_0c90a368.c          D        0x0c90a368  0x0c90ac38
+modules/b_egm2/jump.c                  P        0x0c9017c0  0x0c901ce0
+modules/b_egm2/jump.c                  C        0x0c908848  0x0c908884
+modules/b_egm2/jump.c                  B        0x0c992930  0x0c992934
+modules/b_egm2/bombs.c                 P        0x0c901ce0  0x0c902120
+modules/b_egm2/bombs.c                 D        0x0c935bd0  0x0c9363ac
+modules/b_egm2/bombs.c                 B        0x0c992938  0x0c99293c
+modules/b_egm2/camera.c                P        0x0c902120  0x0c903020
+modules/b_egm2/camera.c                C        0x0c908888  0x0c9088a0
+modules/b_egm2/camera.c                D        0x0c9363b0  0x0c9375c4
+modules/b_egm2/camera.c                B        0x0c992940  0x0c9929f4
+modules/b_egm2/cars.c                  P        0x0c903020  0x0c9036aa
+modules/b_egm2/cars.c                  C        0x0c9088a0  0x0c908900
+modules/b_egm2/cars.c                  D        0x0c9375c8  0x0c93e6a0
+modules/b_egm2/defeat.c                P        0x0c9036c0  0x0c903840
+modules/b_egm2/legs.c                  P        0x0c903840  0x0c9042a0
+modules/b_egm2/legs.c                  C        0x0c908900  0x0c90892d
+modules/b_egm2/legs.c                  D        0x0c93e6a0  0x0c93e78c
+modules/b_egm2/legs.c                  B        0x0c9929f8  0x0c992a44
+modules/b_egm2/eggman.c                P        0x0c9042a0  0x0c904300
+modules/b_egm2/eggman.c                C        0x0c908930  0x0c90893c
+modules/b_egm2/eggman.c                D        0x0c93e790  0x0c941a84
+# follows eggman.c with no fill; as one file, the code runs 32 bytes longer. 2,304 of its first 2,428 bytes differ
+modules/b_egm2/flames.c                P        0x0c904300  0x0c904c20
+modules/b_egm2/flames.c                C        0x0c908940  0x0c90894c
+modules/b_egm2/flames.c                D        0x0c941a88  0x0c941bfc
+modules/b_egm2/flames.c                B        0x0c992a48  0x0c992a6c
+modules/b_egm2/leg_pose.c              P        0x0c904c20  0x0c906620
+modules/b_egm2/leg_pose.c              C        0x0c908950  0x0c908ad8
+modules/b_egm2/leg_pose.c              D        0x0c941c00  0x0c941c1c
+modules/b_egm2/leg_pose.c              B        0x0c992a70  0x0c992c7c
+modules/b_egm2/cannons.c               P        0x0c906620  0x0c907080
+modules/b_egm2/cannons.c               C        0x0c908ad8  0x0c908ae4
+modules/b_egm2/cannons.c               D        0x0c941c20  0x0c94231c
+modules/b_egm2/cannons.c               B        0x0c992c80  0x0c992ca0
+modules/b_egm2/hints.c                 P        0x0c907080  0x0c9072e0
+modules/b_egm2/hints.c                 C        0x0c908ae8  0x0c908b77
+modules/b_egm2/hints.c                 D        0x0c942320  0x0c942330
+modules/b_egm2/hints.c                 B        0x0c992ca0  0x0c992ca8
+modules/b_egm2/blast.c                 P        0x0c9072e0  0x0c9077a0
+modules/b_egm2/blast.c                 C        0x0c908b78  0x0c908b84
+modules/b_egm2/blast.c                 D        0x0c942330  0x0c942384
+# the explosion's textures and egm2_baku_texlist, which blast.c and the pvm list name: the names start on 8, 4 bytes past blast.c's constants, where blast.c's next string would start on 4, and the textures on 8, 4 bytes past blast.c's data. the texlist starts on 8 straight after the textures, and the explosion's model meets it on 8 at 0x0c9423f0; the land's names meet these on 8, where this object's next string would start on 4 too. one file or two build the same at each, and the bytes don't say whether the model, or the land's textures past it, share this object
+modules/b_egm2/baku_textures.c         C        0x0c908b88  0x0c908be7
+modules/b_egm2/baku_textures.c         D        0x0c942388  0x0c9423f0
+modules/b_egm2/eggmobile2.c            PHEAD    0x0c900000  0x0c900120
+modules/b_egm2/eggmobile2.c            P        0x0c9077a0  0x0c9078a0
+modules/b_egm2/eggmobile2.c            C        0x0c909668  0x0c909673
+# the list 1ST_READ.BIN's stage_pvms names, which nothing in the image reads. its names start CHEAD, where eggmobile2.c's PHEAD ends, and its list starts DHEAD
+modules/b_egm2/pvms.c                  CHEAD    0x0c900120  0x0c90019e
+modules/b_egm2/pvms.c                  DHEAD    0x0c9001b0  0x0c900230
+# the land 1ST_READ.BIN's world_lands names, which nothing in the image reads. its name meets the pvm names on 8, where their object's next string would start on 4, and its table meets their list on 8 with no fill: in both sections one file or two build the same.
+modules/b_egm2/land.c                  CHEAD    0x0c9001a0  0x0c9001ab
+modules/b_egm2/land.c                  DHEAD    0x0c900230  0x0c900254
+# the 231 textures, texlist and 306 entries the table names, and the textures' names: the texlist follows the textures off 8, at 0x0c9437ac, and the entries follow it off 8, so the three are one object's data. the textures start on 8 straight after the blast ball's root node, and the names on 8 where the explosion's next string would start on 4 too: one file or two build the same at each, and the bytes leave them to the table's object, one of their own, or the explosion's, with the models between. eggmobile2.c's constants start on 8, 3 bytes past the last name. the entries end 4 past 8, and dat_0c9462c0.c's models start on 8 4 bytes on, at 0x0c9462c0: the zero word between, which nothing reads, is the linker's fill, as the fill rule takes it, or a last word of this object
+modules/b_egm2/land.c                  C        0x0c908be8  0x0c909665
+modules/b_egm2/land.c                  D        0x0c942cd8  0x0c9462bc
+# the nodes the first two entries of the land, egm2_land_entries, name, and their models: the second's material follows the first node off 8, the first model's first strips follow its materials off 8 and its third strips its second, and from the second model's strips to the second node each item follows the one before off 8. but ten items start on 8 straight after the item before, with no fill: the first model's second strips, three color arrays, meshsets, points, normals and model, at 0x0c946318, 0x0c946370, 0x0c9463a0, 0x0c946420, 0x0c946430, 0x0c946478, 0x0c946550 and 0x0c946628, the first node, at 0x0c946650, and the second model's strips, at 0x0c946698. one file or several build the same at each of those seams: split into two sources at 0x0c946698, B_EGM2.PRS builds byte for byte the same. so the bytes join only those runs. the pointers between the parts are consistent with one object, and each part from a seam on could be another object's: one of data alone, eggmobile2.c's, which can link between, or, with everything after it, the generated data's after them. they start on 8, 4 bytes past land.c's entries, where that object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of land.c's object nothing reads, and either builds the same. the third entry's model starts on 8 straight after the second node, at 0x0c946800, where one file or two build the same. the object is one of data alone, land.c's, were the zero word its, that of the generated data after it, or eggmobile2.c's, which links between with no row in D, though its code doesn't read it
+modules/b_egm2/dat_0c9462c0.c          D        0x0c9462c0  0x0c946800
+# the list 1ST_READ.BIN's object_lists names, on 8, 4 bytes past the land's end, where the land's object's next item would start on 4, and nothing points into the 4 bytes: a separate object. its kinds and their two names, named arrays with bodies, follow: the first name's 8 bytes put the second where SHC would put a string literal. the names start on 8, 5 bytes past eggmobile2.c's constants, where their next string would start on 4, and the kinds start on 8 straight after a model's root node at 0x0c989454. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with their sharing the list's here. one file or two build the same, and the bytes leave the kinds and names to the list's object, one of their own, or the model's before them
+modules/b_egm2/object_list.c           DHEAD    0x0c900258  0x0c900260
+modules/b_egm2/object_list.c           C        0x0c909678  0x0c909689
+modules/b_egm2/object_list.c           D        0x0c989488  0x0c9894b0
+# the ornaments' textures and ornament_texlist, which ornament.c and the pvm list name: the names start on 8, 7 bytes past the kinds' names, where their object's next string would start on 4, so they start an object, whose textures meet the kinds on 8 with no fill. the texlist starts on 8 straight after the textures, and a model meets it on 8 at 0x0c989680: one file or two build the same, and the bytes don't say whether the model, or the generated data to ornament.c's own at 0x0c9926a0, share this object
+modules/b_egm2/ornament_textures.c     C        0x0c909690  0x0c909889
+modules/b_egm2/ornament_textures.c     D        0x0c9894b0  0x0c989680
+modules/b_egm2/ornament.c              P        0x0c9078a0  0x0c908200
+modules/b_egm2/ornament.c              D        0x0c9926a0  0x0c992704
+modules/b_egm2/ornament.c              B        0x0c992ca8  0x0c992cb2
+#
+# generated data ranges
+gen/b_egm2/d_0c909cd8.c                D        0x0c909cd8  0x0c909ea8
+# from the model after dat_0c90a368.c's nodes in the tree's data, which starts on 8 straight after them
+gen/b_egm2/d_0c90ac38.c                D        0x0c90ac38  0x0c935bd0
+gen/b_egm2/d_0c9423f0.c                D        0x0c9423f0  0x0c942cd8
+# from the model the land's third entry names, which starts on 8 straight after dat_0c9462c0.c's
+gen/b_egm2/d_0c946800.c                D        0x0c946800  0x0c982418
+gen/b_egm2/d_0c982418.c                D        0x0c982418  0x0c989488
+gen/b_egm2/d_0c989680.c                D        0x0c989680  0x0c9926a0

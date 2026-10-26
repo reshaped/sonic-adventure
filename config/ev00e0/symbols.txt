@@ -1,0 +1,40 @@
+# EV00E0.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00e0_head
+0x0cb80008  ev00e0_script
+0x0cb804a4  find_slot
+0x0cb804c4  event_move
+0x0cb805b6  event_move_turn_degrees
+0x0cb80774  event_move_turn
+0x0cb808c2  event_follow
+0x0cb8097e  event_follow_turn
+0x0cb80a94  event_follow_angles
+0x0cb80b62  event_follow_facing
+0x0cb80c8a  event_follow_weld0
+0x0cb80d50  event_follow_weld1
+0x0cb80dfa  event_move_stop
+0x0cb80ede  event_move_stop_all
+0x0cb80f9a  event_mover_init
+0x0cb80fc8  event_mover_step
+0x0cb8171c  event_mover_draw
+0x0cb81720  event_mover_destroy
+0x0cb81760  event_fade_draw
+0x0cb8180a  event_fade_step
+0x0cb8182c  event_fade_destroy
+0x0cb81830  event_fade_init
+0x0cb8183e  event_fade_create
+0x0cb81898  event_fade_set_speed
+0x0cb818a0  event_fade_set_alpha
+0x0cb818d4  event_fade_set_color
+0x0cb818e4  event_fade_set_depth
+0x0cb81988  ev00e0_frog
+0x0cb8198c  ev00e0_black
+0x0cb81990  ev00e0_textures
+0x0cb835fc  ev00e0_big_action_0
+0x0cb84d40  ev00e0_big_action_1
+0x0cb84d48  event_froggy_textures
+0x0cb84da8  ev00e0_frog_texlist
+0x0cb88758  ev00e0_frog_action
+0x0cb88760  event_movers
+0x0cb88788  event_fade_corners

@@ -1,0 +1,30 @@
+# EV00DD.PRS, Big returns to the shaking Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80d70
+C          0x0cb80d70  0x0cb80e68
+D          0x0cb80e68  0x0cb8600c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00dd/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00dd/script.c                P        0x0cb80008  0x0cb80820
+events/ev00dd/script.c                C        0x0cb80d70  0x0cb80e25
+events/ev00dd/script.c                D        0x0cb80e68  0x0cb80e80
+events/shared/fade.c                  P        0x0cb80820  0x0cb809ac
+events/shared/fade.c                  D        0x0cb85fe0  0x0cb86000
+events/shared/sound.c                 P        0x0cb809ac  0x0cb80d6c
+events/shared/sound.c                 D        0x0cb86000  0x0cb8600c
+# ev00dd_frog_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to fade.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb85ed8 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00dd/frog_action.c           D        0x0cb85fc8  0x0cb85fdc
+# the names of the textures that the texture name table at 0x0cb825c4 in this object's data names: the table at 0x0cb825c4 starts off 8, straight after an action at 0x0cb825bc, so it shares that item's object; after the table at 0x0cb825c4, each item to a material at 0x0cb8262c starts off 8, so they share its object. the names and the data from 0x0cb825b0 to 0x0cb82640 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev00dd_frog_texlist, which names the table at 0x0cb825c4. they start on 8 after script.c's constants, where script.c's next string would, and end where D begins. they are script.c's, whose code reads ev00dd_big_action and ev00dd_frog_texlist, were the data from its own data to the table its too; frog_action.c's, which has no constants row and can link between them, were the data from the table to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. the 3 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill. nothing points into the 3 bytes before them, and the fill rule takes them as the linker's fill
+events/ev00dd/big_action.c            C        0x0cb80e28  0x0cb80e68
+# its data, from 0x0cb825b0 to 0x0cb82640: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb8262c, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV001C, EV0046, EV00D2, EV00D3 and EV00DA hold the same bytes, but for the words that point into the image. equal bytes don't make one object linked twice, and nothing here shows more, so the build keeps it the event's own
+events/ev00dd/big_action.c            D        0x0cb825b0  0x0cb82640
+#
+# generated data ranges
+gen/ev00dd/d_0cb80e80.c               D        0x0cb80e80  0x0cb825b0
+gen/ev00dd/d_0cb82640.c               D        0x0cb82640  0x0cb85fc8

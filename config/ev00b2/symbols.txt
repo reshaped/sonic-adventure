@@ -1,0 +1,26 @@
+# EV00B2.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00b2_head
+0x0cb80008  ev00b2_script
+0x0cb80404  event_sound_destroy
+0x0cb80414  event_sound_step
+0x0cb804b6  event_sound_hold
+0x0cb80516  event_sound_move_volume
+0x0cb8053c  event_sound_move_pan
+0x0cb80562  event_sound_move_pitch
+0x0cb80588  event_sound_init
+0x0cb805b0  event_sound_stop_all
+0x0cb8060e  event_sound_start
+0x0cb8064e  event_sound_stop
+0x0cb806c8  event_sound_fade_volume
+0x0cb806f4  event_sound_fade_pan
+0x0cb80720  event_sound_fade_pitch
+0x0cb8074c  event_sound_play
+0x0cb80800  ev00b2_textures
+0x0cb82ff0  dat_0cb82ff0
+0x0cb834c0  ev00b2_e102_motion_0
+0x0cb834cc  ev00b2_e102_action_0
+0x0cb834d8  event_sound_count
+0x0cb834dc  event_sounds
+0x0cb834e0  event_sound_next

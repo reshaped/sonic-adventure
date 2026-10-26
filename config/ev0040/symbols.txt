@@ -1,0 +1,14 @@
+# EV0040.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0040_head
+0x0cb80008  ev0040_script
+0x0cb808d0  ev0040_textures
+0x0cb81084  ev0040_tails_action_0
+0x0cb857b8  ev0040_tails_action_1
+0x0cb881ac  ev0040_tails_action_2
+0x0cb8aa40  ev0040_tails_action_3
+0x0cb8c4d4  ev0040_tails_action_4
+0x0cb8cd08  ev0040_tails_action_5
+0x0cb8eb8c  ev0040_tails_action_6
+0x0cb8f3c0  ev0040_tails_action_7

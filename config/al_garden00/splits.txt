@@ -1,0 +1,47 @@
+# AL_GARDEN00.PRS, the Station Square garden
+#
+# section  start       end
+P          0x0cb80000  0x0cb80e20
+C          0x0cb80e20  0x0cb81184
+D          0x0cb81188  0x0cb93570
+#
+# source                          section  start       end
+modules/al_garden00/garden.c      P        0x0cb80000  0x0cb80240
+modules/al_garden00/garden.c      C        0x0cb81168  0x0cb81174
+modules/al_garden00/elevator.c    P        0x0cb80240  0x0cb80740
+modules/al_garden00/elevator.c    D        0x0cb931b8  0x0cb93220
+modules/al_garden00/fountain.c    P        0x0cb80740  0x0cb80960
+modules/al_garden00/fountain.c    C        0x0cb81178  0x0cb81181
+modules/al_garden00/fountain.c    D        0x0cb93328  0x0cb93329
+# garden_flags_clear starts on 32 at 0x0cb80d60 with no fill; split there, the code builds the same
+modules/al_garden00/door.c        P        0x0cb80960  0x0cb80e20
+modules/al_garden00/door.c        D        0x0cb93330  0x0cb93468
+# the last of the objects the land's entries name, at 0x0cb903e4; nothing else reads it. it starts on 8 straight after its model with no fill, where one file or two build the same, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0cb8fc0c, which nothing in the garden, AL_MAIN or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as the land's entries start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land.c's, were the word an unread datum of its, or to one of data alone
+modules/al_garden00/dat_0cb8fbd8.c  D        0x0cb8fbd8  0x0cb8fc0c
+# only 1ST_READ.BIN's world_lands reads it. its name starts on 8 at 0x0cb80fc0, past where the land textures' next string would start on 4, and the objects' texture names start on 8 at 0x0cb80fd0, past where its next would: consistent with an object of its own, as land.c's name is its one string. in D its entries start on 8 at 0x0cb8fc10, past the zero word after the last object they name, which dat_0cb8fbd8.c's row describes, and the land meets them on 8 with no gap: one file or two build the same. the bytes don't say whether its entries' objects and texlist, in D's generated range, share its object
+modules/al_garden00/land.c        C        0x0cb80fc0  0x0cb80fc9
+modules/al_garden00/land.c        D        0x0cb8fc10  0x0cb90414
+# 1ST_READ.BIN's alife_ss_pvms and the objects' code read the texlist. the names start on 8 at 0x0cb80fd0 and the table on 8 at 0x0cb90418, each past where land.c's next item would start. the material at 0x0cb904e0, which the elevator's and the other objects' models in the generated range after it start with, meets the texlist on 8 with no gap, so the bytes don't say whether those models share its object. the texlist starts on 8 at 0x0cb904d8, straight after its table, with no fill: one file or two build the same there, and its pointer at the table is consistent with one object, not proof
+modules/al_garden00/textures.c    C        0x0cb80fd0  0x0cb81092
+modules/al_garden00/textures.c    D        0x0cb90418  0x0cb904e0
+# fountain_object, which fountain.c's code reads. it starts on 8 straight after its model with no fill, where one file or two build the same, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0cb92fe4, which nothing in the garden, AL_MAIN or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as the kinds start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to the kinds', were the word an unread datum of theirs, or to one of data alone
+modules/al_garden00/fountain_object.c D        0x0cb92fb0  0x0cb92fe4
+# the kinds the garden's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, two sharing one; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds start on 8 past the zero word after fountain_object, which fountain_object.c's row describes. the names start on 8, 4 bytes past where textures.c's next string would start on 4. as one file, they start there, at 0x0cb81094, so C parts them from textures.c's object, and nothing points at the word. the fill rule verifies the 6 bytes. the names end 3 bytes short of garden.c's constants on 8, where their next string would start on 4. those constants open with a vector, so no string before them is garden.c's, and the fill rule verifies the 3 bytes. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to one of their own, or to fountain_object.c's, were the word between its
+modules/al_garden00/kinds.c       D        0x0cb92fe8  0x0cb931a0
+modules/al_garden00/kinds.c       C        0x0cb81098  0x0cb81165
+# the list 1ST_READ.BIN's object_lists names for the garden, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, where one file or two build the same. the bytes leave the list to the kinds' object, to one of its own, or to that of the 12 bytes after it
+modules/al_garden00/object_list.c D        0x0cb931a0  0x0cb931a8
+# 12 bytes on 8 where the list ends, a nonzero float between two zero words, and a zero word after them, before elevator.c's data on 8, which nothing in the garden, AL_MAIN or 1ST_READ.BIN reads. the 12 bytes are the list's object's data, garden.c's, which links between and places no data, though its code doesn't read them, elevator.c's, were its object to start there, or an object's of data alone, which the bytes leave open. garden.c's constants follow the kinds' names, as its data would follow the list. no reader gives them a type. they are placed as one of data alone, of unknown type, and the word after them is the linker's fill, as the fill rule takes it, or a last word of their object
+modules/al_garden00/dat_0cb931a8.c D        0x0cb931a8  0x0cb931b4
+# no word in AL_GARDEN00, AL_MAIN or 1ST_READ.BIN names them. they meet elevator_shapes on 8 with no gap, and as one file with elevator.c, R32 puts them there too, an unread static after its shapes: they could be its, or an object's of their own, and neither the fill nor the build decides it. fountain.c's D starts on 8 at 0x0cb93328, past the 4 zero bytes after them
+modules/al_garden00/shapes.c      D        0x0cb93220  0x0cb93324
+# only 1ST_READ.BIN's death_zones reads it. the meshes start off 8 straight after the materials, the list straight after the zone's object and the pointer straight after the list, so each joins the item before. the meshsets at 0x0cb93488, 2 bytes past the meshes, where the next item on 4 and the next object on 8 would both start, the points at 0x0cb934a0, the normals at 0x0cb934d0, the model at 0x0cb93500 and the object at 0x0cb93528 each start on 8 with no fill, so one file or two build the same at each. each one's pointers at the items before it are consistent with one object, not proof. the materials meet door.c's D on 8 with no gap, so the bytes don't say whether the zone, or its items up to any of those seams, are door.c's object or its own. it ends D
+modules/al_garden00/death_zones.c D        0x0cb93468  0x0cb93570
+#
+# generated data ranges
+# the names of the land's textures, which the 33 NJS_TEXNAME at 0x0cb817e8 name. those and the texlist after them end off 8, straight into the land's first model, so no source holds them that doesn't hold the land's models. the 5 zero bytes from their last name's null to land.c's name on 8, 0x0cb80fbb-0x0cb80fc0, nothing points into. they are the linker's fill, and no item of the names' object, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares end, and the splicer writes them as the linker's fill
+gen/al_garden00/d_0cb80e20.c      C        0x0cb80e20  0x0cb80fbb  end
+# the garden's stage script, the land's textures and models, to the model of the object dat_0cb8fbd8.c holds, which meets it on 8 with no fill
+gen/al_garden00/d_0cb81188.c      D        0x0cb81188  0x0cb8fbd8
+# the objects' models and actions, to fountain_object's model, which fountain_object.c's object meets on 8 with no fill
+gen/al_garden00/d_0cb904e0.c      D        0x0cb904e0  0x0cb92fb0

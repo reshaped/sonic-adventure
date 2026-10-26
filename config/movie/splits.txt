@@ -1,0 +1,167 @@
+# MOVIE.BIN, the movie player
+#
+# section  start       end
+P          0x8ceb0000  0x8ceb0ba0
+DSGLH      0x8ceb0ba0  0x8ceb0be0
+PSGSFD00   0x8ceb0be0  0x8ceb25d4
+PSGSFD01   0x8ceb25d4  0x8ceb2be0
+PSGSFD02   0x8ceb2be0  0x8ceb8be0  # mpvadec.c's 0x6000 bytes, the size mpvasec.src checks: three groups of its macroblock code, each after space it reserves, which the build fills with 0
+C          0x8ceb8be0  0x8ceb8f08
+D          0x8ceb8f08  0x8cecf048
+B          0x8cecf048  0x8cecf0b8
+PSG        0x8cecf0b8  0x8cedc9bc
+CSG        0x8cedc9bc  0x8cedd3d4
+DSG        0x8cedd3d4  0x8cedd678
+BSG        0x8cedd678  0x8cefcb14
+#
+# source                                   section  start       end
+modules/movie/entry.src                    P        0x8ceb0000  0x8ceb0004
+modules/movie/movie.c                      P        0x8ceb0020  0x8ceb0740
+modules/movie/cast.c                       P        0x8ceb0740  0x8ceb0ba0
+modules/movie/sdk/gsc_gl.c                 DSGLH    0x8ceb0ba0  0x8ceb0bc0
+modules/movie/sdk/sjrbf_gl.c               DSGLH    0x8ceb0bc0  0x8ceb0be0
+# ends where mpv_cdec.c begins, with no fill. SDK 1.20J sofdec.lib's module dct_fz has these 244 bytes of PSGSFD00, both drivers and their pool
+modules/movie/sdk/dct_fz.c                 PSGSFD00 0x8ceb0be0  0x8ceb0cd4
+modules/movie/sdk/mpv_cdec.c               PSGSFD00 0x8ceb0cd4  0x8ceb0e50
+modules/movie/sdk/mpv_cmc.c                PSGSFD00 0x8ceb0e50  0x8ceb1538
+# follows mpv_cmc.c with no fill. SDK 1.20J sofdec.lib's module dctafz is these 814 bytes, both kernels
+modules/movie/sdk/dctafz.src               PSGSFD00 0x8ceb1538  0x8ceb1866
+modules/movie/sdk/mpvabdec.src             PSGSFD00 0x8ceb1868  0x8ceb1c8e
+modules/movie/sdk/mpvacmc.src              PSGSFD00 0x8ceb1c90  0x8ceb1d48
+# follows mpvacmc.src with no fill; one file or two build the same. SDK 1.20J sofdec.lib's module mpvacmc2 is these 234 bytes
+modules/movie/sdk/mpvacmc2.src             PSGSFD00 0x8ceb1d48  0x8ceb1e32
+modules/movie/sdk/mpvacmc3.src             PSGSFD00 0x8ceb1e34  0x8ceb209c
+# follows mpvacmc3.src with no fill; one file or two build the same. SDK 1.20J sofdec.lib's module mpvacmc4 is these 466 bytes
+modules/movie/sdk/mpvacmc4.src             PSGSFD00 0x8ceb209c  0x8ceb226e
+modules/movie/sdk/mpvacmc5.src             PSGSFD00 0x8ceb2270  0x8ceb22d2
+# SDK 1.20J sofdec.lib's module mpvamc is these 766 bytes, all seven kernels
+modules/movie/sdk/mpvamc.src               PSGSFD00 0x8ceb22d4  0x8ceb25d2
+modules/movie/sdk/mpvasec.src              PSGSFD01 0x8ceb25d4  0x8ceb2be0
+modules/movie/sdk/mpvadec.c                PSGSFD02 0x8ceb2be0  0x8ceb8be0
+modules/movie/movie.c                      C        0x8ceb8be0  0x8ceb8c60
+# its constants run on with the names of Big's textures, the first at 0x8ceb8c94, off 8, straight after them, so the textures' table is this object's, and with it everything in D from the table at 0x8cec9bd8 to the data the code names: Big's texlist, Amy's and Tails' motions and actions, and the three paths. the table starts on 8 straight after Big's action, and the bytes don't say whether the action, or Big's motion and model before it, share this object
+modules/movie/cast.c                       C        0x8ceb8c60  0x8ceb8f01
+modules/movie/movie.c                      D        0x8ceb8f08  0x8ceb8fb8
+modules/movie/cast.c                       D        0x8cec9bd8  0x8cecf048
+modules/movie/movie.c                      B        0x8cecf048  0x8cecf09c
+modules/movie/cast.c                       B        0x8cecf0a0  0x8cecf0b0
+# the 8 zero bytes from 0x8cecf0b0 to PSG's start, which nothing points into, here or in 1ST_READ.BIN. mwply.c, which opens PSG, starts it on 4, so B ends at least 5 bytes past cast.c's, and they aren't all fill. they are the storage of an object nothing reads: cast.c's, or an object's of data alone linked after it, as the SDK's objects hold BSG and not B. they are placed as one object of data alone of the run's length, storage with no initializer and no type, as STG01's are; one of 5 to 7 bytes, with the rest the fill to PSG's start, would build the same
+modules/movie/dat_8cecf0b0.c               B        0x8cecf0b0  0x8cecf0b8
+modules/movie/sdk/mwply.c                  PSG      0x8cecf0b8  0x8cecf0ec
+modules/movie/sdk/gsc_gl.c                 PSG      0x8cecf0ec  0x8cecfc70
+modules/movie/sdk/sjrbf_gl.c               PSG      0x8cecfc70  0x8ced0428
+# follows sjrbf_gl.c with no fill; sjrbf_gl.c builds without -extra=a=400 and this with it: as one file without it the code runs 4 bytes longer, and with it 28
+modules/movie/sdk/mwsfd.c                  PSG      0x8ced0428  0x8ced1320
+# follows mwsfd.c with no fill; one file or two build the same. SDK 1.20J ninja.lib's module njRotateViewYAbsolute_ is these 56 bytes of code, its pool word linked
+modules/movie/sdk/njRotateViewYAbsolute.c  PSG      0x8ced1320  0x8ced1358
+modules/movie/sdk/mwmng.c                  PSG      0x8ced1358  0x8ced1700
+modules/movie/sdk/gsc_gd.c                 PSG      0x8ced1700  0x8ced19bc
+modules/movie/sdk/gsc_hn.c                 PSG      0x8ced19bc  0x8ced1c54
+modules/movie/sdk/gsc_if.c                 PSG      0x8ced1c54  0x8ced1d70
+modules/movie/sdk/gsc_sj.c                 PSG      0x8ced1d70  0x8ced1f6c
+modules/movie/sdk/mwrnv.c                  PSG      0x8ced1f6c  0x8ced2284
+modules/movie/sdk/rnv_disp.c               PSG      0x8ced2284  0x8ced2db8
+modules/movie/sdk/rnv_tex.c                PSG      0x8ced2db8  0x8ced2fcc
+modules/movie/sdk/sjrbf_if.c               PSG      0x8ced2fcc  0x8ced3058
+modules/movie/sdk/sfd_mpv.c                PSG      0x8ced3058  0x8ced4226
+modules/movie/sdk/sfd_ply.c                PSG      0x8ced4228  0x8ced4b4c
+modules/movie/sdk/sfd_set.c                PSG      0x8ced4b4c  0x8ced4ce8
+modules/movie/sdk/mwsfdsub.c               PSG      0x8ced4ce8  0x8ced5178
+modules/movie/sdk/cmptime.c                PSG      0x8ced5178  0x8ced51b4
+modules/movie/sdk/memcpyd.c                PSG      0x8ced51b4  0x8ced5220
+modules/movie/sdk/memsetd.c                PSG      0x8ced5220  0x8ced5266
+modules/movie/sdk/mpv_deli.c               PSG      0x8ced5268  0x8ced54c2
+modules/movie/sdk/mpv_err.c                PSG      0x8ced54c4  0x8ced55b0
+modules/movie/sdk/mpv_frm.c                PSG      0x8ced55b0  0x8ced5728
+modules/movie/sdk/mpv_lib.c                PSG      0x8ced5728  0x8ced5d08
+# follows mpv_lib.c with no fill. SDK 1.20J sofdec.lib's module mpvadec has these 4,180 bytes of PSG, 16 functions and their pools
+modules/movie/sdk/mpvadec.c                PSG      0x8ced5d08  0x8ced6d5c
+modules/movie/sdk/sfd_adxt.c               PSG      0x8ced6d5c  0x8ced7370
+modules/movie/sdk/sfd_aoap.c               PSG      0x8ced7370  0x8ced74f8
+modules/movie/sdk/sfd_buf.c                PSG      0x8ced74f8  0x8ced7de6
+modules/movie/sdk/sfd_lib.c                PSG      0x8ced7de8  0x8ced80a8
+modules/movie/sdk/sfd_mem.c                PSG      0x8ced80a8  0x8ced8144
+modules/movie/sdk/sfd_mps.c                PSG      0x8ced8144  0x8ced8930
+modules/movie/sdk/sfd_tim.c                PSG      0x8ced8930  0x8ced8e90
+modules/movie/sdk/sfd_trn.c                PSG      0x8ced8e90  0x8ced932a
+modules/movie/sdk/sfd_vom.c                PSG      0x8ced932c  0x8ced94e4
+# follows sfd_vom.c with no fill. SDK 1.30J sofdec.lib's module plyash4 is these 228 bytes, both functions and their pool
+modules/movie/sdk/plyash4.src              PSG      0x8ced94e4  0x8ced95c8
+modules/movie/sdk/cmpint64.c               PSG      0x8ced95c8  0x8ced96dc
+# between cmpint64.c and memcpyb.c with no fill. SDK 1.20J sofdec.lib's module dct_fz has these 200 bytes of PSG, both setup functions and their pool
+modules/movie/sdk/dct_fz.c                 PSG      0x8ced96dc  0x8ced97a4
+modules/movie/sdk/memcpyb.c                PSG      0x8ced97a4  0x8ced987e
+modules/movie/sdk/memcpyw.c                PSG      0x8ced9880  0x8ced9900
+modules/movie/sdk/mps_dec.c                PSG      0x8ced9900  0x8cedaa38
+modules/movie/sdk/mps_get.c                PSG      0x8cedaa38  0x8cedaafc
+modules/movie/sdk/mps_lib.c                PSG      0x8cedaafc  0x8cedae20
+modules/movie/sdk/mpv_bdec.c               PSG      0x8cedae20  0x8cedaea4
+modules/movie/sdk/mpv_cmc.c                PSG      0x8cedaea4  0x8cedaf9c
+modules/movie/sdk/mpv_mdec.c               PSG      0x8cedaf9c  0x8cedafb0
+modules/movie/sdk/mpv_mmc.c                PSG      0x8cedafb0  0x8cedafc8
+modules/movie/sdk/mpv_vlc.c                PSG      0x8cedafc8  0x8cedc800
+# follows mpv_vlc.c with no fill. SDK 1.20J sofdec.lib's module mpvasec is these 184 bytes, both checks, their helper and their table, and the 1,548 of PSGSFD01
+modules/movie/sdk/mpvasec.src              PSG      0x8cedc800  0x8cedc8b8
+# SDK 1.20J sofdec.lib's module sh_dmul is these 22 bytes, both products
+modules/movie/sdk/sh_dmul.src              PSG      0x8cedc8b8  0x8cedc8ce
+# SDK 1.20J sofdec.lib's module sh_push is these 64 bytes, both functions
+modules/movie/sdk/sh_push.src              PSG      0x8cedc8d0  0x8cedc910
+modules/movie/sdk/mps_del.c                PSG      0x8cedc910  0x8cedc9a4
+modules/movie/sdk/mpv_mc.c                 PSG      0x8cedc9a4  0x8cedc9bc
+modules/movie/sdk/mwply.c                  CSG      0x8cedc9bc  0x8cedc9e8
+modules/movie/sdk/gsc_gl.c                 CSG      0x8cedc9e8  0x8cedca14
+modules/movie/sdk/sjrbf_gl.c               CSG      0x8cedca14  0x8cedca54
+modules/movie/sdk/mwsfd.c                  CSG      0x8cedca54  0x8cedcbc6
+modules/movie/sdk/mwmng.c                  CSG      0x8cedcbc8  0x8cedcc0c
+modules/movie/sdk/mwrnv.c                  CSG      0x8cedcc0c  0x8cedcc38
+modules/movie/sdk/rnv_disp.c               CSG      0x8cedcc38  0x8cedcc58
+modules/movie/sdk/sfd_mpv.c                CSG      0x8cedcc58  0x8cedcc8c
+modules/movie/sdk/sfd_ply.c                CSG      0x8cedcc8c  0x8cedcd40
+modules/movie/sdk/mwsfdsub.c               CSG      0x8cedcd40  0x8cedce1d
+modules/movie/sdk/mpv_lib.c                CSG      0x8cedce20  0x8cedce90
+# follows mpv_lib.c's constants with no gap. SDK 1.20J sofdec.lib's module mpvadec has these 276 bytes of CSG, its eight handler tables
+modules/movie/sdk/mpvadec.c                CSG      0x8cedce90  0x8cedcfa4
+modules/movie/sdk/sfd_adxt.c               CSG      0x8cedcfa4  0x8cedcfd8
+modules/movie/sdk/sfd_aoap.c               CSG      0x8cedcfd8  0x8cedd00c
+modules/movie/sdk/sfd_lib.c                CSG      0x8cedd00c  0x8cedd044
+modules/movie/sdk/sfd_mem.c                CSG      0x8cedd044  0x8cedd078
+modules/movie/sdk/sfd_mps.c                CSG      0x8cedd078  0x8cedd0bc
+modules/movie/sdk/sfd_tim.c                CSG      0x8cedd0bc  0x8cedd128
+modules/movie/sdk/sfd_vom.c                CSG      0x8cedd128  0x8cedd15c
+modules/movie/sdk/dct_fz.c                 CSG      0x8cedd15c  0x8cedd1dc
+modules/movie/sdk/mps_lib.c                CSG      0x8cedd1dc  0x8cedd214
+modules/movie/sdk/mpv_bdec.c               CSG      0x8cedd214  0x8cedd2f4
+modules/movie/sdk/mpv_cmc.c                CSG      0x8cedd2f4  0x8cedd314
+modules/movie/sdk/mpv_vlc.c                CSG      0x8cedd314  0x8cedd3c4
+modules/movie/sdk/mpv_mc.c                 CSG      0x8cedd3c4  0x8cedd3d4
+modules/movie/sdk/mwply.c                  DSG      0x8cedd3d4  0x8cedd3d8
+modules/movie/sdk/gsc_gl.c                 DSG      0x8cedd3d8  0x8cedd400
+modules/movie/sdk/sjrbf_gl.c               DSG      0x8cedd400  0x8cedd458
+modules/movie/sdk/mwsfd.c                  DSG      0x8cedd458  0x8cedd534
+modules/movie/sdk/mwmng.c                  DSG      0x8cedd534  0x8cedd540
+modules/movie/sdk/gsc_if.c                 DSG      0x8cedd540  0x8cedd558
+modules/movie/sdk/rnv_disp.c               DSG      0x8cedd558  0x8cedd57c
+modules/movie/sdk/sjrbf_if.c               DSG      0x8cedd57c  0x8cedd594
+modules/movie/sdk/mwsfdsub.c               DSG      0x8cedd594  0x8cedd678
+modules/movie/sdk/gsc_gl.c                 BSG      0x8cedd678  0x8cedd6b8
+modules/movie/sdk/sjrbf_gl.c               BSG      0x8cedd6b8  0x8cedde38
+modules/movie/sdk/mwsfd.c                  BSG      0x8cedde38  0x8cee2de8
+modules/movie/sdk/mwmng.c                  BSG      0x8cee2de8  0x8cee3070
+modules/movie/sdk/mwrnv.c                  BSG      0x8cee3070  0x8cee31e4
+modules/movie/sdk/rnv_disp.c               BSG      0x8cee31e4  0x8cee32a4
+modules/movie/sdk/rnv_tex.c                BSG      0x8cee32a4  0x8cee33a0
+modules/movie/sdk/sfd_mpv.c                BSG      0x8cee33a0  0x8cef73c4
+modules/movie/sdk/mwsfdsub.c               BSG      0x8cef73c4  0x8cefb2fc
+modules/movie/sdk/mpv_err.c                BSG      0x8cefb2fc  0x8cefb310
+modules/movie/sdk/mpv_lib.c                BSG      0x8cefb310  0x8cefb374
+modules/movie/sdk/sfd_adxt.c               BSG      0x8cefb374  0x8cefb390
+modules/movie/sdk/sfd_lib.c                BSG      0x8cefb390  0x8cefb450
+modules/movie/sdk/sfd_mps.c                BSG      0x8cefb450  0x8cefb790
+modules/movie/sdk/dct_fz.c                 BSG      0x8cefb790  0x8cefb838
+modules/movie/sdk/mps_lib.c                BSG      0x8cefb838  0x8cefb840
+modules/movie/sdk/mpv_bdec.c               BSG      0x8cefb840  0x8cefb8c0
+modules/movie/sdk/mpv_cmc.c                BSG      0x8cefb8c0  0x8cefbcc4
+modules/movie/sdk/mpv_vlc.c                BSG      0x8cefbcc4  0x8cefcb14
+#
+# generated data ranges
+gen/movie/d_8ceb8fb8.c                     D        0x8ceb8fb8  0x8cec9bd8

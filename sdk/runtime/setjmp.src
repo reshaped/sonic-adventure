@@ -1,0 +1,61 @@
+        .EXPORT     _setjmp
+
+        .SECTION    P,CODE,ALIGN=4
+
+; int setjmp(jmp_buf env)
+; save at env the registers jmp_buf lists, and return 0. FR3 and FR5 each go
+; to the other's word
+; @asm open: no inspect rule reads R0 to R3 at its entry
+_setjmp:
+        MOV.L       R15,@R4
+        MOV.L       R14,@(4,R4)
+        STS         PR,R14
+        MOV.L       R14,@(8,R4)
+        MOV.L       @(4,R4),R14
+        MOV.L       R13,@(12,R4)
+        MOV.L       R12,@(16,R4)
+        MOV.L       R11,@(20,R4)
+        MOV.L       R10,@(24,R4)
+        MOV.L       R9,@(28,R4)
+        MOV.L       R8,@(32,R4)
+        MOV.L       R7,@(36,R4)
+        MOV.L       R6,@(40,R4)
+        MOV.L       R5,@(44,R4)
+        MOV.L       R4,@(48,R4)
+        ADD         #48,R4
+        MOV.L       R3,@(4,R4)
+        MOV.L       R2,@(8,R4)
+        MOV.L       R1,@(12,R4)
+        MOV.L       R0,@(16,R4)
+        STS         MACH,R0
+        MOV.L       R0,@(20,R4)
+        STS         MACL,R0
+        MOV.L       R0,@(24,R4)
+        STC         GBR,R0
+        MOV.L       R0,@(28,R4)
+        ADD         #92,R4
+        STS         FPSCR,R0
+        MOV.L       R0,@(8,R4)
+        STS         FPUL,R0
+        MOV.L       R0,@(4,R4)
+        FMOV.S      FR15,@R4
+        FMOV.S      FR14,@-R4
+        FMOV.S      FR13,@-R4
+        FMOV.S      FR12,@-R4
+        FMOV.S      FR11,@-R4
+        FMOV.S      FR10,@-R4
+        FMOV.S      FR9,@-R4
+        FMOV.S      FR8,@-R4
+        FMOV.S      FR7,@-R4
+        FMOV.S      FR6,@-R4
+        FMOV.S      FR3,@-R4
+        FMOV.S      FR4,@-R4
+        FMOV.S      FR5,@-R4
+        FMOV.S      FR2,@-R4
+        FMOV.S      FR1,@-R4
+        FMOV.S      FR0,@-R4
+        ADD         #-32,R4
+        MOV.L       @R4,R4
+        RTS
+        MOV         #0,R0
+        .END

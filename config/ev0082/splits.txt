@@ -1,0 +1,19 @@
+# EV0082.PRS, Knuckles searches Station Square
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb806b0
+C          0x0cb806b0  0x0cb80778
+D          0x0cb80778  0x0cb872d8
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0082/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0082/script.c               P        0x0cb80008  0x0cb806b0
+events/ev0082/script.c               C        0x0cb806b0  0x0cb80778
+events/ev0082/script.c               D        0x0cb80778  0x0cb80780
+#
+# generated data ranges
+gen/ev0082/d_0cb80780.c               D        0x0cb80780  0x0cb872d8

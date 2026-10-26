@@ -1,0 +1,35 @@
+# EV0024.PRS, Egg Viper encounter
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81f98
+C          0x0cb81f98  0x0cb82110
+D          0x0cb82110  0x0cb85cb4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0024/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0024/script.c               P        0x0cb80008  0x0cb81374
+events/ev0024/script.c               C        0x0cb81f98  0x0cb82085
+events/ev0024/script.c               D        0x0cb82110  0x0cb82130
+# follows script.c with no fill; as one file, 350 of 6,120 code bytes differ
+events/ev0024/wreckage.c             P        0x0cb81374  0x0cb817f0
+events/ev0024/wreckage.c             D        0x0cb840e8  0x0cb84144
+# follows wreckage.c with no fill; as one file, the code runs 8 bytes shorter. 625 of its 1,744 bytes differ
+events/ev0024/wreckage_drop.c        P        0x0cb817f0  0x0cb81a4c
+events/shared/fade.c                  P        0x0cb81a4c  0x0cb81bd8
+events/shared/fade.c                  D        0x0cb85c88  0x0cb85ca8
+events/shared/sound.c                 P        0x0cb81bd8  0x0cb81f98
+events/shared/sound.c                 D        0x0cb85ca8  0x0cb85cb4
+# the names its table points at, its object's constants: they start on 8 at 0x0cb82088, where script.c's next string would, so the C bytes leave that seam open
+events/ev0024/wreckage_textures.c     C        0x0cb82088  0x0cb8210c
+# the names of the textures ev0024_wreckage_texlist lists. it starts on 8, past the 4 bytes of 0xff after wreckage.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of wreckage.c's object. of the code that links after wreckage.c's, fade.c and sound.c place their data elsewhere in this one. wreckage_drop.c, which links only in events that have it, could hold it, though its code doesn't read it, or it is an object of data alone, or wreckage.c's, were that word its. ev0024_wreckage_texlist meets it on 8 with no fill at 0x0cb841c0: one file or two build the same, and its pointer at the table is consistent with one object, not proof. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/ev0024/wreckage_textures.c     D        0x0cb84148  0x0cb841c0
+# ev0024_sonic_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to wreckage.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb83c40 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0024/sonic_action.c          D        0x0cb840d0  0x0cb840e4
+#
+# generated data ranges
+gen/ev0024/d_0cb82130.c               D        0x0cb82130  0x0cb840d0
+gen/ev0024/d_0cb841c0.c               D        0x0cb841c0  0x0cb85c88

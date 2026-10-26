@@ -1,0 +1,38 @@
+# EV00D4.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00d4_head
+0x0cb80008  ev00d4_script
+0x0cb80848  find_slot
+0x0cb80868  event_move
+0x0cb8095a  event_move_turn_degrees
+0x0cb80b18  event_move_turn
+0x0cb80c66  event_follow
+0x0cb80d22  event_follow_turn
+0x0cb80e38  event_follow_angles
+0x0cb80f06  event_follow_facing
+0x0cb8102e  event_follow_weld0
+0x0cb810f4  event_follow_weld1
+0x0cb8119e  event_move_stop
+0x0cb81282  event_move_stop_all
+0x0cb8133e  event_mover_init
+0x0cb8136c  event_mover_step
+0x0cb81ac0  event_mover_draw
+0x0cb81ac4  event_mover_destroy
+0x0cb81b08  ev00d4_e102_walk_keys
+0x0cb81be4  ev00d4_e102_walk
+0x0cb81bec  ev00d4_e102_leave_keys
+0x0cb81d9c  ev00d4_e102_leave
+0x0cb81da4  ev00d4_big_run_keys
+0x0cb82018  ev00d4_big_run
+0x0cb820a0  ev00d4_frog
+0x0cb820a4  ev00d4_textures
+0x0cb820b8  dat_0cb820b8
+0x0cb83de4  ev00d4_big_action_0
+0x0cb85a48  ev00d4_big_action_1
+0x0cb87cdc  ev00d4_big_action_2
+0x0cb8b330  ev00d4_big_action_3
+0x0cb8c178  dat_0cb8c178
+0x0cb8c268  ev00d4_frog_motion
+0x0cb8c274  ev00d4_frog_action
+0x0cb8c280  event_movers

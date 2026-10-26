@@ -1,0 +1,38 @@
+# EV006E.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev006e_head
+0x0cb80008  ev006e_script
+0x0cb80488  event_sound_destroy
+0x0cb80498  event_sound_step
+0x0cb8053a  event_sound_hold
+0x0cb8059a  event_sound_move_volume
+0x0cb805c0  event_sound_move_pan
+0x0cb805e6  event_sound_move_pitch
+0x0cb8060c  event_sound_init
+0x0cb80634  event_sound_stop_all
+0x0cb80692  event_sound_start
+0x0cb806d2  event_sound_stop
+0x0cb8074c  event_sound_fade_volume
+0x0cb80778  event_sound_fade_pan
+0x0cb807a4  event_sound_fade_pitch
+0x0cb807d0  event_sound_play
+0x0cb80948  ev006e_bird
+0x0cb8094c  ev006e_textures
+0x0cb80960  dat_0cb80960
+0x0cb823cc  ev006e_amy_action_0
+0x0cb85650  ev006e_amy_action_1
+0x0cb8b268  ev006e_amy_action_2
+0x0cb8d8c0  dat_0cb8d8c0
+0x0cb8dda0  ev006e_amy_motion_3
+0x0cb8ddac  ev006e_amy_action_3
+0x0cb8ddb4  ev006e_bird_textures
+0x0cb8de44  ev006e_bird_texlist
+0x0cb8de4c  dat_0cb8de4c
+0x0cb91ecc  dat_0cb91ecc
+0x0cb940c0  dat_0cb940c0
+0x0cb94618  ev006e_bird_motion
+0x0cb94624  ev006e_bird_action
+0x0cb94630  event_sound_count
+0x0cb94634  event_sounds
+0x0cb94638  event_sound_next

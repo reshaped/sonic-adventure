@@ -1,0 +1,24 @@
+# EV0166.PRS, Light Shoes pickup
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80a40
+C          0x0cb80a40  0x0cb80b58
+D          0x0cb80b58  0x0cb8babc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0166/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0166/script.c               P        0x0cb80008  0x0cb80548
+events/ev0166/script.c               C        0x0cb80a40  0x0cb80b57
+events/ev0166/script.c               D        0x0cb80b58  0x0cb83ba0
+events/shared/light.c                 P        0x0cb80548  0x0cb8067c
+events/shared/sound.c                 P        0x0cb8067c  0x0cb80a3c
+events/shared/sound.c                 D        0x0cb8bab0  0x0cb8babc
+# ev0166_sonic_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to sound.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb8b608 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0166/sonic_action_2.c        D        0x0cb8ba98  0x0cb8baac
+#
+# generated data ranges
+gen/ev0166/d_0cb83ba0.c               D        0x0cb83ba0  0x0cb8ba98

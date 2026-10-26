@@ -1,0 +1,18 @@
+; the Maple bus driver's semaphore, and the pointer the driver takes it
+; through
+
+        .EXPORT     __mp_Semaphore
+        .EXPORT     __mp_SemaphoreAddress
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; char *_mp_SemaphoreAddress
+; _mp_Semaphore's address
+__mp_SemaphoreAddress:
+        .DATA.L     __mp_Semaphore
+
+; char _mp_Semaphore
+; the semaphore byte, 0 while it is free
+__mp_Semaphore:
+        .DATA.B     0
+        .END

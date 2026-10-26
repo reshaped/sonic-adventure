@@ -1,0 +1,35 @@
+# AL_GARDEN01.PRS, the Egg Carrier garden
+#
+# section  start       end
+P          0x0cb80000  0x0cb802e0
+C          0x0cb802e0  0x0cb808d8
+D          0x0cb808d8  0x0cb90330
+#
+# source                          section  start       end
+modules/al_garden01/garden.c      P        0x0cb80000  0x0cb802e0
+modules/al_garden01/garden.c      C        0x0cb808c8  0x0cb808d5
+# only 1ST_READ.BIN's world_lands reads it. its name starts on 8 at 0x0cb807a0, past where the land textures' next string would start on 4, and the sky's texture names start on 8 at 0x0cb807b0, past where its next would: consistent with an object of its own, as land.c's name is its one string. in D its entries meet the moving part's action on 8 with no gap, and the motion and the land each meet the item before on 8 with no gap: one file or two build the same at each. the bytes don't say whether its entries' objects, the action and the texlist, in D's generated range, share its object
+modules/al_garden01/land.c        C        0x0cb807a0  0x0cb807a9
+modules/al_garden01/land.c        D        0x0cb8d698  0x0cb8d9ec
+# garden.c's code loads and draws with the texlist. the names start on 8 at 0x0cb807b0 and the table on 8 at 0x0cb8d9f0, each past where land.c's next item would. the texlist starts on 8 at 0x0cb8da50, straight after its table, with no fill: one file or two build the same there, and its pointer at the table is consistent with one object, not proof. the sky's models, from the material at 0x0cb8da58, meet the texlist on 8 with no gap, and the kinds' names meet its last name on 8 with no gap: the bytes don't say whether they share its object. it could be an object of data alone, or garden.c's, its reader, were the kinds' names and the 4 zero bytes at 0x0cb808c4, before garden.c's constants, garden.c's constants too
+modules/al_garden01/sky_textures.c C       0x0cb807b0  0x0cb80820
+modules/al_garden01/sky_textures.c D       0x0cb8d9f0  0x0cb8da58
+# the kinds the garden's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, two sharing one; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds meet the sky's object, generated, on 8 with no fill, and the names meet sky_textures.c's on 8 the same way. as one file with sky_textures.c, the names start where the image has them, so one file or two build the same there. the names end 5 bytes short of garden.c's constants on 8, which open with a string. as one file, in either order, garden.c's strings come ahead of the names, so they are no object of garden.c's, and the fill rule verifies the 5 bytes, which nothing points at. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to one of their own, to that of the sky's models, or to sky_textures.c's, were those models its, though its code doesn't read the kinds
+modules/al_garden01/kinds.c       D        0x0cb900a8  0x0cb90210
+modules/al_garden01/kinds.c       C        0x0cb80820  0x0cb808c3
+# the list 1ST_READ.BIN's object_lists names for the garden, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, where one file or two build the same. the bytes leave the list to the kinds' object, to one of its own, or to that of the 12 bytes after it
+modules/al_garden01/object_list.c D        0x0cb90210  0x0cb90218
+# 12 bytes on 8 where the list ends, two nonzero floats and a zero word, laid out as AL_GARDEN00's 12 after its list, and a zero word after them, before death_zones.c's data on 8, which nothing in the garden, AL_MAIN or 1ST_READ.BIN reads. the 12 bytes are the list's object's data, garden.c's, which links between and places no data, though its code doesn't read them, death_zones.c's, were its object to start there, or an object's of data alone, which the bytes leave open. garden.c's constants follow the kinds' names, as its data would follow the list. no reader gives them a type. they are placed as one of data alone, of unknown type, and the word after them is the linker's fill, as the fill rule takes it, or a last word of their object
+modules/al_garden01/dat_0cb90218.c D        0x0cb90218  0x0cb90224
+# only 1ST_READ.BIN's death_zones reads it. its materials start on 8 at 0x0cb90228, past 4 zero bytes after the unread bytes that follow the object list, where that object's next item would start. that is consistent with an object of its own, as in AL_GARDEN00, whose zone has the same layout. inside it, the meshes start off 8 straight after the materials, the list straight after the zone's object and the pointer straight after the list, so each joins the item before. the meshsets at 0x0cb90248, 2 bytes past the meshes, where the next item on 4 and the next object on 8 would both start, the points at 0x0cb90260, the normals at 0x0cb90290, the model at 0x0cb902c0 and the object at 0x0cb902e8 each start on 8 with no fill, so one file or two build the same at each. each one's pointers at the items before it are consistent with one object, not proof. it ends D
+modules/al_garden01/death_zones.c D       0x0cb90228  0x0cb90330
+#
+# generated data ranges
+# the names of the land's textures, which the 79 NJS_TEXNAME at 0x0cb80cb8 name. those and the texlist after them end off 8, straight into the land's first model, so no source holds them that doesn't hold the land's models. the 5 zero bytes from their last name's null to land.c's name on 8, 0x0cb8079b-0x0cb807a0, nothing points into. they are the linker's fill, and no item of the names' object, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares end, and the splicer writes them as the linker's fill
+gen/al_garden01/d_0cb802e0.c      C        0x0cb802e0  0x0cb8079b  end
+# the garden's stage script, to its last text's end. the zero word after that text, at 0x0cb80cb4, which nothing in the garden, AL_MAIN, AL_RACE or 1ST_READ.BIN points at, is the linker's fill or a last word of the script's object, before the land's texture table on 8, which the next row opens. every text the script's tables name ends at its null, padded to 4, so the row declares end, the next row start 8, and the splicer writes the word as the linker's fill: the likelier reading, not a proven one. the bytes leave the word to the script's object, or to the land textures' object after it, were the script its
+gen/al_garden01/d_0cb808d8.c      D        0x0cb808d8  0x0cb80cb4  end
+# the land's textures and models, and the moving part's motion and action, which meet land.c's entries on 8 with no gap. the texnames that open them name the strings that open C, in the row at 0x0cb802e0, and start on 8 past the script's last text: the row declares start 8, the textures opening an object of their own after the script's, as the script's note gives
+gen/al_garden01/d_0cb80cb8.c      D        0x0cb80cb8  0x0cb8d698  start 8
+# the sky's models, to its object, which the kinds meet on 8 with no fill
+gen/al_garden01/d_0cb8da58.c      D        0x0cb8da58  0x0cb900a8

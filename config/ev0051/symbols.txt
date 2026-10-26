@@ -1,0 +1,70 @@
+# EV0051.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# ADV00.PRS is in the stage slot as the event plays, and the names its
+# sources take from there are here too, as ADV00.PRS spells them where it
+# names them.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cabaec8  dat_0cabaec8
+0x0cabf974  dat_0cabf974
+0x0cac8a7c  dat_0cac8a7c
+0x0cacc504  dat_0cacc504
+0x0cad4494  dat_0cad4494
+0x0cadb7dc  dat_0cadb7dc
+0x0cae3e38  dat_0cae3e38
+0x0cae9ee0  dat_0cae9ee0
+0x0caee8e4  dat_0caee8e4
+0x0caf3924  dat_0caf3924
+0x0cb0c214  dat_0cb0c214
+0x0cb13c58  dat_0cb13c58
+0x0cb18618  dat_0cb18618
+0x0cb25a4c  dat_0cb25a4c
+0x0cb29110  dat_0cb29110
+0x0cb2c92c  ss_people_texlist
+0x0cb80000  ev0051_head
+0x0cb80008  ev0051_script
+0x0cb80a9c  event_fade_draw
+0x0cb80b46  event_fade_step
+0x0cb80b68  event_fade_destroy
+0x0cb80b6c  event_fade_init
+0x0cb80b7a  event_fade_create
+0x0cb80bd4  event_fade_set_speed
+0x0cb80bdc  event_fade_set_alpha
+0x0cb80c10  event_fade_set_color
+0x0cb80c20  event_fade_set_depth
+0x0cb80c28  event_sound_destroy
+0x0cb80c38  event_sound_step
+0x0cb80cda  event_sound_hold
+0x0cb80d3a  event_sound_move_volume
+0x0cb80d60  event_sound_move_pan
+0x0cb80d86  event_sound_move_pitch
+0x0cb80dac  event_sound_init
+0x0cb80dd4  event_sound_stop_all
+0x0cb80e32  event_sound_start
+0x0cb80e72  event_sound_stop
+0x0cb80eec  event_sound_fade_volume
+0x0cb80f18  event_sound_fade_pan
+0x0cb80f44  event_sound_fade_pitch
+0x0cb80f70  event_sound_play
+0x0cb80fe8  ev0051_run_keys
+0x0cb812ac  ev0051_run
+0x0cb81300  ev0051_person_0
+0x0cb81304  ev0051_person_1
+0x0cb81308  ev0051_person_2
+0x0cb8130c  ev0051_person_3
+0x0cb81310  ev0051_person_4
+0x0cb81314  ev0051_person_5
+0x0cb81318  ev0051_person_6
+0x0cb8131c  ev0051_person_7
+0x0cb81320  ev0051_person_8
+0x0cb81324  ev0051_person_9
+0x0cb81328  ev0051_fade
+0x0cb8132c  ev0051_textures
+0x0cb81338  dat_0cb81338
+0x0cb835b4  ev0051_tails_action_0
+0x0cb85438  ev0051_tails_action_1
+0x0cb85c6c  ev0051_tails_action_2
+0x0cb89ee0  ev0051_tails_action_3
+0x0cb89ee8  event_fade_corners
+0x0cb89f08  event_sound_count
+0x0cb89f0c  event_sounds
+0x0cb89f10  event_sound_next

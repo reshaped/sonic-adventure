@@ -1,0 +1,53 @@
+Checks:
+  - -*
+  - clang-diagnostic-*
+  - bugprone-*
+  - misc-*
+  - readability-*
+  # preserve the original parameter order
+  - -bugprone-easily-swappable-parameters
+  # preserve SHC's implicit narrowing conversions
+  - -bugprone-narrowing-conversions
+  # preserve the original random-number generator and seeding
+  - -bugprone-random-generator-seed
+  - -misc-predictable-rand
+  # preserve switches that have no default case
+  - -bugprone-switch-missing-default-case
+  # preserve assignments whose stored values are tested immediately
+  - -bugprone-assignment-in-if-condition
+  # preserve duplicate branches required for matching
+  - -bugprone-branch-clone
+  # preserve unused parameters in original interfaces
+  - -misc-unused-parameters
+  # preserve recursive tree and list traversal
+  - -misc-no-recursion
+  # preserve control-flow structure required for matching
+  - -readability-else-after-return
+  # do not split functions merely to reduce a complexity score
+  - -readability-function-cognitive-complexity
+  # literal constants can encode hardware, format or matching requirements
+  - -readability-magic-numbers
+WarningsAsErrors: '*'
+# the headers under src/ and modules/, as clang-tidy names them when make
+# runs it from the root. the movie SDK's are left out, as no other SDK's
+# headers are checked
+HeaderFilterRegex: '^(src|modules)/'
+ExcludeHeaderFilterRegex: '^modules/movie/sdk/'
+CheckOptions:
+  # include-cleaner can suggest C++'s <cstddef> for NULL in C code
+  misc-include-cleaner.IgnoreHeaders: '<cstddef>'
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.FunctionIgnoredRegexp: '^sb(Init|Exit)System$'
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.UnionCase: lower_case
+  readability-identifier-naming.EnumCase: lower_case
+  readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  readability-identifier-naming.TypedefCase: lower_case
+  readability-identifier-length.MinimumVariableNameLength: 2
+  readability-identifier-length.MinimumParameterNameLength: 2
+  readability-identifier-length.IgnoredVariableNames: '^[ijkxyz]$'
+  readability-identifier-length.IgnoredParameterNames: '^[ijkxyz]$'

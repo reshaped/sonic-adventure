@@ -1,0 +1,25 @@
+# EV00A0.PRS, Knuckles follows Eggman's light
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80b60
+C          0x0cb80b60  0x0cb80be0
+D          0x0cb80be0  0x0cb88804
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00a0/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00a0/script.c               P        0x0cb80008  0x0cb80658
+events/ev00a0/script.c               C        0x0cb80b60  0x0cb80bdf
+events/ev00a0/script.c               D        0x0cb80be0  0x0cb80bf0
+events/shared/sound.c                 P        0x0cb80658  0x0cb80a18
+events/shared/sound.c                 D        0x0cb887f0  0x0cb887fc
+events/shared/rays.c                  P        0x0cb80a18  0x0cb80b5c
+events/shared/rays.c                  D        0x0cb88800  0x0cb88804
+# ev00a0_eggman_action_0 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to sound.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb88658 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00a0/eggman_action_0.c       D        0x0cb887d8  0x0cb887ec
+#
+# generated data ranges
+gen/ev00a0/d_0cb80bf0.c               D        0x0cb80bf0  0x0cb887d8

@@ -1,0 +1,11 @@
+/* E-102's Mystic Ruins story section, MOUNTAIN */
+#ifndef ADV02_SCRIPT_E102_MOUNTAIN_H
+#define ADV02_SCRIPT_E102_MOUNTAIN_H
+
+#include "progress/story.h"
+
+/* the section's script, which e102_story in progress/story.c names by its
+ * address in ADV02 */
+extern struct story_script script_e102_mountain;
+
+#endif

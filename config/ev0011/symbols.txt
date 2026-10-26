@@ -1,0 +1,48 @@
+# EV0011.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# ADV00.PRS is in the stage slot as the event plays, and the names its
+# sources take from there are here too, as ADV00.PRS spells them where it
+# names them.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cad0ffc  dat_0cad0ffc
+0x0cb18618  dat_0cb18618
+0x0cb2c92c  ss_people_texlist
+0x0cb80000  ev0011_head
+0x0cb80008  ev0011_script
+0x0cb808d4  event_fade_draw
+0x0cb8097e  event_fade_step
+0x0cb809a0  event_fade_destroy
+0x0cb809a4  event_fade_init
+0x0cb809b2  event_fade_create
+0x0cb80a0c  event_fade_set_speed
+0x0cb80a14  event_fade_set_alpha
+0x0cb80a48  event_fade_set_color
+0x0cb80a58  event_fade_set_depth
+0x0cb80a60  event_sound_destroy
+0x0cb80a70  event_sound_step
+0x0cb80b12  event_sound_hold
+0x0cb80b72  event_sound_move_volume
+0x0cb80b98  event_sound_move_pan
+0x0cb80bbe  event_sound_move_pitch
+0x0cb80be4  event_sound_init
+0x0cb80c0c  event_sound_stop_all
+0x0cb80c6a  event_sound_start
+0x0cb80caa  event_sound_stop
+0x0cb80d24  event_sound_fade_volume
+0x0cb80d50  event_sound_fade_pan
+0x0cb80d7c  event_sound_fade_pitch
+0x0cb80da8  event_sound_play
+0x0cb80e80  ev0011_person
+0x0cb80e84  ev0011_fade
+0x0cb80e88  ev0011_textures
+0x0cb82e3c  ev0011_sonic_action_0
+0x0cb854f0  ev0011_sonic_action_1
+0x0cb86ff4  ev0011_sonic_action_2
+0x0cb8a9f8  ev0011_sonic_action_3
+0x0cb8c520  dat_0cb8c520
+0x0cb8c9b0  ev0011_sonic_motion_4
+0x0cb8c9bc  ev0011_sonic_action_4
+0x0cb8c9c8  event_fade_corners
+0x0cb8c9e8  event_sound_count
+0x0cb8c9ec  event_sounds
+0x0cb8c9f0  event_sound_next

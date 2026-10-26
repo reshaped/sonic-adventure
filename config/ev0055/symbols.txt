@@ -1,0 +1,44 @@
+# EV0055.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0055_head
+0x0cb80008  ev0055_script
+0x0cb804ac  event_white_start
+0x0cb8050e  event_white_start_hold
+0x0cb80574  event_white_kill
+0x0cb80590  event_white_init
+0x0cb805f4  event_white_step
+0x0cb8067a  event_white_draw
+0x0cb80708  event_white_destroy
+0x0cb80734  event_sound_destroy
+0x0cb80744  event_sound_step
+0x0cb807e6  event_sound_hold
+0x0cb80846  event_sound_move_volume
+0x0cb8086c  event_sound_move_pan
+0x0cb80892  event_sound_move_pitch
+0x0cb808b8  event_sound_init
+0x0cb808e0  event_sound_stop_all
+0x0cb8093e  event_sound_start
+0x0cb8097e  event_sound_stop
+0x0cb809f8  event_sound_fade_volume
+0x0cb80a24  event_sound_fade_pan
+0x0cb80a50  event_sound_fade_pitch
+0x0cb80a7c  event_sound_play
+0x0cb80af4  event_light_destroy
+0x0cb80afa  event_light_draw
+0x0cb80afe  event_light_step
+0x0cb80b70  event_light_create
+0x0cb80c90  ev0055_light_points
+0x0cb82940  ev0055_light_path
+0x0cb82948  ev0055_frog
+0x0cb8294c  ev0055_light
+0x0cb82950  ev0055_textures
+0x0cb851ec  ev0055_tails_action_0
+0x0cb86840  ev0055_tails_action_1
+0x0cb86848  event_froggy_textures
+0x0cb868a8  ev0055_frog_texlist
+0x0cb8a330  ev0055_frog_action
+0x0cb8a338  event_white
+0x0cb8a340  event_sound_count
+0x0cb8a344  event_sounds
+0x0cb8a348  event_sound_next

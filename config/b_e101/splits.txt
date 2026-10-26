@@ -1,0 +1,51 @@
+# B_E101.PRS, E-101
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900048
+CHEAD      0x0c900048  0x0c900070
+DHEAD      0x0c900070  0x0c9000e0
+P          0x0c9000e0  0x0c902b40
+C          0x0c902b40  0x0c903158
+D          0x0c903158  0x0c941464
+B          0x0c941468  0x0c9414a0
+#
+# source                              section  start       end
+modules/b_e101/e101.c                  PHEAD    0x0c900000  0x0c900044
+modules/b_e101/e101.c                  P        0x0c9000e0  0x0c900160
+# shares no section with e101.c, and one file or two build the same. nothing in the image reads the land, which 1ST_READ.BIN's world_lands names. B_ROBO and B_E101_R both link B_E101_R's land in its own object, whose name meets their stage source's constants at 0x0c9000f0 and 0x0c900140, each on 8 past where one object's next string would start on 4
+modules/b_e101/land.c                  CHEAD    0x0c900048  0x0c900053
+modules/b_e101/land.c                  DHEAD    0x0c900070  0x0c900094
+# the textures, texlist and entries the table names, and the textures' names. the texlist follows the textures off 8, at 0x0c9034f4, and the entries follow it off 8, so the three are one object's data. they open C and D, so the bytes leave them to the table's object, one of their own, or that of e101.c or pvms.c, which link on that side, though neither names them. one file or two build the same, and they are placed with the table that names them. the motions start on 8 straight after the entries, at 0x0c904b58, and the bytes don't say whether they, or the land's objects after them, share this object
+modules/b_e101/land.c                  C        0x0c902b40  0x0c902f89
+modules/b_e101/land.c                  D        0x0c903158  0x0c904b58
+# the kinds the list counts, and their one name, a named array with a body. the name starts C's second object on 8, 7 bytes past the land's last name, 4 past where the land's next string would start, at 0x0c902f8c, and boss.c's constants meet it on 8 with no fill. the kinds start on 8, 4 bytes past dat_0c91b5d8.c's action, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the action's object. boss.c's data starts on 8, 4 bytes past them, where a second kind would run past it, so those 4 are fill or a word of the kinds' object, and either builds the same. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with their sharing the list's here. one file or two build the same, and the bytes leave the kinds and the name to the list's object, one of their own, pvms.c's, boss.c's, which meets the name on 8, though its code doesn't read them, or that of the action before the kinds, were the zero word between that object's
+modules/b_e101/object_list.c           DHEAD    0x0c900098  0x0c9000a0
+modules/b_e101/object_list.c           C        0x0c902f90  0x0c902f98
+# the action e101_land_motions' first entry plays, and its motion: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same. object_list.c's data starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, object_list.c's, were the zero word its, or e101.c's, which links between with no row in D, though its code doesn't read it
+modules/b_e101/dat_0c91b5d8.c          D        0x0c91b5d8  0x0c91b5ec
+modules/b_e101/object_list.c           D        0x0c91b5f0  0x0c91b604
+# meets the object list on 8 with no fill; one file or two build the same. B_ROBO and B_E101_R link their land between their object list and pvms
+modules/b_e101/pvms.c                  CHEAD    0x0c900058  0x0c900070
+modules/b_e101/pvms.c                  DHEAD    0x0c9000a0  0x0c9000e0
+modules/b_e101/boss.c                  P        0x0c900160  0x0c901b00
+modules/b_e101/boss.c                  C        0x0c902f98  0x0c902fac
+modules/b_e101/boss.c                  D        0x0c91b608  0x0c91b778
+modules/b_e101/boss.c                  B        0x0c941468  0x0c94146c
+# sweep_step starts on 32 at 0x0c901ce0 with no fill; split there, the code builds the same
+modules/b_e101/camera.c                P        0x0c901b00  0x0c901e20
+modules/b_e101/camera.c                D        0x0c91b778  0x0c91b784
+modules/b_e101/camera.c                B        0x0c941470  0x0c9414a0
+# E-101's textures, and e101_texlist, which pvms.c, boss.c and missile.c name. the names start on 8, 4 bytes past boss.c's constants, which end where boss.c's next string would start on 4, and the textures start on 8, 4 bytes past camera.c's data. the texlist starts on 8 straight after the textures, and E-101's model meets it on 8 at 0x0c91b940. one file or two build the same at each, and the bytes don't say whether the texlist, or the model and the rest of the generated row, share the textures' object
+modules/b_e101/textures.c              C        0x0c902fb0  0x0c903157
+modules/b_e101/textures.c              D        0x0c91b788  0x0c91b940
+modules/stg05/hover_dust.c             P        0x0c901e20  0x0c901fa0
+modules/stg05/hover_dust.c             D        0x0c9413b0  0x0c9413ec
+# follows hover_dust.c with no fill; one file or two build the same
+modules/stg05/walls.c                  P        0x0c901fa0  0x0c902340
+modules/b_e101/missile.c               P        0x0c902340  0x0c902b40
+modules/b_e101/missile.c               D        0x0c9413f0  0x0c941464
+#
+# generated data ranges
+# ends where dat_0c91b5d8.c's motion starts on 8, straight after its motion data
+gen/b_e101/d_0c904b58.c                D        0x0c904b58  0x0c91b5d8
+gen/b_e101/d_0c91b940.c                D        0x0c91b940  0x0c9413b0

@@ -1,0 +1,38 @@
+# EV008F.PRS, Tikal warns Chaos
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb818c0
+C          0x0cb818c0  0x0cb81b20
+D          0x0cb81b20  0x0cba9448
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev008f/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev008f/script.c               P        0x0cb80008  0x0cb80cee
+events/ev008f/script.c               C        0x0cb818c0  0x0cb81aa5
+events/ev008f/script.c               D        0x0cb81b20  0x0cb81b54
+events/shared/white.c                 P        0x0cb80cf0  0x0cb80f78
+events/shared/white.c                 D        0x0cba88d0  0x0cba88d4
+events/shared/chao.c                  P        0x0cb80f78  0x0cb8120c
+events/shared/sound.c                 P        0x0cb8120c  0x0cb815cc
+events/shared/sound.c                 D        0x0cba88d8  0x0cba88e4
+events/shared/wave.c                  P        0x0cb815cc  0x0cb818bc
+# the wave's texture name, its one constant, which event_wave_textures points at: in D that table lies before its data, with the ring's models and motions, which wave.c's code draws
+events/shared/wave.c                  C        0x0cb81b18  0x0cb81b1f
+# from event_wave_materials, at 0x0cba88e8: the ring's model, its motions, its action and its texture name table and list, which wave.c's code reads, meet its data on 8 with no fill, the same 2,872 bytes in all six events that link it, but for the words that point into the image: consistent with wave.c's object, though one file or two build the same. the ring starts on 8, past the 4 bytes of 0xff after sound.c's data, where that object's next item would start on 4: those are the linker's fill, as the fill rule takes them, or a last word of sound.c's object, and nothing with code links between sound.c and wave.c. sound.c links in events without the ring, so its object can't hold it, and the head's object, which is each event's own, can't hold what all six link alike: the ring is wave.c's or an object's of data alone that links in all six
+events/shared/wave.c                  D        0x0cba88e8  0x0cba9448
+# angle keys of a node of ev008f_tikal_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and white.c, so its object holds data alone, or is script.c's, were that word its. position keys meet it on 8 with no fill at 0x0cb81b78, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev008f/dat_0cb81b58.c          D        0x0cb81b58  0x0cb81b78
+# ev008f_chao_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cba87b8 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev008f/chao_action.c           D        0x0cba88b8  0x0cba88cc
+# the names of the textures that the texture name table at 0x0cba4818 in this object's data names: after the table at 0x0cba4818, each item to a material at 0x0cba48a4 starts off 8, so they share its object. the names and the data from 0x0cba4818 to 0x0cba48b8 in D are the least those joins make one object's, and this source holds no more. script.c's and chao.c's code read event_chao_texlist, which names the table at 0x0cba4818. they start on 8 after script.c's constants, where script.c's next string would, and end 7 bytes short of wave.c's constants on 8. they are an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. script.c, dat_0cb81b58.c and chao_action.c can't hold them: each is this event's own, and the object is the same in each event that places this source. chao.c, whose code reads event_chao_texlist, can't hold them: no link order puts it between their neighbours. wave.c can't hold them while chao_action.c's, white.c's and sound.c's data, between its own and the tables, is theirs. the 3 bytes of 0xff before them are script.c's data or the linker's fill: not padding, as script.c's next item on 4 would start where the names do; the 7 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 7 bytes after them, and the fill rule takes them as the linker's fill
+events/shared/chao_textures.c         C        0x0cb81aa8  0x0cb81b11
+# its data, from 0x0cba4818 to 0x0cba48b8: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. event_chao_material, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0022, EV0068, EV00BA, EV00F7, EV00FE and EV0160 hold the same bytes, but for the words that point into the image, with the same names in C, and chao.c reads event_chao_texlist in each: consistent with one object each of them links, as eggmobile_textures.c is
+events/shared/chao_textures.c         D        0x0cba4818  0x0cba48b8
+#
+# generated data ranges
+gen/ev008f/d_0cb81b78.c               D        0x0cb81b78  0x0cba4818
+gen/ev008f/d_0cba48b8.c               D        0x0cba48b8  0x0cba88b8

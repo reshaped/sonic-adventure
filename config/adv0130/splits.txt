@@ -1,0 +1,95 @@
+# ADV0130.PRS, the Egg Carrier inside
+#
+# section  start       end
+PHEAD      0x0c920000  0x0c920080
+CHEAD      0x0c920080  0x0c920b80
+DHEAD      0x0c920b80  0x0c921ae0
+P          0x0c921ae0  0x0c92be20
+D          0x0c92be20  0x0ca196b0
+C          0x0ca196b0  0x0ca1a930
+B          0x0ca1a930  0x0ca1aa6c
+#
+# source                             section  start       end
+modules/adv0130/scene_change.c        P        0x0c921ae0  0x0c921e40
+modules/adv0130/station.c             P        0x0c921e40  0x0c9224a0
+# only 1ST_READ.BIN's object_lists reads it, and no code in the module. it meets egg_carrier_inside.c's data on 8 with no fill, and one file or two build the same. in ADV0100 and B_EGM3 a four-byte zero gap, at 0x0c923b54 and 0x0c9588d4, parts the object list and the pvm lists into two objects. the bytes don't say whether its kinds, kinds.c's, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/adv0130/object_list.c         DHEAD    0x0c920b80  0x0c920b88
+modules/adv0130/egg_carrier_inside.c  PHEAD    0x0c920000  0x0c920080
+modules/adv0130/egg_carrier_inside.c  CHEAD    0x0c920080  0x0c920b7d
+# the act list ends with act 5's row at 0x0c921ad8: texture_load_act reads each act's rows by count, and nothing points past it. the bytes don't say whether the 8 zero bytes to P, on 32, are the linker's fill, as the fill rule takes them, zero items of this object, such as a null ninth row, with which egg_carrier_inside_act_pvms[9] splices the same, or data of another object nothing names, starting on 8 at 0x0c921ad8. ADV0100's act list has no null row after its last row, where its object list follows on 8 past a four-byte gap
+modules/adv0130/egg_carrier_inside.c  DHEAD    0x0c920b88  0x0c921ad8
+# sky_act_start starts on 32 at 0x0c922700 with no fill; split there, the code builds the same
+modules/adv0130/egg_carrier_inside.c  P        0x0c9224a0  0x0c922800
+modules/adv0130/egg_carrier_inside.c  B        0x0ca1a930  0x0ca1a950
+modules/adv0130/bridge.c              P        0x0c922800  0x0c922b20
+modules/adv0130/hall_duct.c           P        0x0c922b20  0x0c922c00
+modules/adv0130/jdoor.c               P        0x0c922c00  0x0c9230e0
+modules/adv0130/jdoor.c               D        0x0ca187a0  0x0ca18880
+# 72 bytes, six points' worth of floats, which nothing points into, in the image, in 1ST_READ.BIN or in ADV01OBJ.BIN. they start on 8 where jdoor.c's data ends, with no gap, and egg_door.c's data starts on 8 straight after them, so they are data of jdoor.c's object, whose code reads neither them nor jdoor_soft_dust, its last datum; of reservoir.c's, which links between with no row in D; of egg_door.c's; or of an object of data alone, which the bytes leave open. no reader gives them a type, an extent or a role: they are placed as one of data alone, of unknown type
+modules/adv0130/dat_0ca18880.c        D        0x0ca18880  0x0ca188c8
+modules/adv0130/reservoir.c           P        0x0c9230e0  0x0c923320
+# follows reservoir.c with no fill; as one file, the code runs 60 bytes longer. 896 of its first 1,424 bytes differ
+modules/adv0130/egg_door.c            P        0x0c923320  0x0c923680
+modules/adv0130/egg_door.c            D        0x0ca188c8  0x0ca18998
+modules/adv0130/tarai.c               P        0x0c923680  0x0c9250a0
+modules/adv0130/tarai.c               D        0x0ca18998  0x0ca18a9c
+modules/adv0130/tarai.c               C        0x0ca19b88  0x0ca19b94
+modules/adv0130/tarai.c               B        0x0ca1a950  0x0ca1a956
+modules/adv0130/blift.c               P        0x0c9250a0  0x0c9255c0
+modules/adv0130/blift.c               D        0x0ca18aa0  0x0ca18b08
+modules/adv0130/blift.c               C        0x0ca19b98  0x0ca19bb6
+modules/adv0130/batten.c              P        0x0c9255c0  0x0c9257a0
+modules/adv0130/batten.c              D        0x0ca18b08  0x0ca18b3c
+modules/adv0130/rotary.c              P        0x0c9257a0  0x0c9258a0
+# follows rotary.c with no fill; as one file, the code runs 12 bytes shorter. 202 of its 408 bytes differ
+modules/adv0130/container.c           P        0x0c9258a0  0x0c925960
+modules/adv0130/container.c           D        0x0ca18b40  0x0ca18ba8
+modules/adv0130/hammer_switch.c       P        0x0c925960  0x0c925bc8
+modules/adv0130/hammer_switch.c       D        0x0ca18ba8  0x0ca18bdc
+modules/adv0130/egg_lift.c            P        0x0c925be0  0x0c926340
+modules/adv0130/egg_lift.c            D        0x0ca18be0  0x0ca18c1c
+modules/adv0130/booster.c             P        0x0c926340  0x0c926520
+modules/adv0130/booster.c             D        0x0ca18c20  0x0ca18c54
+modules/adv0130/cleaner.c             P        0x0c926520  0x0c927200
+modules/adv0130/cleaner.c             D        0x0ca18c58  0x0ca18cc0
+modules/adv0130/cleaner.c             C        0x0ca19bb8  0x0ca19c2c
+modules/adv0130/w_robo.c              P        0x0c927200  0x0c927800
+modules/adv0130/w_robo.c              D        0x0ca18cc0  0x0ca18dd8
+modules/adv0130/w_robo.c              C        0x0ca19c30  0x0ca19c5f
+modules/adv0130/monorail.c            P        0x0c927800  0x0c928546
+modules/adv0130/monorail.c            D        0x0ca18dd8  0x0ca18e5c
+modules/adv0130/monorail.c            B        0x0ca1a958  0x0ca1aa30
+modules/adv0130/mole.c                P        0x0c928560  0x0c92aea0
+modules/adv0130/mole.c                D        0x0ca18e60  0x0ca19448
+modules/adv0130/mole.c                C        0x0ca19c60  0x0ca19ce8
+modules/adv0130/mole.c                B        0x0ca1aa30  0x0ca1aa50
+modules/adv0130/kurotama.c            P        0x0c92aea0  0x0c92b0a0
+modules/adv0130/kurotama.c            D        0x0ca19448  0x0ca194b0
+# follows kurotama.c with no fill; as one file, the code runs 32 bytes shorter. 1,315 of its 1,832 bytes differ
+modules/adv0130/egg_warp.c            P        0x0c92b0a0  0x0c92b5e8
+modules/adv0130/egg_warp.c            C        0x0ca19ce8  0x0ca19db8
+modules/adv0130/hall_lights.c         P        0x0c92b600  0x0c92b780
+modules/adv0130/hall_lights.c         D        0x0ca194b0  0x0ca196a4
+modules/adv0130/hall_lights.c         B        0x0ca1aa50  0x0ca1aa60
+modules/adv0130/scripts.c             C        0x0ca19db8  0x0ca1a8e3
+modules/adv0130/people.c              P        0x0c92b780  0x0c92be20
+modules/adv0130/people.c              D        0x0ca196a8  0x0ca196ac
+modules/adv0130/people.c              C        0x0ca1a8e8  0x0ca1a930
+modules/adv0130/people.c              B        0x0ca1aa60  0x0ca1aa6c
+# the 40 kinds the object list names, which placement.c reads by a set entry's id, and their 38 names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the names open C. the mole's names start on 8, 7 bytes past the last, 4 past where this object's next string would start, at 0x0ca1985c, which is consistent with separate objects. the fill rule verifies the 7 bytes. the kinds start on 8 straight after generated data, and a material meets them on 8 with no fill at 0x0c9cd4d8. one file or two build the same at each, and the bytes don't say whether either shares this object. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with the list's object holding them here. the bytes leave them to that object, to one of their own, or to scene_change.c's, station.c's, egg_carrier_inside.c's, bridge.c's or hall_duct.c's, which can link ahead of jdoor.c in D and C, though their code doesn't read them
+modules/adv0130/kinds.c               C        0x0ca196b0  0x0ca19859
+modules/adv0130/kinds.c               D        0x0c9cd1b8  0x0c9cd4d8
+# the mole game's 57 textures and mole_texlist, which mole.c and egg_carrier_inside.c's pvm list name, and the first piece of Eggman's model. it is STG00's object, linked here too, as its 1,544 bytes of D and 584 of C match STG00's once relocation is allowed for. the textures start on 8 straight after tarai_basin_object, generated, and a material meets the piece's root node on 8 at 0x0c9f4070. one file or two build the same at each, and the bytes don't say whether either shares this object. the names start on 8, 7 bytes past the kinds' names, 4 past where the kinds' object's next string would start, at 0x0ca1985c, which is consistent with separate objects. dat_0ca14ff0.c's names meet the last on 8 with no fill. linked in both images, its object holds nothing past its rows in either, and the neighbours differ, so no object either side of it here holds it: it is an object of data alone
+modules/stg00/mole_textures.c         D        0x0c9f3a68  0x0c9f4070
+modules/stg00/mole_textures.c         C        0x0ca19860  0x0ca19aa8
+# kurotama_object, which kurotama.c names; the A-Life textures and ec_alife_texlist, which egg_carrier_inside.c's pvm list, kurotama.c and egg_warp.c name; the monorail camera's camera, motion and monorail_camera_action, which monorail.c names; two lists of six textures with their texlists; and the models of three level items, the booster, the laser and the long hammer, whose root objects 1ST_READ.BIN's level_item_models names, the first between the two lists. the textures follow kurotama_object off 8, and the texlist, the camera and the motion's keys and data follow them off 8. the second list of six repeats a name of the first's, and the first's names start 4 past 8 at 0x0ca19b04, straight after the A-Life names, so the three lists' tables are one file's. the D between them, the action and the first level item among it, is that object's. kurotama_object starts on 8 straight after its model, generated, where one file or two build the same, and the bytes don't say whether that model shares this object. the other two level items' models start on 8 straight after the second texlist, at 0x0ca17028. fourteen more of their items start on 8 straight after the item before, from 0x0ca17320 to the long hammer's root object at 0x0ca18768, and the rest off 8. one file or several build the same at each of those seams, so the bytes don't say whether the models share this object, or each other's, and they are placed with the first level item's. jdoor.c's data starts on 8 4 bytes past the last root object, which ends 4 past 8. the word between is the linker's fill, as the fill rule takes it, or a word of this object nothing reads, which builds the same. the names start on 8 where the mole's end, with no fill, and tarai.c's constants start on 8, 2 bytes past the last. kurotama.c's and monorail.c's data lies past jdoor.c's, and egg_warp.c's constants past this object's, so the object is one of data alone or that of a code object linked ahead of jdoor.c with no row in D or C: scene_change.c, station.c, egg_carrier_inside.c, bridge.c or hall_duct.c. of those, only egg_carrier_inside.c's code reads it
+modules/adv0130/dat_0ca14ff0.c        D        0x0ca14ff0  0x0ca1879c
+modules/adv0130/dat_0ca14ff0.c        C        0x0ca19aa8  0x0ca19b86
+#
+# generated data ranges
+gen/adv0130/d_0c92be20.c              D        0x0c92be20  0x0c96bfe0
+gen/adv0130/d_0c96bfe0.c              D        0x0c96bfe0  0x0c9ac030
+gen/adv0130/d_0c9ac030.c              D        0x0c9ac030  0x0c9cd1b8
+gen/adv0130/d_0c9cd4d8.c              D        0x0c9cd4d8  0x0c9ec378
+gen/adv0130/d_0c9ec378.c              D        0x0c9ec378  0x0c9f3a68
+gen/adv0130/d_0c9f4070.c              D        0x0c9f4070  0x0ca14ff0

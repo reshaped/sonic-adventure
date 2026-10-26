@@ -1,0 +1,41 @@
+# EV001B.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev001b_head
+0x0cb80008  ev001b_script
+0x0cb81b74  event_lightning_destroy
+0x0cb81b78  event_lightning_draw_spark
+0x0cb81c00  event_lightning_spark_step
+0x0cb81c84  event_lightning_step
+0x0cb81c8a  event_lightning_init
+0x0cb81d78  event_lightning_create
+0x0cb81dca  event_lightning_kill
+0x0cb81e58  event_fade_in_destroy
+0x0cb81e5c  event_fade_in_draw
+0x0cb81ef4  event_fade_in_step
+0x0cb81f16  event_fade_in_init
+0x0cb81f34  event_fade_in_create
+0x0cb81fa8  event_fade_in_kill
+0x0cb821a8  dat_0cb821a8
+0x0cb821ac  ev001b_textures
+0x0cb821d0  dat_0cb821d0
+0x0cb821dc  dat_0cb821dc
+0x0cb821e4  dat_0cb821e4
+0x0cb82674  ev001b_sonic_fingers
+0x0cb837f4  ev001b_sonic_action_0
+0x0cb855a8  ev001b_sonic_action_1
+0x0cb87f8c  ev001b_sonic_action_2
+0x0cb89ca0  ev001b_sonic_action_3
+0x0cb8ca14  ev001b_sonic_action_4
+0x0cb8e838  ev001b_sonic_action_5
+0x0cb90abc  ev001b_tails_action_0
+0x0cb92820  ev001b_amy_action_0
+0x0cb95304  ev001b_amy_action_1
+0x0cb9bcec  ev001b_e102_action_0
+0x0cba12f0  ev001b_e102_action_1
+0x0cba3194  ev001b_e102_action_2
+0x0cba5158  ev001b_e102_action_3
+0x0cba5160  event_lightning_sprite
+0x0cba5180  event_lightning_task
+0x0cba5188  event_fade_in_corners
+0x0cba51a8  event_fade_in

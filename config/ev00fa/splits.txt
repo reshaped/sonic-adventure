@@ -1,0 +1,40 @@
+# EV00FA.PRS, Chaos takes the Tornado 2's emerald
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81a70
+C          0x0cb81a70  0x0cb81e10
+D          0x0cb81e10  0x0cba3364
+B          0x0cba3368  0x0cba33a4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00fa/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00fa/script.c               P        0x0cb80008  0x0cb809d8
+events/ev00fa/script.c               C        0x0cb81a70  0x0cb81c19
+events/ev00fa/script.c               D        0x0cb81e10  0x0cb81e34
+events/ev00fa/script.c               B        0x0cba3368  0x0cba336c
+events/shared/prop.c                  P        0x0cb809d8  0x0cb80c98
+events/shared/prop.c                  D        0x0cb996b0  0x0cb996d8
+events/ev00fa/splash.c               P        0x0cb80c98  0x0cb81524
+events/ev00fa/splash.c               C        0x0cb81de8  0x0cb81e0f
+events/ev00fa/splash.c               D        0x0cb996d8  0x0cba3334
+events/ev00fa/splash.c               B        0x0cba3370  0x0cba33a4
+events/shared/fade.c                  P        0x0cb81524  0x0cb816b0
+events/shared/fade.c                  D        0x0cba3338  0x0cba3358
+events/shared/sound.c                 P        0x0cb816b0  0x0cb81a70
+events/shared/sound.c                 D        0x0cba3358  0x0cba3364
+# position keys of a node of ev00fa_tails_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and prop.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb82018, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev00fa/dat_0cb81e38.c          D        0x0cb81e38  0x0cb82018
+# ev00fa_tornado_object, the root node of the model the script draws, which ends the generated data before prop.c's: it ends 4 past 8, and the 4 bytes of 0xff after it, to that data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of its object. it meets its model, at 0x0cb99650, on 8 with no fill, so the bytes don't say whether the generated row before it, the model and the nodes under the root, is its object's. EV00E2's own source holds the same node, but for the words that point into the image, before the same data: consistent with one object that each event links
+events/ev00fa/tornado_object.c        D        0x0cb99678  0x0cb996ac
+# the names of the textures that the texture name table at 0x0cb937b4 in this object's data names: the table at 0x0cb937b4 starts off 8, straight after an action at 0x0cb937ac, so it shares that item's object; after the table at 0x0cb937b4, each item to strips at 0x0cb9395c starts off 8, so they share its object. the names and the data from 0x0cb937a0 to 0x0cb93998 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev00fa_tornado_texlist, which names the table at 0x0cb937b4. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end straight before splash.c's constants. they are script.c's, whose code reads ev00fa_sonic_action_1 and ev00fa_tornado_texlist, were the 7 bytes before them and the 4 bytes after its data, dat_0cb81e38.c's data and the data from there to the table its too; dat_0cb81e38.c's, which has no constants row and can link between them, were the data from its own data to the table its too; tornado_object.c's, which has no constants row and can link between them, were the data from the table to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. splash.c can't hold them while tornado_object.c's and prop.c's data, between its own and the tables, is theirs. the 7 bytes of 0xff before them are script.c's padding or data, or the linker's fill. nothing points into the 7 bytes before them, and the fill rule takes them as the linker's fill
+events/ev00fa/sonic_action_1.c        C        0x0cb81c20  0x0cb81de8
+# its data, from 0x0cb937a0 to 0x0cb93998: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb9390c, dat_0cb93934, dat_0cb9394c and dat_0cb9395c, which the generated data after it name, are static here, as a source's own data the generated rows reach through symbols.txt: they could stay so only were that data this object's
+events/ev00fa/sonic_action_1.c        D        0x0cb937a0  0x0cb93998
+#
+# generated data ranges
+gen/ev00fa/d_0cb82018.c               D        0x0cb82018  0x0cb937a0
+gen/ev00fa/d_0cb93998.c               D        0x0cb93998  0x0cb99678

@@ -1,0 +1,253 @@
+# ADV02.PRS, the Mystic Ruins
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900140
+CHEAD      0x0c900140  0x0c900178
+DHEAD      0x0c900178  0x0c902880
+P          0x0c902880  0x0c9167c0
+D          0x0c9167c0  0x0cb39ab8
+B          0x0cb39ab8  0x0cb39e10
+C          0x0cb39e10  0x0cb3ca80
+#
+# source                                         section  start       end
+modules/adv02/mystic_ruins.c                     PHEAD    0x0c900000  0x0c900140
+# the two lands lie on 8, the act 3 land four bytes past where the act 2 land would place its next item on 4, and the object list four past it, and nothing points into the gaps: built as one file, the act 3 land follows the act 2 land at 0x0c90019c, and the object list the act 3 land at 0x0c9001c4. only 1ST_READ.BIN's world_lands reads them. the bytes don't say whether their entries and motions, in D's generated ranges, share their objects
+modules/adv02/act2_land.c                        DHEAD    0x0c900178  0x0c90019c
+modules/adv02/act3_land.c                        DHEAD    0x0c9001a0  0x0c9001c4
+# only 1ST_READ.BIN's object_lists reads it. it meets adv_mr00_textures on 8 with no fill; one file or two build the same. the bytes don't say whether its kinds at 0x0ca9acf8, and their names in C, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/adv02/object_list.c                      DHEAD    0x0c9001c8  0x0c9001d0
+# the pvm list's strings, all of CHEAD's constants
+modules/adv02/texlists.c                         CHEAD    0x0c900140  0x0c900177
+# an item that starts off 8 straight after another shares its object: so do nine texlists with their textures, eight texture arrays with the texlist before them, and the pvm list, at 0x0c902834, with the last texlist. six items start on 8 with no fill, where one file or two build the same: mrobj_texlist, mr_train_texlist and mr_sky00_texlist, at 0x0c9021e8, 0x0c902498 and 0x0c902768, each straight after its own textures, and the textures at 0x0c9021f0, 0x0c9024a0 and 0x0c902770, each straight after a texlist. texture_load_stage stops at the null row at 0x0c902874, the list's last, and nothing points past 0x0c90287c. a row is 8 bytes and an object starts on 8, so the 4 zero bytes to P, on 32, can be neither another row nor another object's: the bytes don't say whether they are the linker's fill, as the fill rule takes them, or a 4-byte item of this object
+modules/adv02/texlists.c                         DHEAD    0x0c9001d0  0x0c90287c
+modules/adv02/mystic_ruins.c                     P        0x0c902880  0x0c903240
+# the action the third entry of mystic_ruins_act3_land_motions plays, and its motion: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same. mystic_ruins.c's data starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, mystic_ruins.c's, were the zero word its, though its code doesn't read it, or act2_land.c's, act3_land.c's, object_list.c's or texlists.c's, objects of head data alone that can link between
+modules/adv02/dat_0ca9aa90.c                     D        0x0ca9aa90  0x0ca9aaa4
+modules/adv02/mystic_ruins.c                     D        0x0ca9aaa8  0x0ca9ab94
+modules/adv02/mystic_ruins.c                     B        0x0cb39ab8  0x0cb39ae0
+modules/adv02/start.c                            P        0x0c903240  0x0c9032a0
+modules/adv02/start.c                            D        0x0ca9ab98  0x0ca9acf8
+modules/adv02/fog.c                              P        0x0c9032a0  0x0c903460
+modules/adv02/fog.c                              D        0x0cb1f548  0x0cb1f55c
+modules/adv02/fog.c                              B        0x0cb39ae0  0x0cb39ce4
+modules/adv02/flags.c                            P        0x0c903460  0x0c9036e0
+modules/adv02/flags.c                            D        0x0cb1f560  0x0cb1f924
+modules/adv02/flags.c                            C        0x0cb3a148  0x0cb3b7a0
+modules/adv02/item_stand.c                       P        0x0c9036e0  0x0c903be0
+modules/adv02/item_stand.c                       D        0x0cb20118  0x0cb2015c
+modules/adv02/item_stand.c                       C        0x0cb3b7a0  0x0cb3b7d4
+# 8 zero bytes nothing points into, here, in 1ST_READ.BIN or in TIKAL_PROG.BIN. they start on 8, 4 bytes past item_stand.c's data, where that object's next item would start on 4. the zero word between is the linker's fill, as the fill rule takes it, or a word of item_stand.c's object nothing reads. pyramid.c's data starts on 8 straight after them, so they are no fill but data no code reads. they are item_stand.c's, pyramid.c's or that of an object of data alone or of head data alone (act2_land.c's, act3_land.c's, object_list.c's or texlists.c's), which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type
+modules/adv02/dat_0cb20160.c                     D        0x0cb20160  0x0cb20168
+modules/adv02/pyramid.c                          P        0x0c903be0  0x0c904a20
+modules/adv02/pyramid.c                          D        0x0cb20168  0x0cb20268
+modules/adv02/pyramid.c                          B        0x0cb39ce8  0x0cb39cec
+modules/adv02/pyramid.c                          C        0x0cb3b7d8  0x0cb3b7e4
+modules/adv02/dig_place_1.c                      P        0x0c904a20  0x0c904ea0
+modules/adv02/dig_place_1.c                      D        0x0cb20268  0x0cb2029c
+modules/adv02/dig_place_1.c                      C        0x0cb3b7e8  0x0cb3b7f4
+modules/adv02/dig_place_2.c                      P        0x0c904ea0  0x0c905320
+modules/adv02/dig_place_2.c                      D        0x0cb202a0  0x0cb202d4
+modules/adv02/dig_place_2.c                      C        0x0cb3b7f8  0x0cb3b804
+modules/adv02/kill_switch.c                      P        0x0c905320  0x0c905760
+modules/adv02/kill_switch.c                      D        0x0cb202d8  0x0cb20368
+modules/adv02/kill_switch.c                      C        0x0cb3b808  0x0cb3b881
+# 8 zero bytes nothing points into, here, in 1ST_READ.BIN or in TIKAL_PROG.BIN. they start on 8 straight after kill_switch.c's data, which ends on 8, so no fill lies between. monkey_cage.c's data starts on 8 straight after them, so they are no fill but data no code reads. they are kill_switch.c's, monkey_cage.c's or that of an object of data alone or of head data alone (act2_land.c's, act3_land.c's, object_list.c's or texlists.c's), which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type
+modules/adv02/dat_0cb20368.c                     D        0x0cb20368  0x0cb20370
+modules/adv02/monkey_cage.c                      P        0x0c905760  0x0c906ba0
+modules/adv02/monkey_cage.c                      D        0x0cb20370  0x0cb20480
+modules/adv02/monkey_cage.c                      B        0x0cb39cf0  0x0cb39db0
+modules/adv02/monkey_cage.c                      C        0x0cb3b888  0x0cb3b8ac
+modules/adv02/island_door.c                      P        0x0c906ba0  0x0c907100
+modules/adv02/island_door.c                      D        0x0cb20480  0x0cb2053c
+# follows island_door.c with no fill; as one file, 215 of 2,376 code bytes differ
+modules/adv02/eggman_door.c                      P        0x0c907100  0x0c907500
+modules/adv02/eggman_door.c                      D        0x0cb20540  0x0cb20610
+modules/adv02/sand_switch.c                      P        0x0c907500  0x0c907800
+modules/adv02/sand_switch.c                      D        0x0cb20610  0x0cb20664
+modules/adv02/sand_switch.c                      C        0x0cb3b8b0  0x0cb3b8bc
+modules/adv02/mountain_door.c                    P        0x0c907800  0x0c907dc0
+modules/adv02/mountain_door.c                    D        0x0cb20668  0x0cb2069c
+modules/adv02/mountain_door.c                    C        0x0cb3b8c0  0x0cb3b8ed
+modules/adv02/truck.c                            P        0x0c907dc0  0x0c908600
+modules/adv02/truck.c                            D        0x0cb206a0  0x0cb206f4
+modules/adv02/truck.c                            C        0x0cb3b8f0  0x0cb3b942
+modules/adv02/truck_door.c                       P        0x0c908600  0x0c908b40
+modules/adv02/truck_door.c                       D        0x0cb206f8  0x0cb20760
+modules/adv02/icecap_door.c                      P        0x0c908b40  0x0c9090e0
+modules/adv02/icecap_door.c                      D        0x0cb20760  0x0cb207fc
+modules/adv02/chaos_emerald.c                    P        0x0c9090e0  0x0c9093a0
+modules/adv02/chaos_emerald.c                    D        0x0cb20800  0x0cb2083c
+modules/adv02/chaos_emerald.c                    C        0x0cb3b948  0x0cb3b964
+modules/adv02/master_emerald.c                   P        0x0c9093a0  0x0c9098e0
+modules/adv02/master_emerald.c                   D        0x0cb20840  0x0cb2091c
+modules/adv02/master_emerald.c                   C        0x0cb3b968  0x0cb3b996
+modules/adv02/handy_key.c                        P        0x0c9098e0  0x0c90a080
+modules/adv02/handy_key.c                        D        0x0cb20920  0x0cb20a5c
+modules/adv02/handy_key.c                        C        0x0cb3b998  0x0cb3bac7
+# follows handy_key.c with no fill; as one file, the code runs 32 bytes shorter. 2,048 of its 3,772 bytes differ
+modules/adv02/lock.c                             P        0x0c90a080  0x0c90a7c0
+modules/adv02/lock.c                             D        0x0cb20a60  0x0cb20b24
+modules/adv02/lock.c                             C        0x0cb3bac8  0x0cb3bafb
+modules/adv02/hidden_gate.c                      P        0x0c90a7c0  0x0c90af80
+modules/adv02/hidden_gate.c                      D        0x0cb20b28  0x0cb20c66
+modules/adv02/hidden_gate.c                      B        0x0cb39db0  0x0cb39db6
+modules/adv02/hidden_gate.c                      C        0x0cb3bb00  0x0cb3bb0c
+modules/adv02/block_entry.c                      P        0x0c90af80  0x0c90b880
+modules/adv02/block_entry.c                      D        0x0cb20c68  0x0cb20d14
+modules/adv02/block_entry.c                      C        0x0cb3bb10  0x0cb3bb1c
+modules/adv02/knuckles_statue.c                  P        0x0c90b880  0x0c90bb00
+modules/adv02/station_door.c                     P        0x0c90bb00  0x0c90bde0
+modules/adv02/runway.c                           P        0x0c90bde0  0x0c90c220
+modules/adv02/runway.c                           D        0x0cb20d18  0x0cb20e84
+modules/adv02/island_land.c                      P        0x0c90c220  0x0c90c520
+modules/adv02/island_land.c                      C        0x0cb3bb20  0x0cb3bb2c
+modules/adv02/west_rock.c                        P        0x0c90c520  0x0c90cc40
+modules/adv02/west_rock.c                        D        0x0cb20e88  0x0cb20f38
+modules/adv02/ladder.c                           P        0x0c90cc40  0x0c90cee0
+modules/adv02/ladder.c                           D        0x0cb20f38  0x0cb20f3c
+modules/adv02/butterfly.c                        P        0x0c90cee0  0x0c90d7a0
+modules/adv02/butterfly.c                        D        0x0cb20f40  0x0cb20f84
+modules/adv02/butterfly.c                        C        0x0cb3bb30  0x0cb3bb4b
+# 8 zero bytes nothing points into, here, in 1ST_READ.BIN or in TIKAL_PROG.BIN. they start on 8, 4 bytes past butterfly.c's data, where that object's next item would start on 4. the zero word between is the linker's fill, as the fill rule takes it, or a word of butterfly.c's object nothing reads. station_panel.c's data starts on 8 straight after them, so they are no fill but data no code reads. they are butterfly.c's, station_panel.c's, workshop.c's, which links between with no row in D, or that of an object of data alone or of head data alone (act2_land.c's, act3_land.c's, object_list.c's or texlists.c's), which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type
+modules/adv02/dat_0cb20f88.c                     D        0x0cb20f88  0x0cb20f90
+modules/adv02/workshop.c                         P        0x0c90d7a0  0x0c90d900
+modules/adv02/station_panel.c                    P        0x0c90d900  0x0c90da80
+modules/adv02/station_panel.c                    D        0x0cb20f90  0x0cb20f94
+modules/adv02/workshop_door.c                    P        0x0c90da80  0x0c90dd84
+modules/adv02/workshop_door.c                    D        0x0cb20f98  0x0cb20fcc
+modules/adv02/train.c                            P        0x0c90dda0  0x0c90e820
+modules/adv02/train.c                            D        0x0cb20fd0  0x0cb211d8
+modules/adv02/raft.c                             P        0x0c90e820  0x0c90efc0
+modules/adv02/raft.c                             D        0x0cb211d8  0x0cb212b4
+modules/adv02/raft.c                             C        0x0cb3bb50  0x0cb3bb5c
+modules/adv02/big_bed.c                          P        0x0c90efc0  0x0c90f180
+modules/adv02/big_bed.c                          D        0x0cb212b8  0x0cb21320
+modules/adv02/sand_entry.c                       P        0x0c90f180  0x0c90f460
+modules/adv02/sand_entry.c                       D        0x0cb21320  0x0cb2139c
+modules/adv02/sand_entry.c                       B        0x0cb39db8  0x0cb39ddc
+modules/adv02/egg.c                              P        0x0c90f460  0x0c90f720
+modules/adv02/egg.c                              D        0x0cb213a0  0x0cb21b24
+modules/adv02/egg.c                              C        0x0cb3bb60  0x0cb3bb64
+modules/adv02/egg_stand.c                        P        0x0c90f720  0x0c90fe60
+modules/adv02/egg_stand.c                        D        0x0cb21b28  0x0cb21bc0
+modules/adv02/egg_stand.c                        B        0x0cb39de0  0x0cb39df8
+modules/adv02/windy.c                            P        0x0c90fe60  0x0c911220
+modules/adv02/windy.c                            D        0x0cb21bc0  0x0cb21bd4
+modules/adv02/scene_change.c                     P        0x0c911220  0x0c911620
+modules/adv02/final_egg.c                        P        0x0c911620  0x0c911980
+modules/adv02/palm.c                             P        0x0c911980  0x0c911a40
+modules/adv02/tree.c                             P        0x0c911a40  0x0c911b00
+modules/adv02/ambient_sound.c                    P        0x0c911b00  0x0c911cc0
+modules/adv02/ambient_sound.c                    D        0x0cb21bd8  0x0cb21bf8
+modules/adv02/ambient_sound.c                    C        0x0cb3bb68  0x0cb3bb92
+modules/adv02/grass.c                            P        0x0c911cc0  0x0c912020
+modules/adv02/long_ladder.c                      P        0x0c912020  0x0c912320
+modules/adv02/tornado2.c                         P        0x0c912320  0x0c9123e0
+modules/adv02/crowd.c                            P        0x0c9123e0  0x0c913a00
+modules/adv02/crowd.c                            D        0x0cb39818  0x0cb398fc
+# only its pool word (0x0c912510) points into this bss
+modules/adv02/crowd.c                            B        0x0cb39df8  0x0cb39dfc
+modules/adv02/crowd.c                            C        0x0cb3c6f8  0x0cb3c800
+modules/adv02/people.c                           P        0x0c913a00  0x0c914340
+modules/adv02/people.c                           D        0x0cb39900  0x0cb3990c
+modules/adv02/people.c                           B        0x0cb39e00  0x0cb39e0c
+modules/adv02/people.c                           C        0x0cb3c800  0x0cb3ca80
+modules/adv02/shadow.c                           P        0x0c914340  0x0c9143e0
+modules/adv02/station_ladder.c                   P        0x0c9143e0  0x0c914a40
+modules/adv02/station_ladder.c                   D        0x0cb39910  0x0cb3991c
+modules/adv02/script_sonic_mobile1_windy.c       P        0x0c914a40  0x0c914b40
+modules/adv02/script_sonic_mobile1_windy.c       D        0x0cb39920  0x0cb39928
+# follows script_sonic_mobile1_windy.c with no fill; as one file, 6 of 804 code bytes differ, all in the 12 bytes from 0x0c914b34. one file pads them with 00 09, where the image holds zeros
+modules/adv02/script_sonic_icecap_shooting.c     P        0x0c914b40  0x0c914d80
+modules/adv02/script_sonic_icecap_shooting.c     D        0x0cb39928  0x0cb3993c
+modules/adv02/script_sonic_mountain_shooting2.c  P        0x0c914d80  0x0c914e60
+modules/adv02/script_sonic_mountain_shooting2.c  D        0x0cb39940  0x0cb39948
+# follows script_sonic_mountain_shooting2.c with no fill; as one file, the code runs 44 bytes shorter. 200 of its 388 bytes differ
+modules/adv02/script_sonic_lost_world.c          P        0x0c914e60  0x0c914f40
+modules/adv02/script_sonic_lost_world.c          D        0x0cb39948  0x0cb39950
+# follows script_sonic_lost_world.c with no fill; as one file, the code runs 48 bytes shorter. 171 of its 384 bytes differ
+modules/adv02/script_sonic_final_egg.c           P        0x0c914f40  0x0c915020
+modules/adv02/script_sonic_final_egg.c           D        0x0cb39950  0x0cb39958
+# follows script_sonic_final_egg.c with no fill; as one file, the code runs 56 bytes shorter. 113 of its 284 bytes differ
+modules/adv02/script_sonic_ending.c              P        0x0c915020  0x0c9150a0
+modules/adv02/script_sonic_ending.c              D        0x0cb39958  0x0cb39960
+# follows script_sonic_ending.c with no fill; as one file, the code runs 36 bytes longer. 292 of its first 372 bytes differ
+modules/adv02/script_tails_mobile1_windy.c       P        0x0c9150a0  0x0c9151a0
+modules/adv02/script_tails_mobile1_windy.c       D        0x0cb39960  0x0cb39968
+# follows script_tails_mobile1_windy.c with no fill; as one file, 6 of 804 code bytes differ, all in the 12 bytes from 0x0c915194. one file pads them with 00 09, where the image holds zeros
+modules/adv02/script_tails_icecap_shooting.c     P        0x0c9151a0  0x0c9153e0
+modules/adv02/script_tails_icecap_shooting.c     D        0x0cb39968  0x0cb3997c
+modules/adv02/script_tails_lose_sand_board.c     P        0x0c9153e0  0x0c915500
+modules/adv02/script_tails_lose_sand_board.c     D        0x0cb39980  0x0cb39994
+# follows script_tails_lose_sand_board.c with no fill; as one file, its data lands 4 bytes early. the code runs 8 bytes longer. 264 of its first 548 bytes differ
+modules/adv02/script_tails_shooting2.c           P        0x0c915500  0x0c915620
+modules/adv02/script_tails_shooting2.c           D        0x0cb39998  0x0cb399ac
+modules/adv02/script_tails_ending.c              P        0x0c915620  0x0c915680
+modules/adv02/script_tails_ending.c              D        0x0cb399b0  0x0cb399b8
+# follows script_tails_ending.c with no fill; as one file, the code runs 36 bytes shorter. 208 of its 268 bytes differ
+modules/adv02/script_knuckles_opening.c          P        0x0c915680  0x0c915760
+modules/adv02/script_knuckles_opening.c          D        0x0cb399b8  0x0cb399c0
+# follows script_knuckles_opening.c with no fill; as one file, the code runs 64 bytes shorter. 509 of its 716 bytes differ
+modules/adv02/script_knuckles_mountain_chaos4.c  P        0x0c915760  0x0c9159a0
+modules/adv02/script_knuckles_mountain_chaos4.c  D        0x0cb399c0  0x0cb399d4
+modules/adv02/script_knuckles_m_emerald.c        P        0x0c9159a0  0x0c915b40
+modules/adv02/script_knuckles_m_emerald.c        D        0x0cb399d8  0x0cb399ec
+modules/adv02/script_knuckles_ending1.c          P        0x0c915b40  0x0c915c20
+modules/adv02/script_knuckles_ending1.c          D        0x0cb399f0  0x0cb399f8
+# follows script_knuckles_ending1.c with no fill; as one file, the code runs 12 bytes shorter. 120 of its 296 bytes differ
+modules/adv02/script_knuckles_ending2.c          P        0x0c915c20  0x0c915c80
+modules/adv02/script_knuckles_ending2.c          D        0x0cb399f8  0x0cb39a00
+# follows script_knuckles_ending2.c with no fill; as one file, 6 of 364 code bytes differ, all in the 12 bytes from 0x0c915c74. one file pads them with 00 09, where the image holds zeros
+modules/adv02/script_amy_mr_final_egg.c          P        0x0c915c80  0x0c915da0
+modules/adv02/script_amy_mr_final_egg.c          D        0x0cb39a00  0x0cb39a14
+modules/adv02/script_amy_go_egg_carrier.c        P        0x0c915da0  0x0c915e60
+modules/adv02/script_amy_go_egg_carrier.c        D        0x0cb39a18  0x0cb39a20
+# follows script_amy_go_egg_carrier.c with no fill; as one file, the code runs 64 bytes shorter. 413 of its 596 bytes differ
+modules/adv02/script_e102_birth_e101.c           P        0x0c915e60  0x0c916040
+modules/adv02/script_e102_birth_e101.c           D        0x0cb39a20  0x0cb39a40
+# follows script_e102_birth_e101.c with no fill; as one file, the code runs 28 bytes longer. 187 of its first 652 bytes differ
+modules/adv02/script_e102_windy.c                P        0x0c916040  0x0c916100
+modules/adv02/script_e102_windy.c                D        0x0cb39a40  0x0cb39a48
+# follows script_e102_windy.c with no fill; as one file, the code runs 4 bytes shorter. 221 of its 392 bytes differ
+modules/adv02/script_e102_mountain.c             P        0x0c916100  0x0c9161e0
+modules/adv02/script_e102_mountain.c             D        0x0cb39a48  0x0cb39a50
+# follows script_e102_mountain.c with no fill; as one file, the code runs 24 bytes shorter. 220 of its 416 bytes differ
+modules/adv02/script_e102_go_egg_carrier.c       P        0x0c9161e0  0x0c9162c0
+modules/adv02/script_e102_go_egg_carrier.c       D        0x0cb39a50  0x0cb39a58
+# follows script_e102_go_egg_carrier.c with no fill; as one file, the code runs 4 bytes shorter. 141 of its 344 bytes differ
+modules/adv02/script_big_opening.c               P        0x0c9162c0  0x0c916340
+modules/adv02/script_big_opening.c               D        0x0cb39a58  0x0cb39a60
+# follows script_big_opening.c with no fill; as one file, 2 of 460 code bytes differ, all in the 4 bytes from 0x0c91633c. one file pads them with 00 09, where the image holds zeros
+modules/adv02/script_big_icecap.c                P        0x0c916340  0x0c9164a0
+modules/adv02/script_big_icecap.c                D        0x0cb39a60  0x0cb39a68
+# follows script_big_icecap.c with no fill; as one file, the code runs 12 bytes longer. 151 of its first 488 bytes differ
+modules/adv02/script_big_ending.c                P        0x0c9164a0  0x0c916540
+modules/adv02/script_big_ending.c                D        0x0cb39a68  0x0cb39a70
+# follows script_big_ending.c with no fill; as one file, the code runs 12 bytes shorter. 129 of its 276 bytes differ
+modules/adv02/script_last_opening_1.c            P        0x0c916540  0x0c9165c0
+modules/adv02/script_last_opening_1.c            D        0x0cb39a70  0x0cb39a84
+# follows script_last_opening_1.c with no fill; as one file, its data lands 4 bytes early
+modules/adv02/script_last_opening_2.c            P        0x0c9165c0  0x0c916720
+modules/adv02/script_last_opening_2.c            D        0x0cb39a88  0x0cb39a9c
+modules/adv02/script_last_chaos_emerald.c        P        0x0c916720  0x0c9167c0
+modules/adv02/script_last_chaos_emerald.c        D        0x0cb39aa0  0x0cb39ab4
+# the zones in which a player dies, seven models of a few polygons, the acts' lists and the array by act, which 1ST_READ.BIN's death_zones names, and death_zone_step and knuckles.c read for the act in hand. no code here reads them. the field's lands run to act 3, so the array has four entries. the word after it, at 0x0cb20114, which nothing reads, is fill the rule verifies, as item_stand.c's data starts on 8. a fifth, null entry there, for the act 4 object_lists names, would build the same. each item starts straight after the one before, with no fill. where one starts off 8 it joins the item before: zones 0's, 2's and 6's meshes join their materials, zones 1's, 3's, 4's and 5's materials join the zone before's object, zones 1's and 5's items from meshset to object join their meshes, zones 3's and 4's normals join their points, and the lists and the array join zone 6's object. the other items start on 8, the meshsets 2 bytes past meshes that end off 4, where the next item on 4 would start too. one file or several build the same at each of those seams. the pointers between them are consistent with one object, as AL_GARDEN00's zone's do. the materials start on 8, 4 bytes past flags.c's data, where its next item would start on 4, and nothing points into the 4 zero bytes. they are fill the rule verifies, which is consistent with separate objects. the bytes leave the zones to an object of their own or to act2_land.c's, act3_land.c's, object_list.c's or texlists.c's, which can link between; to flags.c's, were the 4 bytes before them a word of its own; or to item_stand.c's, were the word after the array its fifth entry
+modules/adv02/death_zones.c                      D        0x0cb1f928  0x0cb20114
+# the 66 kinds the object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds start on 8 straight after start.c's data, and a material meets them on 8 with no fill at 0x0ca9b220: one file or two build the same at each. the names open C. flags.c's constants start on 8, 7 bytes past the last, 4 past where this object's next string would start, which is consistent with separate objects. the fill rule verifies the 7 bytes. the bytes leave the kinds to an object of their own, the object list's, as B_EGM3's list shares its kinds' object, start.c's, though its code doesn't read them, mystic_ruins.c's, which links just before start.c, were start.c's data its, or act2_land.c's, act3_land.c's or texlists.c's, objects of head data alone that can link between
+modules/adv02/kinds.c                            C        0x0cb39e10  0x0cb3a141
+modules/adv02/kinds.c                            D        0x0ca9acf8  0x0ca9b220
+# the field's people and scripts: each act's spots, the lists by act people.c reads, the scripts, their runs of pages, the table crowd.c reads, and the pages' texts, with bodies, texts and values. the lists and the table point across the run, and a literal is its own file's, so it is one object's constants. it starts on 8, 4 bytes past where ambient_sound.c's next string would start on 4 at 0x0cb3bb94. its own next string would start on 4 at 0x0cb3c6f4, 4 bytes short of crowd.c's constants on 8. that is consistent with separate objects either side, and the fill rule verifies both gaps. the object is one of data alone, as ADV0100's scripts.c is, or that of grass.c, long_ladder.c or tornado2.c, which link between with no row in C, or of act2_land.c, act3_land.c, object_list.c or texlists.c
+modules/adv02/scripts.c                          C        0x0cb3bb98  0x0cb3c6f2
+#
+# generated data ranges
+gen/adv02/d_0c9167c0.c                           D        0x0c9167c0  0x0c956970
+gen/adv02/d_0c956970.c                           D        0x0c956970  0x0c99d288
+gen/adv02/d_0c99d288.c                           D        0x0c99d288  0x0c9dd570
+gen/adv02/d_0c9dd570.c                           D        0x0c9dd570  0x0ca21698
+gen/adv02/d_0ca21698.c                           D        0x0ca21698  0x0ca61ce8
+# ends where dat_0ca9aa90.c's motion starts on 8, straight after its motion data
+gen/adv02/d_0ca61ce8.c                           D        0x0ca61ce8  0x0ca9aa90
+gen/adv02/d_0ca9b220.c                           D        0x0ca9b220  0x0cadad20
+# ends with the root object of the Life Belt's model, which 1ST_READ.BIN's level_item_models names, at 0x0cb1f514: its last word, its sibling, ends the row where fog.c's data starts on 8
+gen/adv02/d_0cadad20.c                           D        0x0cadad20  0x0cb1f548
+gen/adv02/d_0cb21bf8.c                           D        0x0cb21bf8  0x0cb39818

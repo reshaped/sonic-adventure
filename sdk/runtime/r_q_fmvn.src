@@ -1,0 +1,100 @@
+; copy R0 bytes from R2 to R1, the last word first. R0 is a multiple of 4
+; from 4 to 64, and the two blocks are word aligned and don't overlap. it
+; changes R0 and no other register
+
+        .EXPORT     __quick_evn_mvn
+        .EXPORT     __quick_odd_mvn
+
+        .SECTION    P,CODE,ALIGN=4
+
+; the copy, for a size that is a multiple of 8
+; @asm open: no inspect rule reads R0 at its entry
+__quick_evn_mvn:
+        MOV.L       R3,@-R15
+        MOV.L       fmvn_copy_table_address,R3
+        MOV.L       @(R0,R3),R3
+        ADD         #-4,R0
+        JMP         @R3
+        MOV.L       @(R0,R2),R0
+; the copy, for any other size
+; @asm open: no inspect rule reads R0 at its entry
+__quick_odd_mvn:
+        MOV.L       R3,@-R15
+        MOV.L       fmvn_copy_table_address,R3
+        MOV.L       @(R0,R3),R3
+        ADD         #-4,R0
+        JMP         @R3
+        MOV.L       @(R0,R2),R3
+fmvn_copy_table_address:
+        .DATA.L     fmvn_copy_table
+; unreached: the copy table enters at fmvn_words_16 and the labels below it
+        NOP
+fmvn_words_16:
+        MOV.L       @(56,R2),R3
+        MOV.L       R0,@(60,R1)
+fmvn_words_15:
+        MOV.L       @(52,R2),R0
+        MOV.L       R3,@(56,R1)
+fmvn_words_14:
+        MOV.L       @(48,R2),R3
+        MOV.L       R0,@(52,R1)
+fmvn_words_13:
+        MOV.L       @(44,R2),R0
+        MOV.L       R3,@(48,R1)
+fmvn_words_12:
+        MOV.L       @(40,R2),R3
+        MOV.L       R0,@(44,R1)
+fmvn_words_11:
+        MOV.L       @(36,R2),R0
+        MOV.L       R3,@(40,R1)
+fmvn_words_10:
+        MOV.L       @(32,R2),R3
+        MOV.L       R0,@(36,R1)
+fmvn_words_9:
+        MOV.L       @(28,R2),R0
+        MOV.L       R3,@(32,R1)
+fmvn_words_8:
+        MOV.L       @(24,R2),R3
+        MOV.L       R0,@(28,R1)
+fmvn_words_7:
+        MOV.L       @(20,R2),R0
+        MOV.L       R3,@(24,R1)
+fmvn_words_6:
+        MOV.L       @(16,R2),R3
+        MOV.L       R0,@(20,R1)
+fmvn_words_5:
+        MOV.L       @(12,R2),R0
+        MOV.L       R3,@(16,R1)
+fmvn_words_4:
+        MOV.L       @(8,R2),R3
+        MOV.L       R0,@(12,R1)
+fmvn_words_3:
+        MOV.L       @(4,R2),R0
+        MOV.L       R3,@(8,R1)
+fmvn_words_2:
+        MOV.L       @R2,R3
+        MOV.L       R0,@(4,R1)
+fmvn_words_1:
+        MOV.L       R3,@R1
+fmvn_done:
+        RTS
+        MOV.L       @R15+,R3
+fmvn_copy_table:
+        .DATA.L     fmvn_done
+        .DATA.L     fmvn_words_1
+        .DATA.L     fmvn_words_2
+        .DATA.L     fmvn_words_3
+        .DATA.L     fmvn_words_4
+        .DATA.L     fmvn_words_5
+        .DATA.L     fmvn_words_6
+        .DATA.L     fmvn_words_7
+        .DATA.L     fmvn_words_8
+        .DATA.L     fmvn_words_9
+        .DATA.L     fmvn_words_10
+        .DATA.L     fmvn_words_11
+        .DATA.L     fmvn_words_12
+        .DATA.L     fmvn_words_13
+        .DATA.L     fmvn_words_14
+        .DATA.L     fmvn_words_15
+        .DATA.L     fmvn_words_16
+        .END

@@ -1,0 +1,106 @@
+; Kamui's copies by longs and by pairs of longs, its cache line write-back, and
+; its callback runner. the runner saves FPSCR and FR0 to FR15 around the
+; callback. kamui.h states each routine's contract
+
+        .EXPORT     _kmiExCallBackFunc
+        .EXPORT     _kmiMemCopy4
+        .EXPORT     _kmiMemCopy8
+        .EXPORT     _kmiPurgeCache
+
+        .SECTION    PSG,CODE,ALIGN=32
+
+; PKMDWORD kmiMemCopy8(PKMDWORD dstPtr, PKMDWORD SrcAdr, KMDWORD Size)
+; @asm opcode: fschg, FSCHG at 0x8c66386a turns FMOV to pairs for the copy
+_kmiMemCopy8:
+        MOV         R4,R0
+        OR          R5,R0
+        OR          R6,R0
+        TST         #7,R0
+        BF          _kmiMemCopy4
+        FSCHG                               ; SZ to 1: FMOV moves pairs of longs
+        SHLR2       R6
+        SHLR        R6
+?pairs:
+        FMOV        @R5+,DR0
+        DT          R6
+        FMOV        DR0,@R4
+        BF/S        ?pairs
+        ADD         #8,R4
+        RTS
+        FSCHG                               ; SZ to 0 again
+
+; void kmiMemCopy4(void *dst, void *src, KMDWORD size)
+; @asm name: kmasm_kamui_lib_, the 1.30J ninja.lib member that holds it; it
+; starts at 0x8c66387e
+_kmiMemCopy4:
+        SHLR2       R6
+?longs:
+        MOV.L       @R5+,R0
+        DT          R6
+        MOV.L       R0,@R4
+        BF/S        ?longs
+        ADD         #4,R4
+        RTS
+        NOP
+
+; void kmiPurgeCache(void *addr)
+; @asm opcode: cache-line, OCBWB @R4 at 0x8c66388e writes the line back
+_kmiPurgeCache:
+        OCBWB       @R4
+        RTS
+        NOP
+
+; void kmiExCallBackFunc(PKMCALLBACKFUNC function, void *argument)
+; @asm name: kmasm_kamui_lib_, the 1.30J ninja.lib member that holds it; it
+; starts at 0x8c663894
+_kmiExCallBackFunc:
+        STS         FPSCR,R0
+        MOV.L       R0,@-R15
+        MOV         #16,R1
+        SHLL16      R1                      ; H'100000, FPSCR's SZ bit
+        NOT         R0,R0
+        OR          R1,R0
+        NOT         R0,R0                   ; FPSCR with SZ clear
+        LDS         R0,FPSCR
+        FMOV.S      FR0,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR15,@-R15
+        STS.L       PR,@-R15
+        MOV         R4,R3
+        JSR         @R3
+        MOV         R5,R4
+        LDS.L       @R15+,PR
+        FMOV.S      @R15+,FR15
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR0
+        MOV.L       @R15+,R0
+        LDS         R0,FPSCR
+        RTS
+        NOP
+        .END

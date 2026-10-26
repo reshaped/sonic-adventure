@@ -1,0 +1,36 @@
+# EV0169.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0169_head
+0x0cb80008  ev0169_script
+0x0cb80388  event_light_destroy
+0x0cb8038e  event_light_draw
+0x0cb80392  event_light_step
+0x0cb80404  event_light_create
+0x0cb804bc  event_sound_destroy
+0x0cb804cc  event_sound_step
+0x0cb8056e  event_sound_hold
+0x0cb805ce  event_sound_move_volume
+0x0cb805f4  event_sound_move_pan
+0x0cb8061a  event_sound_move_pitch
+0x0cb80640  event_sound_init
+0x0cb80668  event_sound_stop_all
+0x0cb806c6  event_sound_start
+0x0cb80706  event_sound_stop
+0x0cb80780  event_sound_fade_volume
+0x0cb807ac  event_sound_fade_pan
+0x0cb807d8  event_sound_fade_pitch
+0x0cb80804  event_sound_play
+0x0cb808e0  ev0169_light_points
+0x0cb82660  ev0169_light_path
+0x0cb82668  ev0169_light
+0x0cb8266c  ev0169_textures
+0x0cb82678  dat_0cb82678
+0x0cb84894  ev0169_tails_action_0
+0x0cb86bf8  ev0169_tails_action_1
+0x0cb894c0  dat_0cb894c0
+0x0cb89900  ev0169_tails_motion_2
+0x0cb8990c  ev0169_tails_action_2
+0x0cb89918  event_sound_count
+0x0cb8991c  event_sounds
+0x0cb89920  event_sound_next

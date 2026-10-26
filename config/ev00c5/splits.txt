@@ -1,0 +1,29 @@
+# EV00C5.PRS, E-102's story: with E-103 and E-104 rescued, E-102 suspects E-105 and E-101 are still on the Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80a70
+C          0x0cb80a70  0x0cb80b18
+D          0x0cb80b18  0x0cb87e44
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00c5/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00c5/script.c                P        0x0cb80008  0x0cb80554
+events/ev00c5/script.c                C        0x0cb80a70  0x0cb80b10
+events/ev00c5/script.c                D        0x0cb80b18  0x0cb80b2c
+events/shared/picture.c               P        0x0cb80554  0x0cb806b0
+events/shared/picture.c               D        0x0cb87e00  0x0cb87e34
+events/shared/sound.c                 P        0x0cb806b0  0x0cb80a70
+events/shared/sound.c                 D        0x0cb87e38  0x0cb87e44
+# position keys of a node of ev00c5_e102_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and picture.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80ef0, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev00c5/dat_0cb80b30.c          D        0x0cb80b30  0x0cb80ef0
+# the picture's texture name, its object's one constant: it meets script.c's constants on 8 with no fill, and script.c's object can't hold it, as its table lies in D past other objects' data after script.c's
+events/ev00c5/picture_textures.c      C        0x0cb80b10  0x0cb80b18
+# the picture's texture name table and ev00c5_picture_texlist, which the script loads from ICM00C5: the texlist starts off 8 straight after the table, so they are one object's. the table meets an action at 0x0cb87de0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. the texlist ends 4 past 8, and the 4 bytes of 0xff after it, to picture.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object
+events/ev00c5/picture_textures.c      D        0x0cb87de8  0x0cb87dfc
+#
+# generated data ranges
+gen/ev00c5/d_0cb80ef0.c               D        0x0cb80ef0  0x0cb87de8

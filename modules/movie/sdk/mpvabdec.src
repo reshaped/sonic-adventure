@@ -1,0 +1,667 @@
+; the MPEG-1 block decoders, which decode a block's coefficients from the
+; stream and dequantize them into floats. MPVABDEC_EraseBlock6 zeroes a
+; macroblock's six blocks of them
+
+; the offsets of struct mpv_obj's fields. the decoders keep mpv->bits in
+; registers: word in r11, next in r12, used in r13 and cursor in r14
+BITS_WORD:      .EQU    0
+BITS_NEXT:      .EQU    4
+BITS_USED:      .EQU    8
+BITS_CURSOR:    .EQU    12
+RUN_LEVEL_8:    .EQU    16
+RUN_LEVEL_4:    .EQU    20
+RUN_LEVEL_2:    .EQU    24
+RUN_LEVEL_1:    .EQU    28
+RUN_LEVEL_0A:   .EQU    32
+RUN_LEVEL_0B:   .EQU    36
+RUN_LEVEL_0C:   .EQU    40
+ZIGZAG:         .EQU    44
+IXA:            .EQU    48
+; the offsets of struct mpv_block_param's fields
+BP_FIRST:       .EQU    16
+BP_COEF:        .EQU    28
+BP_QMAT:        .EQU    32
+BP_QSCALE:      .EQU    36
+BP_DC_PRED:     .EQU    40
+BP_DCSIZ:       .EQU    44
+BP_NONINTRA:    .EQU    48
+
+        .EXPORT     _MPVABDEC_EraseBlock6
+        .EXPORT     _MPVABDEC_IntraBlock
+        .EXPORT     _MPVABDEC_NintraBlock
+        .EXPORT     _mpvabdec_IntraAc
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; Sint32 MPVABDEC_IntraBlock(struct mpv_obj *mpv,
+;                            struct mpv_block_param *block)
+; decode an intra block from mpv's stream into block->coef. it writes only
+; the coefficients the block codes. the next 7 bits index block->dcsiz, which
+; gives the size of the DC difference and the length of its size code.
+; *block->dc_pred gains 8 times the difference, and coefficient 0 becomes its
+; new value. block->first becomes 0. the other coefficients decode as in
+; mpvabdec_IntraAc, whose result this returns
+; @asm opcode: swap, SWAP.B at 0x8ceb18e4 and 0x8ceb18e8 and SWAP.W at
+; 0x8ceb18e6 put a stream word in big-endian order
+_MPVABDEC_IntraBlock:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       @(BITS_WORD,R4),R11
+        MOV.L       @(BITS_NEXT,R4),R12
+        MOV.L       @(BITS_USED,R4),R13
+        MOV.L       @(BITS_CURSOR,R4),R14
+        MOV         #16,R1
+        CMP/GT      R1,R13
+        MOV         R11,R6
+        BF/S        ?peeked
+        SHLR16      R6
+        MOV         #-48,R1
+        ADD         R13,R1
+        MOV         R12,R0
+        SHLD        R1,R0
+        OR          R0,R6                   ; the next 16 bits, low in r6
+?peeked:
+        MOV.L       @(BP_DCSIZ,R5),R0
+        MOV         R6,R10
+        SHLR8       R10
+        SHLR        R10
+        MOV.B       @(R0,R10),R10
+        MOV         #15,R1
+        EXTU.B      R10,R10
+        MOV         R10,R7
+        SHLR2       R7
+        SHLR2       R7
+        AND         R1,R10
+        TST         R7,R7
+        BT          ?dc
+; the difference is the size bits after the size code, less 2^size - 1 where
+; those bits start with a 0
+        MOV.L       @(IXA,R4),R0
+        MOV         R10,R1
+        SHLL        R1
+        ADD         R7,R10
+        MOV.W       @(R0,R1),R7
+        MOV         #-16,R0
+        AND         R7,R6
+        SHLR        R7
+        NOT         R7,R7
+        ADD         R10,R0
+        MOV         R7,R1
+        AND         R6,R1
+        ADD         R1,R7
+        SHAD        R0,R6
+        SHAD        R0,R7
+        ROTL        R7
+        ADD         R6,R7
+        SHLL2       R7
+        SHLL        R7
+?dc:
+        MOV.L       @(BP_DC_PRED,R5),R0
+        ADD         R10,R13
+        MOV         #32,R1
+        CMP/GE      R1,R13
+        BF          ?shift
+        SUB         R1,R13
+        MOV         R12,R11
+        MOV.L       @R14+,R12
+        SHLD        R13,R11
+        SWAP.B      R12,R12                 ; the next word, big-endian
+        SWAP.W      R12,R12
+        SWAP.B      R12,R12
+        BT          ?taken
+?shift:
+        SHLD        R10,R11
+?taken:
+        MOV.L       @R0,R2
+        MOV.L       @(BP_COEF,R5),R1
+        ADD         R2,R7
+        LDS         R7,FPUL
+        FLOAT       FPUL,FR4
+        MOV.L       R7,@R0
+        MOV         #0,R3
+        FMOV.S      FR4,@R1
+        MOV.L       @(ZIGZAG,R4),R8
+        MOV.L       R3,@(BP_FIRST,R5)
+        BRA         _mpvabdec_IntraAc
+        MOV.L       @(BP_NONINTRA,R5),R2
+        .ALIGN      4
+
+; Sint32 MPVABDEC_NintraBlock(struct mpv_obj *mpv,
+;                             struct mpv_block_param *block)
+; decode a predicted block from mpv's stream into block->coef, after it
+; clears the block's 64 floats there. the first coefficient's code may be a 1
+; and a sign, which stand for run 0 and level 1. block->first becomes the
+; first coefficient's place, and the first level is dequantized as in
+; mpvabdec_IntraAc, with 1 for block->nonintra. the other coefficients decode
+; as in mpvabdec_IntraAc, whose result this returns. block->coef must be
+; 8-byte aligned
+; @asm opcode: rotcr, ROTCR at 0x8ceb19ea, 0x8ceb19ec and 0x8ceb19ee shifts a
+; code's bits through T
+_MPVABDEC_NintraBlock:
+        FLDI0       FR4
+        FLDI0       FR5
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       @(BP_COEF,R5),R14
+        MOV         #1,R13
+        SHLL8       R13
+        ADD         R14,R13
+        FSCHG                               ; fmov moves pairs to the next fschg
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FMOV        DR4,@-R13
+        FSCHG
+        MOV.L       @(BITS_WORD,R4),R11
+        MOV.L       @(BITS_NEXT,R4),R12
+        MOV.L       @(BITS_USED,R4),R13
+        MOV.L       @(BITS_CURSOR,R4),R14
+        TST         R13,R13
+        BT/S        ?peeked
+        MOV         R11,R6
+        MOV         R13,R1
+        ADD         #-32,R1
+        MOV         R12,R0
+        SHLD        R1,R0
+        OR          R0,R6                   ; the next 32 bits, in r6
+?peeked:
+        SHLL        R6                      ; a 1 and a sign: run 0, level 1
+        BF          ?code
+        MOV         #2,R10
+        SHLL        R6
+        MOV         #0,R9
+        MOV         #1,R7
+        BRA         ?take
+        MOVT        R6
+?code:
+        MOV         R6,R7
+        SHLR16      R7
+        SHLR8       R7
+        MOV         #7,R1
+        CMP/HI      R1,R7
+        BF          ?table_4
+        SHLR        R7
+        MOV.L       @(RUN_LEVEL_8,R4),R0
+        SHLL2       R7
+        MOV.L       @(R0,R7),R7
+        EXTU.B      R7,R9
+        MOV         #64,R1
+        CMP/EQ      R1,R9
+        BT          ?escape
+        MOV         R7,R10
+        SHLR16      R10
+        SHLR8       R7
+        MOV         R10,R1
+        ADD         #-33,R1
+        EXTS.B      R7,R7
+        BRA         ?sign
+        SHLD        R1,R6
+?escape:
+        MOV         #-11,R1                 ; a 6-bit run, then an 8-bit level
+        MOV         R6,R7
+        MOV         #20,R10
+        SHLD        R1,R7
+        EXTU.W      R7,R7
+        SHLR2       R7
+        MOV         R7,R9
+        SHLR8       R9
+        EXTS.B      R7,R0
+        TST         #H'7F,R0                ; 0 and -128 take 8 more bits
+        BF          ?level
+        MOV         #-5,R1
+        SHLL        R0
+        ADD         #8,R10
+        SHLD        R1,R6
+        EXTU.B      R6,R6
+        OR          R6,R0
+?level:
+        MOV         #0,R1
+        CMP/GT      R0,R1
+        BF          ?magnitude
+        NEG         R0,R0
+?magnitude:
+        MOVT        R6
+        BRA         ?take
+        MOV         R0,R7
+?table_4:
+        ROTCR       R7
+        ROTCR       R7
+        ROTCR       R7                      ; the bit after six zeros
+        BF          ?table_2
+        MOV         #-22,R1
+        MOV         #11,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_4,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_2:
+        SHLL        R7
+        BF          ?table_1
+        MOV         #-20,R1
+        MOV         #13,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_2,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_1:
+        SHLL        R7
+        BF          ?table_0a
+        MOV         #-19,R1
+        MOV         #14,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_1,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0a:
+        SHLL8       R6
+        SHLL        R6
+        BF/S        ?table_0b
+        MOV         #-27,R1
+        MOV         #15,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0A,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0b:
+        SHLL        R6
+        BF          ?table_0c
+        MOV         #16,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0B,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0c:
+        SHLL        R6
+        MOV         #17,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0C,R4),R0
+        AND         R6,R1
+        MOV.W       @(R0,R1),R7
+?entry:
+        EXTU.B      R7,R9
+        SHLR8       R7
+?sign:
+        MOV         #1,R1
+        AND         R1,R6
+?take:
+        MOV.L       @(ZIGZAG,R4),R8
+        ADD         R10,R13
+        MOV         #32,R1
+        CMP/GE      R1,R13
+        BF          ?shift
+        SUB         R1,R13
+        MOV         R12,R11
+        MOV.L       @R14+,R12
+        SHLD        R13,R11
+        SWAP.B      R12,R12                 ; the next word, big-endian
+        SWAP.W      R12,R12
+        SWAP.B      R12,R12
+        BT          ?taken
+?shift:
+        SHLD        R10,R11
+?taken:
+        ADD         R9,R8
+        MOV.B       @R8,R3
+        MOV.L       @(BP_QSCALE,R5),R1
+        SHLL        R7
+        MOV.L       R3,@(BP_FIRST,R5)
+        ADD         #1,R7
+        MUL.L       R1,R7
+        MOV.L       @(BP_QMAT,R5),R0
+        STS         MACL,R7
+        MOV.B       @(R0,R3),R1
+        EXTU.B      R1,R1
+        MUL.L       R1,R7
+        MOV         #-4,R1
+        STS         MACL,R0
+        SHAD        R1,R0
+        ADD         #-1,R0
+        TST         R6,R6
+        OR          #H'01,R0
+        BT          ?store
+        NEG         R0,R0
+?store:
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        MOV.L       @(BP_COEF,R5),R0
+        SHLL2       R3
+        FMOV.S      FR4,@(R0,R3)
+        SHLR2       R3
+        BRA         _mpvabdec_IntraAc
+        MOV.L       @(BP_NONINTRA,R5),R2
+
+; the block decoders' shared tail. each decoder pushes r14 to r8, in that
+; order, and enters by a branch, with block->nonintra in r2, mpv in r4 and
+; block in r5. r3 holds the place, in the inverse DCT's order, of the last
+; coefficient decoded, and r8 that coefficient's entry in mpv->zigzag. r11 to
+; r14 hold mpv->bits.
+;
+; it decodes the block's run and level codes up to its end of block code.
+; each coefficient's entry in mpv->zigzag lies run + 1 entries past the
+; previous coefficient's, and gives the coefficient's place p. for a level of
+; magnitude m, let d be (2m + block->nonintra) * block->qscale *
+; block->qmat[p], shifted right 4. block->coef[p] becomes (d - 1) | 1, negated
+; for a negative level.
+;
+; at the end it stores mpv->bits back and pops r8 to r14. it returns the last
+; coefficient's place where that place is block->first, and the place negated
+; otherwise.
+;
+; the runs must stay within the block's 64 coefficients. on a stream whose
+; runs pass them, it reads entries past mpv->zigzag's 64 (0x8ceb1bea). it then
+; reads block->qmat (0x8ceb1bee) and writes block->coef (0x8ceb1c0e) at the
+; places those entries give, from -128 to 127
+; @asm opcode: rotcr, ROTCR at 0x8ceb1b42, 0x8ceb1b44 and 0x8ceb1b46 shifts a
+; code's bits through T
+_mpvabdec_IntraAc:
+        TST         R13,R13
+        BT/S        ?peeked
+        MOV         R11,R6
+        MOV         R13,R1
+        ADD         #-32,R1
+        MOV         R12,R0
+        SHLD        R1,R0
+        OR          R0,R6                   ; the next 32 bits, in r6
+?peeked:
+        SHLL        R6
+        BF          ?code
+        SHLL        R6
+        BT          ?run_0
+        MOV         #-1,R9                  ; end of block, as run -1
+        BRA         ?take
+        MOV         #2,R10
+?run_0:
+        MOV         #3,R10
+        SHLL        R6
+        MOV         #0,R9
+        MOV         #1,R7
+        BRA         ?take
+        MOVT        R6
+?code:
+        MOV         R6,R7
+        SHLR16      R7
+        SHLR8       R7
+        MOV         #7,R1
+        CMP/HI      R1,R7
+        BF          ?table_4
+        SHLR        R7
+        MOV.L       @(RUN_LEVEL_8,R4),R0
+        SHLL2       R7
+        MOV.L       @(R0,R7),R7
+        EXTU.B      R7,R9
+        MOV         #64,R1
+        CMP/EQ      R1,R9
+        BT          ?escape
+        MOV         R7,R10
+        SHLR16      R10
+        SHLR8       R7
+        MOV         R10,R1
+        ADD         #-33,R1
+        EXTS.B      R7,R7
+        BRA         ?sign
+        SHLD        R1,R6
+?escape:
+        MOV         #-11,R1                 ; a 6-bit run, then an 8-bit level
+        MOV         R6,R7
+        MOV         #20,R10
+        SHLD        R1,R7
+        EXTU.W      R7,R7
+        SHLR2       R7
+        MOV         R7,R9
+        SHLR8       R9
+        EXTS.B      R7,R0
+        TST         #H'7F,R0                ; 0 and -128 take 8 more bits
+        BF          ?level
+        MOV         #-5,R1
+        SHLL        R0
+        ADD         #8,R10
+        SHLD        R1,R6
+        EXTU.B      R6,R6
+        OR          R6,R0
+?level:
+        MOV         #0,R1
+        CMP/GT      R0,R1
+        BF          ?magnitude
+        NEG         R0,R0
+?magnitude:
+        MOVT        R6
+        BRA         ?take
+        MOV         R0,R7
+?table_4:
+        ROTCR       R7
+        ROTCR       R7
+        ROTCR       R7                      ; the bit after six zeros
+        BF          ?table_2
+        MOV         #-22,R1
+        MOV         #11,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_4,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_2:
+        SHLL        R7
+        BF          ?table_1
+        MOV         #-20,R1
+        MOV         #13,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_2,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_1:
+        SHLL        R7
+        BF          ?table_0a
+        MOV         #-19,R1
+        MOV         #14,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_1,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0a:
+        SHLL8       R6
+        SHLL        R6
+        BF/S        ?table_0b
+        MOV         #-27,R1
+        MOV         #15,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0A,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0b:
+        SHLL        R6
+        BF          ?table_0c
+        MOV         #16,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0B,R4),R0
+        AND         R6,R1
+        BRA         ?entry
+        MOV.W       @(R0,R1),R7
+?table_0c:
+        SHLL        R6
+        MOV         #17,R10
+        SHLD        R1,R6
+        MOV         #-2,R1
+        MOV.L       @(RUN_LEVEL_0C,R4),R0
+        AND         R6,R1
+        MOV.W       @(R0,R1),R7
+?entry:
+        EXTU.B      R7,R9
+        SHLR8       R7
+?sign:
+        MOV         #1,R1
+        AND         R1,R6
+?take:
+        ADD         R10,R13
+        MOV         #32,R1
+        CMP/GE      R1,R13
+        BF          ?shift
+        SUB         R1,R13
+        MOV         R12,R11
+        MOV.L       @R14+,R12
+        SHLD        R13,R11
+        SWAP.B      R12,R12                 ; the next word, big-endian
+        SWAP.W      R12,R12
+        SWAP.B      R12,R12
+        BT          ?taken
+?shift:
+        SHLD        R10,R11
+?taken:
+        ADD         #1,R9
+        MOV.L       @(BP_QSCALE,R5),R1
+        TST         R9,R9
+        ADD         R9,R8
+        BT          ?end
+        SHLL        R7
+        MOV.L       @(BP_QMAT,R5),R0
+        ADD         R2,R7
+        MOV.B       @R8,R3
+        MUL.L       R1,R7
+        MOV.B       @(R0,R3),R1
+        STS         MACL,R7
+        EXTU.B      R1,R1
+        MUL.L       R1,R7
+        MOV         #-4,R1
+        STS         MACL,R0
+        SHAD        R1,R0
+        ADD         #-1,R0
+        TST         R6,R6
+        OR          #H'01,R0
+        BT          ?store
+        NEG         R0,R0
+?store:
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        MOV.L       @(BP_COEF,R5),R0
+        SHLL2       R3
+        FMOV.S      FR4,@(R0,R3)
+        BRA         _mpvabdec_IntraAc
+        SHLR2       R3
+?end:
+        MOV.L       R11,@(BITS_WORD,R4)
+        MOV.L       R12,@(BITS_NEXT,R4)
+        MOV.L       R13,@(BITS_USED,R4)
+        MOV.L       R14,@(BITS_CURSOR,R4)
+        MOV.L       @(BP_FIRST,R5),R1
+        CMP/EQ      R1,R3
+        BT          ?give
+        NEG         R3,R3
+?give:
+        MOV         R3,R0
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+        .ALIGN      4
+
+; void MPVABDEC_EraseBlock6(Float *coef)
+; zero the six blocks of 64 floats at coef, 1536 bytes, two floats to a store.
+; coef must be 8-byte aligned
+; @asm open: no inspect rule reads the DT loop inside its FSCHG run
+_MPVABDEC_EraseBlock6:
+        MOV         #6,R1
+        FLDI0       FR4
+        MOV         R1,R2
+        SHLL8       R1
+        FLDI0       FR5
+        ADD         R4,R1
+        FSCHG                               ; fmov moves pairs to the next fschg
+?pass:
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        DT          R2
+        FMOV        DR4,@-R1
+        FMOV        DR4,@-R1
+        BF/S        ?pass
+        FMOV        DR4,@-R1
+        RTS
+        FSCHG
+
+        .END

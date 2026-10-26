@@ -1,0 +1,32 @@
+# EV0017.PRS, Tails picks up Sonic in the Tornado 2, Sonic's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb827e8
+C          0x0cb827e8  0x0cb82ce0
+D          0x0cb82ce0  0x0cbad08c
+B          0x0cbad090  0x0cbad0c4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0017/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0017/script.c               P        0x0cb80008  0x0cb80d1c
+events/ev0017/script.c               C        0x0cb827e8  0x0cb82cdc
+events/ev0017/script.c               D        0x0cb82ce0  0x0cba6d50
+events/ev0017/script.c               B        0x0cbad090  0x0cbad0c4
+events/shared/prop.c                  P        0x0cb80d1c  0x0cb80fdc
+events/shared/prop.c                  D        0x0cbad010  0x0cbad038
+events/shared/move.c                  P        0x0cb80fdc  0x0cb81b00
+events/shared/move.c                  D        0x0cbad038  0x0cbad060
+events/shared/mover.c                 P        0x0cb81b00  0x0cb82298
+events/shared/fade.c                  P        0x0cb82298  0x0cb82424
+events/shared/fade.c                  D        0x0cbad060  0x0cbad080
+events/shared/sound.c                 P        0x0cb82424  0x0cb827e4
+events/shared/sound.c                 D        0x0cbad080  0x0cbad08c
+# ev0017_sonic_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to prop.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cbacb68 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0017/sonic_action_2.c        D        0x0cbacff8  0x0cbad00c
+#
+# generated data ranges
+gen/ev0017/d_0cba6d50.c               D        0x0cba6d50  0x0cbacff8

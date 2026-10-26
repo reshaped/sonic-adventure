@@ -1,0 +1,196 @@
+# AL_RACE.PRS, the Chao race
+#
+# section  start       end
+PHEAD      0x0cb80000  0x0cb800a0
+CHEAD      0x0cb800a0  0x0cb800e8
+DHEAD      0x0cb800e8  0x0cb80ee0
+P          0x0cb80ee0  0x0cb999a0
+B          0x0cb999a0  0x0cb99dd8
+C          0x0cb99dd8  0x0cb9c320
+D          0x0cb9c320  0x0cbd4bac
+#
+# source                        section  start       end
+modules/al_race/sky.c           PHEAD    0x0cb80000  0x0cb80040
+modules/al_race/sky.c           P        0x0cb933c0  0x0cb935a0
+modules/al_race/sky.c           C        0x0cb9ade0  0x0cb9ae10
+modules/al_race/sky.c           D        0x0cb9cbb0  0x0cb9d244
+modules/al_race/menu.c          P        0x0cb935a0  0x0cb94ce0
+modules/al_race/menu.c          C        0x0cb9b570  0x0cb9bae8
+modules/al_race/menu.c          D        0x0cbd3918  0x0cbd3920
+# the action of the coconut on the palm, which coconut_palm.c's palm names, and its motion: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same. menu.c's data starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. coconut_palm.c's data lies elsewhere, so the object is one of data alone, the generated data's before it, menu.c's, were the zero word its, though its code doesn't read it, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/coconut_motion.c D        0x0cbd3900  0x0cbd3914
+modules/al_race/race.c          PHEAD    0x0cb80040  0x0cb800a0
+# only 1ST_READ.BIN's stage_pools reads it, to its null. the act 0 land's entries start on 8 at 0x0cb800f0, past where this object's next item would start on 4, and nothing points into the four zero bytes between: as one file with act0_land.c, the land ends at 0x0cb8029c. the bytes don't say whether the four bytes are the linker's fill, as the fill rule takes them, or a second null of this list, which could then share the land's object
+modules/al_race/pools.c         DHEAD    0x0cb800e8  0x0cb800ec
+# the land starts off 8 at 0x0cb8027c, straight after its entries, so they share an object, with the name of its pvm. the act 1 land's name starts on 8 at 0x0cb800b0, past where this object's next string would start on 4: as one file, the two lands' constants end at 0x0cb800b4. the bytes don't say whether its entries' objects and texlist, in D's generated range, share its object
+modules/al_race/act0_land.c     CHEAD    0x0cb800a0  0x0cb800aa
+modules/al_race/act0_land.c     DHEAD    0x0cb800f0  0x0cb802a0
+# the pvm names after its own start on 8 at 0x0cb800c0, past where its next string would start on 4, and the object list on 8 at 0x0cb80e98, past where its next item would start on 4: as one file with object_list.c, the list ends at 0x0cb80e9c. the bytes don't say whether its entries' objects and texlist, in D's generated range, share its object
+modules/al_race/act1_land.c     CHEAD    0x0cb800b0  0x0cb800ba
+modules/al_race/act1_land.c     DHEAD    0x0cb802a0  0x0cb80e94
+# only 1ST_READ.BIN's object_lists reads it. it meets the pvm list on 8 with no fill; one file or two build the same. the bytes don't say whether its kinds at 0x0cbd4a30, and their names in C, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/al_race/object_list.c   DHEAD    0x0cb80e98  0x0cb80ea0
+modules/al_race/pvms.c          CHEAD    0x0cb800c0  0x0cb800e8
+modules/al_race/pvms.c          DHEAD    0x0cb80ea0  0x0cb80ee0
+modules/al_race/race.c          P        0x0cb998a0  0x0cb999a0
+modules/al_race/entrant_chao.c  P        0x0cb80ee0  0x0cb81400
+modules/al_race/body.c          P        0x0cb81400  0x0cb81800
+# follows body.c with no fill; one file or two build the same
+modules/al_race/race_chao.c     P        0x0cb81800  0x0cb86900
+modules/al_race/race_chao.c     C        0x0cb99dd8  0x0cb99e00
+modules/al_race/race_chao.c     D        0x0cb9c870  0x0cb9c8c4
+# the last text the race's script pages name, which follows the text before it on 8 with no fill, where one file or two build the same. the texts are the scripts' object's strings, so this is consistent with that object. race_chao.c's data starts on 8, 4 bytes past it, where this object's next item would start. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated scripts', entrant_chao.c's or body.c's, which link ahead of race_chao.c with no row in D, though their code doesn't read it, race_chao.c's, were the zero word its, act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone, or that whose storage dat_0cb999a0.c holds, which can link between
+modules/al_race/dat_0cb9c820.c  D        0x0cb9c820  0x0cb9c86c
+modules/al_race/racer.c         P        0x0cb86900  0x0cb886a0
+modules/al_race/racer.c         C        0x0cb99e00  0x0cb9a20c
+modules/al_race/tune.c          P        0x0cb886a0  0x0cb887e0
+modules/al_race/tune.c          B        0x0cb999b0  0x0cb99a04
+modules/al_race/fade.c          P        0x0cb887e0  0x0cb8897c
+modules/al_race/fade.c          B        0x0cb99a08  0x0cb99a18
+modules/al_race/fade.c          D        0x0cb9c8c8  0x0cb9c8fc
+modules/al_race/race_camera.c   P        0x0cb88980  0x0cb8a980
+modules/al_race/race_camera.c   C        0x0cb9a210  0x0cb9a275
+modules/al_race/cycle.c         P        0x0cb8a980  0x0cb8aa40
+modules/al_race/cycle.c         C        0x0cb9a278  0x0cb9a2d0
+modules/al_race/item.c          P        0x0cb8aa40  0x0cb8aba0
+modules/al_race/item.c          C        0x0cb9a708  0x0cb9a720
+modules/al_race/entrant.c       P        0x0cb8aba0  0x0cb8afc0
+modules/al_race/spray.c         P        0x0cb8afc0  0x0cb8b4e0
+modules/al_race/spray.c         C        0x0cb9a720  0x0cb9a7c0
+modules/al_race/game.c          P        0x0cb8b4e0  0x0cb8be60
+modules/al_race/game.c          C        0x0cb9a7c0  0x0cb9a81e
+modules/al_race/debug.c         P        0x0cb8be60  0x0cb8bee0
+modules/al_race/scenery.c       P        0x0cb8bee0  0x0cb8c0c0
+modules/al_race/scenery.c       C        0x0cb9a820  0x0cb9a85c
+modules/al_race/scenery.c       D        0x0cb9c900  0x0cb9c904
+modules/al_race/race_game.c     P        0x0cb8c0c0  0x0cb90660
+modules/al_race/race_game.c     C        0x0cb9a860  0x0cb9abc8
+modules/al_race/race_game.c     D        0x0cb9c908  0x0cb9c90c
+modules/al_race/race_rival.c    P        0x0cb90660  0x0cb90e20
+modules/al_race/race_rival.c    C        0x0cb9abc8  0x0cb9abce
+modules/al_race/race_path.c     P        0x0cb90e20  0x0cb91260
+modules/al_race/race_path.c     C        0x0cb9abd0  0x0cb9abd5
+# 40 bytes on 8, 3 bytes past race_kind_paths, the last of race_path.c's constants, which nothing points into, here, in AL_MAIN.BIN or in 1ST_READ.BIN, and which run to scoreboard.c's constants on 8 with no gap. they start where race_path.c's next constant would start on 4, and on 8, so the 3 bytes before them are padding of race_path.c's object or the linker's fill, as the fill rule takes them, and the 40 are constants of race_path.c's, scoreboard.c's, guide.c's, which links between with no row in C, or an object's of data alone or of head data alone, which the bytes leave open. no reader gives them a type, an extent or a role: they are placed as one of data alone, of unknown type
+modules/al_race/dat_0cb9abd8.c  C        0x0cb9abd8  0x0cb9ac00
+modules/al_race/guide.c         P        0x0cb91260  0x0cb914e0
+# standings_draw starts on 32 at 0x0cb92080 with no fill; split there, 1,021 of 6,848 code bytes differ
+modules/al_race/scoreboard.c    P        0x0cb914e0  0x0cb92fa0
+# dat_0cb9abd8.c's 40 bytes, in NJS_TEXANIM's shape, to which no word in AL_RACE, AL_MAIN, the gardens or 1ST_READ.BIN points, meet these constants on 8, so neither the fill nor the build says whose they are
+modules/al_race/scoreboard.c    C        0x0cb9ac00  0x0cb9ada8
+modules/al_race/scoreboard.c    D        0x0cb9c910  0x0cb9cba4
+# follows scoreboard.c with no fill; as one file, 460 of 7,284 code bytes differ
+modules/al_race/deal.c          P        0x0cb92fa0  0x0cb93160
+modules/al_race/deal.c          B        0x0cb99a20  0x0cb99b10
+modules/al_race/deal.c          C        0x0cb9ada8  0x0cb9adc0
+modules/al_race/deal.c          D        0x0cb9cba8  0x0cb9cbab
+modules/al_race/cards.c         P        0x0cb93160  0x0cb933c0
+modules/al_race/cards.c         C        0x0cb9adc0  0x0cb9ade0
+modules/al_race/bow_chao.c      P        0x0cb94ce0  0x0cb94ee0
+modules/al_race/bow_chao.c      C        0x0cb9bae8  0x0cb9bb16
+modules/al_race/bow_chao.c      D        0x0cbd3920  0x0cbd3954
+modules/al_race/bugle.c         P        0x0cb94ee0  0x0cb95160
+modules/al_race/bugle.c         C        0x0cb9bb18  0x0cb9bb46
+modules/al_race/bugle.c         D        0x0cbd3958  0x0cbd398c
+modules/al_race/butterfly.c     P        0x0cb95160  0x0cb95720
+modules/al_race/butterfly.c     C        0x0cb9bb48  0x0cb9bb71
+modules/al_race/gate.c          P        0x0cb95720  0x0cb95ba0
+modules/al_race/gate.c          B        0x0cb99b10  0x0cb99b11
+modules/al_race/gate.c          C        0x0cb9bb78  0x0cb9bc3e
+modules/al_race/gate.c          D        0x0cbd3990  0x0cbd39f8
+modules/al_race/cheer_chao.c    P        0x0cb95ba0  0x0cb95d60
+modules/al_race/cheer_chao.c    C        0x0cb9bc40  0x0cb9bc6e
+modules/al_race/cheer_chao.c    D        0x0cbd39f8  0x0cbd3a2c
+modules/al_race/coconut.c       P        0x0cb95d60  0x0cb95fa0
+modules/al_race/coconut.c       C        0x0cb9bc70  0x0cb9bcb4
+modules/al_race/coconut.c       D        0x0cbd3a30  0x0cbd3a64
+modules/al_race/confetti.c      P        0x0cb95fa0  0x0cb96740
+modules/al_race/confetti.c      C        0x0cb9bcb8  0x0cb9bd52
+modules/al_race/confetti.c      D        0x0cbd3a68  0x0cbd3a6c
+modules/al_race/cracker.c       P        0x0cb96740  0x0cb96ce0
+modules/al_race/cracker.c       B        0x0cb99b18  0x0cb99b1c
+modules/al_race/cracker.c       C        0x0cb9bd58  0x0cb9bd64
+modules/al_race/cracker.c       D        0x0cbd3a70  0x0cbd3a8c
+modules/al_race/entry_button.c  P        0x0cb96ce0  0x0cb97160
+modules/al_race/entry_button.c  C        0x0cb9bd68  0x0cb9bdae
+modules/al_race/entry_button.c  D        0x0cbd3a90  0x0cbd3ac4
+modules/al_race/flag.c          P        0x0cb97160  0x0cb972a0
+modules/al_race/flag.c          C        0x0cb9bdb0  0x0cb9bdcc
+modules/al_race/flower.c        P        0x0cb972a0  0x0cb973e0
+modules/al_race/flower.c        C        0x0cb9bdd0  0x0cb9bdf0
+modules/al_race/door.c          P        0x0cb973e0  0x0cb977a0
+modules/al_race/door.c          C        0x0cb9bdf0  0x0cb9be1a
+modules/al_race/door.c          D        0x0cbd3ac8  0x0cbd3b34
+modules/al_race/sign.c          P        0x0cb977a0  0x0cb978c0
+modules/al_race/sign.c          C        0x0cb9be20  0x0cb9be4c
+# follows sign.c with no fill; as one file, the code runs 16 bytes shorter. 411 of its 692 bytes differ
+modules/al_race/lamps.c         P        0x0cb978c0  0x0cb97a80
+modules/al_race/lamps.c         C        0x0cb9be50  0x0cb9bf88
+modules/al_race/palm.c          P        0x0cb97a80  0x0cb97b40
+modules/al_race/palm.c          C        0x0cb9bf88  0x0cb9bfa4
+modules/al_race/scoop.c         P        0x0cb97b40  0x0cb97dc0
+modules/al_race/scoop.c         C        0x0cb9bfa8  0x0cb9bfd6
+modules/al_race/scoop.c         D        0x0cbd3b38  0x0cbd3b6c
+modules/al_race/course_model.c  P        0x0cb97dc0  0x0cb97e60
+modules/al_race/course_model.c  C        0x0cb9bfd8  0x0cb9bff4
+# follows course_model.c with no fill; as one file, the code runs 10 bytes shorter. 266 of its 362 bytes differ
+modules/al_race/props.c         P        0x0cb97e60  0x0cb97f40
+modules/al_race/props.c         C        0x0cb9bff8  0x0cb9c01c
+modules/al_race/streamer.c      P        0x0cb97f40  0x0cb986c0
+modules/al_race/streamer.c      B        0x0cb99b20  0x0cb99d50
+modules/al_race/streamer.c      D        0x0cbd3b70  0x0cbd3b90
+modules/al_race/ball.c          P        0x0cb986c0  0x0cb98a80
+modules/al_race/ball.c          C        0x0cb9c020  0x0cb9c0b2
+modules/al_race/ball.c          D        0x0cbd3b90  0x0cbd3bdc
+modules/al_race/palm_coconut.c  P        0x0cb98a80  0x0cb98f20
+# only its pool words (0x0cb98b58, 0x0cb98ccc) point into this bss
+modules/al_race/palm_coconut.c  B        0x0cb99d50  0x0cb99db0
+modules/al_race/palm_coconut.c  C        0x0cb9c0b8  0x0cb9c104
+modules/al_race/palm_coconut.c  D        0x0cbd3be0  0x0cbd3c34
+modules/al_race/coconut_palm.c  P        0x0cb98f20  0x0cb993e0
+# only its pool words (0x0cb993c8, 0x0cb993cc) and its motion data (0x0cb9c1a8) point into this bss, njGetAction's output
+modules/al_race/coconut_palm.c  B        0x0cb99db0  0x0cb99dd4
+modules/al_race/coconut_palm.c  C        0x0cb9c108  0x0cb9c1b4
+modules/al_race/coconut_palm.c  D        0x0cbd3c48  0x0cbd3c98
+modules/al_race/stream.c        P        0x0cb993e0  0x0cb99560
+modules/al_race/stream.c        C        0x0cb9c1b8  0x0cb9c1ec
+modules/al_race/watering_can.c  P        0x0cb99560  0x0cb997e0
+modules/al_race/watering_can.c  C        0x0cb9c1f0  0x0cb9c21e
+modules/al_race/watering_can.c  D        0x0cbd3c98  0x0cbd3ccc
+modules/al_race/zone.c          P        0x0cb997e0  0x0cb998a0
+modules/al_race/zone.c          C        0x0cb9c220  0x0cb9c246
+modules/al_race/zone.c          D        0x0cbd3cd0  0x0cbd3d04
+# the race's paths, which race_path.c, racer.c and race_camera.c read through race_paths: the two other paths and the course, each its points and the path, then race_paths, of three entries, as its readers take it. from the first path on, each follows the item before off 8, so they are one object's. the points start on 8, 4 bytes past zone.c's data, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of zone.c's object nothing reads, and either builds the same. race_paths ends on 8, and dat_0cbd4a28.c holds the 8 zero bytes after it. the object is one of data alone, zone.c's, were the zero word its, though its code doesn't read it, race.c's, which links between with no row in D, though its code doesn't read it, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/paths.c         D        0x0cbd3d08  0x0cbd4a28
+# 8 zero bytes nothing points into, here, in AL_MAIN.BIN or in 1ST_READ.BIN, between race_paths, whose readers take three entries, and the kinds, which start on 8 and so leave them no fill. they are the paths' object's, two more null entries were race_paths five long, the kinds', race.c's, which links between with no row in D, or an object's of data alone or of head data alone (act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's), which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type
+modules/al_race/dat_0cbd4a28.c  D        0x0cbd4a28  0x0cbd4a30
+# 16 zero bytes from B's start that nothing points into, here, in AL_MAIN.BIN or in 1ST_READ.BIN, and tune.c's B starts on 8 straight after them. they aren't fill. B starts on 8 where P ends, and the linker leaves at most 7 bytes before an object on 8, so they are the storage of one object or more: the B of entrant_chao.c, body.c, race_chao.c or racer.c, which link ahead of tune.c with no row in B, though no code of these reads them, of tune.c, whose B meets them on 8 with no fill, or of act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's or an object of data alone, which the bytes leave open. with no code reading them, they are placed as one object of data alone, storage with no initializer and no type, as STG01's are
+modules/al_race/dat_0cb999a0.c  B        0x0cb999a0  0x0cb999b0
+# 8 zero bytes between fade.c's B and deal.c's, each on 8, that nothing points into. they are no fill, as fade.c's B ends on 8, so they are the storage of an object nothing reads: fade.c's, deal.c's, that of one of the objects that link between with no row in B (race_camera.c, cycle.c, item.c, entrant.c, spray.c, game.c, debug.c, scenery.c, race_game.c, race_rival.c, race_path.c, guide.c or scoreboard.c), or one of data alone, course.c's, act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's. they are placed as one object of data alone, storage with no initializer and no type
+modules/al_race/dat_0cb99a18.c  B        0x0cb99a18  0x0cb99a20
+# the course, which racer.c, race_camera.c, race_game.c and guide.c read through race_course: each kind's start positions and distance, the sections and the targets, then race_course itself, and the origin race_chao.c poses a node's position from. the sections, the targets and race_course each start off 8 straight after the item before, so they and the distances are one object's. the distances start on 8 straight after the starts, which race_course names, where one file or two build the same. the origin starts on 8 straight after race_course, where one file or two build the same. the bytes don't say whether it shares the course's object, item.c's, were the 36 bytes after it item.c's too, or one of its own, and it is placed with the course. the starts meet cycle.c's constants on 8 with no fill. the object is one of data alone, cycle.c's or item.c's, though their code doesn't read it, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between. nothing points into the 36 bytes after the origin, to item.c's constants on 8, here, in AL_MAIN.BIN or in 1ST_READ.BIN, and no reader gives them a type, an extent or a role. the source holds them as bytes. their first word follows the origin off 8 and isn't zero, so it is data of the origin's object. the other 32 start on 8. they are the origin's object's too, as placed, item.c's constants, though its code doesn't read them, those of act0_land.c, act1_land.c, object_list.c, pools.c or pvms.c, objects of head data alone, or of the object whose storage dat_0cb99a18.c holds, which can link between, or an object's of data alone, which the bytes leave open
+modules/al_race/course.c        C        0x0cb9a2d0  0x0cb9a708
+# the act 0 land's 23 textures, race_act0_land_texlist, which act0_land.c names, and the first materials of the model after them, which its generated meshsets name. the texlist follows the textures off 8 and the materials follow the texlist off 8, so they are one object's. the textures start on 8, 4 bytes past sky.c's data, which ends where its next item would start on 4, and the fill rule verifies the 4 bytes. the model's strips start on 8 straight after the materials, at 0x0cb9d3a0, where one file or two build the same. the names start on 8 straight after sky.c's constants, with no fill, where one file or two build the same. act 1's names start on 8 4 bytes past the last, which ends where this object's next string would start on 4. that is consistent with separate objects. sky.c's code doesn't read them. the object is one of its own, sky.c's, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/act0_textures.c D        0x0cb9d248  0x0cb9d3a0
+modules/al_race/act0_textures.c C        0x0cb9ae10  0x0cb9aecc
+# the act 1 land's 69 textures, race_act1_land_texlist, which act1_land.c names, and the first material of the model after them, which its generated meshsets name. the texlist follows the textures off 8 and the material follows the texlist off 8, so they are one object's. the textures start on 8 straight after a generated object, and the model's strips start on 8 straight after the material, at 0x0cba4f18. one file or two build the same at each, and the bytes don't say whether the generated data either side shares this object. the names start on 8 4 bytes past act 0's, and texlists.c's start on 8 4 bytes past the last. each object before ends where it would start its next string on 4. that is consistent with separate objects. the object is one of its own or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/act1_textures.c D        0x0cba4bc0  0x0cba4f18
+modules/al_race/act1_textures.c C        0x0cb9aed0  0x0cb9b13c
+# the node race_act1_land's last entry names. it starts on 8 straight after the generated node at 0x0cbc0314, which names the same model, at 0x0cbb9cc8, generated too. one file or two build the same there. texlists.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, texlists.c's, were the zero word its, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/dat_0cbc0348.c  D        0x0cbc0348  0x0cbc037c
+# the race's 109 textures, dat_0cbc089c, which pvms.c, scoreboard.c, menu.c, butterfly.c, confetti.c and cracker.c name, and the first materials and strips of the model after them, which its generated meshsets name. the texlist follows the textures off 8, and the materials and strips each follow the item before off 8, so they are one object's. the textures start on 8, 4 bytes past dat_0cbc0348.c's node, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the node's object. a model's colors start on 8 straight after the strips, at 0x0cbc0968, where one file or two build the same. the names start on 8 4 bytes past act 1's, which is consistent with separate objects, and menu.c's constants start on 8 5 bytes past the last, which the fill rule verifies. the readers' data lies elsewhere, so the object is one of its own, the node's, were the zero word that object's, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/texlists.c      D        0x0cbc0380  0x0cbc0968
+modules/al_race/texlists.c      C        0x0cb9b140  0x0cb9b56b
+# coconut_speed, which palm_coconut.c draws each coconut's speed in x into and copies the speed from, zero on the disc. it starts on 8, 4 bytes past palm_coconut.c's data, where that object's next item would start on 4, and nothing points into the 4 bytes. that is consistent with separate objects, and the fill rule verifies them. coconut_palm.c's data starts on 8 4 bytes past it. those 4 bytes are the linker's fill, as the rule takes them, or a last word of this object nothing reads. it is an object of data alone, or palm_coconut.c's, were the 4 bytes before it a word of its own, or coconut_palm.c's, were the 4 after it one of its own, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/coconut_speed.c D        0x0cbd3c38  0x0cbd3c44
+# the 19 kinds the object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds end D, and start on 8 straight after dat_0cbd4a28.c's zero bytes, where one file or two build the same. the names start on 8, 2 bytes past zone.c's constants, where its next string would start on 4, so the bytes don't part them there, and the fill rule verifies the 2 bytes. they end C 6 bytes short of D, which starts on 8, as the rule verifies too. the bytes leave the kinds to an object of their own, the object list's, as B_EGM3's list shares its kinds' object, the zero bytes' or the paths', which zone.c's object could hold were the 4 bytes after its data and that data its, race.c's, which links after the other code with no row in C or D, though its code doesn't read them, or act0_land.c's, act1_land.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+modules/al_race/kinds.c         C        0x0cb9c248  0x0cb9c31a
+modules/al_race/kinds.c         D        0x0cbd4a30  0x0cbd4bac
+#
+# generated data ranges
+gen/al_race/d_0cb9d3a0.c        D        0x0cb9d3a0  0x0cba4bc0
+# ends where dat_0cbc0348.c's node starts on 8, straight after the node at 0x0cbc0314, which names the same model
+gen/al_race/d_0cba4f18.c        D        0x0cba4f18  0x0cbc0348
+# ends where coconut_motion.c's motion starts on 8, straight after its motion data
+gen/al_race/d_0cbc0968.c        D        0x0cbc0968  0x0cbd3900
+# the race's scripts: their pages, the scripts, the runs, race_script_table, which race_game.c reads, and the pages' texts, all in D. the table names the scripts and runs, and the runs the pages, which point at the texts after the table: one object's, as the texts are its strings. no source writes the pages, scripts and runs with values, so they are a generated row. it opens D, and ends where dat_0cb9c820.c's text, the last, starts on 8 straight after the text before it. the object is entrant_chao.c's or body.c's, which link ahead of race_chao.c with no row in D, though their code doesn't read it, one of its own, or act0_land.c's, act1_land.c's, object_list.c's, pools.c's or pvms.c's, objects of head data alone that can link between
+gen/al_race/d_0cb9c320.c        D        0x0cb9c320  0x0cb9c820

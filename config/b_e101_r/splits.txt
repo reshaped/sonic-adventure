@@ -1,0 +1,73 @@
+# B_E101_R.PRS, E-101 mkII
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900120
+CHEAD      0x0c900120  0x0c900150
+DHEAD      0x0c900150  0x0c9001c0
+P          0x0c9001c0  0x0c907720
+C          0x0c907720  0x0c907cc0
+D          0x0c907cc0  0x0c92e754
+B          0x0c92e758  0x0c92fd94  # ends where the table that ends C says
+#
+# source                              section  start       end
+modules/b_e101_r/e101_r.c              PHEAD    0x0c900060  0x0c900120
+modules/b_e101_r/e101_r.c              CHEAD    0x0c900140  0x0c900149
+modules/b_e101_r/e101_r.c              P        0x0c9074c0  0x0c907720
+# the list 1ST_READ.BIN's stage_pvms names, which nothing in the image reads. its name starts CHEAD, where e101_r.c's PHEAD ends, and its list starts DHEAD. B_ROBO's list has the same entries, which doesn't make it the same object
+modules/b_e101_r/pvms.c                CHEAD    0x0c900120  0x0c900130
+modules/b_e101_r/pvms.c                DHEAD    0x0c900150  0x0c900188
+# the land 1ST_READ.BIN's world_lands names for this stage and B_ROBO's, which links the same object. allowing for relocation, the two images match for 148,068 bytes of its data, from 0x0c90a4dc here and 0x0c909da4 there, and in its table and name. its name and table each meet the pvm list's on 8 with no fill, where one file or two build the same here. B_ROBO links the land after its object list and ahead of its pvm list, so the land's object holds no pvm list's. its name ends 4 bytes short of e101_r.c's constants, and its table 4 short of the object list, each on 8 past where the land's object's next item would start on 4, with nothing pointing into the 4 bytes.
+modules/b_e101_r/land.c                CHEAD    0x0c900130  0x0c90013c
+modules/b_e101_r/land.c                DHEAD    0x0c900188  0x0c9001ac
+# the textures, texlist and entries the table names, and the textures' names, which B_ROBO links too: allowing for relocation the two images match in them, and in their names. the texlist follows the textures off 8, at 0x0c90a4e4, and the entries follow it off 8, so the three are one object's data. the names start on 8, 4 bytes past blast.c's constants, which end where blast.c's next string would start on 4, and the textures on 8, 4 bytes past beam.c's data. the kinds' name starts on 8, 6 bytes past the last name, 4 past where this object's next string would start. one file or two build the same with the table, and the bytes leave them to its object, one of their own, or that of pvms.c or e101_r.c, which can link on that side, though neither names them. the motions start on 8 straight after the entries, at 0x0c90ab40, and the bytes don't say whether they share this object
+modules/b_e101_r/land.c                C        0x0c9078d0  0x0c907c9a
+modules/b_e101_r/land.c                D        0x0c90a148  0x0c90ab40
+# the motion of the land's moving part, and the action e101_r_land_motions names, which B_ROBO links too, at the end of the land's 148,068 matching bytes. the action follows the motion off 8. the motion starts on 8 straight after its keys' records at 0x0c92e5f8, and the bytes don't say whether they, or the land's generated data before them, share its object. the kinds start on 8, 4 bytes past the action, where this object's next item would start on 4. the 4 bytes are fill or a word of this object, and either builds the same
+modules/b_e101_r/land_motion.c         D        0x0c92e728  0x0c92e73c
+# the list 1ST_READ.BIN's object_lists names, which nothing in the image reads. the placement manager reads its count and its kinds' address, 8 bytes. the 8 zero bytes after them, to P's start on 32 at 0x0c9001c0, are fill, and a second list of zeros there would build the same. its kinds and their one name, a named array with a body, follow. the name starts on 8, 6 bytes past the land's last name, 4 past where the land's next string would start, at 0x0c907c9c, and bounds.src's table follows it on 8. the kinds start on 8, 4 bytes past the land motion's action, and end D. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with their sharing the list's here. one file or two build the same, and the bytes leave the kinds and the name to the list's object, one of their own, or e101_r.c's, which can link on that side, though its code doesn't read them
+modules/b_e101_r/object_list.c         DHEAD    0x0c9001b0  0x0c9001b8
+modules/b_e101_r/object_list.c         C        0x0c907ca0  0x0c907ca8
+modules/b_e101_r/object_list.c         D        0x0c92e740  0x0c92e754
+# e101_mk2_next_attack starts on 32 at 0x0c900580 with no fill; split there, the code builds the same
+modules/b_e101_r/e101_mk2.c            P        0x0c9001c0  0x0c9036a0
+modules/b_e101_r/e101_mk2.c            C        0x0c907720  0x0c90778f
+modules/b_e101_r/e101_mk2.c            D        0x0c907cc0  0x0c907f40
+modules/b_e101_r/e101_mk2.c            B        0x0c92e758  0x0c92e760
+modules/b_e101_r/files.c               P        0x0c9036a0  0x0c9038c0
+modules/b_e101_r/files.c               C        0x0c907790  0x0c9077a5
+modules/b_e101_r/files.c               D        0x0c907f40  0x0c907ff8
+modules/b_e101_r/files.c               B        0x0c92e760  0x0c92e810
+# the table that ends C: D's start, R's start and end, and B's start and end, as the link of the whole image puts them and tools/config.py gives them, the last of which files.c reads as the end of bss. R lies past B here, and between D and B in B_ROBO, whose table is the same. SHC computes no section's bounds, so the table is assembly, an object of its own. it starts on 8 straight after object_list.c's name, and e101_mk2.c's data starts D on 8, 4 bytes past it: the zero word is the linker's fill, which the fill rule verifies, or a sixth word of the table, and either builds the same
+modules/b_e101_r/bounds.src            C        0x0c907ca8  0x0c907cbc
+modules/b_e101_r/glow.c                P        0x0c9048c0  0x0c904a20
+modules/b_e101_r/glow.c                D        0x0c908000  0x0c908004
+modules/b_e101_r/glow.c                B        0x0c92fd70  0x0c92fd7c
+# the sea and sky models, their textures and the texlist e101_r.c names, which B_ROBO links too: allowing for relocation the two images match in all 6,284 bytes, and in the names. the textures start on 8, 4 bytes past glow.c's data, where glow.c's next item would start on 4, which is consistent with their starting an object. effects.c's data starts on 8, 4 bytes past the sky object, which ends this object or holds one more word, and either builds the same. the names meet trail.c's constants on 8 with no fill, and defeat_blast.c's start on 8, a byte past the last. trail.c's data lies before glow.c's, so the names are this object's, given glow.c's placement
+modules/b_e101_r/bg.c                  C        0x0c9077f8  0x0c9078af
+modules/b_e101_r/bg.c                  D        0x0c908008  0x0c909894
+modules/b_e101_r/effects.c             P        0x0c904a20  0x0c905600
+modules/b_e101_r/effects.c             D        0x0c909898  0x0c909e40
+modules/b_e101_r/effects.c             B        0x0c92fd80  0x0c92fd94
+modules/b_e101_r/defeat_blast.c        P        0x0c905600  0x0c905e20
+modules/b_e101_r/defeat_blast.c        C        0x0c9078b0  0x0c9078bc
+modules/b_e101_r/defeat_blast.c        D        0x0c909e40  0x0c909ea8
+# follows defeat_blast.c with no fill; as one file, the code runs 48 bytes longer. 1,677 of its first 3,744 bytes differ
+modules/b_e101_r/blast.c               P        0x0c905e20  0x0c9064a0
+modules/b_e101_r/blast.c               C        0x0c9078c0  0x0c9078cc
+modules/b_e101_r/blast.c               D        0x0c909ea8  0x0c909efc
+# follows blast.c with no fill; its data starts on 8 at 0x0c909f00, 4 bytes past blast.c's
+modules/b_e101_r/missile.c             P        0x0c9064a0  0x0c906ee0
+modules/b_e101_r/missile.c             D        0x0c909f00  0x0c909f74
+modules/b_e101_r/beam.c                P        0x0c906ee0  0x0c9074c0
+modules/b_e101_r/beam.c                D        0x0c909f78  0x0c90a144
+modules/b_e101_r/camera.c              PHEAD    0x0c900000  0x0c900060
+modules/b_e101_r/camera.c              P        0x0c9038c0  0x0c9040e0
+modules/b_e101_r/camera.c              B        0x0c92e810  0x0c92e860
+# follows camera.c with no fill; as one file, the code runs 32 bytes shorter. 1,988 of its 4,128 bytes differ
+modules/b_e101_r/trail.c               P        0x0c9040e0  0x0c9048c0
+modules/b_e101_r/trail.c               C        0x0c9077a8  0x0c9077f8
+modules/b_e101_r/trail.c               D        0x0c907ff8  0x0c908000
+modules/b_e101_r/trail.c               B        0x0c92e860  0x0c92fd70
+#
+# generated data ranges
+gen/b_e101_r/d_0c90ab40.c              D        0x0c90ab40  0x0c92e728

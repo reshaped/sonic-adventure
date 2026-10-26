@@ -1,0 +1,55 @@
+        .IMPORT     _quick_strcpy1
+        .EXPORT     __slow_strcpy
+
+        .SECTION    P,CODE,ALIGN=4
+
+; copy the string at R1 to R0, and return R0. the two don't overlap, and
+; need no alignment. when both are word aligned, it jumps to quick_strcpy1,
+; which copies a word at a time. it changes R1 and T, and no other register
+; @asm open: no inspect rule reads R0 or R1 at its entry
+__slow_strcpy:
+        MOV.L       R3,@-R15
+        MOV.L       R4,@-R15
+        MOV         #3,R3
+        MOV         R0,R4
+        AND         R3,R4
+        AND         R1,R3
+        OR          R4,R3
+        TST         R3,R3
+        BT          sscpy_word_copy
+        MOV         R0,R4
+        MOV.B       @R1+,R0
+        MOV         R4,R3
+sscpy_copy_four:
+        CMP/EQ      #0,R0
+        MOV.B       R0,@R3
+        BT          sscpy_copy_done
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@(1,R3)
+        BT          sscpy_copy_done
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@(2,R3)
+        BT          sscpy_copy_done
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@(3,R3)
+        BT          sscpy_copy_done
+        MOV.B       @R1+,R0
+        BRA         sscpy_copy_four
+        ADD         #4,R3
+sscpy_copy_done:
+        MOV         R4,R0
+        MOV.L       @R15+,R4
+        RTS
+        MOV.L       @R15+,R3
+; quick_strcpy1 pops the R3 and R4 pushed above
+sscpy_word_copy:
+        MOV.L       sscpy_quick_strcpy_address,R3
+        JMP         @R3
+        NOP
+        .ALIGN      4
+sscpy_quick_strcpy_address:
+        .DATA.L     _quick_strcpy1
+        .END

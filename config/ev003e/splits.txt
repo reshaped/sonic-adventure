@@ -1,0 +1,24 @@
+# EV003E.PRS, Tails' story: Tails dreams of running after Sonic
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb813c8
+C          0x0cb813c8  0x0cb813d8
+D          0x0cb813d8  0x0cb96afc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev003e/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev003e/script.c               P        0x0cb80008  0x0cb80e78
+events/ev003e/script.c               C        0x0cb813c8  0x0cb813d4
+events/ev003e/script.c               D        0x0cb813d8  0x0cb82148
+events/shared/fade.c                  P        0x0cb80e78  0x0cb81004
+events/shared/fade.c                  D        0x0cb96ad0  0x0cb96af0
+events/shared/sound.c                 P        0x0cb81004  0x0cb813c4
+events/shared/sound.c                 D        0x0cb96af0  0x0cb96afc
+#
+# generated data ranges
+# the 4 bytes of 0xff after this row, to fade.c's data on 8, which nothing points into, are the linker's fill or a last word of the object before them: 8 bytes that the generator reads as pointer words, though they hold tails_object and a motion, as an action does, straight after the motion they name, so its object's. no word in this event or 1ST_READ.BIN points at those bytes, so no reader gives them a role or an extent, and no source holds them. across the 204 events, a word of 0xff bytes follows some of the actions that end 4 past 8 straight after the motion they name, and none of those that end on 8, as the linker's fill before an object on 8 would: so the row declares end, and the splicer writes the 4 bytes as the linker's fill. an unread last word of the object would build the same, and a reader of the action would settle which
+gen/ev003e/d_0cb82148.c               D        0x0cb82148  0x0cb96acc  end

@@ -1,0 +1,28 @@
+        .EXPORT     __ftou
+
+        .SECTION    P,CODE,ALIGN=4
+
+; float to unsigned long for compiled code, outside the C calling convention:
+; FR0 in, R0 out. it changes R0, FR0, T and FPSCR's cause and flag bits, and
+; no other register
+; @asm open: no inspect rule reads FR0 at its entry
+__ftou:
+        FMOV.S      FR1,@-R15
+        STS.L       FPUL,@-R15
+        MOVA        ?two_31,R0
+        FMOV.S      @R0,FR1
+        FCMP/GT     FR0,FR1
+        BT          ?convert
+        ; at or above 2^31, subtract 2^32 for the signed conversion
+        FADD        FR1,FR1
+        FSUB        FR1,FR0
+?convert:
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        LDS.L       @R15+,FPUL
+        RTS
+        FMOV.S      @R15+,FR1
+        .ALIGN      4
+?two_31:
+        .FDATA.S    F'2147483648.0
+        .END

@@ -1,0 +1,183 @@
+# STG04.PRS, Speed Highway
+#
+# section  start       end
+P          0x0c900000  0x0c911ee0
+C          0x0c911ee0  0x0c913e88
+D          0x0c913e88  0x0ca7c350
+B          0x0ca7c350  0x0ca7c608
+#
+# source                              section  start       end
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code here reads, and the name of the pvm its textures load from. its name opens C, and act 1's and act 2's names each start on 8, 4 bytes past where the land before's next string would, consistent with a land to an object, each with its name. its table follows its last entry off 8, so the entries are its object's. the texlist it names is land0_textures.c's, an object linked after act 2's land
+modules/stg04/land0.c                  C        0x0c911ee0  0x0c911eea
+modules/stg04/land0.c                  D        0x0c913e88  0x0c917f38
+# act 1's land. its entries meet act 0's table on 8 with no fill, and its table meets its entries the same way: one file or two build the same at each, and the bytes leave the entries to this object or to act 0's land's. the word after the table, at 0x0c918b74, which nothing points at, is the linker's fill the rule verifies, as act 2's entries start on 8, or a last word of this object nothing reads
+modules/stg04/land1.c                  C        0x0c911ef0  0x0c911efa
+modules/stg04/land1.c                  D        0x0c917f38  0x0c918b74
+# act 2's land. its table meets its entries on 8 with no fill, where one file or two build the same. the zero word after the table, at 0x0c91aa8c, which nothing points at, is the linker's fill the rule verifies, as act 0's texnames start on 8, or a last word of this object nothing reads
+modules/stg04/land2.c                  C        0x0c911f00  0x0c911f0a
+modules/stg04/land2.c                  D        0x0c918b78  0x0c91aa8c
+# act 0's land names the texlist, and 1ST_READ.BIN's world_load_act loads it. the names start on 8, 4 bytes past where act 2's land's next string would, and acts 1 and 2 repeat names of this act's, which SHC keeps one copy of in one file, so each act's names are a file of their own. the texnames start on 8, 4 bytes past act 2's land. the texlist follows the texnames off 8, and the first model's materials the texlist, so this object holds them. the strips after them start on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the act's data to this object or others
+modules/stg04/land0_textures.c         C        0x0c911f10  0x0c9121fb
+modules/stg04/land0_textures.c         D        0x0c91aa90  0x0c91afa0
+# the last of the objects act 0's land's entries name, at 0x0c917f08, which nothing else reads. it starts on 8 straight after the object before, which follows the one before it off 8, each with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c99cdc4, which nothing here or in 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 1's texnames start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land1_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg04/dat_0c99cd90.c           D        0x0c99cd90  0x0c99cdc4
+# act 1's land names the texlist, and world_load_act loads it. the names start on 8, 4 bytes past where act 0's object's next string would, and repeat names of act 0's and act 2's. the texnames start on 8 right after the zero word after act 0's last object, which dat_0c99cd90.c's row describes. the texlist starts on 8 straight after its texnames and ends on 8, each with no fill, where one file or two build the same; the texlist's pointer to the texnames is consistent with one object. the first model's materials start on 8 after the texlist, and its strips follow them off 8, so they are the model's object's. the bytes leave the texlist to the texnames' object, to that of act 1's models after it, or to one of its own
+modules/stg04/land1_textures.c         C        0x0c912200  0x0c9122ff
+modules/stg04/land1_textures.c         D        0x0c99cdc8  0x0c99cf50
+# the last of the objects act 1's land's entries name, at 0x0c918b44, which nothing else reads. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9a9714, which nothing here or in 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 2's texnames start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land2_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg04/dat_0c9a96e0.c           D        0x0c9a96e0  0x0c9a9714
+# act 2's land names the texlist, and world_load_act loads it. the names start on 8 where act 1's object's next string would start on 4, so the bytes don't part the acts there; the names the acts repeat do. they end 7 bytes short of spotlight.c's constants on 8, which open with floats: SHC writes an object's strings after its constants, so they are no strings of spotlight.c's, and spotlight.c, which places no data and could link here in D, can't hold this object. nothing points at 0x0c912664, where this object's next string would start on 4, and the rule verifies the 7 bytes as fill. the texnames start on 8 right after the zero word after act 1's last object, which dat_0c9a96e0.c's row describes. the texlist follows the texnames off 8, and the first model's materials the texlist, so this object holds them. the strips after them start on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the act's data to this object or others
+modules/stg04/land2_textures.c         C        0x0c912300  0x0c912661
+modules/stg04/land2_textures.c         D        0x0c9a9718  0x0c9a9cb0
+# 1ST_READ.BIN's death_zones names the array, and its death_zone_step and knuckles.c read the entry for the act in hand; no code here reads it. the stage has three acts, so the array has three entries. the zero word after it, at 0x0ca3401c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill or a last word of this object, such as a fourth, null entry, which builds the same, before the generated texname table at 0x0ca34020, which starts on 8. that table points at the object names' first string, so it opens the names' object's data, as the names' row says, and its row declares start 8. the death zones of STG01, STG02, STG03, STG06, STG07, STG08 and ADV02 end 4 past 8 the same way, and the fill rule writes the zero word after each. so the splicer writes the word as the linker's fill: the likelier reading, not a proven one. the lists start on 8 with no fill after the zones' models, generated, and each list and the array start on 8 straight after the item before with no fill, where one file or several build the same. the array's pointers to the lists are consistent with one object. the bytes leave them to the models' object, to the names' object after them, were the word its, to spotlight.c's, which links between and places no data, though its code doesn't read them, or to one of data alone
+modules/stg04/death_zones.c            D        0x0ca33fc0  0x0ca3401c
+# the action of Sonic's that 1ST_READ.BIN's sonic_actions names, which no code here reads, and its motion: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same, and antenna.c's data starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word at 0x0ca7237c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of this object nothing reads. the bytes leave the object to one of data alone, to the generated data's before it, to antenna.c's, were the zero word an unread datum of its, though its code doesn't read them, or to spotlight.c's, which links between and places no data, though its code doesn't read them
+modules/stg04/dat_0ca72368.c           D        0x0ca72368  0x0ca7237c
+# spotlight_destroy starts on 32 at 0x0c9002c0 with no fill; split there, the code builds the same
+modules/stg04/spotlight.c              P        0x0c900000  0x0c900300
+modules/stg04/spotlight.c              C        0x0c912668  0x0c91268c
+modules/stg04/spotlight.c              B        0x0ca7c350  0x0ca7c4a8
+modules/stg04/antenna.c                P        0x0c900300  0x0c9005a0
+modules/stg04/antenna.c                D        0x0ca72380  0x0ca724ec
+modules/stg04/bench.c                  P        0x0c9005a0  0x0c900600
+modules/stg04/bench.c                  D        0x0ca724f0  0x0ca72558
+modules/stg04/cone.c                   P        0x0c900600  0x0c900940
+modules/stg04/cone.c                   D        0x0ca72558  0x0ca7258c
+modules/stg04/crane.c                  P        0x0c900940  0x0c901220
+modules/stg04/curb.c                   P        0x0c901220  0x0c901280
+modules/stg04/curb.c                   D        0x0ca72590  0x0ca725c4
+modules/stg04/paternoster.c            P        0x0c901280  0x0c901ce0
+modules/stg04/paternoster.c            C        0x0c912d08  0x0c912d97
+modules/stg04/paternoster.c            D        0x0ca725c8  0x0ca726c4
+modules/stg04/escalator.c              P        0x0c901ce0  0x0c9020a0
+modules/stg04/fence.c                  P        0x0c9020a0  0x0c902100
+modules/stg04/fence.c                  D        0x0ca726c8  0x0ca726fc
+modules/stg04/fence_2.c                P        0x0c902100  0x0c902160
+modules/stg04/fence_2.c                D        0x0ca72700  0x0ca72734
+modules/stg04/fountain.c               P        0x0c902160  0x0c902c20
+modules/stg04/fountain.c               C        0x0c912d98  0x0c912ddb
+modules/stg04/fountain.c               D        0x0ca72738  0x0ca727f8
+modules/stg04/heli.c                   P        0x0c902c20  0x0c903900
+modules/stg04/heli.c                   D        0x0ca727f8  0x0ca72860
+modules/stg04/heli.c                   B        0x0ca7c4a8  0x0ca7c4d0
+modules/stg04/arcade.c                 P        0x0c903900  0x0c903a80
+modules/stg04/arcade.c                 D        0x0ca72860  0x0ca728d4
+modules/stg04/bucket.c                 P        0x0c903a80  0x0c904060
+modules/stg04/bucket.c                 C        0x0c912de0  0x0c912de8
+modules/stg04/bucket.c                 D        0x0ca728d8  0x0ca7290c
+modules/stg04/bell.c                   P        0x0c904060  0x0c9044a0
+modules/stg04/bell.c                   D        0x0ca72910  0x0ca729ac
+modules/stg04/traffic.c                P        0x0c9044a0  0x0c906120
+# meets bucket.c's constants on 8 with no gap; only its pool words (0x0c9054a8, 0x0c9058bc) and its texture names (0x0ca729b0 to 0x0ca72a64) point into these
+modules/stg04/traffic.c                C        0x0c912de8  0x0c912f4a
+modules/stg04/traffic.c                D        0x0ca729b0  0x0ca72df4
+# ends 4 bytes short of traffic_car_matrix, which starts on 8
+modules/stg04/traffic.c                B        0x0ca7c4d0  0x0ca7c524
+modules/stg04/corner_light.c           P        0x0c906120  0x0c9064a0
+modules/stg04/corner_light.c           C        0x0c912f50  0x0c912f5c
+modules/stg04/corner_light.c           D        0x0ca72df8  0x0ca72e48
+modules/stg04/corner_light.c           B        0x0ca7c568  0x0ca7c588
+modules/stg04/glass.c                  P        0x0c9064a0  0x0c906d20
+modules/stg04/glass.c                  C        0x0c912f60  0x0c912f94
+modules/stg04/glass.c                  D        0x0ca72e48  0x0ca72eb0
+modules/stg04/hydrant.c                P        0x0c906d20  0x0c907260
+modules/stg04/hydrant.c                C        0x0c912f98  0x0c912fa4
+modules/stg04/hydrant.c                D        0x0ca72eb0  0x0ca72ee4
+modules/stg04/shop_sign.c              P        0x0c907260  0x0c9074c0
+modules/stg04/shop_sign.c              D        0x0ca72ee8  0x0ca72f1c
+# follows shop_sign.c with no fill; as one file, the code runs 28 bytes longer. 820 of its first 1,340 bytes differ
+modules/stg04/lamp.c                   P        0x0c9074c0  0x0c9077a0
+modules/stg04/lamp.c                   D        0x0ca72f20  0x0ca72f54
+modules/stg04/neon.c                   P        0x0c9077a0  0x0c907ac0
+modules/stg04/poster.c                 P        0x0c907ac0  0x0c907b00
+modules/stg04/raft.c                   P        0x0c907b00  0x0c907ba0
+modules/stg04/raft.c                   D        0x0ca72f58  0x0ca72f8c
+modules/stg04/sign.c                   P        0x0c907ba0  0x0c907c00
+modules/stg04/sign.c                   D        0x0ca72f90  0x0ca72fc4
+modules/stg04/searchlight.c            P        0x0c907c00  0x0c907e00
+modules/stg04/searchlight.c            D        0x0ca72fc8  0x0ca72ffc
+modules/stg04/green.c                  P        0x0c907e00  0x0c907f20
+modules/stg04/green.c                  D        0x0ca73000  0x0ca7309c
+modules/stg04/turn_platform.c          P        0x0c907f20  0x0c908900
+modules/stg04/turn_platform.c          C        0x0c912fa8  0x0c912fd8
+modules/stg04/turn_platform.c          D        0x0ca730a0  0x0ca73240
+modules/stg04/gate.c                   P        0x0c908900  0x0c9089a0
+modules/stg04/gate.c                   D        0x0ca73240  0x0ca73310
+modules/stg04/lawn.c                   P        0x0c9089a0  0x0c908a40
+modules/stg04/lawn.c                   D        0x0ca73310  0x0ca73378
+# follows lawn.c with no fill; as one file, the code runs 32 bytes longer. 723 of its first 840 bytes differ
+modules/stg04/barrier.c                P        0x0c908a40  0x0c908d00
+modules/stg04/barrier.c                D        0x0ca73378  0x0ca73388
+modules/stg04/lamp_a.c                 P        0x0c908d00  0x0c908ec0
+modules/stg04/lamp_a.c                 D        0x0ca73388  0x0ca733bc
+modules/stg04/news_box.c               P        0x0c908ec0  0x0c909048
+modules/stg04/news_box.c               D        0x0ca733c0  0x0ca733f4
+modules/stg04/pinpin.c                 P        0x0c909060  0x0c9090c0
+modules/stg04/pinpin.c                 D        0x0ca733f8  0x0ca73494
+modules/stg04/wall_poster.c            P        0x0c9090c0  0x0c9091e0
+modules/stg04/billboard.c              P        0x0c9091e0  0x0c909b00
+modules/stg04/billboard.c              C        0x0c912fd8  0x0c91306d
+modules/stg04/billboard.c              D        0x0ca73498  0x0ca73584
+modules/stg04/street_plant_1.c         P        0x0c909b00  0x0c909c00
+modules/stg04/street_plant_1.c         D        0x0ca73588  0x0ca735bc
+# follows street_plant_1.c with no fill; as one file, 235 of 428 code bytes differ
+modules/stg04/street_plant_2.c         P        0x0c909c00  0x0c909cc0
+modules/stg04/platform.c               P        0x0c909cc0  0x0c90a760
+modules/stg04/platform.c               C        0x0c913070  0x0c9130fb
+modules/stg04/platform.c               D        0x0ca735c0  0x0ca735f4
+modules/stg04/tank.c                   P        0x0c90a760  0x0c90b660
+modules/stg04/tank.c                   C        0x0c913100  0x0c913156
+modules/stg04/tank.c                   D        0x0ca735f8  0x0ca73a1c
+modules/stg04/clock.c                  P        0x0c90b660  0x0c90b880
+modules/stg04/clock.c                  D        0x0ca73a20  0x0ca73abc
+modules/stg04/ring_2.c                 P        0x0c90b880  0x0c90ba20
+modules/stg04/ring_2.c                 D        0x0ca73ac0  0x0ca73af4
+# the stage's eleven paths, which path_create_tasks runs, among them heli_route, highway_act2_route and traffic_route, which heli.c's, traffic.c's and police.c's code read, and the lists 1ST_READ.BIN's path_lists names for acts 0 and 2, at 0x0ca78540 and 0x0ca78568. the first points start on 8, 4 bytes past ring_2.c's data. each path follows its points, and where the items meet on 8 with no fill, one file or several build the same; the lists' pointers to the paths are consistent with one object. act 2's list ends at its null. the zero word after it, at 0x0ca78574, which nothing reads, is the linker's fill the rule verifies, as highway.c's data starts on 8, or a fourth, null entry of the list: as [4], with this row to 0x0ca78578, the list builds STG04 the same, and it is built as fill. the bytes leave the paths and lists to one object or several; were the word the list's, highway.c's data would meet it on 8 with no fill, and highway.c's object could hold them too, though its code doesn't read them. ring_2.c's object could hold them, were the word after its data, at 0x0ca73af4, which nothing points at and the rule verifies as fill, an unread word of its, though its code doesn't read them either
+modules/stg04/paths.c                  D        0x0ca73af8  0x0ca78574
+modules/stg04/highway.c                P        0x0c90ba20  0x0c90c800
+modules/stg04/highway.c                C        0x0c913158  0x0c9131a9
+modules/stg04/highway.c                D        0x0ca78578  0x0ca78778
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds meet highway.c's data on 8 with no fill, but the names start on 8, 4 bytes past where highway.c's next string would start on 4: as one file, the names start there, at 0x0c9131ac, so C parts them from highway.c's object unless that word is an unread constant of its, and the fill rule verifies the 7 bytes. as one file with an unread constant word after highway.c's own, the names and the kinds start where the image has them, and nothing here or in 1ST_READ.BIN points at the word. the names end 4 bytes short of police.c's constants on 8, which the fill rule verifies; police.c's constants open with floats, so no string before them is its, and the kinds are no object of police.c's. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to one of their own, or to highway.c's, were the word at 0x0c9131ac an unread constant of its, though its code doesn't read them
+modules/stg04/kinds.c                  C        0x0c9131b0  0x0c913664
+modules/stg04/kinds.c                  D        0x0ca78778  0x0ca790b0
+# the list 1ST_READ.BIN's object_lists names for acts 0 to 2, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, and police.c's data meets it so: one file or two build the same at each, and the bytes leave it to the kinds' object, to police.c's, though its code doesn't read it, or to one of its own. the kinds' object can be highway.c's, were the word at 0x0c9131ac an unread constant of its, and then it could hold the list past them. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/stg04/object_list.c            D        0x0ca790b0  0x0ca790b8
+# follows highway.c with no fill; the build does not decide this seam: as one file, only the pool words for police.c's constants differ, since unplaced constants lie between theirs
+# police_turn, police_accelerate and police_choose_target start on 32 at 0x0c90cb20, 0x0c90cbe0 and 0x0c90ce40 with no fill; split at each, the code builds the same
+# the police car's model, its texlist, texnames and their names, and its action, which police.c's code reads, and the texlist 1ST_READ.BIN's highway_pvms names, are this object's: the texnames point at the names, so they are one file's, and the names follow police.c's strings in C, as SHC writes the strings of a file's data after those of its code, while the texnames lie before its data in D, where an object of their own would link after police.c in C and before it in D. so its D runs unbroken from the texnames, which meet the object list on 8 with no fill
+modules/stg04/police.c                 P        0x0c90c800  0x0c90f7a0
+modules/stg04/police.c                 C        0x0c913668  0x0c91379f
+modules/stg04/police.c                 D        0x0ca790b8  0x0ca7c13c
+modules/stg04/police.c                 B        0x0ca7c588  0x0ca7c608
+# the table 1ST_READ.BIN's stage_scripts names at 0x0c913a20, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 1 byte past police.c's last string, where police.c's next item would start on 4, so the bytes don't part them there. but as one file, in either order, the scripts' constants come ahead of police.c's strings, so they are no object of police.c's, and the fill rule verifies the byte. the last text ends 2 bytes short of path_camera.c's constant on 8, where the object's next string would start on 4. but as one file, in either order, that constant comes ahead of the texts, so it is no constant of this object, and the fill rule verifies the 2 bytes. nothing else links between police.c and path_camera.c, so the bytes leave them to an object of their own
+modules/stg04/scripts.c                C        0x0c9137a0  0x0c913e0e
+# follows police.c with no fill; as one file, 838 of 18,024 code bytes differ
+# its constant starts in C on 8 at 0x0c913e10, where the scripts' next string would start on 4: as one file, in either order, it comes ahead of their texts, so the scripts' row says the 2 bytes before it are the linker's fill
+modules/stg04/path_camera.c            P        0x0c90f7a0  0x0c910e80
+modules/stg04/path_camera.c            C        0x0c913e10  0x0c913e14
+modules/stg04/path_camera.c            D        0x0ca7c140  0x0ca7c248
+modules/stg04/group.c                  P        0x0c910e80  0x0c9117a0
+modules/stg04/group.c                  C        0x0c913e18  0x0c913e6c
+modules/stg04/group.c                  D        0x0ca7c248  0x0ca7c2b0
+modules/stg04/missile.c                P        0x0c9117a0  0x0c911ee0
+modules/stg04/missile.c                C        0x0c913e70  0x0c913e83
+modules/stg04/missile.c                D        0x0ca7c2b0  0x0ca7c350
+#
+# generated data ranges
+# act 0's models, past land0_textures.c's materials
+gen/stg04/d_0c91afa0.c                 D        0x0c91afa0  0x0c953fc8
+gen/stg04/d_0c953fc8.c                 D        0x0c953fc8  0x0c9942c8
+# act 0's last models, to the object before dat_0c99cd90.c's, which meets them on 8 with no fill
+gen/stg04/d_0c9942c8.c                 D        0x0c9942c8  0x0c99cd90
+# act 1's models, from the first model's materials, past land1_textures.c's texlist, to the object before dat_0c9a96e0.c's, which meets them on 8 with no fill
+gen/stg04/d_0c99cf50.c                 D        0x0c99cf50  0x0c9a96e0
+# act 2's models, past land2_textures.c's materials
+gen/stg04/d_0c9a9cb0.c                 D        0x0c9a9cb0  0x0c9d4800
+gen/stg04/d_0c9d4800.c                 D        0x0c9d4800  0x0ca14f40
+# models, ending with the death zones' seven, which death_zones.c's lists name and no code reads
+gen/stg04/d_0ca14f40.c                 D        0x0ca14f40  0x0ca33fc0
+# from the texname table that points at the object names' first string, which the names' row describes, past the word after death_zones.c's array. the table opens the names' object's data, on 8, so the row declares start 8, as death_zones.c's note gives
+gen/stg04/d_0ca34020.c                 D        0x0ca34020  0x0ca550c0  start 8
+gen/stg04/d_0ca550c0.c                 D        0x0ca550c0  0x0ca72368
+# the names the texnames from 0x0ca34020 to 0x0ca6b444 point at, the stage's objects' and its sky's, whose texlists 1ST_READ.BIN's highway_pvms names. tables throughout that range point at the same copies of names, and a table and the strings it points at are one file, so the names are one object's strings, and its D runs unbroken from no later than 0x0ca34020 to no earlier than 0x0ca6b450: hundreds of models, which a source would hold to hold the names. they start on 8 four bytes past spotlight.c's constants, which are all floats, and spotlight.c places no data. SHC writes an object's strings after its constants, so the word between, at 0x0c91268c, which nothing points at, is the linker's fill or a last constant of spotlight.c's, and were it spotlight.c's, spotlight.c's object could hold the names, though its code doesn't read them. spotlight.c's next string would start on 4 at the word, so the row declares start 8, and the splicer writes the word as the linker's fill: the likelier reading, not a proven one. paternoster.c's constants open with floats and start on 8 where the names' next item would start on 4, so the 3 bytes before them are the linker's fill; the row declares end, and the splicer writes them. antenna.c's object could hold them too, were the data from them to its own its; its code reads antenna_object, at 0x0ca5ce2c, in that run, though not the names. bench.c, cone.c, crane.c and curb.c link between in C too, but after antenna.c, whose data follows the run, so they can't. death_zones.c's object could hold them too, were the zero word after its array, at 0x0ca3401c, its. one of data alone could too
+gen/stg04/d_0c912690.c                 C        0x0c912690  0x0c912d05  start 8  end

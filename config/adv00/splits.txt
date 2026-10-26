@@ -1,0 +1,310 @@
+# ADV00.PRS, Station Square
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900200
+P          0x0c900200  0x0c913de0
+D          0x0c913de0  0x0cb2ef08
+C          0x0cb2ef08  0x0cb34c2b
+B          0x0cb34c30  0x0cb34c64
+#
+# source                                 section  start       end
+# act 0's land, which 1ST_READ.BIN's world_lands names for stages 26 to 28 and no code reads, names the texlist, and 1ST_READ.BIN's station_square_act_pvms loads it. the names start C on 8. acts 1 to 4 repeat names of this act's, which SHC keeps one copy of in one file, so each act's names are a file of their own. the texnames meet the land's table on 8 with no fill, the texlist meets the texnames so, and the first model's material meets the texlist so. one file or two build the same at each. the texlist's pointer to the texnames is consistent with one object. the bytes leave the names, texnames and texlist to the land's object or to one of their own, and the texlist to the models' after it too. the acts' data precedes start.c's in D. station_square.c, which links first and places no data, could hold act 0's land from D's start, and this object with it, though its code doesn't read them. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object too, though their code doesn't read it
+modules/adv00/land0_textures.c           C        0x0cb2ef08  0x0cb2f855
+modules/adv00/land0_textures.c           D        0x0c9163d8  0x0c916e30
+# act 1's land names the texlist, and station_square_act_pvms loads it. the names start on 8 where act 0's object's next string would start on 4, so the bytes don't part the acts there; the names the acts repeat do. the texnames meet the land's table on 8 with no fill, the texlist meets the texnames so, and the first model's materials meet the texlist so. one file or two build the same at each. the texlist's pointer to the texnames is consistent with one object. the bytes leave the names, texnames and texlist to the land's object or to one of their own, and the texlist to the models' after it too. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object, though their code doesn't read it. so could station_square.c, which links first, were everything in D before this object its too
+modules/adv00/land1_textures.c           C        0x0cb2f858  0x0cb304ab
+modules/adv00/land1_textures.c           D        0x0c9744d8  0x0c975158
+# act 2's land, which 1ST_READ.BIN's world_lands names for stages 26 to 28 and no code reads, and its entries. the table meets them on 8 with no fill, and they meet the object before them, generated, the same way. one file or two build the same at each. the zero word after the table, at 0x0c9c2dd4, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as land2_textures.c's data starts on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to the generated models' before it, to land2_textures.c's, were the word an unread datum of its, or to station_square.c's, shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it
+modules/adv00/land2.c                  D        0x0c9c1c88  0x0c9c2dd4
+# act 2's land names the texlist, and station_square_act_pvms loads it. the names start on 8, 4 bytes past where act 1's object's next string would. the texnames start on 8, 4 bytes past the land's table, past the zero word land2.c's row describes. the texlist meets the texnames on 8 with no fill, and the first model's material meets the texlist so. one file or two build the same at each. the texlist's pointer to the texnames is consistent with one object. the bytes leave the names, texnames and texlist to one of their own or to land2.c's, were that word an unread datum of its, and the texlist to the models' after it too. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object, though their code doesn't read it. so could station_square.c, which links first, were everything in D before this object its too
+modules/adv00/land2_textures.c           C        0x0cb304b0  0x0cb3072b
+modules/adv00/land2_textures.c           D        0x0c9c2dd8  0x0c9c3080
+# act 3's land, which 1ST_READ.BIN's world_lands names for stages 26 to 28 and no code reads, and its entries. the table meets them on 8 with no fill, and they meet the object before them, generated, the same way. one file or two build the same at each. the zero word after the table, at 0x0c9ddaa4, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as land3_textures.c's data starts on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to the generated models' before it, to land3_textures.c's, were the word an unread datum of its, or to station_square.c's, shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it
+modules/adv00/land3.c                  D        0x0c9db560  0x0c9ddaa4
+# act 3's land names the texlist, and station_square_act_pvms loads it. the names start on 8, 4 bytes past where act 2's object's next string would, and repeat names of act 2's. the texnames start on 8, 4 bytes past the land's table, past the zero word land3.c's row describes. the texlist meets the texnames on 8 with no fill, and the first model's material meets the texlist so. one file or two build the same at each. the texlist's pointer to the texnames is consistent with one object. the bytes leave the names, texnames and texlist to one of their own or to land3.c's, were that word an unread datum of its, and the texlist to the models' after it too. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object, though their code doesn't read it. so could station_square.c, which links first, were everything in D before this object its too
+modules/adv00/land3_textures.c           C        0x0cb30730  0x0cb3138e
+modules/adv00/land3_textures.c           D        0x0c9ddaa8  0x0c9de710
+# act 4's land, which 1ST_READ.BIN's world_lands names for stages 26 to 28 and no code reads, and its entries. the table meets them on 8 with no fill, and they meet the object before them, generated, the same way. one file or two build the same at each. the zero word after the table, at 0x0ca3642c, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as land4_textures.c's data starts on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to the generated models' before it, to land4_textures.c's, were the word an unread datum of its, or to station_square.c's, shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it
+modules/adv00/land4.c                  D        0x0ca35688  0x0ca3642c
+# act 4's land names the texlist, and station_square_act_pvms loads it. the names start on 8 where act 3's object's next string would start on 4, so the bytes don't part the acts there; the names the acts repeat do. the texnames start on 8, 4 bytes past the land's table, past the zero word land4.c's row describes, where one file or two build the same. the bytes leave them and their names to one of their own or to land4.c's, were that word an unread datum of its. the texlist follows the texnames off 8, the first model's materials follow the texlist off 8, and its two arrays of strips follow the materials off 8, so this object holds them. the colors after them start on 8 with no fill, where one file or two build the same. the bytes leave the rest of the act's data to this object or others. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object, though their code doesn't read it. so could station_square.c, which links first, were everything in D before this object its too
+modules/adv00/land4_textures.c           C        0x0cb31390  0x0cb3194f
+modules/adv00/land4_textures.c           D        0x0ca36430  0x0ca36aa8
+# the last of the objects act 4's land's entries name, at 0x0ca363fc, which land4.c holds. it follows the generated row of act 4's models, and nothing else reads it. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there. the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca57a54, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as act 5's land's entries start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land5.c's, were the word an unread datum of its, to station_square.c's, shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it, or to one of data alone
+modules/adv00/dat_0ca57a20.c             D        0x0ca57a20  0x0ca57a54
+# act 5's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries, which start on 8 past the zero word after act 4's last object. the table follows the entries off 8, so they are one object's. the texnames meet it on 8 with no fill, where one file or two build the same. the bytes leave it to an object of its own, to dat_0ca57a20.c's, were the word between them an unread datum of its, to land5_textures.c's, or to shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it. so could station_square.c's, which links first, were everything in D before it its too. act 0's land stays in a generated row of its own, at D's start, and act 1's in one with act 0's last models. each table ends on 8 where its act's textures start
+modules/adv00/land5.c                    D        0x0ca57a58  0x0ca57d70
+# act 5's land names the texlist, and station_square_act_pvms loads it. the names start on 8 where act 4's object's next string would start on 4, and the acts repeat no name, so the bytes don't part them in C. in D act 5's land's entries start on 8 four bytes past act 4's last model, at 0x0ca57a58, consistent with another object. an object of both acts' names would hold act 4's models and act 5's land in D. the texnames meet the land's table on 8 with no fill, where one file or two build the same. the bytes leave them and their names to the land's object or to one of their own. the texlist follows the texnames off 8, and the first model's material follows the texlist off 8, so this object holds them. the strips after it start on 8 with no fill, where one file or two build the same. the bytes leave the rest of the act's data to this object or others. the kinds' names start on 8 five bytes past the last name, 4 past where this object's next string would start, at 0x0cb31aec, which nothing points at. as one file, they start there, and with an unread constant word after this object's own, its own names move, so C parts the kinds' names from this object. the fill rule verifies the 5 bytes. shop2_fossil.c and shop2_radio.c, which place no data and could link before start.c, could hold this object, though their code doesn't read it. so could station_square.c, which links first, were everything in D before this object its too
+modules/adv00/land5_textures.c           C        0x0cb31950  0x0cb31aeb
+modules/adv00/land5_textures.c           D        0x0ca57d70  0x0ca57f18
+# the last of the objects act 5's land's entries name, at 0x0ca57d40, which nothing else reads. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there. the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca5e224, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as start.c's data starts on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to start.c's, were the word an unread datum of its, though its code doesn't read it, to station_square.c's, shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it, or to one of data alone
+modules/adv00/dat_0ca5e1f0.c             D        0x0ca5e1f0  0x0ca5e224
+modules/adv00/station_square.c           PHEAD    0x0c900000  0x0c9001a0
+modules/adv00/station_square.c           P        0x0c900200  0x0c9005a0
+modules/adv00/start.c                    PHEAD    0x0c9001a0  0x0c900200
+modules/adv00/start.c                    D        0x0ca5e228  0x0ca5e3c0
+# 8 zero bytes between start.c's data, which ends on 8, and the kinds on 8, which nothing in the image, 1ST_READ.BIN or the events points at. the linker starts the next object where start.c's data ends, on 8, with no gap, so they are data. they are start.c's, the kinds' object's, that of shop2_fossil.c or shop2_radio.c, which place no data and could link between, or one of data alone, which the bytes leave open. with no code reading them, they are placed as one of data alone, of unknown type, as B_EGM3's 16 head bytes are
+modules/adv00/dat_0ca5e3c0.c             D        0x0ca5e3c0  0x0ca5e3c8
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for every act, at 0x0ca5ec4c, which placement.c reads. no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. the kinds start on 8 past the 8 zero bytes after start.c's data, and the names 5 bytes past act 5's land's names, which C parts from them. the zero word after the list, at 0x0ca5ec54, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill the rule verifies, as sky_models.c's list starts on 8, or a last word of this object. the object names start in C where the names' next string would start on 4, so the bytes don't part them there. their row declares start 8, as their texnames' row does past sky_models.c's list in D. the splicer writes the 3 bytes after the names as the linker's fill, which would be this object's padding, zero all the same, were the object names its. the bytes leave the kinds to an object of their own, to the object names' object, were the word after the list its, to dat_0ca5e3c0.c's or start.c's, were the 8 zero bytes before them this object's or start.c's, though its code doesn't read them, or to shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read them
+modules/adv00/object_list.c              D        0x0ca5e3c8  0x0ca5ec54
+modules/adv00/object_list.c              C        0x0cb31af0  0x0cb3201d
+# the sky's models, which station_square.c draws by the time of day story_get_time gives, one of three. the list starts on 8, 4 bytes past object_list.c's list, past the zero word that row describes. the list ends 4 bytes short of the object names' generated texnames on 8. the zero word after its third entry, at 0x0ca5ec64, which nothing in the image, 1ST_READ.BIN or the events points at, is the linker's fill or a fourth entry, which would be a last word of this object. station_square.c reads three entries. ADV02's and ADV03's sky tables, three by time of day, run straight into the datum after them with no fourth, though inside larger objects. the texnames' row declares start 8, and the splicer writes the word as the linker's fill, the likelier reading, not a proven one. station_square.c reads it, but links before start.c, whose data lies before it, so it holds none of it. the bytes leave the list to an object of its own, to object_list.c's, were the word before it an unread datum of its, to the generated texnames' object after it, were the word after it that object's, or to shop2_fossil.c's or shop2_radio.c's, which place no data and could link between, though their code doesn't read it
+modules/adv00/sky_models.c               D        0x0ca5ec58  0x0ca5ec64
+modules/adv00/shop2_fossil.c             P        0x0c9005a0  0x0c900620
+# follows shop2_fossil.c with no fill; as one file, the code runs 56 bytes shorter. 123 of its 200 bytes differ
+modules/adv00/shop2_radio.c              P        0x0c900620  0x0c9006a0
+# follows shop2_radio.c with no fill; as one file, the code runs 16 bytes longer. 1,004 of its first 1,088 bytes differ
+modules/adv00/props.c                    P        0x0c9006a0  0x0c900a60
+modules/adv00/props.c                    D        0x0cab1eb8  0x0cab2024
+# follows props.c with no fill; one file or two build the same
+modules/adv00/clock.c                    P        0x0c900a60  0x0c900ce0
+modules/adv00/employee_card.c            P        0x0c900ce0  0x0c901360
+modules/adv00/employee_card.c            D        0x0cab2028  0x0cab20ac
+modules/adv00/employee_card.c            C        0x0cb32de0  0x0cb32e25
+modules/adv00/egg_stand.c                P        0x0c901360  0x0c9016e0
+modules/adv00/egg_stand.c                D        0x0cab20b0  0x0cab20e4
+modules/adv00/elevator_sign.c            P        0x0c9016e0  0x0c901820
+modules/adv00/twinkle_elevator.c         P        0x0c901820  0x0c901ee0
+modules/adv00/twinkle_elevator.c         D        0x0cab20e8  0x0cab211c
+# follows twinkle_elevator.c with no fill; as one file, the code runs 32 bytes shorter. 1,524 of its 3,216 bytes differ
+modules/adv00/elevator_box.c             P        0x0c901ee0  0x0c9024e0
+modules/adv00/elevator_box.c             D        0x0cab2120  0x0cab2224
+modules/adv00/kart_door.c                P        0x0c9024e0  0x0c9029a0
+modules/adv00/kart_door.c                D        0x0cab2228  0x0cab232c
+modules/adv00/kart_sign.c                P        0x0c9029a0  0x0c902ac0
+modules/adv00/kart_sign.c                C        0x0cb32e28  0x0cb32e3b
+# follows kart_sign.c with no fill; as one file, 449 of 1,148 code bytes differ
+modules/adv00/folding_door.c             P        0x0c902ac0  0x0c902e20
+modules/adv00/folding_door.c             D        0x0cab2330  0x0cab2400
+modules/adv00/pole.c                     P        0x0c902e20  0x0c902f00
+modules/adv00/pole.c                     D        0x0cab2400  0x0cab2434
+modules/adv00/shop1_chairs.c             P        0x0c902f00  0x0c903000
+modules/adv00/shop1_chairs.c             D        0x0cab2438  0x0cab2570
+modules/adv00/shop1_lamp.c               P        0x0c903000  0x0c903240
+modules/adv00/shop1_lamp.c               D        0x0cab2570  0x0cab25a4
+modules/adv00/shop1_door.c               P        0x0c903240  0x0c903660
+modules/adv00/shop1_door.c               D        0x0cab25a8  0x0cab2610
+modules/adv00/shop1_sign.c               P        0x0c903660  0x0c9037c0
+modules/adv00/shop1_sign.c               D        0x0cab2610  0x0cab2644
+modules/adv00/shop1_salt.c               P        0x0c9037c0  0x0c9038e0
+modules/adv00/shop2_door.c               P        0x0c9038e0  0x0c903e80
+modules/adv00/shop2_door.c               D        0x0cab2648  0x0cab283c
+modules/adv00/shop2_frame.c              P        0x0c903e80  0x0c903f40
+modules/adv00/shop2_robot.c              P        0x0c903f40  0x0c904000
+modules/adv00/shop2_fence.c              P        0x0c904000  0x0c904580
+modules/adv00/shop2_fence.c              D        0x0cab2840  0x0cab28dc
+modules/adv00/signal.c                   P        0x0c904580  0x0c904720
+modules/adv00/signal.c                   D        0x0cab28e0  0x0cab2914
+modules/adv00/train.c                    P        0x0c904720  0x0c9051e0
+modules/adv00/train.c                    D        0x0cab2918  0x0cab2b20
+modules/adv00/train.c                    C        0x0cb32e40  0x0cb32e52
+modules/adv00/twinkle_door.c             P        0x0c9051e0  0x0c905600
+modules/adv00/twinkle_door.c             D        0x0cab2b20  0x0cab2c24
+modules/adv00/twinkle_sign.c             P        0x0c905600  0x0c905720
+modules/adv00/twinkle_sign.c             C        0x0cb32e58  0x0cb32e6b
+modules/adv00/twinkle_handrail.c         P        0x0c905720  0x0c905820
+modules/adv00/twinkle_handrail.c         D        0x0cab2c28  0x0cab2c90
+modules/adv00/back_door.c                P        0x0c905820  0x0c905bc0
+modules/adv00/back_door.c                D        0x0cab2c90  0x0cab2cc4
+modules/adv00/twinkle_a_door.c           P        0x0c905bc0  0x0c905f20
+modules/adv00/twinkle_a_door.c           D        0x0cab2cc8  0x0cab2d30
+modules/adv00/twinkle_b_door.c           P        0x0c905f20  0x0c906280
+modules/adv00/twinkle_b_door.c           D        0x0cab2d30  0x0cab2d98
+modules/adv00/boat.c                     P        0x0c906280  0x0c906800
+modules/adv00/boat.c                     D        0x0cab2d98  0x0cab2e68
+modules/adv00/boat.c                     C        0x0cb32e70  0x0cb32e90
+modules/adv00/shop2_blue_robot.c         P        0x0c906800  0x0c9068c0
+modules/adv00/shop2_box_lid.c            P        0x0c9068c0  0x0c906980
+modules/adv00/shop2_box.c                P        0x0c906980  0x0c906a40
+modules/adv00/casino_button.c            P        0x0c907100  0x0c9074e0
+modules/adv00/casino_button.c            D        0x0cab3008  0x0cab303c
+modules/adv00/casino_button.c            C        0x0cb32e90  0x0cb32ea2
+# traffic_init starts on 32 at 0x0c9075a0 with no fill; split there, the code builds the same
+modules/adv00/traffic.c                  P        0x0c9074e0  0x0c908ca0
+modules/adv00/traffic.c                  D        0x0cab3040  0x0cab327c
+modules/adv00/traffic.c                  C        0x0cb32ea8  0x0cb32fa0
+modules/adv00/traffic.c                  B        0x0cb34c30  0x0cb34c40
+# the two roads traffic.c's traffic_roads names, each a path, which no step runs, and its points, and the list 1ST_READ.BIN's path_lists names for act 0, at 0x0cab4718. the first points start on 8, 4 bytes past traffic.c's data, and extinguisher.c's data starts on 8, 4 bytes past the list: consistent with an object of their own, linked between the two, which are neighbours in P. each road follows its points, the second road's points follow the first road, and the list follows the second road, each on 8 with no fill, where one file or several build the same. the list's pointers to the roads are consistent with one object. traffic.c's object, whose code reads both roads, could hold them, were the word after its data, at 0x0cab327c, an unread word of its. extinguisher.c's could too, were the word after the list, at 0x0cab4724, one of the roads' object's, though its code doesn't read them. nothing points at either word, and the rule verifies both as fill
+modules/adv00/roads.c                    D        0x0cab3280  0x0cab4724
+modules/adv00/extinguisher.c             P        0x0c908ca0  0x0c908da0
+modules/adv00/extinguisher.c             D        0x0cab4728  0x0cab475c
+modules/adv00/street_light.c             P        0x0c908da0  0x0c909040
+modules/adv00/street_light.c             D        0x0cab4760  0x0cab47c8
+modules/adv00/eggs.c                     P        0x0c909040  0x0c909400
+modules/adv00/eggs.c                     D        0x0cab47c8  0x0cab4834
+modules/adv00/target_fence.c             P        0x0c909400  0x0c909d40
+modules/adv00/target_fence.c             D        0x0cab4838  0x0cab4908
+modules/adv00/target_fence.c             C        0x0cb32fa0  0x0cb32fac
+modules/adv00/pool_chair.c               P        0x0c909d40  0x0c909e40
+modules/adv00/pool_chair.c               D        0x0cab4908  0x0cab493c
+modules/adv00/parasol.c                  P        0x0c909e40  0x0c909f40
+modules/adv00/parasol.c                  D        0x0cab4940  0x0cab4974
+modules/adv00/highway_shutter.c          P        0x0c909f40  0x0c90a3a0
+modules/adv00/highway_shutter.c          D        0x0cab4978  0x0cab4eb4
+modules/adv00/parked_car.c               P        0x0c90a3a0  0x0c90a700
+modules/adv00/parked_car.c               D        0x0cab4eb8  0x0cab4eec
+modules/adv00/land_anim.c                P        0x0c90a700  0x0c90a864
+modules/adv00/land_anim.c                D        0x0cab4ef0  0x0cab4fe8
+modules/adv00/casino_ornament.c          P        0x0c90ab00  0x0c90b520
+modules/adv00/casino_ornament.c          D        0x0cab5020  0x0cab5084
+modules/adv00/casino_ornament.c          B        0x0cb34c40  0x0cb34c4a
+# corridor_step starts on 32 at 0x0c90bd40 with no fill; split there, the code builds the same
+modules/adv00/elevators.c                P        0x0c90b520  0x0c90c160
+modules/adv00/elevators.c                D        0x0cab5088  0x0cab5384
+modules/adv00/barricade.c                P        0x0c90c160  0x0c90c400
+modules/adv00/barricade.c                D        0x0cab5388  0x0cab5424
+modules/adv00/barricade.c                C        0x0cb32fb0  0x0cb32fc3
+modules/adv00/hotel_doors.c              P        0x0c90c400  0x0c90cbe0
+modules/adv00/hotel_doors.c              D        0x0cab5428  0x0cab55fc
+modules/adv00/scene_change.c             P        0x0c90cbe0  0x0c90d020
+modules/adv00/scene_change.c             C        0x0cb32fc8  0x0cb33017
+# a collision box which no word in the image or in 1ST_READ.BIN names, with the 52 bytes of 1ST_READ.BIN's scene_changer_shape, scene_changer.c's. it starts on 8 four bytes past hotel_doors.c's data, and station_back.c's data starts on 8 four bytes past it. the bytes leave it to its own object, or to scene_change.c's, which links between the two and places no data, though its code doesn't read it. that code has the box's size, as scene_changer.c's does, but makes no collision. it could be hotel_doors.c's too, were the word before it, at 0x0cab55fc, a word of that object, or station_back.c's, were the word after it, at 0x0cab5634, one of the box's object's, though neither's code reads it. nothing points at either word: each is the linker's fill the rule verifies, or a last word of the object before it
+modules/adv00/unused_shape.c             D        0x0cab5600  0x0cab5634
+modules/adv00/station_back.c             P        0x0c90d020  0x0c90d220
+modules/adv00/station_back.c             D        0x0cab5638  0x0cab56d4
+# follows station_back.c with no fill; as one file, the code runs 32 bytes longer. 1,158 of its first 1,676 bytes differ
+modules/adv00/casino_door.c              P        0x0c90d220  0x0c90d6c0
+modules/adv00/casino_door.c              D        0x0cab56d8  0x0cab57dc
+modules/adv00/casino_door.c              C        0x0cb33018  0x0cb3302a
+modules/adv00/ice_stone.c                P        0x0c90d6c0  0x0c90dac0
+modules/adv00/ice_stone.c                D        0x0cab57e0  0x0cab5850
+modules/adv00/ice_stone.c                C        0x0cb33030  0x0cb33070
+modules/adv00/kart_pass.c                P        0x0c90dac0  0x0c90e340
+modules/adv00/kart_pass.c                D        0x0cab5850  0x0cab58c8
+modules/adv00/kart_pass.c                C        0x0cb33070  0x0cb330db
+# follows kart_pass.c with no fill; as one file, the code runs 32 bytes longer. 1,279 of its first 3,444 bytes differ
+modules/adv00/office_barricade.c         P        0x0c90e340  0x0c90e840
+modules/adv00/office_barricade.c         D        0x0cab58c8  0x0cab5930
+modules/adv00/office_door.c              P        0x0c90e840  0x0c90ed60
+modules/adv00/office_door.c              D        0x0cab5930  0x0cab5a9c
+modules/adv00/container.c                P        0x0c90ed60  0x0c90ef20
+modules/adv00/container.c                D        0x0cab5aa0  0x0cab5b08
+modules/adv00/key_block.c                P        0x0c90ef20  0x0c90f480
+modules/adv00/key_block.c                D        0x0cab5b08  0x0cab5be0
+modules/adv00/key_block.c                C        0x0cb330e0  0x0cb33111
+modules/adv00/land_time.c                P        0x0c90f480  0x0c90f6a6
+modules/adv00/land_time.c                D        0x0cab5be0  0x0cab61e0
+modules/adv00/power_box.c                P        0x0c90f6c0  0x0c90f7c0
+modules/adv00/power_box.c                D        0x0cab61e0  0x0cab6214
+modules/adv00/chao_card.c                P        0x0c90f7c0  0x0c90fa40
+modules/adv00/chao_card.c                D        0x0cab6218  0x0cab6288
+modules/adv00/chao_card.c                C        0x0cb33118  0x0cb33144
+# follows chao_card.c with no fill; as one file, the code runs 32 bytes longer. 822 of its first 1,480 bytes differ
+modules/adv00/hidden_door.c              P        0x0c90fa40  0x0c90fda0
+modules/adv00/hidden_door.c              D        0x0cab6288  0x0cab6358
+modules/adv00/hidden_door.c              C        0x0cb33148  0x0cb33165
+# the texture lists 1ST_READ.BIN's station_square_pvms names for SS_PEOPLE, SS_EKIIN, SS_MIZUGI and SS_BURGER, and their texnames, whose names are null. crowd.c reads the lists. mannequin.c and the events EV0001, EV0011, EV0050, EV0051 and EV0060, loaded with ADV00, read the first too. the first texnames meet a motion on 8 with no fill, and the third texlist and the fourth texnames start on 8 straight after the item before, each with no fill. one file or several build the same there. the rest follow each other off 8, and each texlist's pointer to its texnames is consistent with one object. crowd.c's data starts on 8, 4 bytes past the last texlist, at 0x0cb2cacc, a word nothing points at and the rule verifies as fill. the bytes leave them to the object of the people's models before them, to hidden_door.c's, whose data that run meets on 8 with no fill, though its code doesn't read them, to crowd.c's, were that word an unread word of its object, to one of their own, or to several
+modules/adv00/people_textures.c          D        0x0cb2c5c0  0x0cb2cacc
+modules/adv00/crowd.c                    P        0x0c90fda0  0x0c9117e0
+modules/adv00/crowd.c                    D        0x0cb2cad0  0x0cb2ce28
+modules/adv00/crowd.c                    C        0x0cb33168  0x0cb334b2
+modules/adv00/crowd.c                    B        0x0cb34c50  0x0cb34c54
+modules/adv00/shadow.c                   P        0x0c9117e0  0x0c911880
+modules/adv00/people.c                   P        0x0c911880  0x0c9121a0
+modules/adv00/people.c                   D        0x0cb2ce28  0x0cb2ce2c
+modules/adv00/people.c                   C        0x0cb334b8  0x0cb34bce
+modules/adv00/people.c                   B        0x0cb34c58  0x0cb34c64
+# the first keys of the motion the generated row after it names, three keys of position, as its motion data's count gives. the motion's action is one people.c's code reads, at 0x0cb2decc, but nothing reads these keys but the motion data. the next keys meet them on 8 with no fill, where one file or two build the same, and the bytes don't say whether the generated keys' object holds them. the zero word before them, at 0x0cb2ce2c, after people.c's data, which ends 4 bytes past 8, is the linker's fill the rule verifies, or a word of people.c's object nothing reads. nothing in the image, 1ST_READ.BIN or the events points at it. the bytes leave them to the generated keys' object, to people.c's, were the word its, whose code reads three of the items after them, at 0x0cb2decc, 0x0cb2e680 and 0x0cb2e6e8, to light_changer.c's or kart_changer.c's, which place no data and could link between, though their code doesn't read them, or to one of data alone
+modules/adv00/dat_0cb2ce30.c             D        0x0cb2ce30  0x0cb2ce60
+modules/adv00/light_changer.c            P        0x0c9121a0  0x0c9124a0
+modules/adv00/light_changer.c            C        0x0cb34bd0  0x0cb34bf6
+modules/adv00/kart_changer.c             P        0x0c9124a0  0x0c912800
+modules/adv00/kart_changer.c             C        0x0cb34bf8  0x0cb34c2b
+modules/adv00/mannequin.c                P        0x0c912800  0x0c912a20
+modules/adv00/mannequin.c                D        0x0cb2edf0  0x0cb2ee58
+# follows mannequin.c with no fill; as one file, the code runs 40 bytes shorter. 164 of its 624 bytes differ
+modules/adv00/script_sonic_opening.c     P        0x0c912a20  0x0c912aa0
+modules/adv00/script_sonic_opening.c     D        0x0cb2ee58  0x0cb2ee60
+# follows script_sonic_opening.c with no fill; as one file, the code runs 64 bytes shorter. 249 of its 320 bytes differ
+modules/adv00/script_sonic_beach.c       P        0x0c912aa0  0x0c912ba0
+modules/adv00/script_sonic_beach.c       D        0x0cb2ee60  0x0cb2ee68
+# follows script_sonic_beach.c with no fill; as one file, the code runs 32 bytes longer. 348 of its first 636 bytes differ
+modules/adv00/script_sonic_sewer.c       P        0x0c912ba0  0x0c912d20
+modules/adv00/script_sonic_sewer.c       D        0x0cb2ee68  0x0cb2ee70
+# follows script_sonic_sewer.c with no fill; as one file, 2 of 392 code bytes differ, all in the 4 bytes from 0x0c912d1c. one file pads them with 00 09, where the image holds zeros
+modules/adv00/script_sonic_unused.c      P        0x0c912d20  0x0c912d28
+modules/adv00/script_sonic_unused.c      D        0x0cb2ee70  0x0cb2ee78
+modules/adv00/script_sonic_wake.c        P        0x0c912d40  0x0c912dc0
+modules/adv00/script_sonic_wake.c        D        0x0cb2ee78  0x0cb2ee80
+# follows script_sonic_wake.c with no fill; as one file, the code runs 28 bytes shorter. 306 of its 396 bytes differ
+modules/adv00/script_sonic_amy.c         P        0x0c912dc0  0x0c912f00
+modules/adv00/script_sonic_amy.c         D        0x0cb2ee80  0x0cb2ee88
+# follows script_sonic_amy.c with no fill; as one file, 12 of 576 code bytes differ, all in the 24 bytes from 0x0c912ee8. one file pads them with 00 09, where the image holds zeros
+modules/adv00/script_sonic_twinkle.c     P        0x0c912f00  0x0c913000
+modules/adv00/script_sonic_twinkle.c     D        0x0cb2ee88  0x0cb2ee90
+# follows script_sonic_twinkle.c with no fill; one file or two build the same
+modules/adv00/script_sonic_highway.c     P        0x0c913000  0x0c9130e0
+modules/adv00/script_sonic_highway.c     D        0x0cb2ee90  0x0cb2ee98
+# follows script_sonic_highway.c with no fill; as one file, the code runs 46 bytes longer. 233 of its first 440 bytes differ
+modules/adv00/script_tails_opening.c     P        0x0c9130e0  0x0c9131c0
+modules/adv00/script_tails_opening.c     D        0x0cb2ee98  0x0cb2eea0
+# follows script_tails_opening.c with no fill; as one file, the code runs 6 bytes longer. 283 of its first 480 bytes differ
+modules/adv00/script_tails_casino.c      P        0x0c9131c0  0x0c9132c0
+modules/adv00/script_tails_casino.c      D        0x0cb2eea0  0x0cb2eea8
+# follows script_tails_casino.c with no fill; as one file, the code runs 28 bytes longer. 118 of its first 376 bytes differ
+modules/adv00/script_tails_wake.c        P        0x0c9132c0  0x0c913340
+modules/adv00/script_tails_wake.c        D        0x0cb2eea8  0x0cb2eeb0
+# follows script_tails_wake.c with no fill; as one file, the code runs 6 bytes shorter. 396 of its 522 bytes differ
+modules/adv00/script_tails_highway.c     P        0x0c913340  0x0c9134e0
+modules/adv00/script_tails_highway.c     D        0x0cb2eeb0  0x0cb2eeb8
+# follows script_tails_highway.c with no fill; as one file, the code runs 4 bytes shorter. 225 of its 660 bytes differ
+modules/adv00/script_knuckles_highway.c  P        0x0c9134e0  0x0c9135e0
+modules/adv00/script_knuckles_highway.c  D        0x0cb2eeb8  0x0cb2eec0
+# follows script_knuckles_highway.c with no fill; as one file, 4 of 516 code bytes differ, all in the 8 bytes from 0x0c9135d8. one file pads them with 00 09, where the image holds zeros
+modules/adv00/script_knuckles_chaos2.c   P        0x0c9135e0  0x0c913700
+modules/adv00/script_knuckles_chaos2.c   D        0x0cb2eec0  0x0cb2eec8
+# follows script_knuckles_chaos2.c with no fill; as one file, 14 of 452 code bytes differ, all in the 28 bytes from 0x0c9136e4. one file pads them with 00 09, where the image holds zeros
+modules/adv00/script_amy_opening.c       P        0x0c913700  0x0c9137c0
+modules/adv00/script_amy_opening.c       D        0x0cb2eec8  0x0cb2eed0
+# follows script_amy_opening.c with no fill; as one file, the code runs 64 bytes shorter. 439 of its 620 bytes differ
+modules/adv00/script_amy_sonic.c         P        0x0c9137c0  0x0c9139c0
+modules/adv00/script_amy_sonic.c         D        0x0cb2eed0  0x0cb2eed8
+# follows script_amy_sonic.c with no fill; as one file, the code runs 16 bytes shorter. 221 of its 704 bytes differ
+modules/adv00/script_amy_birds.c         P        0x0c9139c0  0x0c913aa0
+modules/adv00/script_amy_birds.c         D        0x0cb2eed8  0x0cb2eee0
+# follows script_amy_birds.c with no fill; as one file, the code runs 64 bytes shorter. 414 of its 652 bytes differ
+modules/adv00/script_big_twinkle.c       P        0x0c913aa0  0x0c913ca0
+modules/adv00/script_big_twinkle.c       D        0x0cb2eee0  0x0cb2eef4
+modules/adv00/script_big_beach.c         P        0x0c913ca0  0x0c913d60
+modules/adv00/script_big_beach.c         D        0x0cb2eef8  0x0cb2ef00
+# follows script_big_beach.c with no fill; as one file, the code runs 16 bytes shorter. 133 of its 300 bytes differ
+modules/adv00/script_e102_beach.c        P        0x0c913d60  0x0c913de0
+modules/adv00/script_e102_beach.c        D        0x0cb2ef00  0x0cb2ef08
+
+modules/adv00/planets.c                 P        0x0c90a880  0x0c90ab00
+modules/adv00/planets.c                 D        0x0cab4fe8  0x0cab501c
+modules/adv00/station_door.c            P        0x0c906a40  0x0c907100
+modules/adv00/station_door.c            D        0x0cab2e68  0x0cab3008
+#
+# generated data ranges
+# act 0's land's entries and table, which follows them off 8
+gen/adv00/d_0c913de0.c                   D        0x0c913de0  0x0c9163d8
+# act 0's models, from the first model's material, past land0_textures.c's texlist
+gen/adv00/d_0c916e30.c                   D        0x0c916e30  0x0c953eb0
+# act 0's last models, and act 1's land's entries and table
+gen/adv00/d_0c953eb0.c                   D        0x0c953eb0  0x0c9744d8
+# act 1's models, from the first model's materials, past land1_textures.c's texlist
+gen/adv00/d_0c975158.c                   D        0x0c975158  0x0c993ec8
+# act 1's last models, to act 2's land's entries, which land2.c's row describes
+gen/adv00/d_0c993ec8.c                   D        0x0c993ec8  0x0c9c1c88
+# act 2's models, from the first model's material, past land2_textures.c's texlist
+gen/adv00/d_0c9c3080.c                   D        0x0c9c3080  0x0c9d40d0
+# act 2's last models, to act 3's land's entries, which land3.c's row describes
+gen/adv00/d_0c9d40d0.c                   D        0x0c9d40d0  0x0c9db560
+# act 3's models, from the first model's material, past land3_textures.c's texlist
+gen/adv00/d_0c9de710.c                   D        0x0c9de710  0x0ca14180
+# act 3's last models, to act 4's land's entries, which land4.c's row describes
+gen/adv00/d_0ca14180.c                   D        0x0ca14180  0x0ca35688
+# act 4's models, past land4_textures.c's strips, to the object before dat_0ca57a20.c's, which meets them on 8 with no fill
+gen/adv00/d_0ca36aa8.c                   D        0x0ca36aa8  0x0ca57a20
+# act 5's models, past land5_textures.c's material, to the object before dat_0ca5e1f0.c's, which meets them on 8 with no fill
+gen/adv00/d_0ca57f18.c                   D        0x0ca57f18  0x0ca5e1f0
+# the object names' texnames and the models after them. the first texname names the first of the object names, at 0x0cb32020. the word before the texnames, 4 past 8, can't open an object, as an R32 object starts its data on 8. the row declares start 8, the texnames opening the names' object, which the bytes don't prove, as sky_models.c's object could run on to them past an unread fourth entry
+gen/adv00/d_0ca5ec68.c                   D        0x0ca5ec68  0x0ca9e558  start 8
+# to the end of the object 1ST_READ.BIN's level_item_models names at 0x0cab1e84, which level_item.c draws as an NJS_OBJECT: the zero word at 0x0cab1eb4 is its sibling. props.c's data meets it on 8 with no fill
+gen/adv00/d_0ca9e558.c                   D        0x0ca9e558  0x0cab1eb8
+gen/adv00/d_0cab6358.c                   D        0x0cab6358  0x0caf6368
+gen/adv00/d_0caf6368.c                   D        0x0caf6368  0x0cb2c5c0
+# the keys after dat_0cb2ce30.c's, the motion data, motions and actions people.c's code reads, and the records after them
+gen/adv00/d_0cb2ce60.c                   D        0x0cb2ce60  0x0cb2edf0
+# the names the texnames from 0x0ca5ec68 to 0x0caae984 point at: OBJ_SS's and those of the eight other texlists 1ST_READ.BIN's station_square_pvms and station_square_act_pvms name but the acts'. tables share copies of names, and the rest start off 8 straight after the name before, so the names are one object's strings. that object's D runs unbroken from no later than 0x0ca5ec68 to no earlier than 0x0caaea40: hundreds of models, which a source would hold to hold the names. the names start on 8, 3 bytes past object_list.c's names, where those would put a next string on 4, so the bytes don't part them from the kinds' object, whose kinds lie before them in D. in ADV0130, the next string slot after kinds.c's names lies 4 bytes short of mole_textures.c's names on 8, two objects. here the texnames' row starts their data on 8 past sky_models.c's list, so the row declares start 8, and the splicer writes the 3 bytes as the linker's fill, the likelier reading, not a proven one. employee_card.c's constants start on 8 six bytes past the last name, 4 past where the names' next string would start, at 0x0cb32ddc, which nothing in the image, 1ST_READ.BIN or the events points at. props.c's data lies between the run and employee_card.c's in D, so the names are no strings of employee_card.c's. the 6 bytes are the linker's fill, and no item of the names' object, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares end, and the splicer writes them as the linker's fill. of the objects that can link before the run in D, shop2_fossil.c's and shop2_radio.c's, which place no data, could hold them. their code reads their models in the run, at 0x0ca77384 and 0x0ca77958, though not the names. start.c's data ends on 8 at 0x0ca5e3c0, before dat_0ca5e3c0.c's, object_list.c's and sky_models.c's, and props.c's follows the run on 8 with no fill at 0x0cab1eb8. neither places constants, so either's object could hold them, were the data from its own to the run, or from the run to its own, its. props.c's code reads seven models in the run, from 0x0ca6e9d4 to 0x0ca73560, and start.c's none. station_square.c and clock.c, which place no constants either, can't: station_square.c links before start.c and clock.c after props.c. one of data alone could too
+gen/adv00/d_0cb32020.c                   C        0x0cb32020  0x0cb32dda  start 8  end

@@ -1,0 +1,35 @@
+# EV006D.PRS, Amy finds the bird's locket
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82e48
+C          0x0cb82e48  0x0cb831d0
+D          0x0cb831d0  0x0cbbdb7c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev006d/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev006d/script.c                P        0x0cb80008  0x0cb811c8
+events/ev006d/script.c                C        0x0cb82e48  0x0cb83134
+events/ev006d/script.c                D        0x0cb831d0  0x0cb849f0
+events/shared/picture.c               P        0x0cb811c8  0x0cb81324
+events/shared/picture.c               D        0x0cbbdac8  0x0cbbdafc
+events/shared/prop.c                  P        0x0cb81324  0x0cb815e4
+events/shared/prop.c                  D        0x0cbbdb00  0x0cbbdb28
+events/shared/move.c                  P        0x0cb815e4  0x0cb82108
+events/shared/move.c                  D        0x0cbbdb28  0x0cbbdb50
+events/shared/mover.c                 P        0x0cb82108  0x0cb828a0
+events/shared/fade.c                  P        0x0cb828a0  0x0cb82a2c
+events/shared/fade.c                  D        0x0cbbdb50  0x0cbbdb70
+events/shared/sound.c                 P        0x0cb82a2c  0x0cb82dec
+events/shared/sound.c                 D        0x0cbbdb70  0x0cbbdb7c
+events/shared/shapes.c                P        0x0cb82dec  0x0cb82e44
+# the names of the textures that the 3 texture name tables at 0x0cba7d8c, 0x0cba7e24 and 0x0cbbdaa4 in this object's data name: the tables at 0x0cba7d8c and 0x0cba7e24 share names, so they are one file's, with the data between them. the names of the table at 0x0cbbdaa4 start off 8 straight after those of the table at 0x0cba7d8c, so they are one object's constants. the table at 0x0cba7d8c starts off 8, straight after an action at 0x0cba7d84, so it shares that item's object. after the table at 0x0cba7d8c, each item to a material at 0x0cba7ebc starts off 8, so they share its object. the table at 0x0cba7e24 starts off 8, straight after a texlist at 0x0cba7e1c, so it shares that item's object. after the table at 0x0cba7e24, each item to a material at 0x0cba7ebc starts off 8, so they share its object. the table at 0x0cbbdaa4 starts off 8, straight after an action at 0x0cbbda9c, so it shares that item's object. after the table at 0x0cbbdaa4, each item to a texlist at 0x0cbbdabc starts off 8, so they share its object. the names and the data from 0x0cba7d78 to 0x0cbbdac4 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev006d_bird_texlist_1, ev006d_bird_texlist_2 and ev006d_picture_texlist, which name the tables at 0x0cba7d8c, 0x0cba7e24 and 0x0cbbdaa4. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 3 bytes short of D on 8. they are script.c's, whose code reads ev006d_amy_action_9, ev006d_bird_action_0 and 6 more in that data, were the 4 bytes before them and the data from its own data to the tables its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. picture.c can't hold them: it links in events without them. the 4 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the 3 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 4 bytes before them and the 3 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev006d/amy_action_9.c          C        0x0cb83138  0x0cb831cd
+# its data, from 0x0cba7d78 to 0x0cbbdac4: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. the generator had left pointer words at 0x0cbb4bec (an action) and 0x0cbb93f4 (an action). the source types them as consistent with the words they hold, and nothing reads the actions at 0x0cbb4bec and 0x0cbb93f4: no word in this event or 1ST_READ.BIN points at them. it starts on 8 straight after the generated data, so the bytes don't say whether its object runs on into the generated data before it. it ends 4 past 8, and the 4 bytes of 0xff after it, to picture.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of this object
+events/ev006d/amy_action_9.c          D        0x0cba7d78  0x0cbbdac4
+#
+# generated data ranges
+gen/ev006d/d_0cb849f0.c               D        0x0cb849f0  0x0cba7d78

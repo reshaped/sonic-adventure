@@ -1,0 +1,76 @@
+        .EXPORT     _longjmp
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void longjmp(jmp_buf env, int val)
+; load the context setjmp saved at env, and return to its PR with val in R0,
+; or 1 for a val of 0. val waits in the static word longjmp_value while the
+; registers load. FR3 and FR5 each load their own word, which setjmp fills
+; exchanged
+; @asm abi: stack-written, MOV.L @R0,R15 at 0x8c126d60 loads the stack pointer
+; setjmp saved
+_longjmp:
+        MOV.L       longjmp_value_address,R0
+        MOV.L       R5,@R0
+        ADD         #80,R4
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FMOV.S      @R4+,FR3
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R4+,FR5
+        FMOV.S      @R4+,FR6
+        FMOV.S      @R4+,FR7
+        FMOV.S      @R4+,FR8
+        FMOV.S      @R4+,FR9
+        FMOV.S      @R4+,FR10
+        FMOV.S      @R4+,FR11
+        FMOV.S      @R4+,FR12
+        FMOV.S      @R4+,FR13
+        FMOV.S      @R4+,FR14
+        FMOV.S      @R4,FR15
+        MOV.L       @(4,R4),R0
+        LDS         R0,FPUL
+        MOV.L       @(8,R4),R0
+        LDS         R0,FPSCR
+        ADD         #-88,R4
+        MOV.L       @(24,R4),R0
+        LDC         R0,GBR
+        MOV.L       @(20,R4),R0
+        LDS         R0,MACL
+        MOV.L       @(16,R4),R0
+        LDS         R0,MACH
+        MOV.L       @(8,R4),R1
+        MOV.L       @(4,R4),R2
+        MOV.L       @R4,R3
+        ADD         #-52,R4
+        MOV.L       @(44,R4),R5
+        MOV.L       @(40,R4),R6
+        MOV.L       @(36,R4),R7
+        MOV.L       @(32,R4),R8
+        MOV.L       @(28,R4),R9
+        MOV.L       @(24,R4),R10
+        MOV.L       @(20,R4),R11
+        MOV.L       @(16,R4),R12
+        MOV.L       @(12,R4),R13
+        MOV.L       @(4,R4),R14
+        MOV         R4,R0
+        MOV.L       @(48,R0),R4
+        MOV.L       @R0,R15
+        MOV.L       @(8,R0),R0
+        LDS         R0,PR
+        MOV.L       longjmp_value_address,R0
+        MOV.L       @R0,R0
+        CMP/EQ      #0,R0
+        BF          longjmp_return_value
+        MOV         #1,R0
+longjmp_return_value:
+        RTS
+        NOP
+longjmp_value_address:
+        .DATA.L     _longjmp_value
+
+        .SECTION    B,DATA,ALIGN=4
+_longjmp_value:
+        .RES.L      1
+        .END

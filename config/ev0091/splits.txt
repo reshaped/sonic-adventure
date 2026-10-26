@@ -1,0 +1,41 @@
+# EV0091.PRS, Knuckles returns emerald pieces to the altar
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83d80
+C          0x0cb83d80  0x0cb840e0
+D          0x0cb840e0  0x0cbac4bc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0091/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0091/script.c                P        0x0cb80008  0x0cb817bc
+events/ev0091/script.c                C        0x0cb83d80  0x0cb840c5
+events/ev0091/script.c                D        0x0cb840e0  0x0cb9642c
+events/shared/rays.c                  P        0x0cb817bc  0x0cb81900
+events/shared/rays.c                  D        0x0cbac358  0x0cbac35c
+# one object, though event_orbs_create meets event_orbs_step's pool at 0x0cb82188 with no fill, and one file or two build the same: event_orbs_task, which event_orbs_start and event_orbs_kill use, follows event_orbs_glow_object off 8, at 0x0cbac43c, and that object holds the model event_orbs_draw draws
+events/shared/orbs.c                  P        0x0cb81900  0x0cb822b4
+events/shared/orbs.c                  D        0x0cbac360  0x0cbac440
+events/shared/prop.c                  P        0x0cb822b4  0x0cb82574
+events/shared/prop.c                  D        0x0cbac440  0x0cbac468
+events/shared/move.c                  P        0x0cb82574  0x0cb83098
+events/shared/move.c                  D        0x0cbac468  0x0cbac490
+events/shared/mover.c                 P        0x0cb83098  0x0cb83830
+events/shared/fade.c                  P        0x0cb83830  0x0cb839bc
+events/shared/fade.c                  D        0x0cbac490  0x0cbac4b0
+events/shared/sound.c                 P        0x0cb839bc  0x0cb83d7c
+events/shared/sound.c                 D        0x0cbac4b0  0x0cbac4bc
+# position keys of a node of ev0091_knuckles_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and rays.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb96610, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0091/dat_0cb96430.c          D        0x0cb96430  0x0cb96610
+# the names of the textures that the 2 texture name tables at 0x0cbaa4cc and 0x0cbab404 in this object's data name: the tables at 0x0cbaa4cc and 0x0cbab404 share names, so they are one file's, with the data between them. the table at 0x0cbaa4cc starts off 8, straight after an action at 0x0cbaa4c4, so it shares that item's object. the table at 0x0cbab404 starts off 8, straight after a node at 0x0cbab3d0, so it shares that item's object. the names and the data from 0x0cbaa4b8 to 0x0cbab410 in D are the least those joins make one object's, and this source holds no more. they start on 8 after script.c's constants, where script.c's next string would, and end 7 bytes short of D on 8. they are script.c's, whose code reads ev0091_knuckles_action_6, were the 4 bytes after its data, dat_0cb96430.c's data and the data from there to the tables its too; dat_0cb96430.c's, which has no constants row and can link between them, were the data from its own data to the tables its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. rays.c can't hold them: it links in events without them. the 3 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill; the 7 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 7 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev0091/knuckles_action_6.c     C        0x0cb840c8  0x0cb840d9
+# its data, from 0x0cbaa4b8 to 0x0cbab410: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. the generator had left pointer words at 0x0cbaa4cc (a texture name table and its texlist), 0x0cbab3d0 (a node) and 0x0cbab404 (a texture name table and its texlist, of which it holds the table). the source types them as consistent with the words they hold, and nothing reads the texlist at 0x0cbaa4d8 and the node at 0x0cbab3d0: no word in this event or 1ST_READ.BIN points at them. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cbab404, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. the texlist at 0x0cbab410, which names knuckles_action_6.c's table at 0x0cbab404, starts on 8 straight after that table. a texlist pointing at its textures doesn't join them, and no word in this event or 1ST_READ.BIN points at the texlist, so nothing joins it to that table's object and nothing reads it: the generated row after keeps it
+events/ev0091/knuckles_action_6.c     D        0x0cbaa4b8  0x0cbab410
+#
+# generated data ranges
+gen/ev0091/d_0cb96610.c               D        0x0cb96610  0x0cbaa4b8
+# it starts with the texlist at 0x0cbab410, which names knuckles_action_6.c's table at 0x0cbab404 and starts on 8 straight after that table, and which the generator reads as pointer words. a texlist pointing at its textures doesn't join them, and no word in this event or 1ST_READ.BIN points at the texlist, so nothing joins it to that table's object. this row is no evidence of the object's extent. the 4 bytes of 0xff after this row, to rays.c's data on 8, which nothing points into, are the linker's fill or a last word of the object before them: 52 bytes that the generator reads as pointer words, though they hold a node's flags and a pointer at a model, as a node does. no word in this event or 1ST_READ.BIN points at those bytes, so no reader gives them a role or an extent, and no source holds them. they hold a node with no sibling, which names the model before it and a child: the model's root, which a model's data defines last, by the convention this row admits. EV009D's words from 0x0cb8e110 to 0x0cb8e188 are these from 0x0cbac2f0, but for pointers 0x1e1e0 apart and the y of the model's center: its node ends 4 past 8 the same way, with a word of 0xff bytes after it, before rays.c's data on 8. the fill rule writes the like word after rays.c's data, before orbs.c's on 8. so the row declares end, and the splicer writes the 4 bytes as the linker's fill: the likelier reading, not a proven one, which a reader of the node would settle
+gen/ev0091/d_0cbab410.c               D        0x0cbab410  0x0cbac354  end

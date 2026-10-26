@@ -1,0 +1,180 @@
+# MINICART.PRS, Twinkle Circuit
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900160
+CHEAD      0x0c900160  0x0c900230
+DHEAD      0x0c900230  0x0c90a140
+P          0x0c90a140  0x0c916cd8
+C          0x0c916cd8  0x0c918038
+D          0x0c918038  0x0ca5de94
+B          0x0ca5de98  0x0ca60714
+#
+# source                              section  start       end
+# nothing in the image reads it; 1ST_READ.BIN's death_zones names it for the stage. act 0's land meets it on 8 with no fill: one file or two build the same, and the bytes leave it to its own object, the land's or an earlier one's
+modules/minicart/death_zones.c         DHEAD    0x0c900230  0x0c900248
+# nothing in the image reads the lands; 1ST_READ.BIN's world_lands names one for each act. each land's name ends 4 bytes short of 8 and the next starts on 8, past where one object's next string would start on 4: built as one file, the names lie 12 bytes apart. the tables of acts 0, 3, 4 and 5 follow their last entries off 8, so those entries are their objects'. act 1's and act 2's start on 8 at 0x0c902f90 and 0x0c904368 with no fill, where the bytes don't join them to their entries. the bytes don't say whether the objects and texlist in D that a land names share its object
+modules/minicart/land0.c               CHEAD    0x0c900160  0x0c90016c
+modules/minicart/land0.c               DHEAD    0x0c900248  0x0c901a78
+# the 12 textures and the texlist the table names, and their names: the texlist starts on 8 straight after the textures, and names them, and a material meets it on 8 at 0x0c918298. the names start on 8 straight after cart_time_draw.c's constants, where that object's next string would start on 4 too, and the textures start on 8 straight after the generated data. one file or two build the same with the table, and the bytes leave them to its object or one of their own
+modules/minicart/land0.c               C        0x0c916ed0  0x0c916f2e
+modules/minicart/land0.c               D        0x0c918200  0x0c918298
+# meets act 0's land in DHEAD on 8 with no fill, where one file or two build the same; its name starts on 8 past where act 0's land's next string would start, consistent with an object of its own if each land's name is its land's
+modules/minicart/land1.c               CHEAD    0x0c900170  0x0c90017c
+modules/minicart/land1.c               DHEAD    0x0c901a78  0x0c902fb4
+# the 11 textures and the texlist the table names, and their names: the texlist and the material that opens the land's first model follow the textures off 8, so they are one object's, and strips meet the material on 8 at 0x0c9293e8, whose model the bytes don't decide. the names start on 8 straight after land0.c's last, where that object's next string would start on 4 too, and the textures start on 8 straight after the generated data. one file or two build the same with the table, and the bytes leave them to its object or one of their own
+modules/minicart/land1.c               C        0x0c916f30  0x0c916f86
+modules/minicart/land1.c               D        0x0c9292f8  0x0c9293e8
+# its entries start on 8 past a word of fill, at 0x0c902fb4
+modules/minicart/land2.c               CHEAD    0x0c900180  0x0c90018c
+# the node cart_land1_entries' last entry names. it starts on 8 straight after its model, generated, where one file or two build the same, and land2.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, or land2.c's, were the zero word its; no other object can link between
+modules/minicart/dat_0c970b18.c        D        0x0c970b18  0x0c970b4c
+modules/minicart/land2.c               DHEAD    0x0c902fb8  0x0c90438c
+# the 11 textures and the texlist the table names, and their names: the texlist, and the material and four strips that open the land's first model, follow the textures off 8, so they are one object's, and colors meet the strips on 8 at 0x0c970de8, whose model the bytes don't decide. the names start on 8 straight after land1.c's last, where that object's next string would start on 4 too, and the textures start on 8, 4 bytes past dat_0c970b18.c's node, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the node's object. one file or two build the same with the table, and the bytes leave them to its object, one of their own, or, were that word its, the node's
+modules/minicart/land2.c               C        0x0c916f88  0x0c916fde
+modules/minicart/land2.c               D        0x0c970b50  0x0c970de8
+# its entries start on 8 past a word of fill, at 0x0c90438c
+modules/minicart/land3.c               CHEAD    0x0c900190  0x0c90019c
+# the node cart_land2_entries' last entry names. it starts on 8 straight after the generated node at 0x0c97fe14, which names the same model, at 0x0c97e454, generated too: one file or two build the same there, and land3.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, or land3.c's, were the zero word its; no other object can link between
+modules/minicart/dat_0c97fe48.c        D        0x0c97fe48  0x0c97fe7c
+modules/minicart/land3.c               DHEAD    0x0c904390  0x0c9056b0
+# the 11 textures and the texlist the table names, and their names: the texlist and the material that opens the land's first model follow the textures off 8, so they are one object's, and strips meet the material on 8 at 0x0c97ff70, whose model the bytes don't decide. the names start on 8 straight after land2.c's last, where that object's next string would start on 4 too, and the textures start on 8, 4 bytes past dat_0c97fe48.c's node, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the node's object. one file or two build the same with the table, and the bytes leave them to its object, one of their own, or, were that word its, the node's
+modules/minicart/land3.c               C        0x0c916fe0  0x0c917036
+modules/minicart/land3.c               D        0x0c97fe80  0x0c97ff70
+# meets act 3's land in DHEAD on 8 with no fill, where one file or two build the same; its name starts on 8 past where act 3's land's next string would start, consistent with an object of its own if each land's name is its land's
+modules/minicart/land4.c               CHEAD    0x0c9001a0  0x0c9001ac
+modules/minicart/land4.c               DHEAD    0x0c9056b0  0x0c9066b8
+# the 10 textures and the texlist the table names, and their names: the texlist starts on 8 straight after the textures, and names them, and a material meets it on 8 at 0x0c9c1c40. the names start on 8 straight after land3.c's last, where that object's next string would start on 4 too, and the textures start on 8 straight after the generated data. one file or two build the same with the table, and the bytes leave them to its object or one of their own
+modules/minicart/land4.c               C        0x0c917038  0x0c917086
+modules/minicart/land4.c               D        0x0c9c1bc0  0x0c9c1c40
+# meets act 4's land in DHEAD on 8 with no fill, where one file or two build the same; its name starts on 8 past where act 4's land's next string would start, consistent with an object of its own if each land's name is its land's
+modules/minicart/land5.c               CHEAD    0x0c9001b0  0x0c9001bc
+# the node cart_land4_entries' last entry names. it starts on 8 straight after its model, generated, where one file or two build the same, and land5.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, or land5.c's, were the zero word its; no other object can link between
+modules/minicart/dat_0c9f9730.c        D        0x0c9f9730  0x0c9f9764
+modules/minicart/land5.c               DHEAD    0x0c9066b8  0x0c907900
+# the 10 textures and the texlist the table names, and their names: the texlist starts on 8 straight after the textures, and names them, and a material meets it on 8 at 0x0c9f97e8. the names start on 8 straight after land4.c's last, where that object's next string would start on 4 too, and the textures start on 8, 4 bytes past dat_0c9f9730.c's node, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the node's object. one file or two build the same with the table, and the bytes leave them to its object, one of their own, or, were that word its, the node's
+modules/minicart/land5.c               C        0x0c917088  0x0c9170d6
+modules/minicart/land5.c               D        0x0c9f9768  0x0c9f97e8
+# the objects' 43 textures and obj_mini_cart_texlist, which the code and the pvm list name, and the materials, signboard_face among them, and strips that open the model after them: everything after the textures follows them off 8, so it is one object's, and strips meet the last on 8 at 0x0ca38150, whose model the bytes don't decide. the names start on 8 straight after land5.c's last, where that object's next string would start on 4 too, and dial.c's constants start on 8, 6 bytes past the last; the textures start on 8 straight after the generated data. the bytes leave them to an object of their own, land5.c's, with the generated data between, or object_list.c's, pvms.c's or riders.c's, objects of head data alone that can link between
+modules/minicart/object_textures.c     C        0x0c9170d8  0x0c9172ba
+modules/minicart/object_textures.c     D        0x0ca37e38  0x0ca38150
+# no code here reads them; 1ST_READ.BIN's amy.c, big.c, e102.c, knuckles.c and tails.c name the actions, each naming its character's object and its motion, and each motion names its mdata, which names its keys. the bytes join only what follows off 8: from Amy's motion to Big's, 0x0c908180 to 0x0c9089d0, is one object's, as is from E-102's motion to Knuckles', 0x0c909148 to 0x0c909958, and Tails' action follows his motion off 8. every other item starts on 8 with no fill, where one file or two build the same. Big's action, at 0x0c9089d0, could end Amy's and Big's object, start E-102's and Knuckles', or be its own; Knuckles' action, at 0x0c909958, could end that object, start Tails', or be its own. Amy's, E-102's and Tails' keys and mdata are joined to their motions only by those pointers, consistent with each motion's object. Amy's keys meet act 5's land on 8 with no fill, so the first object could be the land's
+modules/minicart/riders.c              DHEAD    0x0c907900  0x0c90a0d4
+# starts on 8 past a word of fill at 0x0c90a0d4, after Tails' action. the pvms meet it on 8 with no fill: one file or two build the same, and the bytes leave it to its own object, the pvms', or any linked between, cart.c's among them, which defines the kinds it counts
+modules/minicart/object_list.c         DHEAD    0x0c90a0d8  0x0c90a0e0
+# its names start on 8 past a word of fill after act 5's land's name. texture_load_stage reads the last entry's null texlist, at 0x0c90a13c, so the list runs to P
+modules/minicart/pvms.c                CHEAD    0x0c9001c0  0x0c90022e
+modules/minicart/pvms.c                DHEAD    0x0c90a0e0  0x0c90a140
+modules/minicart/sky.c                 PHEAD    0x0c900000  0x0c900040
+modules/minicart/sky.c                 P        0x0c90a140  0x0c90a380
+modules/minicart/sky.c                 C        0x0c916cd8  0x0c916cfc
+# act_menu_choose starts on 32 at 0x0c90a540 with no fill; split there, the code builds the same
+modules/minicart/act_menu.c            P        0x0c90a380  0x0c90a580
+modules/minicart/act_menu.c            C        0x0c916d00  0x0c916d87
+modules/minicart/act_menu.c            D        0x0c918038  0x0c918058
+modules/minicart/act_menu.c            B        0x0ca5de98  0x0ca5de99
+modules/minicart/intro.c               P        0x0c90a580  0x0c90a640
+modules/minicart/intro.c               D        0x0c918058  0x0c918070
+modules/minicart/times.c               PHEAD    0x0c900040  0x0c900120
+# cart_best_time starts on 32 at 0x0c90a760 with no fill; split there, the code builds the same
+modules/minicart/times.c               P        0x0c90a640  0x0c90a820
+modules/minicart/times.c               D        0x0c918070  0x0c918088
+modules/minicart/times.c               B        0x0ca5dea0  0x0ca5dea8
+modules/minicart/score.c               P        0x0c90a820  0x0c90afa0
+modules/minicart/score.c               C        0x0c916d88  0x0c916d91
+# holds what the source defines: 0x0ca5debc starts off 8, so it shares an object with 0x0ca5deb8, and only code from 0x0c90c660 on names it
+modules/minicart/score.c               B        0x0ca5dea8  0x0ca5deb5
+modules/minicart/lap.c                 P        0x0c90afa0  0x0c90b000
+modules/minicart/lap.c                 C        0x0c916d98  0x0c916e28
+modules/minicart/race.c                P        0x0c90b000  0x0c90b640
+modules/minicart/race.c                C        0x0c916e28  0x0c916e74
+modules/minicart/race.c                D        0x0c918088  0x0c91808c
+# follows race.c with no fill; as one file, 478 of 1,832 code bytes differ
+modules/minicart/cart_time.c           P        0x0c90b640  0x0c90b740
+modules/minicart/cart_time_draw.c      P        0x0c90b740  0x0c90b9c0
+modules/minicart/cart_time_draw.c      C        0x0c916e78  0x0c916ed0
+modules/minicart/cart_time_draw.c      D        0x0c918090  0x0c9180f8
+# follows cart_time_draw.c with no fill; as one file, the code runs 48 bytes shorter
+modules/minicart/dial.c                P        0x0c90b9c0  0x0c90bbc0
+modules/minicart/dial.c                C        0x0c9172c0  0x0c917364
+modules/minicart/goal_robot.c          P        0x0c90bbc0  0x0c90be40
+modules/minicart/goal_robot.c          C        0x0c917368  0x0c917388
+# follows goal_robot.c with no fill; as one file, 622 of 1,220 code bytes differ
+modules/minicart/signboard.c           P        0x0c90be40  0x0c90c0a0
+modules/minicart/signboard.c           C        0x0c917388  0x0c9173dc
+modules/minicart/start_robot.c         P        0x0c90c0a0  0x0c90c36a
+modules/minicart/start_robot.c         C        0x0c9173e0  0x0c917400
+modules/minicart/zone.c                P        0x0c90c380  0x0c90c4c0
+modules/minicart/zone.c                C        0x0c917400  0x0c91742a
+modules/minicart/zone.c                D        0x0ca3c020  0x0ca3c054
+modules/minicart/cart.c                PHEAD    0x0c900120  0x0c900160
+modules/minicart/cart.c                P        0x0c90c4c0  0x0c90c660
+modules/minicart/cart.c                C        0x0c917430  0x0c917614
+modules/minicart/cart.c                D        0x0ca3c058  0x0ca3c38c
+# the sky's model, cart_sky_object, which sky.c draws, and its textures and cart_sky_texlist: everything after the material follows off 8 but the strips and colors, which start on 8 straight after the item before, and the model names all of it, consistent with one object. the material starts on 8, 4 bytes past cart.c's data, and the names 4 bytes past cart.c's constants, each where cart.c's next item would start on 4, so they start an object: one of data alone, or object_list.c's, pvms.c's or riders.c's, objects of head data alone that can link between. shareobj_textures.c's names meet the last on 8 with no fill, and the bytes don't say whether its object is this one. the texlist ends 4 past 8, and big_wheel_a.c's material starts on 8 4 bytes on, at 0x0ca3cb18: the zero word between, which nothing reads, is the linker's fill, as the fill rule takes it, or a last word of this object
+modules/minicart/sky_model.c           C        0x0c917618  0x0c917628
+modules/minicart/sky_model.c           D        0x0ca3c390  0x0ca3cb14
+# Big's cart's wheel, cart_big_wheel_a_object, which e_cart.c's cart_big_wheels names, and its model, the first of Big's pieces in piece_models.c, with which the data of the cart's tree, cart_big_object's, opens. it starts on 8, 4 bytes past sky_model.c's texlist, where that object's next item would start on 4: the zero word is the linker's fill, as the fill rule takes it, or a last word of sky_model.c's object nothing reads, and either builds the same. the tree's next model starts on 8 straight after the wheel, at 0x0ca3cc88, where one file or two build the same, and the generated rest of the tree is consistent with one object with it. inside, each item follows the one before off 8 but the normals, which start on 8 straight after the points, at 0x0ca3cbd8, with no fill: one file or two build the same there, so the bytes don't say whether the normals, the model and the wheel share the object of the material, strips, colors, meshset and points. the pointers between them are consistent with one object, and were they another's, it could be one of data alone, object_list.c's, pvms.c's or riders.c's, which can link between, or, with the rest of the tree, the generated tree's. the readers' data lies elsewhere, so the object is one of data alone, the generated tree's, sky_model.c's, were the zero word its, or object_list.c's, pvms.c's or riders.c's, objects of head data alone that can link between
+modules/minicart/big_wheel_a.c         D        0x0ca3cb18  0x0ca3cc88
+# the shared objects' 96 textures and obj_shareobj_texlist, which the code and the pvm list name: the texlist starts on 8 straight after the textures, and names them, and a material meets it on 8 at 0x0ca44458. the names start on 8 straight after the sky's, where that object's next string would start on 4 too, and e_cart.c's constants start on 8, 6 bytes past the last; the textures start on 8 straight after the generated data. one file or two build the same at each, and the bytes leave them to an object of their own, the sky's, with the generated data between, or object_list.c's, pvms.c's or riders.c's, objects of head data alone that can link between
+modules/minicart/shareobj_textures.c   C        0x0c917628  0x0c9179ca
+modules/minicart/shareobj_textures.c   D        0x0ca43fd0  0x0ca44458
+# cart_draw and cart_pieces_draw start on 32 at 0x0c90d0c0 and 0x0c90d4c0 with no fill; enemy_cart_step calls them with BSR at 0x0c90cd50 and 0x0c90cf4e
+# rider_faces_ahead starts on 32 at 0x0c9117c0 with no fill; cart_follow_route calls cart_find_route past it with BSR at 0x0c91107c
+# cart_sound_keep starts on 32 at 0x0c912040 with no fill; cart_sound_play loads from the pool at 0x0c912084, at 0x0c912000
+# near_radius_step starts on 32 at 0x0c912400 with no fill; cart_start_autopilot loads from the pool at 0x0c912484, at 0x0c9123e0
+# afterimage_draw starts on 32 at 0x0c9125a0 with no fill; afterimage_step calls it with BSR at 0x0c91254a
+modules/minicart/e_cart.c              P        0x0c90c660  0x0c9128a0
+# its constants, data and bss each meet the next object's on 8 with no gap: STG03's cart_debug.c starts its own with the same CAMERA DEMO EDIT, cart_motions and cart_debug_page
+modules/minicart/e_cart.c              C        0x0c9179d0  0x0c917ae0
+modules/minicart/e_cart.c              D        0x0ca5a788  0x0ca5a9c0
+modules/minicart/e_cart.c              B        0x0ca5deb8  0x0ca5df78
+# intro_path_make starts on 32 at 0x0c914280 with no fill; camera_demo_edit calls it with BSR at 0x0c913f24 and 0x0c913fa0
+modules/minicart/cart_debug.c          P        0x0c9128a0  0x0c914300
+modules/minicart/cart_debug.c          C        0x0c917ae0  0x0c917ef2
+modules/minicart/cart_debug.c          D        0x0ca5a9c0  0x0ca5ace4
+# the cart's routes and the camera's keys and their pointer, which STG03 links too: allowing for relocation the two images match in all 11,988 bytes. they start on 8, 4 bytes past cart_debug.c's data, where its next item would start on 4, and cart_dash_panel.c's data starts on 8, 4 bytes past the pointer: the linker's fill
+modules/stg03/cart_routes.c            D        0x0ca5ace8  0x0ca5dbbc
+# its bss meets cart_dash_panel.c's on 8 with no gap: STG03's bss ends with the same object's, and only code from 0x0c914300 on names 0x0ca60708
+modules/minicart/cart_debug.c          B        0x0ca5df78  0x0ca60708
+modules/minicart/cart_dash_panel.c     P        0x0c914300  0x0c914700
+modules/minicart/cart_dash_panel.c     C        0x0c917ef8  0x0c917f1c
+modules/minicart/cart_dash_panel.c     D        0x0ca5dbc0  0x0ca5dbfc
+modules/minicart/cart_dash_panel.c     B        0x0ca60708  0x0ca6070c
+modules/minicart/cart_jump_panel.c     P        0x0c914700  0x0c914b20
+modules/minicart/cart_jump_panel.c     C        0x0c917f20  0x0c917f52
+modules/minicart/cart_jump_panel.c     D        0x0ca5dc00  0x0ca5dcd8
+modules/minicart/cart_jump_panel.c     B        0x0ca60710  0x0ca60714
+modules/minicart/arch.c                P        0x0c914b20  0x0c915a80
+modules/minicart/arch.c                C        0x0c917f58  0x0c917fc9
+modules/minicart/arch.c                D        0x0ca5dcd8  0x0ca5dd8c
+modules/minicart/panel.c               P        0x0c915a80  0x0c915c80
+modules/minicart/planets.c             P        0x0c915c80  0x0c915ec0
+modules/minicart/planets.c             D        0x0ca5dd90  0x0ca5dda8
+modules/minicart/rocket.c              P        0x0c915ec0  0x0c916360
+modules/minicart/satellite.c           P        0x0c916360  0x0c9165e0
+modules/minicart/satellite.c           D        0x0ca5dda8  0x0ca5de10
+# the pieces a wrecked cart breaks into, which e_cart.c draws: cart_object's, Big's and E-102's, ten and a null each. they meet satellite.c's data on 8 with no fill, and end D 4 bytes short of B: one file or two build the same with satellite.c, and the bytes leave them to its object, though its code doesn't read them, one of their own, ship.c's, which links between with no row in D, though its code doesn't read them, or object_list.c's, pvms.c's or riders.c's, objects of head data alone that can link between
+modules/minicart/piece_models.c        D        0x0ca5de10  0x0ca5de94
+modules/minicart/ship.c                P        0x0c9165e0  0x0c916cd8
+modules/minicart/ship.c                C        0x0c917fd0  0x0c918033
+#
+# generated data ranges
+gen/minicart/d_0c9180f8.c              D        0x0c9180f8  0x0c918200
+gen/minicart/d_0c918298.c              D        0x0c918298  0x0c9292f8
+gen/minicart/d_0c9293e8.c              D        0x0c9293e8  0x0c9587c8
+# ends where dat_0c970b18.c's node starts on 8, straight after its model
+gen/minicart/d_0c9587c8.c              D        0x0c9587c8  0x0c970b18
+# ends where dat_0c97fe48.c's node starts on 8, straight after the node at 0x0c97fe14, which names the same model
+gen/minicart/d_0c970de8.c              D        0x0c970de8  0x0c97fe48
+gen/minicart/d_0c97ff70.c              D        0x0c97ff70  0x0c998820
+gen/minicart/d_0c998820.c              D        0x0c998820  0x0c9c1bc0
+gen/minicart/d_0c9c1c40.c              D        0x0c9c1c40  0x0c9d8840
+# ends where dat_0c9f9730.c's node starts on 8, straight after its model
+gen/minicart/d_0c9d8840.c              D        0x0c9d8840  0x0c9f9730
+gen/minicart/d_0c9f97e8.c              D        0x0c9f97e8  0x0ca18858
+gen/minicart/d_0ca18858.c              D        0x0ca18858  0x0ca37e38
+gen/minicart/d_0ca38150.c              D        0x0ca38150  0x0ca3c020
+# from the model after big_wheel_a.c's wheel in the tree's data, which starts on 8 straight after it
+gen/minicart/d_0ca3cc88.c              D        0x0ca3cc88  0x0ca43fd0
+# its last datum, a node at 0x0ca5a750, ends 4 past 8, at 0x0ca5a784. the zero word after it, to e_cart.c's data on 8, which nothing points into here or in 1ST_READ.BIN, is the linker's fill or a last word of that datum's object. only the action at 0x0ca59798 names the node, and nothing names the action, here or in 1ST_READ.BIN. the words from 0x0ca44448 to 0x0ca5a788 are STG03's from 0x0c9dd688, word for word but for pointers 0x66dc0 apart: the node is STG03's stopper_object, which stopper_object.c holds there, and the fill rule writes the zero word after it, before cart_stopper.c's data on 8. so the row declares end, and the splicer writes the word as the linker's fill, the reading STG03's row takes, not a proven one
+gen/minicart/d_0ca44458.c              D        0x0ca44458  0x0ca5a784  end

@@ -1,0 +1,186 @@
+# STG08.PRS, Ice Cap
+#
+# section  start       end
+P          0x0c900000  0x0c915040
+D          0x0c915040  0x0cac2228
+C          0x0cac2228  0x0cac3db8
+B          0x0cac3db8  0x0cac40d8
+CFISH      0x0cac40d8  0x0cac4450
+DFISH      0x0cac4450  0x0caef40c
+#
+# source                              section  start       end
+modules/stg08/splash.c                 P        0x0c900000  0x0c900360
+modules/stg08/splash.c                 D        0x0c915040  0x0c915100
+modules/stg08/snow_trail.c             P        0x0c900360  0x0c900e60
+modules/stg08/snow_trail.c             D        0x0c915100  0x0c915170
+modules/stg08/snow_trail.c             C        0x0cac2228  0x0cac227f
+modules/stg08/snow_burst.c             P        0x0c900e60  0x0c901060
+modules/stg08/snow_burst.c             D        0x0c915170  0x0c915238
+modules/stg08/snow_burst.c             B        0x0cac3db8  0x0cac3dd8
+modules/stg08/jet_smoke.c              P        0x0c901060  0x0c901300
+modules/stg08/jet_smoke.c              D        0x0c915238  0x0c9152d8
+modules/stg08/jet_smoke.c              B        0x0cac3dd8  0x0cac3df8
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries, which start on 8 straight after jet_smoke.c's data with no fill: one file or two build the same there. the table follows the entries off 8, so they are one object's. the bytes leave it to an object of its own, to jet_smoke.c's, though its code doesn't read it, or to act 1's land's
+modules/stg08/land0.c                  D        0x0c9152d8  0x0c915b48
+# act 1's land and its entries, which start on 8 straight after act 0's table with no fill: one file or two build the same there. the table follows the entries off 8, so they are one object's. the bytes leave it to an object of its own or to the land's either side
+modules/stg08/land1.c                  D        0x0c915b48  0x0c916718
+# act 2's land and its entries, which start on 8 straight after act 1's table with no fill: one file or two build the same there. the table follows the entries off 8, so they are one object's. the bytes leave it to an object of its own or to the land's either side
+modules/stg08/land2.c                  D        0x0c916718  0x0c9190b8
+# act 3's land, which world_lands names and icecap.c's code reads, and its entries, which start on 8 straight after act 2's table with no fill, and which the table meets on 8 the same way: one file or two build the same at each, and the table's pointer to them is consistent with one object. the zero word after the table, at 0x0c91a954, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 0's textures start on 8, or a last word of this object nothing reads. icecap.c's data lies far after, so it holds none of this. the bytes leave it to an object of its own, to act 2's land's, or to icecap01_textures.c's, were the word an unread datum of its
+modules/stg08/land3.c                  D        0x0c9190b8  0x0c91a954
+# the act 0 land's textures and texlist. they start on 8 four bytes past icecap_act3_land, and their names on 8 a byte past snow_trail.c's constants. the texlist meets them on 8 with no fill, and the data after it meets it the same way: one file or two build the same at both. the act 1 land's names start on 8 four bytes past where theirs would put a next string, and repeat strings of theirs, which SHC keeps one copy of in one file
+modules/stg08/icecap01_textures.c      C        0x0cac2280  0x0cac23da
+modules/stg08/icecap01_textures.c      D        0x0c91a958  0x0c91aaf8
+# the act 1 land's, which act 3's loads too. they meet the object at 0x0c95c87c on 8 with no fill: one file or two build the same there, and the bytes leave them to their own object or that object's. their texlist and the material after it follow them off 8, one object to 0x0c95cb60, where the strips meet the material on 8 with no fill. the act 2 land's names start on 8 where theirs would put a next string, but repeat strings of theirs, so they are another file's. the generated row after them names their static dat_0c95cb4c through symbols.txt: in C it could stay static only if the strips there are this object's
+modules/stg08/icecap02_textures.c      C        0x0cac23e0  0x0cac263e
+modules/stg08/icecap02_textures.c      D        0x0c95c8b0  0x0c95cb60
+# the last of the objects act 3's land's entries name, at 0x0c91a7bc; nothing else reads it. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9c66dc, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 2's textures start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to icecap03_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg08/dat_0c9c66a8.c           D        0x0c9c66a8  0x0c9c66dc
+# the act 2 land's. they start on 8 four bytes past the object at 0x0c9c66a8, and the texlist meets them on 8 with no fill, as the data after it meets the texlist: one file or two build the same at both
+modules/stg08/icecap03_textures.c      C        0x0cac2640  0x0cac282e
+modules/stg08/icecap03_textures.c      D        0x0c9c66e0  0x0c9c68c8
+# 1ST_READ.BIN's death_zones names the array, and its death_zone_step and knuckles.c read the entry for the act in hand; no code here reads it. the stage has four acts, so the array has four entries: act 0 has no zones, and acts 1 and 3 share a list. the zero word after it, at 0x0ca511fc, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as trail_model_textures.c's data starts on 8, or a last word of this object nothing reads, such as a fifth, null entry, which builds the same. the first list follows the last zone's object off 8, and the second list and the array each follow the item before off 8, so they are one object's. the object starts on 8 straight after its model, generated, where one file or two build the same. the bytes leave them to the generated models' object, to trail_model_textures.c's, were the word after the array an unread datum of its, or to one of data alone
+modules/stg08/death_zones.c            D        0x0ca51180  0x0ca511fc
+# the texture trail_object's model loads: its texlist and the material after it, which the model draws with, follow it off 8. no word names the texlist. the strings decide the seam at 0x0ca51228, where the model's strips meet the material on 8 with no fill: the texture's name, at 0x0cac2830, has no other copy, and the generated trail_textures, at 0x0ca588dc, points at it and then at two of the generated names from 0x0cac2838. a texname table that points at another's strings is in that table's file, as SHC keeps one copy of a string in one file, so this object runs on unbroken in D through the strips to no earlier than the material at 0x0ca58b34, through the tens of models whose texnames point at those names, and in C through those names. the generated rows hold the rest of it, since a body can't point at a string. its static dat_0ca51214, which the generated row after it names through symbols.txt, can stay static, as that row's items are this object's. the texture starts on 8 four bytes past death_zones.c's array, past the zero word that row describes, and its name starts on 8 where the act 2 land's next string would, where one file or two build the same. the bytes leave the object's start to here, to death_zones.c's object, were that word an unread datum of its, and so to the generated models' before it, were death_zones.c's data theirs, or to the act 2 land's textures'
+modules/stg08/trail_model_textures.c   C        0x0cac2830  0x0cac2836
+modules/stg08/trail_model_textures.c   D        0x0ca51200  0x0ca51228
+# the emerald's textures, which emerald.c reads, and their texlist, which pvms.c's icecap_pvms names. they meet icecap_emerald_blue_object, which follows an item off 8, on 8 with no fill, and their names start on 8 where the generated names before would put a next string: one file or two build the same at each, and the bytes leave them to their own object or the emerald's models'
+modules/stg08/emerald_textures.c       C        0x0cac2f60  0x0cac2fbf
+modules/stg08/emerald_textures.c       D        0x0caa2660  0x0caa26b0
+# the sky's textures, and their texlist, which icecap.c loads and draws with. they meet the emerald's texlist on 8 with no fill, and their names start on 8 where the emerald's next string would, as the data after them meets the texlist: one file or two build the same at each. ice_bar.c's constants start on 8 four bytes past their names
+modules/stg08/sky_textures.c           C        0x0cac2fc0  0x0cac2ff4
+modules/stg08/sky_textures.c           D        0x0caa26b0  0x0caa26e8
+modules/stg08/big_plank.c              P        0x0c901300  0x0c901360
+modules/stg08/big_plank.c              D        0x0cab0af0  0x0cab0b24
+modules/stg08/snowfall.c               P        0x0c901360  0x0c9017a0
+modules/stg08/snowfall.c               D        0x0cab0b28  0x0cab0b64
+modules/stg08/rocks.c                  P        0x0c9017a0  0x0c9018a0
+modules/stg08/rocks.c                  D        0x0cab0b68  0x0cab0c38
+modules/stg08/snow_box.c               P        0x0c9018a0  0x0c901900
+modules/stg08/snow_box.c               D        0x0cab0c38  0x0cab0c6c
+modules/stg08/pillars.c                P        0x0c901900  0x0c901fc0
+modules/stg08/pillars.c                D        0x0cab0c70  0x0cab0d74
+modules/stg08/pillars.c                B        0x0cac3df8  0x0cac3dfc
+modules/stg08/houses.c                 P        0x0c901fc0  0x0c902020
+modules/stg08/ice.c                    P        0x0c902020  0x0c902e40
+modules/stg08/ice.c                    D        0x0cab0d78  0x0cab0e48
+# follows ice.c with no fill; as one file, the code runs 32 bytes longer. 4,912 of its first 8,802 bytes differ
+modules/stg08/ice_bar.c                P        0x0c902e40  0x0c9042a0
+modules/stg08/ice_bar.c                D        0x0cab0e48  0x0cab0f90
+# its constants end with a format string, from 0x0cac304c, which nothing in the image or in 1ST_READ.BIN points at. it starts 4 bytes past 8, where the object's next string would, so it is this object's: the source writes it from an uncalled function, whose code SHC drops
+modules/stg08/ice_bar.c                C        0x0cac2ff8  0x0cac3058
+modules/stg08/ice_bar_2.c              P        0x0c9042a0  0x0c905700
+modules/stg08/ice_bar_2.c              D        0x0cab0f90  0x0cab10d8
+# its constants end with a copy of the same string, from 0x0cac30ac, as a second file holds it. it starts 4 bytes past 8, where the object's next string would, so it is this object's: the source writes it from an uncalled function, whose code SHC drops
+modules/stg08/ice_bar_2.c              C        0x0cac3058  0x0cac30b8
+modules/stg08/water_weeds.c            P        0x0c905700  0x0c905860
+modules/stg08/icicle.c                 P        0x0c905860  0x0c905aa0
+modules/stg08/icicle.c                 D        0x0cab10d8  0x0cab11a8
+modules/stg08/ice_jump.c               P        0x0c905aa0  0x0c905ae0
+modules/stg08/moku.c                   P        0x0c905ae0  0x0c905bc0
+# follows moku.c with no fill; one file or two build the same
+modules/stg08/bridge.c                 P        0x0c905bc0  0x0c905d20
+modules/stg08/bridge.c                 D        0x0cab11a8  0x0cab12e4
+modules/stg08/dead_trees.c             P        0x0c905d20  0x0c905de0
+modules/stg08/dead_trees.c             D        0x0cab12e8  0x0cab1384
+modules/stg08/tree.c                   P        0x0c905de0  0x0c905e40
+modules/stg08/tree.c                   D        0x0cab1388  0x0cab13bc
+modules/stg08/log.c                    P        0x0c905e40  0x0c905ea0
+modules/stg08/log.c                    D        0x0cab13c0  0x0cab13f4
+# slide_powder_draw starts on 32 at 0x0c906c20 with no fill, and slide_launch_step at 0x0c907180; split at either, snow_slide_step holds slide_spray_step and slide_spray_draw in registers across its first spray loop, where the image loads them from the pool for each child (0x0c907388, 0x0c9073a4), and 323 or 337 of its 516 words differ
+modules/stg08/snow_slide.c             P        0x0c905ea0  0x0c9076a0
+modules/stg08/snow_slide.c             D        0x0cab13f8  0x0cab1558
+modules/stg08/snow_slide.c             C        0x0cac30b8  0x0cac30c4
+modules/stg08/snow_slide.c             B        0x0cac3e00  0x0cac3f24
+modules/stg08/fences.c                 P        0x0c9076a0  0x0c907780
+modules/stg08/fences.c                 D        0x0cab1558  0x0cab158c
+modules/stg08/hot_air_balloon.c        P        0x0c907780  0x0c9078e0
+modules/stg08/avalanche.c              P        0x0c9078e0  0x0c9085c0
+modules/stg08/avalanche.c              D        0x0cab1590  0x0cab15f4
+modules/stg08/avalanche.c              B        0x0cac3f28  0x0cac3f2c
+modules/stg08/snow_door.c              P        0x0c9085c0  0x0c908be0
+modules/stg08/snow_door.c              D        0x0cab15f8  0x0cab1700
+modules/stg08/snow_door.c              C        0x0cac30c8  0x0cac30d4
+modules/stg08/crystals.c               P        0x0c908be0  0x0c908fc0
+modules/stg08/crystals.c               D        0x0cab1700  0x0cab1838
+modules/stg08/plank_1.c                P        0x0c908fc0  0x0c9090c0
+modules/stg08/plank_2.c                P        0x0c9090c0  0x0c9091c0
+modules/stg08/windmill.c               P        0x0c9091c0  0x0c909380
+# water_rock_step starts on 32 at 0x0c9095c0 with no fill; split there, the code builds the same
+modules/stg08/water_rock.c             P        0x0c909380  0x0c909720
+# icicle_puff_step starts on 32 at 0x0c90bc80 with no fill; big_icicle_run calls icicle_puff_create with BSR at 0x0c90aff8
+# futa_world_add starts on 32 at 0x0c90bee0 with no fill, and futa_shape on 8 at 0x0cab1a48; split there, the code and data build the same
+modules/stg08/big_icicle.c             P        0x0c909720  0x0c90cac0
+# its data meets crystals.c's on 8 with no fill; only its own pool words point into it, two of them at its first item, from 0x0c909eb8 and 0x0c90a750, whose 11 points its code indexes
+modules/stg08/big_icicle.c             D        0x0cab1838  0x0cab1a7c
+modules/stg08/big_icicle.c             C        0x0cac30d8  0x0cac3105
+modules/stg08/big_rock.c               P        0x0c90cac0  0x0c90d800
+modules/stg08/big_rock.c               D        0x0cab1a80  0x0cab1af8
+modules/stg08/big_bone.c               P        0x0c90d800  0x0c90d980
+modules/stg08/snow_board.c             P        0x0c90d980  0x0c90de00
+modules/stg08/snow_board.c             D        0x0cab1af8  0x0cab1b2c
+modules/stg08/snow_rocks.c             P        0x0c90de00  0x0c90e0f8
+modules/stg08/hasi_hasi.c              P        0x0c90e100  0x0c90e280
+modules/stg08/hasi_hasi.c              D        0x0cab1b30  0x0cab1b64
+modules/stg08/act_joins.c              P        0x0c90e280  0x0c90e5e0
+# follows act_joins.c with no fill; as one file, 146 of 1,776 code bytes differ
+# icecap_gate_combo_step starts on 32 at 0x0c90e940 with no fill; split there, the code builds the same
+modules/stg08/gates.c                  P        0x0c90e5e0  0x0c90e980
+modules/stg08/gates.c                  D        0x0cab1b68  0x0cab1c9c
+modules/stg08/gates.c                  C        0x0cac3108  0x0cac3128
+# the path before the avalanche's, which act 1 runs, the avalanche's ten, and the lists 1ST_READ.BIN's path_lists names for acts 1 and 2, at 0x0cabdbb4 and 0x0cabdbbc; avalanche.c reads the avalanche's. the first points start on 8 four bytes past gates.c's data, where that object ends, and icecap.c's data starts on 8 after act 2's list's null. each path follows its points. where the items meet on 8 with no fill, one file or two build the same, and the bytes leave the paths and lists to one object or several, among them icecap.c's, whose data meets act 2's list's null on 8 with no fill, though its code doesn't read them
+modules/stg08/avalanche_paths.c        D        0x0cab1ca0  0x0cabdbe8
+modules/stg08/icecap.c                 P        0x0c90e980  0x0c90fe60
+modules/stg08/icecap.c                 D        0x0cabdbe8  0x0cabde6c
+modules/stg08/icecap.c                 C        0x0cac3128  0x0cac316e
+modules/stg08/icecap.c                 B        0x0cac3f30  0x0cac4088
+# icecap_sky_object_2, which icecap.c's code draws. it starts on 8 straight after its model with no fill, where one file or two build the same, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0caa4994, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as dat_0caa4998.c's keys start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to the keys', were the word an unread datum of theirs, or to one of data alone
+modules/stg08/sky_object_2.c           D        0x0caa4960  0x0caa4994
+# a motion's first keys, sixteen of position, as its motion data at 0x0caa5fb8 counts them; nothing else reads them. they start on 8 past the zero word after icecap_sky_object_2, which sky_object_2.c's row describes, and the next keys meet them on 8 with no fill, where one file or two build the same. the bytes leave them to the generated keys' object, to sky_object_2.c's, were the word between them its, or to one of data alone
+modules/stg08/dat_0caa4998.c           D        0x0caa4998  0x0caa4a98
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for acts 0 to 3, at 0x0cabe85c, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. the names start in C on 8 where icecap.c's next string would start on 4, but the kinds start on 8, 4 bytes past icecap.c's data, where its next item would start on 4: as one file, the names start where the image has them and the kinds 4 bytes early, at 0x0cabde6c, so D parts them from icecap.c's object unless that word is an unread datum of its, and the fill rule verifies the 4 bytes and the 2 before the names. as one file with an unread data word after icecap.c's own, the names and the kinds start where the image has them, and nothing here or in 1ST_READ.BIN points at the word. the zero word after the list, at 0x0cabe864, which nothing points at, is the linker's fill the rule verifies, as emerald.c's data starts on 8, or a last word of this object nothing reads. the names end 7 bytes short of where the scripts start on 8, 4 bytes past where their next string would start on 4: as one file, in either order, the scripts' constants come ahead of the names, so they are no object of the scripts', and the fill rule verifies the 7 bytes. the bytes leave them to an object of their own, or to icecap.c's, were the word at 0x0cabde6c an unread datum of its, though its code doesn't read them
+modules/stg08/object_list.c            D        0x0cabde70  0x0cabe864
+modules/stg08/object_list.c            C        0x0cac3170  0x0cac36f9
+# the table 1ST_READ.BIN's stage_scripts names at 0x0cac3910, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 4 bytes past where the kinds' names' next string would start on 4, which the kinds' row describes. its last text ends where emerald.c's constants start on 8, which open with a string: as one file, in either order, emerald.c's strings come ahead of the texts, so they are no object of emerald.c's. the bytes leave them to an object of their own
+modules/stg08/scripts.c                C        0x0cac3700  0x0cac3c48
+modules/stg08/emerald.c                P        0x0c90fe60  0x0c910360
+modules/stg08/emerald.c                D        0x0cabe868  0x0cabe8ac
+modules/stg08/emerald.c                C        0x0cac3c48  0x0cac3c5d
+modules/stg08/emerald.c                B        0x0cac4088  0x0cac40a8
+modules/stg08/yura_yura.c              P        0x0c910360  0x0c910520
+modules/stg08/yura_yura.c              D        0x0cabe8b0  0x0cabe8ec
+modules/stg08/streaks.c                P        0x0c910520  0x0c910ca0
+modules/stg08/streaks.c                D        0x0cabe8f0  0x0cabe900
+modules/stg08/snowman.c                P        0x0c910ca0  0x0c913440
+modules/stg08/snowman.c                D        0x0cabe900  0x0cac1b8c
+modules/stg08/snowman.c                C        0x0cac3c60  0x0cac3cf1
+modules/stg08/snowman.c                B        0x0cac40a8  0x0cac40d8
+# the list 1ST_READ.BIN's stage_pvms names for the stage, which holds only strings and pointers. it starts on 8 four bytes past snowman.c's data, and its names on 8 past snowman.c's constants; fish.c's data meets its null on 8 with no fill: one file or two build the same there
+modules/stg08/pvms.c                   C        0x0cac3cf8  0x0cac3db6
+modules/stg08/pvms.c                   D        0x0cac1b90  0x0cac1c48
+modules/stg01/fish.c                   P        0x0c913440  0x0c91503a
+modules/stg01/fish.c                   D        0x0cac1c48  0x0cac2228
+# CFISH holds the names its texnames point at, each once, in the order they first name them; one file with fish.c or two build the same, so the bytes leave open whether fish.c's object holds both sections. texnames of different kinds share names, such as the one at 0x0cac4130 that eleven kinds' texnames point at, and each kind's texnames lie after the models before them, so the texture lists and models are one compile. the actions, from 0x0cae7e78 to the end of DFISH, name no string: they meet fish_ryu_object on 8 with no fill, and fish_sb_swim_ang1, fish_sb_hooked_ang1, fish_an_swim_ang1, fish_an_hooked_ang1, fish_an_ke_bite_ang1, fish_una_swim_ang1 and fish_una_hooked_ang1 each start on 8 straight after the item before. as a source of their own the actions build the same, so the bytes leave open whether this object holds them
+modules/stg01/fish_models.c            CFISH    0x0cac40d8  0x0cac444c
+modules/stg01/fish_models.c            DFISH    0x0cac4450  0x0caef40c
+#
+# generated data ranges
+gen/stg08/d_0c91aaf8.c                 D        0x0c91aaf8  0x0c959e78
+gen/stg08/d_0c959e78.c                 D        0x0c959e78  0x0c95c8b0
+gen/stg08/d_0c95cb60.c                 D        0x0c95cb60  0x0c99a510
+# models, to the object before dat_0c9c66a8.c's, which meets them on 8 with no fill
+gen/stg08/d_0c99a510.c                 D        0x0c99a510  0x0c9c66a8
+gen/stg08/d_0c9c68c8.c                 D        0x0c9c68c8  0x0c9da9b8
+gen/stg08/d_0c9da9b8.c                 D        0x0c9da9b8  0x0ca1d2d0
+# to the last death zone's object, which death_zones.c's row describes
+gen/stg08/d_0ca1d2d0.c                 D        0x0ca1d2d0  0x0ca51180
+# trail_model_textures.c's object runs on through it to no earlier than the material at 0x0ca58b34, as that source's row says
+gen/stg08/d_0ca51228.c                 D        0x0ca51228  0x0ca5d378
+gen/stg08/d_0ca5d378.c                 D        0x0ca5d378  0x0ca9d390
+gen/stg08/d_0ca9d390.c                 D        0x0ca9d390  0x0caa2660
+# to icecap_sky_object_2's model, which sky_object_2.c's object meets on 8 with no fill
+gen/stg08/d_0caa26e8.c                 D        0x0caa26e8  0x0caa4960
+# the keys, motion data, motions and actions after dat_0caa4998.c's keys
+gen/stg08/d_0caa4a98.c                 D        0x0caa4a98  0x0cab0af0
+# the names the texnames at 0x0ca527d8 and 0x0ca581f0 point at, each after a model, and those of OBJ_ICECAP's and OBJ_ICECAP2's textures from 0x0ca58364, which pvms.c's icecap_pvms names, and the texlists at 0x0ca58aec take runs of. after the first, each name starts off 8 straight after the one before, so they are one object's strings. trail_textures, at 0x0ca588dc, points first at trail_model_textures.c's name, its only copy, and then at two of these, so they are that source's object's strings, and its D runs unbroken from 0x0ca51200 to no earlier than the material at 0x0ca58b34: tens of models, which a source would hold to hold the names. they start on 8 where its next string would, so the 2 bytes at 0x0cac2836 are that object's padding between two strings, not the linker's fill: the row declares continues 4, and the splicer writes them as that padding. the byte before emerald_textures.c's names is the linker's fill, or this object's padding if emerald_textures.c's names are its too, as they start where its next string would: the row declares end, and the splicer writes it as the linker's fill, zero either way
+gen/stg08/d_0cac2838.c                 C        0x0cac2838  0x0cac2f5f  continues 4  end

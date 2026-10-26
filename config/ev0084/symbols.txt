@@ -1,0 +1,38 @@
+# EV0084.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0084_head
+0x0cb80008  ev0084_script
+0x0cb8047c  event_fade_draw
+0x0cb80526  event_fade_step
+0x0cb80548  event_fade_destroy
+0x0cb8054c  event_fade_init
+0x0cb8055a  event_fade_create
+0x0cb805b4  event_fade_set_speed
+0x0cb805bc  event_fade_set_alpha
+0x0cb805f0  event_fade_set_color
+0x0cb80600  event_fade_set_depth
+0x0cb80608  event_sound_destroy
+0x0cb80618  event_sound_step
+0x0cb806ba  event_sound_hold
+0x0cb8071a  event_sound_move_volume
+0x0cb80740  event_sound_move_pan
+0x0cb80766  event_sound_move_pitch
+0x0cb8078c  event_sound_init
+0x0cb807b4  event_sound_stop_all
+0x0cb80812  event_sound_start
+0x0cb80852  event_sound_stop
+0x0cb808cc  event_sound_fade_volume
+0x0cb808f8  event_sound_fade_pan
+0x0cb80924  event_sound_fade_pitch
+0x0cb80950  event_sound_play
+0x0cb80a70  ev0084_flash
+0x0cb80a74  ev0084_textures
+0x0cb80a80  dat_0cb80a80
+0x0cb82720  dat_0cb82720
+0x0cb82bb0  ev0084_knuckles_motion
+0x0cb82bbc  ev0084_knuckles_action
+0x0cb82bc8  event_fade_corners
+0x0cb82be8  event_sound_count
+0x0cb82bec  event_sounds
+0x0cb82bf0  event_sound_next

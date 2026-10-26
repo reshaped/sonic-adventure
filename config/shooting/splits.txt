@@ -1,0 +1,103 @@
+# SHOOTING.PRS, Sky Chase
+#
+# section  start       end
+P          0x0c900000  0x0c909300
+C          0x0c909300  0x0c90a678
+D          0x0c90a678  0x0cad4344
+B          0x0cad4348  0x0cadd5d0
+#
+# source                              section  start       end
+# point_on_heading starts on 32 at 0x0c9003c0 with no fill; split there, the code builds the same
+modules/shooting/camera.c              P        0x0c900000  0x0c9006c0
+modules/shooting/camera.c              C        0x0c909a20  0x0c909a44
+modules/shooting/camera.c              D        0x0c9559b8  0x0c9559dc
+modules/shooting/camera.c              B        0x0cad4348  0x0cad437c
+modules/shooting/event.c               P        0x0c9006c0  0x0c900ae0
+modules/shooting/shooting.c            P        0x0c900ae0  0x0c9013c0
+modules/shooting/shooting.c            C        0x0c909a48  0x0c909adb
+modules/shooting/shooting.c            D        0x0c9559e0  0x0c955b7c
+modules/shooting/shooting.c            B        0x0cad4380  0x0cad5404
+# shooting_hud_destroy starts on 32 at 0x0c901580 with no fill; split there, the code builds the same
+modules/shooting/hud.c                 P        0x0c9013c0  0x0c901680
+modules/shooting/hud.c                 C        0x0c909ae0  0x0c909afa
+modules/shooting/hud.c                 D        0x0c955b80  0x0c955be8
+modules/shooting/hud.c                 B        0x0cadd308  0x0cadd318
+modules/shooting/tornado.c             P        0x0c901680  0x0c902700
+modules/shooting/tornado.c             D        0x0c955be8  0x0c955c90
+modules/shooting/tornado.c             B        0x0cadd318  0x0cadd31c
+modules/shooting/shot.c                P        0x0c902700  0x0c902ea0
+modules/shooting/shot.c                C        0x0c909b00  0x0c909b24
+modules/shooting/shot.c                D        0x0c955c90  0x0c955d10
+modules/shooting/reticle.c             P        0x0c902ea0  0x0c903960
+modules/shooting/reticle.c             C        0x0c909b28  0x0c909b7a
+modules/shooting/reticle.c             D        0x0c955d10  0x0c955ddc
+modules/shooting/reticle.c             B        0x0cadd330  0x0cadd360
+modules/shooting/fire.c                P        0x0c903960  0x0c903ea0
+modules/shooting/fire.c                C        0x0c909b80  0x0c909c1e
+modules/shooting/fire.c                D        0x0c955de0  0x0c955f98
+modules/shooting/scenery.c             P        0x0c903ea0  0x0c9044c0
+modules/shooting/scenery.c             C        0x0c909c20  0x0c909c70
+modules/shooting/scenery.c             D        0x0c955f98  0x0c955fe4
+modules/shooting/carrier.c             P        0x0c9044c0  0x0c9056a0
+modules/shooting/carrier.c             C        0x0c909c70  0x0c909ca0
+modules/shooting/carrier.c             D        0x0c955fe8  0x0c9560dc
+modules/shooting/carrier.c             B        0x0cadd360  0x0cadd368
+modules/shooting/furniture.c           P        0x0c9056a0  0x0c905920
+modules/shooting/furniture.c           D        0x0c9560e0  0x0c95618c
+# hodai_step starts on 32 at 0x0c905b40 with no fill; split there, the code builds the same
+modules/shooting/kirai.c               P        0x0c905920  0x0c906260
+modules/shooting/kirai.c               D        0x0c956190  0x0c9563c0
+modules/shooting/carrier_hodai.c       P        0x0c906260  0x0c9068a0
+modules/shooting/carrier_hodai.c       C        0x0c909ca0  0x0c909cac
+modules/shooting/carrier_hodai.c       D        0x0c9563c0  0x0c956428
+modules/shooting/renzako.c             P        0x0c9068a0  0x0c906b20
+modules/shooting/renzako.c             D        0x0c956428  0x0c956490
+modules/shooting/arm.c                 P        0x0c906b20  0x0c906d20
+modules/shooting/arm.c                 D        0x0c956490  0x0c9564c4
+modules/shooting/rocket.c              P        0x0c906d20  0x0c906e80
+modules/shooting/rocket.c              D        0x0c9564c8  0x0c9564fc
+modules/shooting/scene_zako.c          P        0x0c906e80  0x0c907940
+modules/shooting/scene_zako.c          D        0x0c956500  0x0c956534
+modules/shooting/scene_renzako.c       P        0x0c907940  0x0c9080c0
+modules/shooting/scene_renzako.c       D        0x0c956538  0x0c95656c
+modules/shooting/boss.c                P        0x0c9080c0  0x0c908960
+modules/shooting/boss.c                C        0x0c909cb0  0x0c909cc8
+modules/shooting/boss.c                D        0x0c956570  0x0c9566cc
+modules/shooting/boss.c                B        0x0cadd368  0x0cadd5c0
+modules/shooting/streaks.c             P        0x0c908960  0x0c908c60
+modules/shooting/streaks.c             C        0x0c909cc8  0x0c909d44
+modules/shooting/streaks.c             D        0x0c9566d0  0x0c956770
+modules/shooting/zako.c                P        0x0c908c60  0x0c908f40
+modules/shooting/zako.c                D        0x0c956770  0x0c9567a4
+# 1ST_READ.BIN's shooting1_pvms and the code of event.c, scenery.c, boss.c and streaks.c read the texlist; tornado.c's poses name it. its names start on 8 at 0x0c909d48 past 4 zero bytes after streaks.c's constants, and its table on 8 at 0x0c9567a8 past 4 after zako.c's data, where each object's next item would start, and nothing points into either gap: consistent with an object of its own. the texlist ends off 8, and the node with no model after it starts straight after it, so it is this object's. the act's models after it, from 0x0c956be0, meet it on 8 with no gap, and the first names it, so the bytes don't say whether they share its object
+modules/shooting/act1_textures.c       C        0x0c909d48  0x0c90a1ea
+modules/shooting/act1_textures.c       D        0x0c9567a8  0x0c956be0
+# event1_land_camera, the camera action event.c plays once event1_camera's has run, and its motion, which nothing else names: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same, and act2_textures.c's table starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word at 0x0c9e0084, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of this object nothing reads. event.c reads the action, but links before shooting.c, whose data lies before it, so it holds none of it. the bytes leave the object to one of data alone, to the generated data's before it, or to act2_textures.c's, were the zero word an unread datum of its
+modules/shooting/event1_land_camera.c  D        0x0c9e0070  0x0c9e0084
+# 1ST_READ.BIN's shooting2_pvms and the code of event.c, scenery.c and streaks.c read the texlist; tornado.c's poses name it. its names start on 8 at 0x0c90a1f0, past where act1_textures.c's next string would, and end at gauge.c's constants. its table starts on 8 at 0x0c9e0088 past 4 zero bytes nothing points into after event1_land_camera's action: consistent with an object of its own. the node after the texlist starts straight after it, off 8, so it is this object's. the act's models after it, from 0x0c9e04f0, meet it on 8 with no gap, and the first names it, so the bytes don't say whether they share its object
+modules/shooting/act2_textures.c       C        0x0c90a1f0  0x0c90a650
+modules/shooting/act2_textures.c       D        0x0c9e0088  0x0c9e04f0
+modules/shooting/gauge.c               P        0x0c908f40  0x0c909300
+modules/shooting/gauge.c               C        0x0c90a650  0x0c90a672
+# its data ends with 92 bytes after the sprite, which end D and the file, 4 short of B on 8, and which no word in SHOOTING or 1ST_READ.BIN names: the same as the 92 after the sprite of 1ST_READ.BIN's life_gauge.c, which this source copies. they are this object's, as the source keeps them, or an object's linked after it in both, which the bytes leave open; no reader types them, so the source holds them as bytes
+modules/shooting/gauge.c               D        0x0cad4230  0x0cad4344
+modules/shooting/gauge.c               B        0x0cadd5c0  0x0cadd5d0
+# boss.c's code reads them, two ints it declares. they start on 8 straight after the count of the path they span, in D's generated range, and act2_path starts on 8 straight after them: the bytes don't say whether either shares their object
+modules/shooting/course_span.c         D        0x0cab5910  0x0cab5918
+#
+# generated data ranges
+# the names of the 153 textures at 0x0c90a678, which open D: those and shooting0_texlist after them end off 8, straight into the first model, so no source holds them that doesn't hold the models. they open C. the zero byte after their last name's null, before camera.c's constants on 8, nothing points into. it is the linker's fill, and no item of the names' object, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares end, and the splicer writes it as the linker's fill
+gen/shooting/d_0c909300.c              C        0x0c909300  0x0c909a1f  end
+# act 0's textures and models, through the object at 0x0c955984, which the action at 0x0c9b653c names: an NJS_OBJECT of 52 bytes to 0x0c9559b8, its sibling there 0, where camera.c's D starts on 8 with no gap
+gen/shooting/d_0c90a678.c              D        0x0c90a678  0x0c9559b8
+gen/shooting/d_0c956be0.c              D        0x0c956be0  0x0c9967d8
+gen/shooting/d_0c9967d8.c              D        0x0c9967d8  0x0c9ddb30
+# to the motion data of event1_land_camera's motion, which event1_land_camera.c's motion meets on 8 with no fill
+gen/shooting/d_0c9ddb30.c              D        0x0c9ddb30  0x0c9e0070
+gen/shooting/d_0c9e04f0.c              D        0x0c9e04f0  0x0ca3b7e0
+gen/shooting/d_0ca3b7e0.c              D        0x0ca3b7e0  0x0ca7d938
+# to an action at 0x0ca89b54 and its motion, which follows its motion data on 8 with no fill: no word in the image or 1ST_READ.BIN names the action. the zero word after it, at 0x0ca89b5c, which nothing points at, ends 4 bytes short of act1_path, which shooting.c reads, on 8: it is the linker's fill or a last word of the action's object. ADV02's dat_0ca9aa90.c, B_E101's dat_0c91b5d8.c, B_EGM1's dat_0c9670a8.c, AL_RACE's coconut_motion.c and STG07's dat_0ca57908.c each hold such a motion and action, 20 bytes from 8, and the fill rule writes the zero word after each: so the row declares end, the next row start 8, and the splicer writes the word as the linker's fill, the likelier reading, not a proven one
+gen/shooting/d_0ca7d938.c              D        0x0ca7d938  0x0ca89b5c  end
+# from act1_path; ends with a course's path, which boss.c reads, its points from dat_0caa414c and their count, which runs on off 8, straight after them. act1_path_count, at 0x0caa4140, counts the 12-byte points from 0x0ca89b60 to it, so act1_path starts there, on 8, and the word before it is none of the path's: the row declares start 8
+gen/shooting/d_0ca89b60.c              D        0x0ca89b60  0x0cab5910  start 8
+gen/shooting/d_0cab5918.c              D        0x0cab5918  0x0cad4230

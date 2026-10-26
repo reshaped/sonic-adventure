@@ -1,0 +1,51 @@
+# EV0087.PRS, Chaos 2 encounter
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83b50
+C          0x0cb83b50  0x0cb83e70
+D          0x0cb83e70  0x0cbbf49c
+B          0x0cbbf4a0  0x0cbbf5e0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0087/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0087/script.c               P        0x0cb80008  0x0cb81828
+events/ev0087/script.c               C        0x0cb83b50  0x0cb83e02
+events/ev0087/script.c               D        0x0cb83e70  0x0cb83ea0
+events/shared/chaos1.c                P        0x0cb81828  0x0cb81e90
+# from the motion of event_chaos1_action, at 0x0cbbf130: its code reads event_chaos1_task, which starts off 8 straight after the action, as the action does after the motion, so the three are one object's, chaos1.c's. the motion meets its motion data on 8 with no fill, so the bytes don't say whether Chaos 1's model and the motion data before it are its object's as well
+events/shared/chaos1.c                D        0x0cbbf130  0x0cbbf448
+events/shared/weld.c                  P        0x0cb81e90  0x0cb82228
+events/shared/weld.c                  B        0x0cbbf4a0  0x0cbbf5e0
+events/shared/rays.c                  P        0x0cb82228  0x0cb8236c
+events/shared/rays.c                  D        0x0cbbf448  0x0cbbf44c
+events/shared/move.c                  P        0x0cb8236c  0x0cb82e90
+events/shared/move.c                  D        0x0cbbf450  0x0cbbf478
+events/shared/mover.c                 P        0x0cb82e90  0x0cb83628
+events/shared/fade.c                  P        0x0cb83628  0x0cb837b4
+events/shared/fade.c                  D        0x0cbbf478  0x0cbbf498
+events/ev0087/chaos2_hold.c          P        0x0cb837b4  0x0cb83b50
+events/ev0087/chaos2_hold.c          D        0x0cbbf498  0x0cbbf49c
+# the names its table points at, its object's constants: they start on 8, past where chaos0_water_textures.c's next string would start on 4
+events/shared/chaos1_textures.c       C        0x0cb83e28  0x0cb83e6f
+# the names of the textures event_chaos1_texlist lists, Chaos 1's. it meets chaos1_model.c's data, which ends with a node at 0x0cbb93ec, on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or chaos1_model.c's, were the table that object's too. head.c can't hold it: it is this event's own, and the object is the same in each event that places this source. its bytes are the same in EV0008 and EV0034 but for the words that point at its names. event_chaos1_texlist meets it on 8 with no fill at 0x0cbb9468: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. chaos1.c, which loads that texlist and links only in EV0008, EV0034 and EV0087, each with this data before its own, could hold it with the items between, though its code doesn't read the table. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/chaos1_textures.c       D        0x0cbb9420  0x0cbb9468
+# the names of the textures that the texture name table at 0x0cba90f0 in this object's data names: after the table at 0x0cba90f0, each item to a motion at 0x0cba929c starts off 8, so they share its object. the names and the data from 0x0cba90f0 to 0x0cba92a8 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0087_emerald_texlist, which names the table at 0x0cba90f0. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end straight before chaos0_water_textures.c's names. the names of chaos0_water_textures.c beside them in C are an object's the same in each event that places it, so another object's. they are script.c's, whose code reads ev0087_emerald_texlist, were the 6 bytes before them and the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. chaos1_textures.c can't hold them: it links in events without them. the 6 bytes of 0xff before them are script.c's padding or data, or the linker's fill. nothing points into the 6 bytes before them, and the fill rule takes them as the linker's fill
+events/ev0087/emerald_textures.c      C        0x0cb83e08  0x0cb83e18
+# its data, from 0x0cba90f0 to 0x0cba92a8: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cba929c, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0087/emerald_textures.c      D        0x0cba90f0  0x0cba92a8
+# the names of the textures that the texture name table at 0x0cba9cb8 in this object's data names: after the table at 0x0cba9cb8, each item to a material at 0x0cba9ccc starts off 8, so they share its object. the names and the data from 0x0cba9cb8 to 0x0cba9ce0 in D are the least those joins make one object's, and this source holds no more. script.c's and chaos1.c's code read event_chaos0_water_texlist, which names the table at 0x0cba9cb8. they start on 8 straight after emerald_textures.c's names, and end 4 bytes short of chaos1_textures.c's constants on 8. the names of emerald_textures.c beside them in C are this event's own, so another object's. they are an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. script.c can't hold them: it is this event's own, and the object is the same in each event that places this source. chaos1.c, whose code reads event_chaos0_water_texlist, can't hold them: no link order puts it between their neighbours. chaos1_textures.c can't hold them: other bytes come before its constants in other events that link it. the 4 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 4 bytes after them, and the fill rule takes them as the linker's fill
+events/shared/chaos0_water_textures.c C        0x0cb83e18  0x0cb83e24
+# its data, from 0x0cba9cb8 to 0x0cba9ce0: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. event_chaos0_water_material, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0002, EV000B, EV002B, EV0033, EV0034, EV0039, EV008B and EV0160 hold the same bytes, but for the words that point into the image, with the same names in C, and chaos0.c reads event_chaos0_water_texlist in each but EV000B, EV0039 and EV008B, where chaos2.c and chaos4.c do: consistent with one object each of them links, as eggmobile_textures.c is
+events/shared/chaos0_water_textures.c D        0x0cba9cb8  0x0cba9ce0
+# Chaos 1's model: its root, event_chaos1_object, and the nodes the welds close, which chaos1.c's data names, 72 nodes and 37 models with their meshsets, strips, colours, materials, points and normals, typed as the generated rows had them, with bodies. inside, 164 of its 335 items start on 8 straight after the item before, with no fill, and no off-8 start or shared name joins them there. so the bytes don't show whether the model is one object: the pointers between its parts are consistent with one, not proof, and one file or many, cut at those seams, build the same. EV0008 and EV0034, the other events that link chaos1.c, hold the same 45,280 bytes, but for the words that point into the image, straight before chaos1_textures.c's data, so whatever objects hold them are the same in each event that links chaos1.c. it meets chaos1_textures.c's data on 8 with no fill, so it is chaos1_textures.c's, were that object to start here; chaos1.c's, whose data names its root and nodes, were chaos1_textures.c's data and the generated data between them its too; or an object's of data alone, as built here. head.c can't hold it: it is this event's own, and the object is the same in each event that places this source. it starts on 8 straight after the generated data, Chaos 0's puddle's root node, so the bytes don't say whether its object runs on into that
+events/shared/chaos1_model.c          D        0x0cbae340  0x0cbb9420
+#
+# generated data ranges
+gen/ev0087/d_0cb83ea0.c               D        0x0cb83ea0  0x0cba90f0
+gen/ev0087/d_0cba92a8.c               D        0x0cba92a8  0x0cba9cb8
+gen/ev0087/d_0cba9ce0.c               D        0x0cba9ce0  0x0cbae340
+gen/ev0087/d_0cbb9468.c               D        0x0cbb9468  0x0cbbf130

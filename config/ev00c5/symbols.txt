@@ -1,0 +1,41 @@
+# EV00C5.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00c5_head
+0x0cb80008  ev00c5_script
+0x0cb80554  event_picture_destroy
+0x0cb80558  event_picture_draw
+0x0cb805ba  event_picture_step
+0x0cb805e4  event_picture_create
+0x0cb80646  event_picture_set_color
+0x0cb80656  event_picture_fade
+0x0cb80660  event_picture_set_depth
+0x0cb80668  event_picture_set_texture
+0x0cb8066e  event_picture_set_blend
+0x0cb80678  event_picture_set_height
+0x0cb806b0  event_sound_destroy
+0x0cb806c0  event_sound_step
+0x0cb80762  event_sound_hold
+0x0cb807c2  event_sound_move_volume
+0x0cb807e8  event_sound_move_pan
+0x0cb8080e  event_sound_move_pitch
+0x0cb80834  event_sound_init
+0x0cb8085c  event_sound_stop_all
+0x0cb808ba  event_sound_start
+0x0cb808fa  event_sound_stop
+0x0cb80974  event_sound_fade_volume
+0x0cb809a0  event_sound_fade_pan
+0x0cb809cc  event_sound_fade_pitch
+0x0cb809f8  event_sound_play
+0x0cb80b18  ev00c5_picture
+0x0cb80b1c  ev00c5_textures
+0x0cb80b30  dat_0cb80b30
+0x0cb8511c  ev00c5_e102_action_0
+0x0cb87de0  ev00c5_e102_action_1
+0x0cb87de8  ev00c5_picture_textures
+0x0cb87df4  ev00c5_picture_texlist
+0x0cb87e00  event_picture_texanim
+0x0cb87e14  event_picture_sprite
+0x0cb87e38  event_sound_count
+0x0cb87e3c  event_sounds
+0x0cb87e40  event_sound_next

@@ -1,0 +1,51 @@
+# EV0047.PRS, Tails' story: Tails takes off in the Tornado 2 to join Sonic
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb86db8
+C          0x0cb86db8  0x0cb87548
+D          0x0cb87548  0x0cba6ee4
+B          0x0cba6ee8  0x0cba6f20
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0047/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0047/script.c               P        0x0cb80008  0x0cb80d90
+events/ev0047/script.c               C        0x0cb86db8  0x0cb870c4
+events/ev0047/script.c               D        0x0cb87548  0x0cb9a168
+events/ev0047/script.c               B        0x0cba6ee8  0x0cba6f20
+events/shared/sprite.c                P        0x0cb80d90  0x0cb8158c
+events/shared/sprite.c                C        0x0cb870d8  0x0cb87157
+events/shared/sprite.c                D        0x0cba66d8  0x0cba6978
+events/shared/move.c                  P        0x0cb8158c  0x0cb820b0
+events/shared/move.c                  D        0x0cba6978  0x0cba69a0
+events/shared/mover.c                 P        0x0cb820b0  0x0cb82848
+events/shared/fade.c                  P        0x0cb82848  0x0cb829d4
+events/shared/fade.c                  D        0x0cba69a0  0x0cba69c0
+# follows fade.c with no fill; as one file, the code runs 4 bytes shorter. 9,875 of its 11,772 bytes differ
+events/shared/path_editor.c           P        0x0cb829d4  0x0cb85648
+events/shared/path_editor.c           C        0x0cb87158  0x0cb87528
+events/shared/path_editor.c           D        0x0cba69c0  0x0cba6ecc
+# follows path_editor.c with no fill; as one file, the code runs 4 bytes longer. 931 of its first 12,340 bytes differ
+events/shared/sound.c                 P        0x0cb85648  0x0cb85a08
+events/shared/sound.c                 D        0x0cba6ed0  0x0cba6edc
+events/shared/stopwatch.c             P        0x0cb85a08  0x0cb85b8c
+events/shared/stopwatch.c             C        0x0cb87528  0x0cb87541
+events/shared/stopwatch.c             D        0x0cba6ee0  0x0cba6ee4
+events/shared/sdk/sscanf.c            P        0x0cb85b8c  0x0cb85bc8
+events/shared/sdk/strchr.c            P        0x0cb85bc8  0x0cb85be4
+events/shared/sdk/_fmtin.c           P        0x0cb85be4  0x0cb86a5c
+events/shared/sdk/_stf.c              P        0x0cb86a5c  0x0cb86ae8
+events/shared/sdk/_calcfpow.c         P        0x0cb86ae8  0x0cb86ca8
+events/shared/sdk/_calcint.c          P        0x0cb86ca8  0x0cb86d54
+events/shared/sdk/_packf.c            P        0x0cb86d54  0x0cb86db8
+# the names of the textures that the texture name table at 0x0cba3bec in this object's data names: the table at 0x0cba3bec starts off 8, straight after an action at 0x0cba3be4, so it shares that item's object. the names and the data from 0x0cba3bd8 to 0x0cba3bf8 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0047_emerald_texlist, which names the table at 0x0cba3bec. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 1 byte short of sprite.c's constants, which begin on 8 where the names' next string would. they are script.c's, whose code reads ev0047_tails_action_4, were the 4 bytes before them and the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. sprite.c can't hold them: it links in events without them. the 4 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the byte of 0xff after them is this object's data or the linker's fill: not padding, as its next item on 4 would start where sprite.c's constants do. nothing points into the 4 bytes before them and the byte after them, and the fill rule takes them as the linker's fill
+events/ev0047/tails_action_4.c        C        0x0cb870c8  0x0cb870d7
+# its data, from 0x0cba3bd8 to 0x0cba3bf8: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. ev0047_emerald_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0047/tails_action_4.c        D        0x0cba3bd8  0x0cba3bf8
+#
+# generated data ranges
+gen/ev0047/d_0cb9a168.c               D        0x0cb9a168  0x0cba3bd8
+gen/ev0047/d_0cba3bf8.c               D        0x0cba3bf8  0x0cba66d8

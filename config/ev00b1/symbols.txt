@@ -1,0 +1,40 @@
+# EV00B1.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00b1_head
+0x0cb80008  ev00b1_script
+0x0cb806b0  event_fade_draw
+0x0cb8075a  event_fade_step
+0x0cb8077c  event_fade_destroy
+0x0cb80780  event_fade_init
+0x0cb8078e  event_fade_create
+0x0cb807e8  event_fade_set_speed
+0x0cb807f0  event_fade_set_alpha
+0x0cb80824  event_fade_set_color
+0x0cb80834  event_fade_set_depth
+0x0cb8083c  event_sound_destroy
+0x0cb8084c  event_sound_step
+0x0cb808ee  event_sound_hold
+0x0cb8094e  event_sound_move_volume
+0x0cb80974  event_sound_move_pan
+0x0cb8099a  event_sound_move_pitch
+0x0cb809c0  event_sound_init
+0x0cb809e8  event_sound_stop_all
+0x0cb80a46  event_sound_start
+0x0cb80a86  event_sound_stop
+0x0cb80b00  event_sound_fade_volume
+0x0cb80b2c  event_sound_fade_pan
+0x0cb80b58  event_sound_fade_pitch
+0x0cb80b84  event_sound_play
+0x0cb80cc0  ev00b1_fade
+0x0cb80cc4  ev00b1_textures
+0x0cb80cd0  dat_0cb80cd0
+0x0cb87e60  ev00b1_eggman_action_0
+0x0cb8c754  ev00b1_eggman_action_1
+0x0cb8e148  ev00b1_eggman_action_2
+0x0cb9173c  ev00b1_eggman_action_3
+0x0cb93e50  ev00b1_eggman_action_4
+0x0cb93e58  event_fade_corners
+0x0cb93e78  event_sound_count
+0x0cb93e7c  event_sounds
+0x0cb93e80  event_sound_next

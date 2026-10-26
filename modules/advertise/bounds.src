@@ -1,0 +1,18 @@
+; DEND, the module's last section: two longs, B's start and the module's
+; end. the image's link puts DEND last, past B
+
+        .EXPORT     _advertise_module_end
+
+        .SECTION    B,DATA,ALIGN=4
+
+        .SECTION    DEND,DATA,ALIGN=4
+
+        .DATA.L     (STARTOF B)
+
+; char *advertise_module_end
+; the module's end, the end of DEND. card_open starts the backup library's
+; work area there, rounded up to 32 bytes
+_advertise_module_end:
+        .DATA.L     (STARTOF DEND)+(SIZEOF DEND)
+
+        .END

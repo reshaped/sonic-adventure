@@ -1,0 +1,70 @@
+; the copy of one block of a macroblock that a P picture skips, from the
+; reference frame
+
+; struct mpv_mc's field offsets
+MC_WRITE:       .EQU    20
+MC_SKIP_PITCH:  .EQU    28
+MC_FIRST:       .EQU    36
+
+        .EXPORT     _MPVACMC_PpicSkipBlk
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; Uint8 *MPVACMC_PpicSkipBlk(struct mpv_mc *mc, Uint8 *block)
+; copy the 8 by 8 block at mc->first, its rows mc->skip_pitch apart, to
+; block and to mc->write, 64 bytes each. a PREF follows each 32 bytes written
+; to mc->write. returns mc->write + 64, and leaves mc->write as it was.
+; mc->first's rows, mc->write and block must be 8-byte aligned
+; @asm open: no inspect rule reads the DR0 to DR6 moves inside its FSCHG run
+_MPVACMC_PpicSkipBlk:
+        MOV.L       @(MC_FIRST,R4),R2
+        FSCHG                               ; FMOV moves pairs to the next FSCHG
+        MOV.L       @(MC_SKIP_PITCH,R4),R3
+        MOV.L       @(MC_WRITE,R4),R0
+        FMOV        @R2,DR0
+        ADD         R3,R2
+        FMOV        @R2,DR2
+        ADD         R3,R2
+        FMOV        @R2,DR4
+        ADD         R3,R2
+        FMOV        @R2,DR6
+        ADD         R3,R2
+        FMOV        DR0,@R0
+        ADD         #8,R0
+        FMOV        DR2,@R0
+        ADD         #8,R0
+        FMOV        DR4,@R0
+        ADD         #8,R0
+        FMOV        DR6,@R0
+        ADD         #24,R5
+        PREF        @R0
+        ADD         #8,R0
+        FMOV        DR6,@R5
+        FMOV        DR4,@-R5
+        FMOV        DR2,@-R5
+        FMOV        DR0,@-R5
+        FMOV        @R2,DR0
+        ADD         R3,R2
+        FMOV        @R2,DR2
+        ADD         R3,R2
+        FMOV        @R2,DR4
+        ADD         R3,R2
+        FMOV        @R2,DR6
+        FMOV        DR0,@R0
+        ADD         #8,R0
+        FMOV        DR2,@R0
+        ADD         #8,R0
+        FMOV        DR4,@R0
+        ADD         #8,R0
+        FMOV        DR6,@R0
+        ADD         #56,R5
+        PREF        @R0
+        FMOV        DR6,@R5
+        ADD         #8,R0
+        FMOV        DR4,@-R5
+        FMOV        DR2,@-R5
+        FMOV        DR0,@-R5
+        RTS
+        FSCHG
+
+        .END

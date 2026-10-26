@@ -1,0 +1,26 @@
+# EV00C4.PRS, E-102's story: E-102 lands, resolves to save the rest of the E-Series, and asks where they are
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80bd0
+C          0x0cb80bd0  0x0cb80f90
+D          0x0cb80f90  0x0cb855a4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00c4/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00c4/script.c                P        0x0cb80008  0x0cb80658
+events/ev00c4/script.c                C        0x0cb80bd0  0x0cb80f87
+events/ev00c4/script.c                D        0x0cb80f90  0x0cb80f98
+events/shared/scanlines.c             P        0x0cb80658  0x0cb8080c
+events/shared/scanlines.c             C        0x0cb80f88  0x0cb80f90
+events/shared/scanlines.c             D        0x0cb85590  0x0cb85598
+events/shared/sound.c                 P        0x0cb8080c  0x0cb80bcc
+events/shared/sound.c                 D        0x0cb85598  0x0cb855a4
+# ev00c4_e102_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to scanlines.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb850a8 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00c4/e102_action.c           D        0x0cb85578  0x0cb8558c
+#
+# generated data ranges
+gen/ev00c4/d_0cb80f98.c               D        0x0cb80f98  0x0cb85578

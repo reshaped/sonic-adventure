@@ -1,0 +1,45 @@
+/* Sonic's Mystic Ruins story section, FINALEGG */
+#include "adv02/mystic_ruins.h"
+#include "adv02/script_sonic_final_egg.h"
+#include "progress/progress.h"
+#include "progress/story.h"
+#include "stage/stage.h"
+
+static void script_sonic_final_egg_init(void);
+static void script_sonic_final_egg_step(int seq);
+
+struct story_script script_sonic_final_egg = {script_sonic_final_egg_init,
+                                              script_sonic_final_egg_step};
+
+static void script_sonic_final_egg_init(void)
+{
+    story_set_time(TIME_EVENING);
+}
+
+/* event 35 plays. the section ends once the game goes to the Final Egg */
+static void script_sonic_final_egg_step(int seq)
+{
+    switch (seq) {
+    case 0:
+        event_flag_set(FLAG_SONIC_MR_APPEAR_FINAL_EGG);
+        break;
+    case 1:
+        if (!story_wait_at(STAGE_MYSTIC_RUINS, MYSTIC_RUINS_JUNGLE)) {
+            return;
+        }
+        story_play_event(35);
+        break;
+    case 2:
+        story_save();
+        break;
+    case 3:
+        if (!story_going_to(STAGE_FINAL, 0)) {
+            return;
+        }
+        story_next_section();
+        break;
+    default:
+        return;
+    }
+    story_next_seq();
+}

@@ -1,0 +1,25 @@
+# EV0051.PRS, Tails defeats the Egg Walker
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80fe8
+C          0x0cb80fe8  0x0cb81300
+D          0x0cb81300  0x0cb89f14
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0051/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0051/script.c               P        0x0cb80008  0x0cb80a9c
+events/ev0051/script.c               C        0x0cb80fe8  0x0cb812fe
+events/ev0051/script.c               D        0x0cb81300  0x0cb81334
+events/shared/fade.c                  P        0x0cb80a9c  0x0cb80c28
+events/shared/fade.c                  D        0x0cb89ee8  0x0cb89f08
+events/shared/sound.c                 P        0x0cb80c28  0x0cb80fe8
+events/shared/sound.c                 D        0x0cb89f08  0x0cb89f14
+# position keys of a node of ev0051_tails_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb81518, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0051/dat_0cb81338.c          D        0x0cb81338  0x0cb81518
+#
+# generated data ranges
+gen/ev0051/d_0cb81518.c               D        0x0cb81518  0x0cb89ee8

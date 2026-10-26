@@ -1,0 +1,514 @@
+; the fiber switch. a switch pushes the running fiber's registers on its
+; stack as a frame, and keeps its stack pointer in its sy_fiber. it then
+; takes the next fiber's stack pointer and pops that fiber's frame by rte. a
+; switch asked for in an interrupt waits until the interrupt returns: it
+; points the interrupt's return at _syFbrSwitchToFiber_ISR_START
+
+        .IMPORT     _syFbrGetSp
+        .IMPORT     _syFbrSetSp
+        .IMPORT     _sygFbrCurrent
+        .IMPORT     _sygFbrISRstack
+        .EXPORT     _syFbrSwitchToFiber
+        .EXPORT     _syFbrCreateFiberMain
+        .EXPORT     _syFbrDelayedSwitchToFiber2
+        .EXPORT     _syFbrSwitchToFiber2
+        .EXPORT     _syFbrDelayedSwitchToFiber
+        .EXPORT     _syFbrSwitchToFiber_ISR_START
+
+; a frame holds, from its top down, fpul, fpscr, pr, macl, mach, gbr, spc,
+; ssr, r14 twice, r13 to r0 and r7_bank to r0_bank. a frame with floats then
+; holds bank 0's fr15 to fr0, then bank 1's. its last word, the lowest, is
+; WITH_FLOATS or NO_FLOATS. FRAME_WORDS counts the words of a frame with
+; floats but its last. F_SPC, F_SSR and F_R4 are how many bytes below a
+; frame's top its spc, ssr and r4 lie
+FRAME_WORDS:    .EQU    64
+F_SPC:          .EQU    28
+F_SSR:          .EQU    32
+F_R4:           .EQU    80
+; a frame's last word: whether the frame holds floats
+WITH_FLOATS:    .EQU    0
+NO_FLOATS:      .EQU    1
+; sr's interrupt mask, and sr.bl, which blocks interrupts
+SR_IMASK:       .EQU    H'F0
+SR_BL:          .EQU    H'10000000
+; fpscr.sz, which makes fmov move register pairs, and fpscr.fr, which
+; makes bank 1 fr0 to fr15
+FPSCR_SZ:       .EQU    H'00100000
+FPSCR_FR:       .EQU    H'00200000
+; _sygFbrCurrent while no fiber runs. a switch then keeps no stack pointer
+NO_FIBER:       .EQU    H'FFFFFFFF
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void *syFbrCreateFiberMain(void *stack, Sint32 size, void (*func)(void *),
+;                            void *data)
+; build a frame with floats at the top of the size bytes at stack, and
+; return its lowest address, for the fiber's sp. the frame is zero but for
+; its ssr, the caller's sr, and its spc and r4, which start func with data
+; @asm operand: small-constant, MOV.L at 0x8c617f16 loads WITH_FLOATS, 0, for
+; the frame's last word from the pool
+_syFbrCreateFiberMain:
+        MOV         R4,R0
+        ADD         R5,R0
+        MOV.L       ?frame_words,R1
+        XOR         R2,R2
+        XOR         R3,R3
+?clear:
+        MOV.L       R2,@-R0
+        ADD         #1,R3
+        CMP/EQ      R1,R3
+        BF          ?clear
+        MOV.L       ?with_floats,R1
+        MOV.L       R1,@-R0
+        MOV.L       R0,@-R15
+        MOV         R4,R2
+        ADD         R5,R2
+        MOV         R2,R0
+        MOV.L       ?spc,R1
+        SUB         R1,R0
+        MOV.L       R6,@R0
+        MOV         R2,R0
+        MOV.L       ?r4,R1
+        SUB         R1,R0
+        MOV.L       R7,@R0
+        MOV         R2,R0
+        MOV.L       ?ssr,R1
+        SUB         R1,R0
+        STC         SR,R1
+        MOV.L       R1,@R0
+        MOV.L       @R15+,R0
+        RTS
+        NOP
+?frame_words:
+        .DATA.L     FRAME_WORDS
+?with_floats:
+        .DATA.L     WITH_FLOATS
+?spc:
+        .DATA.L     F_SPC
+?r4:
+        .DATA.L     F_R4
+?ssr:
+        .DATA.L     F_SSR
+
+; void syFbrSwitchToFiber(struct sy_fiber *fiber)
+; switch to fiber, saving the running fiber's floats. the caller's sr and
+; return address go into the frame as its ssr and spc, as an interrupt's
+; would, and interrupts stay masked until the switch's rte. it jumps to
+; save_context with the caller's r0 still pushed, for save_context to pop
+; (MOV.L R0,@-R15 at 0x8c617f54, JMP @R0 at 0x8c617f7c)
+; @asm operand: small-constant, MOV.L at 0x8c617f74 loads WITH_FLOATS, 0, from
+; the pool
+_syFbrSwitchToFiber:
+        MOV.L       R0,@-R15
+        MOV.L       R1,@-R15
+        STC.L       SR,@-R15
+        STC         SR,R0
+        MOV.L       ?switch_sr,R1
+        MOV.L       R0,@R1
+        MOV.L       ?imask,R1
+        OR          R1,R0
+        LDC         R0,SR
+        MOV.L       @R15+,R0
+        LDC         R0,SSR
+        STS         PR,R0
+        LDC         R0,SPC
+        MOV.L       ?next,R0
+        MOV.L       R4,@R0
+        MOV.L       ?floats,R0
+        MOV.L       ?with,R1
+        MOV.L       R1,@R0
+        MOV.L       @R15+,R1
+        MOV.L       save_at,R0
+        JMP         @R0
+        NOP
+?switch_sr:
+        .DATA.L     switch_sr
+?imask:
+        .DATA.L     SR_IMASK
+?next:
+        .DATA.L     requested_fiber
+?floats:
+        .DATA.L     floats
+?with:
+        .DATA.L     WITH_FLOATS
+
+; void syFbrSwitchToFiber2(struct sy_fiber *fiber)
+; switch to fiber as syFbrSwitchToFiber does, but leave the running
+; fiber's floats out of its frame. it jumps to save_context with the
+; caller's r0 still pushed, for save_context to pop (MOV.L R0,@-R15 at
+; 0x8c617f94, JMP @R0 at 0x8c617fbc)
+; @asm operand: small-constant, MOV.L at 0x8c617fb4 loads NO_FLOATS, 1, from
+; the pool
+_syFbrSwitchToFiber2:
+        MOV.L       R0,@-R15
+        MOV.L       R1,@-R15
+        STC.L       SR,@-R15
+        STC         SR,R0
+        MOV.L       ?switch_sr,R1
+        MOV.L       R0,@R1
+        MOV.L       ?imask,R1
+        OR          R1,R0
+        LDC         R0,SR
+        MOV.L       @R15+,R0
+        LDC         R0,SSR
+        STS         PR,R0
+        LDC         R0,SPC
+        MOV.L       ?next,R0
+        MOV.L       R4,@R0
+        MOV.L       ?floats,R0
+        MOV.L       ?without,R1
+        MOV.L       R1,@R0
+        MOV.L       @R15+,R1
+        MOV.L       save_at,R0
+        JMP         @R0
+        NOP
+?switch_sr:
+        .DATA.L     switch_sr
+?imask:
+        .DATA.L     SR_IMASK
+?next:
+        .DATA.L     requested_fiber
+?floats:
+        .DATA.L     floats
+?without:
+        .DATA.L     NO_FLOATS
+
+; where an interrupt that asked for a switch returns to. it switches as
+; though the interrupt had returned to isr_pc with sr isr_sr
+; @asm abi: exception-continuation, it writes SSR at 0x8c617fd8 and SPC at
+; 0x8c617fdc and jumps at 0x8c617fe0, with R0 pushed, to save_context, which
+; keeps them in the frame it publishes and loads them back for its RTE
+_syFbrSwitchToFiber_ISR_START:
+        MOV.L       R0,@-R15
+        MOV.L       isr_sr,R0
+        LDC         R0,SSR
+        MOV.L       isr_pc,R0
+        LDC         R0,SPC
+        MOV.L       save_at,R0
+        JMP         @R0
+        NOP
+
+; the switch, entered by a jump with the caller's r0 pushed. it pushes the
+; running fiber's frame and, unless _sygFbrCurrent is NO_FIBER, keeps the
+; stack pointer by syFbrSetSp. it then makes requested_fiber current, takes
+; its stack pointer by syFbrGetSp and pops its frame
+; @asm abi: stack-written, MOV R0,R15 at 0x8c6180a2 sets the stack pointer to
+; the next fiber's frame
+save_context:
+        MOV.L       @R15+,R0
+        STS.L       FPUL,@-R15
+        STS.L       FPSCR,@-R15
+        STS.L       PR,@-R15
+        STS.L       MACL,@-R15
+        STS.L       MACH,@-R15
+        STC.L       GBR,@-R15
+        STC.L       SPC,@-R15
+        STC.L       SSR,@-R15
+        MOV.L       R14,@-R15
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R6,@-R15
+        MOV.L       R5,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       R2,@-R15
+        MOV.L       R1,@-R15
+        MOV.L       R0,@-R15
+        STC.L       R7_BANK,@-R15
+        STC.L       R6_BANK,@-R15
+        STC.L       R5_BANK,@-R15
+        STC.L       R4_BANK,@-R15
+        STC.L       R3_BANK,@-R15
+        STC.L       R2_BANK,@-R15
+        STC.L       R1_BANK,@-R15
+        STC.L       R0_BANK,@-R15
+        MOV.L       ?floats,R0
+        MOV.L       @R0,R0
+        CMP/EQ      #WITH_FLOATS,R0
+        BF          ?mark
+        STS         FPSCR,R0
+        MOV.L       ?single_first,R1
+        AND         R1,R0
+        LDS         R0,FPSCR
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+        MOV.L       ?second,R1
+        OR          R1,R0
+        LDS         R0,FPSCR
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+?mark:
+        MOV.L       floats,R0
+        MOV.L       R0,@-R15
+        MOV.L       ?current,R0
+        MOV.L       @R0,R1
+        MOV.L       ?none,R2
+        CMP/EQ      R1,R2
+        BT          ?restore
+        MOV         R1,R4
+        MOV         R15,R5
+        MOV.L       ?set_sp,R0
+        JSR         @R0
+        NOP
+?restore:
+        MOV.L       ?next,R0
+        MOV.L       @R0,R4
+        MOV.L       ?current,R0
+        MOV.L       R4,@R0
+        MOV.L       ?get_sp,R0
+        JSR         @R0
+        NOP
+        MOV         R0,R15
+        MOV.L       @R15+,R0
+        MOV.L       ?with,R1
+        CMP/EQ      R0,R1
+        BF          ?integers
+        STS         FPSCR,R0
+        MOV.L       ?single,R1
+        AND         R1,R0
+        MOV.L       ?second,R1
+        OR          R1,R0
+        LDS         R0,FPSCR
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        MOV.L       ?first,R1
+        AND         R1,R0
+        LDS         R0,FPSCR
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+?integers:
+        LDC.L       @R15+,R0_BANK
+        LDC.L       @R15+,R1_BANK
+        LDC.L       @R15+,R2_BANK
+        LDC.L       @R15+,R3_BANK
+        LDC.L       @R15+,R4_BANK
+        LDC.L       @R15+,R5_BANK
+        LDC.L       @R15+,R6_BANK
+        LDC.L       @R15+,R7_BANK
+        MOV.L       @R15+,R0
+        MOV.L       @R15+,R1
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R5
+        MOV.L       @R15+,R6
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        MOV.L       @R15+,R14
+        LDC.L       @R15+,SSR
+        LDC.L       @R15+,SPC
+        LDC.L       @R15+,GBR
+        LDS.L       @R15+,MACH
+        LDS.L       @R15+,MACL
+        LDS.L       @R15+,PR
+        LDS.L       @R15+,FPSCR
+        LDS.L       @R15+,FPUL
+        RTE
+        NOP
+        .DATA.W     0                       ; aligns the pool
+?floats:
+        .DATA.L     floats
+?single_first:
+        .DATA.L     ~(FPSCR_SZ|FPSCR_FR)
+?second:
+        .DATA.L     FPSCR_FR
+?current:
+        .DATA.L     _sygFbrCurrent
+?none:
+        .DATA.L     NO_FIBER
+?set_sp:
+        .DATA.L     _syFbrSetSp
+?next:
+        .DATA.L     requested_fiber
+?get_sp:
+        .DATA.L     _syFbrGetSp
+?with:
+        .DATA.L     WITH_FLOATS
+?single:
+        .DATA.L     ~FPSCR_SZ
+?first:
+        .DATA.L     ~FPSCR_FR
+
+; void syFbrDelayedSwitchToFiber(struct sy_fiber *fiber)
+; in an interrupt: switch to fiber once the interrupt returns, saving the
+; running fiber's floats. it jumps to patch_interrupt_return with the
+; caller's r0 and r1 still pushed, for patch_interrupt_return to pop
+; (MOV.L R0,@-R15 and MOV.L R1,@-R15 at 0x8c618170 and 0x8c618172, JMP @R0
+; at 0x8c61817c)
+; @asm operand: small-constant, MOV.L at 0x8c618176 loads WITH_FLOATS, 0, from
+; the pool
+_syFbrDelayedSwitchToFiber:
+        MOV.L       R0,@-R15
+        MOV.L       R1,@-R15
+        MOV.L       ?floats,R0
+        MOV.L       ?with,R1
+        MOV.L       R1,@R0
+        MOV.L       patch_at,R0
+        JMP         @R0
+        NOP
+?floats:
+        .DATA.L     floats
+?with:
+        .DATA.L     WITH_FLOATS
+
+; void syFbrDelayedSwitchToFiber2(struct sy_fiber *fiber)
+; in an interrupt: switch to fiber once the interrupt returns, leaving the
+; running fiber's floats out. it runs on into patch_interrupt_return
+; @asm open: inspect meets pool-word at the MOV.L at 0x8c61818e, since
+; delayed_without's run of data holds labels .DATA items name, such as floats
+_syFbrDelayedSwitchToFiber2:
+        MOV.L       R0,@-R15
+        MOV.L       R1,@-R15
+        MOV.L       delayed_floats,R0
+        MOV.L       delayed_without,R1
+        MOV.L       R1,@R0
+
+; make fiber the one to switch to, and point the interrupt's return at
+; _syFbrSwitchToFiber_ISR_START. the return's pc lies 8 bytes below the
+; address _sygFbrISRstack holds, and its sr 4 bytes below that address. the
+; first patch in an interrupt keeps them as isr_pc and isr_sr. it sets sr.bl
+; in the sr the interrupt returns with, so no interrupt comes before the
+; switch's rte. a later patch in the same interrupt finds the pc patched
+; already, and changes only the fiber
+; @asm abi: stack-above-entry, MOV.L @R15+,R1 at 0x8c6181c6, its third pop,
+; takes R15 above its entry, and its RTS at 0x8c6181ca returns 8 bytes above it,
+; past the R0 and R1 its callers pushed
+patch_interrupt_return:
+        MOV.L       R2,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       delayed_next,R3
+        MOV.L       R4,@R3
+        MOV.L       delayed_isr_stack,R0
+        MOV.L       @R0,R0
+        ADD         #-8,R0
+        MOV         R0,R1
+        ADD         #4,R0
+        MOV.L       @R1,R2
+        MOV.L       isr_start_at,R3
+        CMP/EQ      R2,R3
+        BT          ?done
+        MOV.L       @R0,R2
+        MOV.L       delayed_isr_sr,R3
+        MOV.L       R2,@R3
+        MOV.L       delayed_block,R3
+        OR          R3,R2
+        MOV.L       R2,@R0
+        MOV.L       @R1,R2
+        MOV.L       delayed_isr_pc,R3
+        MOV.L       R2,@R3
+        MOV.L       isr_start_at,R3
+        MOV.L       R3,@R1
+?done:
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R1
+        MOV.L       @R15+,R0
+        RTS
+        NOP
+        .DATA.W     0                       ; aligns the pool
+delayed_floats:
+        .DATA.L     floats
+delayed_without:
+        .DATA.L     NO_FLOATS
+delayed_next:
+        .DATA.L     requested_fiber
+delayed_isr_stack:
+        .DATA.L     _sygFbrISRstack
+delayed_isr_sr:
+        .DATA.L     isr_sr
+delayed_block:
+        .DATA.L     SR_BL
+delayed_isr_pc:
+        .DATA.L     isr_pc
+
+; the switch's words, kept in its code. switch_sr is the sr
+; syFbrSwitchToFiber or syFbrSwitchToFiber2 was last called with, which
+; nothing reads. requested_fiber is the fiber to switch to, and floats the
+; last word of the frame to push. isr_sr and isr_pc are the sr and pc of the
+; interrupt return a delayed switch took over
+switch_sr:
+        .DATA.L     0
+requested_fiber:
+        .DATA.L     0
+floats:
+        .DATA.L     WITH_FLOATS
+isr_sr:
+        .DATA.L     0
+isr_pc:
+        .DATA.L     0
+isr_start_at:
+        .DATA.L     _syFbrSwitchToFiber_ISR_START
+save_at:
+        .DATA.L     save_context
+patch_at:
+        .DATA.L     patch_interrupt_return
+
+        .END

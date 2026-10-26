@@ -1,0 +1,65 @@
+# EV00B7.PRS, Eggman sends the E-Series after Froggy
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83388
+C          0x0cb83388  0x0cb83a50
+D          0x0cb83a50  0x0cbd2e58
+B          0x0cbd2e58  0x0cbd3fb0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00b7/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00b7/script.c                P        0x0cb80008  0x0cb80e8c
+events/ev00b7/script.c                C        0x0cb83388  0x0cb83571
+events/ev00b7/script.c                D        0x0cb83a50  0x0cb83aa8
+# follows script.c with no fill; as one file, the code runs 44 bytes longer. 3,597 of its first 4,232 bytes differ
+events/ev00b7/dim.c                   P        0x0cb80e8c  0x0cb81090
+events/ev00b7/dim.c                   D        0x0cbb9788  0x0cbb9794
+events/ev00b7/dim.c                   B        0x0cbd2e58  0x0cbd3fb0
+events/shared/e103.c                  P        0x0cb81090  0x0cb81298
+# follows e103.c with no fill; as one file, the code runs 4 bytes shorter. 290 of its 1,036 bytes differ
+events/shared/e104.c                  P        0x0cb81298  0x0cb814a0
+# follows e104.c with no fill; as one file, the code runs 4 bytes shorter. 289 of its 1,032 bytes differ
+events/shared/e105.c                  P        0x0cb814a0  0x0cb816a4
+events/ev00b7/frog_screen.c           P        0x0cb816a4  0x0cb817e0
+events/ev00b7/frog_screen.c           D        0x0cbd2520  0x0cbd2544
+events/shared/move.c                  P        0x0cb817e0  0x0cb82304
+events/shared/move.c                  D        0x0cbd2548  0x0cbd2570
+events/shared/mover.c                 P        0x0cb82304  0x0cb82a9c
+events/shared/fade.c                  P        0x0cb82a9c  0x0cb82c28
+events/shared/fade.c                  D        0x0cbd2570  0x0cbd2590
+events/shared/sound.c                 P        0x0cb82c28  0x0cb82fe8
+events/shared/sound.c                 D        0x0cbd2590  0x0cbd259c
+events/shared/floor.c                 P        0x0cb82fe8  0x0cb83100
+events/shared/floor.c                 D        0x0cbd25a0  0x0cbd2678
+events/ev00b7/spotlight.c             P        0x0cb83100  0x0cb83384
+events/ev00b7/spotlight.c             C        0x0cb83a10  0x0cb83a4a
+events/ev00b7/spotlight.c             D        0x0cbd2678  0x0cbd2e58
+# the names its table points at, its object's constants. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, as another object's would. in D, only generated data lies between script.c's and this object's table, so D leaves that seam open too. the object is the same in the 6 events that link it, and in 5 of them other bytes come before its names, such as EV00BB, so its constants start here. script.c links in none of the others, so its object can't hold them
+events/shared/froggy_textures.c       C        0x0cb83578  0x0cb835b8
+# the names of the textures the script's FROG texlist lists, for the frog model its actions draw. it meets an action at 0x0cbb08b0 on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the action before it, were the table that object's too. its bytes are the same in EV0055, EV00BB, EV00DF, EV00E0 and EV00E3 but for the words that point at its names. the words before it differ in each of those events, while it and the 7,960 bytes from it match, which is consistent with an object that starts here. ev00b7_frog_texlist meets it on 8 with no fill at 0x0cbb0918: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/froggy_textures.c       D        0x0cbb08b8  0x0cbb0918
+# the names its table points at, its object's constants. they start on 8 straight after froggy_textures.c's constants, where froggy_textures.c's next string would, so the C bytes leave that seam open. in D, dim.c's data lies between froggy_textures.c's and this object's table, so while that data is its, froggy_textures.c's object can't hold them. the object is the same in the 2 events that link it, and in EV00BB other bytes come before its names, so its constants start here. other strings follow froggy_textures.c's constants in EV00BB and EV00DF, so its object can't hold them
+events/shared/e103_textures.c         C        0x0cb835b8  0x0cb8372e
+# the names of the textures event_e103_texlist lists, E-103's. an object starts on 8 here, past the 4 bytes of 0xff after dim.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of dim.c's object. of the code that links after dim.c's, mover.c links in events without it and frog_screen.c, move.c, fade.c, sound.c, floor.c and spotlight.c place their data elsewhere in this one. e103.c, e104.c and e105.c, which link only in events that have it, could hold it, though their code doesn't read it, or it is an object of data alone. dim.c can't hold it: this object links in EV00BB, which doesn't link dim.c. its bytes are the same in EV00BB but for the words that point at its names. event_e103_texlist meets it on 8 with no fill at 0x0cbb9918: one file or two build the same, and its pointer at the table is consistent with one object, not proof. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/e103_textures.c         D        0x0cbb9798  0x0cbb9918
+# the names its table points at, its object's constants. they start on 8 after e103_textures.c's constants, where e103_textures.c's next string would, so the C bytes leave that seam open. in D, only generated data lies between e103_textures.c's and this object's table, so D leaves that seam open too. 25 of its names repeat e103_textures.c's, and one file keeps one copy of a string, so they are another file's. the object is the same in the 2 events that link it
+events/shared/e104_textures.c         C        0x0cb83730  0x0cb83898
+# the names of the textures event_e104_texlist lists, E-104's: 25 of the 32 repeat E-103's names, so another file's. it meets a model's node at 0x0cbc1c2c on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the node before it, were the table that object's too. its bytes are the same in EV00BB but for the words that point at its names. event_e104_texlist meets it on 8 with no fill at 0x0cbc1de0: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/e104_textures.c         D        0x0cbc1c60  0x0cbc1de0
+# the names its table points at, its object's constants. they start on 8 straight after e104_textures.c's constants, where e104_textures.c's next string would, so the C bytes leave that seam open. in D, only generated data lies between e104_textures.c's and this object's table, so D leaves that seam open too. 25 of its names repeat e104_textures.c's, and one file keeps one copy of a string, so they are another file's. the object is the same in the 2 events that link it
+events/shared/e105_textures.c         C        0x0cb83898  0x0cb83a0e
+# the names of the textures event_e105_texlist lists, E-105's: 25 of the 32 repeat E-103's names, so another file's. it meets a model's node at 0x0cbca0f4 on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the node before it, were the table that object's too. its bytes are the same in EV00BB but for the words that point at its names. event_e105_texlist meets it on 8 with no fill at 0x0cbca2a8: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/e105_textures.c         D        0x0cbca128  0x0cbca2a8
+# event_e105_object, the root node of the model e105.c draws, which ends the generated data before frog_screen.c's: it ends 4 past 8, and the 4 bytes of 0xff after it, to that data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of its object. it has no model of its own and meets the node under it, event_e105_1, on 8 with no fill, so the bytes don't say whether the generated row before it, the nodes under the root and their models, is its object's. its bytes are the same in EV00BB but for the words that point into the image
+events/shared/e105_object.c           D        0x0cbd24e8  0x0cbd251c
+#
+# generated data ranges
+gen/ev00b7/d_0cb83aa8.c               D        0x0cb83aa8  0x0cbb08b8
+gen/ev00b7/d_0cbb0918.c               D        0x0cbb0918  0x0cbb9788
+gen/ev00b7/d_0cbb9918.c               D        0x0cbb9918  0x0cbc1c60
+gen/ev00b7/d_0cbc1de0.c               D        0x0cbc1de0  0x0cbca128
+gen/ev00b7/d_0cbca2a8.c               D        0x0cbca2a8  0x0cbd24e8

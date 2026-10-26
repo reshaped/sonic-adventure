@@ -1,0 +1,46 @@
+# EV0016.PRS, Zero and Amy board the Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82f98
+C          0x0cb82f98  0x0cb834b0
+D          0x0cb834b0  0x0cbc2fd4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0016/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0016/script.c               P        0x0cb80008  0x0cb80e68
+events/ev0016/script.c               C        0x0cb82f98  0x0cb830cd
+events/ev0016/script.c               D        0x0cb834b0  0x0cb834dc
+events/shared/zero.c                  P        0x0cb80e68  0x0cb81124
+# alignment can't place these seams: its strings meet event_beam_texlist's name at 0x0cb834a0, and its data meets ev0016_egg_carrier_action at 0x0cb977d8 and event_beam_texlist's names at 0x0cbc28a0, each where one object's next item would start. in EV0064 its data starts on 8 after 4 bytes of fill, and in EV0015 its strings and data end C and D
+events/shared/zero.c                  C        0x0cb831d8  0x0cb8349d
+events/shared/zero.c                  D        0x0cb977d8  0x0cbc28a0
+events/shared/beam.c                  P        0x0cb81124  0x0cb81486
+# its texture name starts at the first 4 after the string before it, on 8; in EV000B four bytes of fill, at 0x0cb873cc, part it from the string before it
+events/shared/beam.c                  C        0x0cb834a0  0x0cb834ac
+# event_beam_texnames meets the data before it on 8 with no fill; in EV0009 and EV00BB four bytes of fill, at 0x0cb85124 and 0x0cbc710c, part it from the data before it. event_beam_meshes, event_beam_uvs, event_beam_meshsets, event_beam_points, event_beam_normals, event_beam_cone_model, event_beam_cone, event_beam_mdata and event_beam_motion each start on 8 straight after the item before. in the image, only beam.c's pool words, at 0x0cb813e0 and 0x0cb81400, ev0016_textures, at 0x0cb834c0, and its own records point into it. it is beam.c's or a data-only object's, which the bytes leave open
+events/shared/beam.c                  D        0x0cbc28a0  0x0cbc2f54
+events/shared/prop.c                  P        0x0cb81488  0x0cb81748
+events/shared/prop.c                  D        0x0cbc2f58  0x0cbc2f80
+events/shared/move.c                  P        0x0cb81748  0x0cb8226c
+events/shared/move.c                  D        0x0cbc2f80  0x0cbc2fa8
+events/shared/mover.c                 P        0x0cb8226c  0x0cb82a04
+events/shared/fade.c                  P        0x0cb82a04  0x0cb82b90
+events/shared/fade.c                  D        0x0cbc2fa8  0x0cbc2fc8
+events/shared/sound.c                 P        0x0cb82b90  0x0cb82f50
+events/shared/sound.c                 D        0x0cbc2fc8  0x0cbc2fd4
+sdk/runtime/r_ftou.src               P        0x0cb82f50  0x0cb82f70
+sdk/runtime/r_utof.src               P        0x0cb82f70  0x0cb82f94
+# position keys of a node of ev0016_sonic_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and zero.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb835d0, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0016/dat_0cb834e0.c          D        0x0cb834e0  0x0cb835d0
+# the names of the textures that the texture name table at 0x0cb854a4 in this object's data names: the table at 0x0cb854a4 starts off 8, straight after an action at 0x0cb8549c, so it shares that item's object. the names and the data from 0x0cb85490 to 0x0cb855a0 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0016_egg_carrier_texlist, which names the table at 0x0cb854a4. they start on 8 after script.c's constants, where script.c's next string would, and end 6 bytes short of zero.c's constants on 8. they are script.c's, whose code reads ev0016_sonic_action, were the 4 bytes after its data, dat_0cb834e0.c's data and the data from there to the table its too; dat_0cb834e0.c's, which has no constants row and can link between them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. zero.c can't hold them: it links in events without them. the 3 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill; the 6 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 6 bytes after them, and the fill rule takes them as the linker's fill
+events/ev0016/sonic_action.c          C        0x0cb830d0  0x0cb831d2
+# its data, from 0x0cb85490 to 0x0cb855a0: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. ev0016_egg_carrier_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0016/sonic_action.c          D        0x0cb85490  0x0cb855a0
+#
+# generated data ranges
+gen/ev0016/d_0cb835d0.c               D        0x0cb835d0  0x0cb85490
+gen/ev0016/d_0cb855a0.c               D        0x0cb855a0  0x0cb977d8

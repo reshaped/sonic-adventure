@@ -1,0 +1,28 @@
+# EV0056.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0056_head
+0x0cb80008  ev0056_script
+0x0cb80688  event_fade_draw
+0x0cb80732  event_fade_step
+0x0cb80754  event_fade_destroy
+0x0cb80758  event_fade_init
+0x0cb80766  event_fade_create
+0x0cb807c0  event_fade_set_speed
+0x0cb807c8  event_fade_set_alpha
+0x0cb807fc  event_fade_set_color
+0x0cb8080c  event_fade_set_depth
+0x0cb80928  ev0056_fade
+0x0cb8092c  ev0056_textures
+0x0cb80940  dat_0cb80940
+0x0cb8234c  ev0056_sonic_action_0
+0x0cb833f0  ev0056_sonic_action_1
+0x0cb85a94  ev0056_sonic_action_2
+0x0cb87858  ev0056_sonic_action_3
+0x0cb89adc  ev0056_tails_action_0
+0x0cb8a290  ev0056_tails_action_1
+0x0cb8e2c4  ev0056_tails_action_2
+0x0cb90b38  ev0056_tails_action_3
+0x0cb91ccc  ev0056_tails_action_4
+0x0cb92480  ev0056_tails_action_5
+0x0cb92488  event_fade_corners

@@ -1,0 +1,130 @@
+; the Egg Carrier's palette routines: a gray ramp in the offset colors of
+; palettes 0 and 1, and copies of a palette's base or offset colors out and
+; back. a palette in draw_palettes is 256 entries of 8 bytes, each a base
+; color and then an offset color
+
+        .IMPORT     _draw_palettes
+        .EXPORT     _egg_carrier_palette_ramp
+        .EXPORT     _egg_carrier_palette_read
+        .EXPORT     _egg_carrier_palette_write
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void egg_carrier_palette_ramp(Uint8 level)
+; set the offset colors of palettes 0 and 1 to a ramp: 16 grays of level,
+; then 32 that fall by level/32 each, the last black, then 208 black. a gray
+; of level has level in each of a color's low three bytes, and 0xff in its top
+; @asm opcode: swap, SWAP.W R4,R5 at 0x0c92d324 moves level to the upper half
+; for the 16.16 step, and SWAP.W R3,R3 at 0x0c92d362 and R3,R2 at 0x0c92d368
+; move the gray between its integer and 16.16 halves
+_egg_carrier_palette_ramp:
+        STS.L       PR,@-R15
+        EXTU.B      R4,R4
+        SWAP.W      R4,R5                   ; a 32nd of level, in 16.16 fixed point
+        SHLR2       R5
+        SHLR2       R5
+        SHLR        R5
+        MOV.L       #_draw_palettes+4,R1
+        BSR         ramp
+        NOP
+        MOV.L       #_draw_palettes+H'804,R1
+        BSR         ramp
+        NOP
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; write the ramp into 256 colors 8 bytes apart from R1. R4 is level, and R5
+; the fall's step in 16.16 fixed point
+ramp:
+        MOV.W       #H'00FF,R0
+        SHLL8       R0
+        OR          R4,R0
+        SHLL8       R0
+        OR          R4,R0
+        SHLL8       R0
+        OR          R4,R0
+        MOV.W       #16,R7
+ramp_flat:
+        MOV.L       R0,@R1
+        DT          R7
+        BF/S        ramp_flat
+        ADD         #8,R1
+        MOV         R4,R3
+        SWAP.W      R3,R3
+        MOV.W       #32,R7
+ramp_fall:
+        SUB         R5,R3
+        SWAP.W      R3,R2
+        EXTU.B      R2,R2
+        MOV.W       #H'00FF,R0
+        SHLL8       R0
+        OR          R2,R0
+        SHLL8       R0
+        OR          R2,R0
+        SHLL8       R0
+        OR          R2,R0
+        MOV.L       R0,@R1
+        DT          R7
+        BF/S        ramp_fall
+        ADD         #8,R1
+        MOV.L       #H'FF000000,R0
+        MOV.W       #208,R7
+ramp_black:
+        MOV.L       R0,@R1
+        DT          R7
+        BF/S        ramp_black
+        ADD         #8,R1
+        RTS
+        NOP
+
+; void egg_carrier_palette_read(int palette, int offsets, Uint32 *out)
+; copy draw_palettes[palette]'s 256 base colors, or its offset colors when
+; offsets is nonzero, one after another into out
+; @asm open: every instruction is one SHC writes for C
+_egg_carrier_palette_read:
+        MOV.L       #_draw_palettes,R1
+        SHLL8       R4                      ; 2048 bytes a palette
+        SHLL        R4
+        SHLL2       R4
+        ADD         R4,R1
+        TST         R5,R5
+        BT          read_colors
+        ADD         #4,R1
+read_colors:
+        MOV.W       #256,R7
+read_color:
+        MOV.L       @R1,R0
+        MOV.L       R0,@R6
+        ADD         #4,R6
+        DT          R7
+        BF/S        read_color
+        ADD         #8,R1
+        RTS
+        NOP
+
+; void egg_carrier_palette_write(int palette, int offsets, Uint32 *in)
+; copy 256 colors, one after another from in, into draw_palettes[palette]'s
+; base colors, or its offset colors when offsets is nonzero
+; @asm open: no inspect rule reads its MOV.L @R6+,R0
+_egg_carrier_palette_write:
+        MOV.L       #_draw_palettes,R1
+        SHLL8       R4
+        SHLL        R4
+        SHLL2       R4
+        ADD         R4,R1
+        TST         R5,R5
+        BT          write_colors
+        ADD         #4,R1
+write_colors:
+        MOV.W       #256,R7
+write_color:
+        MOV.L       @R6+,R0
+        MOV.L       R0,@R1
+        DT          R7
+        BF/S        write_color
+        ADD         #8,R1
+        RTS
+        NOP
+
+        .END

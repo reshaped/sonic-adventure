@@ -1,0 +1,39 @@
+# EV00BA.PRS, E-102 meets Tikal and the Chao
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83e10
+C          0x0cb83e10  0x0cb840d8
+D          0x0cb840d8  0x0cba84b0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00ba/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00ba/script.c                P        0x0cb80008  0x0cb82084
+events/ev00ba/script.c                C        0x0cb83e10  0x0cb8405d
+events/ev00ba/script.c                D        0x0cb840d8  0x0cb8413c
+events/shared/chao.c                  P        0x0cb82084  0x0cb82318
+events/shared/move.c                  P        0x0cb82318  0x0cb82e3c
+events/shared/move.c                  D        0x0cba78f8  0x0cba7920
+events/shared/mover.c                 P        0x0cb82e3c  0x0cb835d4
+events/shared/fade.c                  P        0x0cb835d4  0x0cb83760
+events/shared/fade.c                  D        0x0cba7920  0x0cba7940
+events/shared/sound.c                 P        0x0cb83760  0x0cb83b20
+events/shared/sound.c                 D        0x0cba7940  0x0cba794c
+events/shared/wave.c                  P        0x0cb83b20  0x0cb83e10
+# the wave's texture name, its one constant, which event_wave_textures points at: in D that table lies before its data, with the ring's models and motions, which wave.c's code draws
+events/shared/wave.c                  C        0x0cb840d0  0x0cb840d7
+# from event_wave_materials, at 0x0cba7950: the ring's model, its motions, its action and its texture name table and list, which wave.c's code reads, meet its data on 8 with no fill, the same 2,872 bytes in all six events that link it, but for the words that point into the image: consistent with wave.c's object, though one file or two build the same. the ring starts on 8, past the 4 bytes of 0xff after sound.c's data, where that object's next item would start on 4: those are the linker's fill, as the fill rule takes them, or a last word of sound.c's object, and nothing with code links between sound.c and wave.c. sound.c links in events without the ring, so its object can't hold it, and the head's object, which is each event's own, can't hold what all six link alike: the ring is wave.c's or an object's of data alone that links in all six
+events/shared/wave.c                  D        0x0cba7950  0x0cba84b0
+# position keys of a node of ev00ba_chao_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. of the code that links between script.c and move.c, chao.c links in events without it, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb84160, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev00ba/dat_0cb84140.c          D        0x0cb84140  0x0cb84160
+# the names of the textures that the texture name table at 0x0cba4df8 in this object's data names: after the table at 0x0cba4df8, each item to a material at 0x0cba4e84 starts off 8, so they share its object. the names and the data from 0x0cba4df8 to 0x0cba4e98 in D are the least those joins make one object's, and this source holds no more. script.c's and chao.c's code read event_chao_texlist, which names the table at 0x0cba4df8. they start on 8 after script.c's constants, where script.c's next string would, and end 7 bytes short of wave.c's constants on 8. they are chao.c's, which has no constants or data row and can link between them, whose code reads event_chao_texlist; or an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. script.c and dat_0cb84140.c can't hold them: each is this event's own, and the object is the same in each event that places this source. move.c can't hold them: it links in events without them. wave.c can't hold them while move.c's, fade.c's and sound.c's data, between its own and the tables, is theirs. the 3 bytes of 0xff before them are script.c's data or the linker's fill: not padding, as script.c's next item on 4 would start where the names do; the 7 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 7 bytes after them, and the fill rule takes them as the linker's fill
+events/shared/chao_textures.c         C        0x0cb84060  0x0cb840c9
+# its data, from 0x0cba4df8 to 0x0cba4e98: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. event_chao_material, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0022, EV0068, EV008F, EV00F7, EV00FE and EV0160 hold the same bytes, but for the words that point into the image, with the same names in C, and chao.c reads event_chao_texlist in each: consistent with one object each of them links, as eggmobile_textures.c is
+events/shared/chao_textures.c         D        0x0cba4df8  0x0cba4e98
+#
+# generated data ranges
+gen/ev00ba/d_0cb84160.c               D        0x0cb84160  0x0cba4df8
+gen/ev00ba/d_0cba4e98.c               D        0x0cba4e98  0x0cba78f8

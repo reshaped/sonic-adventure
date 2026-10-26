@@ -1,0 +1,114 @@
+# ADVERTISE.PRS, the menus
+#
+# section  start       end
+DHEAD      0x8c900000  0x8c900020  # advertise_entries, the table main.c calls through
+P          0x8c900020  0x8c90b888
+C          0x8c90b888  0x8c90e0a8
+D          0x8c90e0a8  0x8c941f98
+B          0x8c941f98  0x8c9c5b28  # zeroed, and stored in the file
+DEND       0x8c9c5b28  0x8c9c5b30  # two words: B's start and the file's end
+#
+# source                              section  start       end
+# main.c reads the table's three entries, through struct advertise, and nothing points past them; the 20 zero bytes after it end where P starts on 32, as SUMMARY's 28 after its nine do. the bytes don't say whether they are the linker's fill, as the fill rule takes them, unread entries of this object, or data of another object nothing names
+modules/advertise/advertise.c           DHEAD    0x8c900000  0x8c90000c
+modules/advertise/advertise.c           P        0x8c900020  0x8c900200
+modules/advertise/bitmap_test.c         P        0x8c900200  0x8c900420
+modules/advertise/bitmap_test.c         C        0x8c90b888  0x8c90b88f
+modules/advertise/bitmap_test.c         D        0x8c90e0a8  0x8c90e0b8
+modules/advertise/back.c                P        0x8c900420  0x8c900460
+modules/advertise/back.c                D        0x8c90e0b8  0x8c90e0ea
+modules/advertise/draw.c                P        0x8c900460  0x8c900c80
+modules/advertise/draw.c                C        0x8c90b890  0x8c90b8bd
+modules/advertise/emblems.c             P        0x8c900c80  0x8c900d00
+modules/advertise/buttons.c             P        0x8c900d00  0x8c900d40
+modules/advertise/sound_config.c        P        0x8c900d40  0x8c900ee0
+modules/advertise/sound_config.c        B        0x8c941f98  0x8c941fa4
+modules/advertise/trial.c               P        0x8c900ee0  0x8c9013c0
+modules/advertise/trial.c               C        0x8c90b8c0  0x8c90ba1c
+modules/advertise/trial.c               B        0x8c941fa8  0x8c941faa
+modules/advertise/wheel.c               P        0x8c9013c0  0x8c901420
+modules/advertise/screen.c              P        0x8c901420  0x8c9017e0
+modules/advertise/screen.c              C        0x8c90ba20  0x8c90bb28
+modules/advertise/screen.c              D        0x8c93d360  0x8c93d3c4
+modules/advertise/screen.c              B        0x8c941fb0  0x8c941fb4
+modules/advertise/sound.c               P        0x8c9017e0  0x8c901a60
+modules/advertise/sound.c               C        0x8c90bb28  0x8c90bca8
+modules/advertise/sound.c               B        0x8c941fb8  0x8c941fc0
+modules/advertise/records.c             P        0x8c901a60  0x8c902040
+modules/advertise/records.c             C        0x8c90bca8  0x8c90bcae
+modules/advertise/textures.c            P        0x8c902040  0x8c902240
+modules/advertise/textures.c            C        0x8c90bcb0  0x8c90bfcc
+modules/advertise/textures.c            D        0x8c93d3c8  0x8c93e0d0
+modules/advertise/textures.c            B        0x8c941fc0  0x8c941fc8
+modules/advertise/card.c                P        0x8c902240  0x8c9024a0
+modules/advertise/card.c                C        0x8c90bfd0  0x8c90c06d
+modules/advertise/card.c                D        0x8c93e0d0  0x8c93e0f4
+modules/advertise/card.c                B        0x8c941fc8  0x8c94222c
+modules/advertise/preview.c             P        0x8c9024a0  0x8c903040
+modules/advertise/preview.c             C        0x8c90cbd8  0x8c90cd11
+modules/advertise/preview.c             D        0x8c93e0f8  0x8c93e1e0
+modules/advertise/preview.c             B        0x8c942230  0x8c942288
+modules/advertise/character_select.c    P        0x8c903040  0x8c903e20
+modules/advertise/character_select.c    C        0x8c90cd18  0x8c90cd34
+modules/advertise/character_select.c    B        0x8c942288  0x8c94228c
+modules/advertise/menus.c               P        0x8c903e20  0x8c903ea0
+modules/advertise/menus.c               C        0x8c90cd38  0x8c90d254
+modules/advertise/game_bug.c            P        0x8c903ea0  0x8c904100
+modules/advertise/game_bug.c            C        0x8c90d258  0x8c90d261
+modules/advertise/game_bug.c            B        0x8c942290  0x8c942294
+modules/advertise/file_select.c         P        0x8c904100  0x8c905440
+modules/advertise/file_select.c         C        0x8c90d268  0x8c90d2b0
+modules/advertise/file_select.c         B        0x8c942298  0x8c94229c
+modules/advertise/mini_game_select.c    P        0x8c905440  0x8c906480
+modules/advertise/mini_game_select.c    C        0x8c90d2b0  0x8c90d2b3
+modules/advertise/mini_game_select.c    B        0x8c9422a0  0x8c9422a4
+modules/advertise/voice_save.c          P        0x8c906480  0x8c906760
+modules/advertise/voice_save.c          C        0x8c90d500  0x8c90d8c9
+modules/advertise/voice_save.c          D        0x8c93f8d8  0x8c941da4
+modules/advertise/voice_save.c          B        0x8c9422a8  0x8c945aa8
+modules/advertise/options.c             P        0x8c906760  0x8c907620
+modules/advertise/options.c             C        0x8c90d8d0  0x8c90d9e2
+modules/advertise/options.c             B        0x8c945aa8  0x8c945aac
+modules/advertise/story_progress.c      P        0x8c907620  0x8c9076c0
+modules/advertise/story_progress.c      C        0x8c90d9e8  0x8c90dda4
+modules/advertise/sound_test.c          P        0x8c9076c0  0x8c908680
+modules/advertise/sound_test.c          C        0x8c90dda8  0x8c90de28
+modules/advertise/sound_test.c          B        0x8c945ab0  0x8c945ab4
+modules/advertise/card_screen.c         P        0x8c908680  0x8c908b40
+modules/advertise/card_screen.c         C        0x8c90de28  0x8c90df09
+modules/advertise/card_screen.c         D        0x8c941da8  0x8c941dbc
+modules/advertise/card_screen.c         B        0x8c945ab8  0x8c945abc
+modules/advertise/mode_select.c         P        0x8c908b40  0x8c909240
+modules/advertise/mode_select.c         C        0x8c90df10  0x8c90df24
+modules/advertise/mode_select.c         B        0x8c945ac0  0x8c945ac4
+modules/advertise/trial_stage_select.c  P        0x8c909240  0x8c90a180
+modules/advertise/trial_stage_select.c  C        0x8c90df28  0x8c90df30
+modules/advertise/trial_stage_select.c  B        0x8c945ac8  0x8c945acc
+modules/advertise/drive_select.c        P        0x8c90a180  0x8c90b180
+modules/advertise/drive_select.c        C        0x8c90df30  0x8c90e01d
+modules/advertise/drive_select.c        D        0x8c941dc0  0x8c941de8
+modules/advertise/drive_select.c        B        0x8c945ad0  0x8c945ad4
+modules/advertise/font.c                P        0x8c90b180  0x8c90b46c
+modules/advertise/font.c                C        0x8c90e020  0x8c90e036
+modules/advertise/font.c                D        0x8c941de8  0x8c941f60
+modules/advertise/font.c                B        0x8c945ad8  0x8c945b04
+# dialog_pixels_size starts on 32 at 0x8c90b860 with no fill; split there, the code builds the same
+modules/advertise/dialog.c              P        0x8c90b480  0x8c90b884
+modules/advertise/dialog.c              C        0x8c90e038  0x8c90e0a5
+modules/advertise/dialog.c              D        0x8c941f60  0x8c941f94
+modules/advertise/dialog.c              B        0x8c945b08  0x8c9c5b28
+# the position keys of the first node of the motion sonic_chosen_action plays, whose motion data, at 0x8c914ed0 in the generated row, names them and gives their count. the motion's data, the motion and the action follow in the generated row, and preview.c's data names the action. they start on 8, 6 bytes past back.c's data, which ends 2 past 8, and 4 bytes past where back.c's next item would start on 4. nothing points into the 6 bytes. they are the linker's fill, as the fill rule takes them, or back.c's padding and a last word of its object nothing reads, and either builds the same. the angle keys of the motion's second node start on 8 straight after them, at 0x8c90e500, with no fill, where one file or two build the same, so the bytes don't say how far their object runs. the generated data from there, to the motion's data, the motion and the action, may be its, and that data names them. preview.c's data lies past textures.c's, so it can't hold them. the object is one of data alone, that of the generated data after it, back.c's, were the 6 bytes before them its padding and a word of its, though its code doesn't read them, or that of draw.c, emblems.c, buttons.c, sound_config.c, trial.c or wheel.c, which link between with no row in D, though their code doesn't read them
+modules/advertise/dat_8c90e0f0.c        D        0x8c90e0f0  0x8c90e500
+# the sound test's 40 banks, each a table of groups of sound numbers and the driver bank each group plays from, one more bank that nothing names at 0x8c93f650, and sound_test_bank_files and sound_test_banks, which sound_test.c reads. the files' names in C are the files table's strings. each item starts off 8 straight after the one before, or on 8 where the item before ends, or on 4 where a group table or bank follows numbers that end off 4, so the run tiles as one compilation lays it out. one file or several build the same at each on-8 seam, and the pointers between the items are consistent with one object. sound_test.c's data, in C, lies past voice_save.c's, so it can't hold them. the numbers start on 8 straight after preview.c's data. voice_save.c's starts on 8 4 bytes past the banks table, where this object's next item would start on 4. the 4 bytes are the linker's fill, as the fill rule takes them, or a last word of this object nothing reads. the names start on 8, 4 bytes past where mini_game_select.c's next string would start on 4, which is consistent with separate objects. voice_save.c's constants start on 8 4 bytes past the last, which ends where this object's next string would start on 4. those 4 bytes are the linker's fill, as the rule takes them, or a constant of this object nothing reads. the object is one of data alone or, were the 4 zero bytes before the names an empty string of its own, mini_game_select.c's, which can link between in D. character_select.c, menus.c, game_bug.c and file_select.c can too, but not in C
+modules/advertise/sound_test_banks.c    D        0x8c93e1e0  0x8c93f8d4
+modules/advertise/sound_test_banks.c    C        0x8c90d2b8  0x8c90d4fc
+# last_story_object, which preview.c draws. it starts on 8 straight after its model, generated, where one file or two build the same. the bytes don't say whether the model shares its object. preview.c's data lies past textures.c's, so it can't hold it. screen.c's data starts on 8 4 bytes past it, where this object's next item would start on 4. the 4 bytes are the linker's fill, as the fill rule takes them, or a last word of this object nothing reads, which builds the same. it is an object of data alone, its model's, that of draw.c, emblems.c, buttons.c, sound_config.c, trial.c or wheel.c, which link between with no row in D, though their code doesn't read it, or screen.c's, were the 4 bytes after it a word of screen.c's
+modules/advertise/last_story.c          D        0x8c93d328  0x8c93d35c
+# the sound test's music, which sound_test.c reads: each kind's tracks, a title and a music number, written with texts and values, the lists, a body, and the titles. a literal is its own file's, so the tracks and titles are one object's constants. the tracks start on 8 where card.c's next string would start on 4, so the bytes don't part them there, and the fill rule verifies the 3 bytes. preview.c's constants start on 8 7 bytes past the last title, 4 past where this object's next string would start on 4, which is consistent with separate objects, and the rule verifies the 7 bytes. sound_test.c's constants lie past voice_save.c's, so it can't hold them; the object is card.c's, though its code doesn't read them, or one of data alone
+modules/advertise/sound_test_music.c C           0x8c90c070  0x8c90cbd1
+# DEND, which the link puts last, past B, which the file stores: B's start and DEND's end, the module's end, as the link of the whole image puts them and tools/config.py gives them, the second of which card.c reads as advertise_module_end. SHC computes no section's bounds, so DEND is assembly, an object of its own
+modules/advertise/bounds.src            DEND     0x8c9c5b28  0x8c9c5b30
+#
+# generated data ranges
+# from the angle keys of the second node of the motion sonic_chosen_action plays, which start on 8 straight after dat_8c90e0f0.c's position keys
+gen/advertise/d_8c90e500.c              D        0x8c90e500  0x8c93d328

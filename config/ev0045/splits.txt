@@ -1,0 +1,25 @@
+# EV0045.PRS, Tails' story: Tails meets Tikal in the past. she recites an old saying of the seven Chaos
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81128
+C          0x0cb81128  0x0cb813a0
+D          0x0cb813a0  0x0cb97a6c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0045/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0045/script.c               P        0x0cb80008  0x0cb80ae0
+events/ev0045/script.c               C        0x0cb81128  0x0cb8139e
+events/ev0045/script.c               D        0x0cb813a0  0x0cb813b0
+events/shared/white.c                 P        0x0cb80ae0  0x0cb80d68
+events/shared/white.c                 D        0x0cb97a58  0x0cb97a5c
+events/shared/sound.c                 P        0x0cb80d68  0x0cb81128
+events/shared/sound.c                 D        0x0cb97a60  0x0cb97a6c
+# ev0045_tikal_action_3 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb973d0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0045/tikal_action_3.c        D        0x0cb97a40  0x0cb97a54
+#
+# generated data ranges
+gen/ev0045/d_0cb813b0.c               D        0x0cb813b0  0x0cb97a40

@@ -1,0 +1,74 @@
+; vector math: sums, differences and a dot product
+
+        .EXPORT     _vector_sum
+        .EXPORT     _vector_diff
+        .EXPORT     _vector_dot_from
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void vector_sum(NJS_VECTOR *a, NJS_VECTOR *b, NJS_VECTOR *out)
+; out is a + b
+; @asm open: every instruction is one SHC writes for C
+_vector_sum:
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R5+,FR3
+        FMOV.S      @R4+,FR1
+        FADD        FR3,FR0
+        FMOV.S      @R5+,FR4
+        FMOV.S      @R4+,FR2
+        FADD        FR4,FR1
+        FMOV.S      @R5+,FR5
+        ADD         #12,R6                  ; z, y and x, down from out's end
+        FADD        FR5,FR2
+        FMOV.S      FR2,@-R6
+        FMOV.S      FR1,@-R6
+        RTS
+        FMOV.S      FR0,@-R6
+
+; void vector_diff(NJS_VECTOR *a, NJS_VECTOR *b, NJS_VECTOR *out)
+; out is a - b
+; @asm open: every instruction is one SHC writes for C
+_vector_diff:
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R5+,FR3
+        FMOV.S      @R4+,FR1
+        FSUB        FR3,FR0
+        FMOV.S      @R5+,FR4
+        FMOV.S      @R4+,FR2
+        FSUB        FR4,FR1
+        FMOV.S      @R5+,FR5
+        ADD         #12,R6
+        FSUB        FR5,FR2
+        FMOV.S      FR2,@-R6
+        FMOV.S      FR1,@-R6
+        RTS
+        FMOV.S      FR0,@-R6
+
+; Float vector_dot_from(NJS_POINT3 *from, NJS_POINT3 *a, NJS_POINT3 *b)
+; the dot product of a - from and b - from, by FIPR of FV0 and FV4, whose
+; fourth floats are 0
+; @asm open: no inspect rule reads FV0 and FV4 filled by differences in
+; registers before its FIPR
+_vector_dot_from:
+        FMOV.S      @R5+,FR0
+        FLDI0       FR3
+        FMOV.S      @R4+,FR8
+        FSUB        FR8,FR0
+        FMOV.S      @R5+,FR1
+        FLDI0       FR7
+        FMOV.S      @R4+,FR9
+        FSUB        FR9,FR1
+        FMOV.S      @R5+,FR2
+        FMOV.S      @R4+,FR10
+        FSUB        FR10,FR2
+        FMOV.S      @R6+,FR4
+        FSUB        FR8,FR4
+        FMOV.S      @R6+,FR5
+        FSUB        FR9,FR5
+        FMOV.S      @R6+,FR6
+        FSUB        FR10,FR6
+        FIPR        FV4,FV0                 ; FR3 is FV4 . FV0
+        RTS
+        FMOV.S      FR3,FR0
+
+        .END

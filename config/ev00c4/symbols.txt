@@ -1,0 +1,39 @@
+# EV00C4.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00c4_head
+0x0cb80008  ev00c4_script
+0x0cb80658  event_scanlines_create
+0x0cb806aa  event_scanlines_kill
+0x0cb806c6  event_scanlines_init
+0x0cb806d4  event_scanlines_step
+0x0cb806dc  event_scanlines_draw_lines
+0x0cb807b0  event_scanlines_draw
+0x0cb807c0  event_scanlines_destroy
+0x0cb8080c  event_sound_destroy
+0x0cb8081c  event_sound_step
+0x0cb808be  event_sound_hold
+0x0cb8091e  event_sound_move_volume
+0x0cb80944  event_sound_move_pan
+0x0cb8096a  event_sound_move_pitch
+0x0cb80990  event_sound_init
+0x0cb809b8  event_sound_stop_all
+0x0cb80a16  event_sound_start
+0x0cb80a56  event_sound_stop
+0x0cb80ad0  event_sound_fade_volume
+0x0cb80afc  event_sound_fade_pan
+0x0cb80b28  event_sound_fade_pitch
+0x0cb80b54  event_sound_play
+0x0cb80bd0  ev00c4_fall_keys
+0x0cb80f20  ev00c4_fall
+0x0cb80f88  event_scanlines_width
+0x0cb80f8c  event_scanlines_height
+0x0cb80f90  ev00c4_textures
+0x0cb850a8  dat_0cb850a8
+0x0cb85578  ev00c4_e102_motion
+0x0cb85584  ev00c4_e102_action
+0x0cb85590  event_scanlines
+0x0cb85594  event_scanlines_row
+0x0cb85598  event_sound_count
+0x0cb8559c  event_sounds
+0x0cb855a0  event_sound_next

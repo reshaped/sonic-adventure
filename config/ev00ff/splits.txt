@@ -1,0 +1,47 @@
+# EV00FF.PRS, before the last fight, the emeralds gather about Sonic, and he becomes Super Sonic
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb84020
+C          0x0cb84020  0x0cb84310
+D          0x0cb84310  0x0cbadbbc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00ff/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00ff/script.c               P        0x0cb80008  0x0cb81ecc
+events/ev00ff/script.c               C        0x0cb84020  0x0cb841fc
+events/ev00ff/script.c               D        0x0cb84310  0x0cb84390
+events/shared/rays.c                  P        0x0cb81ecc  0x0cb82010
+events/shared/rays.c                  D        0x0cba2a98  0x0cba2a9c
+events/shared/white.c                 P        0x0cb82010  0x0cb82298
+events/shared/white.c                 D        0x0cba2aa0  0x0cba2aa4
+events/shared/highway.c               P        0x0cb82298  0x0cb82348
+events/shared/highway.c               C        0x0cb84268  0x0cb84310
+events/shared/highway.c               D        0x0cbad9b8  0x0cbada88
+events/shared/move.c                  P        0x0cb82348  0x0cb82e6c
+events/shared/move.c                  D        0x0cbada88  0x0cbadab0
+events/shared/mover.c                 P        0x0cb82e6c  0x0cb83604
+events/shared/fade.c                  P        0x0cb83604  0x0cb83790
+events/shared/fade.c                  D        0x0cbadab0  0x0cbadad0
+events/shared/sound.c                 P        0x0cb83790  0x0cb83b50
+events/shared/sound.c                 D        0x0cbadad0  0x0cbadadc
+events/shared/floor.c                 P        0x0cb83b50  0x0cb83c68
+events/shared/floor.c                 D        0x0cbadae0  0x0cbadbb8
+events/shared/chaos7.c                P        0x0cb83c68  0x0cb8401c
+events/shared/chaos7.c                D        0x0cbadbb8  0x0cbadbbc
+# ev00ff_big_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to rays.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cba25f0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00ff/big_action.c            D        0x0cba2a80  0x0cba2a94
+# the materials of a model: an object starts on 8 here, past the 4 bytes of 0xff after white.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of white.c's object. nothing with code links between white.c and highway.c, so its object holds data alone. white.c can't hold it: other data follows its own in EV0020, EV0035, EV0044 and others, where its object would carry this too. strips meet it on 8 with no fill at 0x0cba2b98, so the bytes don't say how far its object runs: the generated row from there may be its. that row's model names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev00ff/dat_0cba2aa8.c          D        0x0cba2aa8  0x0cba2b98
+# the names of the textures that the 2 texture name tables at 0x0cb98cc8 and 0x0cb9bba4 in this object's data name. the names of the table at 0x0cb9bba4 start off 8 straight after those of the table at 0x0cb98cc8, so they are one object's constants. after the table at 0x0cb98cc8, each item to points at 0x0cb98f5c starts off 8, so they share its object. the table at 0x0cb9bba4 starts off 8, straight after an action at 0x0cb9bb9c, so it shares that item's object. the names and the data from 0x0cb98cc8 to 0x0cb9bbf8 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev00ff_emerald_texlist and ev00ff_bird_texlist, which name the tables at 0x0cb98cc8 and 0x0cb9bba4. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 6 bytes short of highway.c's constants on 8. they are script.c's, whose code reads ev00ff_emerald_action, ev00ff_emerald_texlist and 7 more in that data, were the 4 bytes before them and the data from its own data to the tables its too; big_action.c's, which has no constants row and can link between them, were the data from the tables to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. highway.c can't hold them while big_action.c's, rays.c's, white.c's and dat_0cba2aa8.c's data, between its own and the tables, is theirs. the 4 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the 6 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 4 bytes before them and the 6 bytes after them, and the fill rule takes them as the linker's fill
+events/ev00ff/emerald_textures.c      C        0x0cb84200  0x0cb84262
+# its data, from 0x0cb98cc8 to 0x0cb9bbf8: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. ev00ff_bird_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev00ff/emerald_textures.c      D        0x0cb98cc8  0x0cb9bbf8
+#
+# generated data ranges
+gen/ev00ff/d_0cb84390.c               D        0x0cb84390  0x0cb98cc8
+gen/ev00ff/d_0cb9bbf8.c               D        0x0cb9bbf8  0x0cba2a80
+gen/ev00ff/d_0cba2b98.c               D        0x0cba2b98  0x0cbad9b8

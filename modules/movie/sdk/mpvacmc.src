@@ -1,0 +1,119 @@
+; the intra macroblock writer. it clips an intra macroblock's decoded blocks
+; to bytes, stores them at their destinations and copies them to the output
+
+        .EXPORT     _MPVACMC_OutputIntra6blk
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; void MPVACMC_OutputIntra6blk(Sint16 *blocks, Uint8 *write,
+;                              struct mpv_out_block *out, const Uint8 *clip)
+; clip the six blocks of 64 values at blocks to bytes: a value v becomes
+; clip[v]. block i goes to out[i].start, as 8 rows of 8 bytes out[i].pitch
+; apart. its rows then go on to write, 64 bytes a block and 384 in all. the
+; rows and write must be 8-byte aligned. the six out[i].start may be one
+; address, as mpvcmc_InitMcOiTa sets them, since each block goes on to write
+; before the next is clipped. a PREF follows each 32 bytes written to write. at
+; a store queue address, the PREF sends the queue to memory. where a row starts
+; a 32-byte line, MOVCA.L allocates the line in the cache without reading
+; memory. on a cache miss, the rest of that line is then undefined until
+; written
+; @asm opcode: movca, MOVCA.L R0,@R12 at 0x8ceb1cb0 allocates a row's line
+; without reading it
+_MPVACMC_OutputIntra6blk:
+        MOV.L       R14,@-R15
+        MOV         R7,R0
+        MOV.L       R13,@-R15
+        MOV         #6,R7
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV         #31,R11
+        FSCHG                               ; FMOV moves pairs to the next FSCHG
+?block:
+        MOV.L       @R6+,R12
+        MOV.L       @R6+,R13
+        MOV         #8,R3
+        MOV         R12,R14
+?row:
+        MOV.W       @R4+,R1
+        TST         R11,R12
+        MOV.W       @R4+,R2
+        BF          ?clip
+        MOVCA.L     R0,@R12                 ; the row overwrites the stored R0
+?clip:
+        MOV.B       @(R0,R1),R1
+        MOV.B       @(R0,R2),R2
+        MOV.B       R1,@R12
+        ADD         #1,R12
+        MOV.B       R2,@R12
+        ADD         #1,R12
+        MOV.W       @R4+,R1
+        DT          R3
+        MOV.W       @R4+,R2
+        MOV.B       @(R0,R1),R1
+        MOV.B       @(R0,R2),R2
+        MOV.B       R1,@R12
+        ADD         #1,R12
+        MOV.B       R2,@R12
+        ADD         #1,R12
+        MOV.W       @R4+,R1
+        MOV.W       @R4+,R2
+        MOV.B       @(R0,R1),R1
+        MOV.B       @(R0,R2),R2
+        MOV.B       R1,@R12
+        ADD         #1,R12
+        MOV.B       R2,@R12
+        ADD         #1,R12
+        MOV.W       @R4+,R1
+        MOV.W       @R4+,R2
+        MOV.B       @(R0,R1),R1
+        MOV.B       @(R0,R2),R2
+        MOV.B       R1,@R12
+        ADD         #1,R12
+        MOV.B       R2,@R12
+        ADD         #-7,R12
+        BF/S        ?row
+        ADD         R13,R12
+        FMOV        @R14,DR0
+        ADD         R13,R14
+        FMOV        @R14,DR2
+        ADD         R13,R14
+        FMOV        @R14,DR4
+        ADD         R13,R14
+        FMOV        @R14,DR6
+        ADD         R13,R14
+        FMOV        DR0,@R5
+        ADD         #8,R5
+        FMOV        DR2,@R5
+        ADD         #8,R5
+        FMOV        DR4,@R5
+        ADD         #8,R5
+        FMOV        DR6,@R5
+        PREF        @R5
+        ADD         #8,R5
+        FMOV        @R14,DR0
+        ADD         R13,R14
+        FMOV        @R14,DR2
+        ADD         R13,R14
+        FMOV        @R14,DR4
+        ADD         R13,R14
+        FMOV        @R14,DR6
+        ADD         R13,R14
+        FMOV        DR0,@R5
+        ADD         #8,R5
+        FMOV        DR2,@R5
+        ADD         #8,R5
+        FMOV        DR4,@R5
+        ADD         #8,R5
+        FMOV        DR6,@R5
+        DT          R7
+        PREF        @R5
+        BF/S        ?block
+        ADD         #8,R5
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        FSCHG
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+
+        .END

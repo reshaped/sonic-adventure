@@ -1,0 +1,26 @@
+# EV00B0.PRS, E-102's activation
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb819d8
+C          0x0cb819d8  0x0cb81b10
+D          0x0cb81b10  0x0cb93454
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00b0/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00b0/script.c               P        0x0cb80008  0x0cb80cd0
+events/ev00b0/script.c               C        0x0cb819d8  0x0cb81b03
+events/ev00b0/script.c               D        0x0cb81b10  0x0cb81b20
+events/shared/noise.c                 P        0x0cb80cd0  0x0cb81460
+events/shared/noise.c                 D        0x0cb93438  0x0cb9343c
+events/shared/scanlines.c             P        0x0cb81460  0x0cb81614
+events/shared/scanlines.c             C        0x0cb81b08  0x0cb81b10
+events/shared/scanlines.c             D        0x0cb93440  0x0cb93448
+events/shared/sound.c                 P        0x0cb81614  0x0cb819d4
+events/shared/sound.c                 D        0x0cb93448  0x0cb93454
+#
+# generated data ranges
+gen/ev00b0/d_0cb81b20.c               D        0x0cb81b20  0x0cb93438

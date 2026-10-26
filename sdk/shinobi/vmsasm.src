@@ -1,0 +1,65 @@
+; the memory card file system's long word copy, and its 16-bit fields at a
+; byte offset, big- and little-endian
+
+        .EXPORT     _vmsfs_memcpyl
+        .EXPORT     _vmsfs_getword_big
+        .EXPORT     _vmsfs_getword_little
+        .EXPORT     _vmsfs_setword_big
+        .EXPORT     _vmsfs_setword_little
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void vmsfs_memcpyl(void *dst, const void *src, Sint32 size)
+; copy (Uint32)size / 4 long words from src to dst. DT tests the count after
+; each word, so a size under 4 copies 2^32 words
+; @asm name: vmsasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c671a9c
+_vmsfs_memcpyl:
+        SHLR2       R6
+?copy:
+        MOV.L       @R5+,R1
+        DT          R6
+        MOV.L       R1,@R4
+        BF/S        ?copy
+        ADD         #4,R4
+        RTS
+        NOP
+
+; Uint16 vmsfs_getword_big(void *buf, Sint32 offset)
+; the big-endian field at buf + offset
+; @asm opcode: swap, SWAP.B at 0x8c671ab0 swaps the field's bytes
+_vmsfs_getword_big:
+        ADD         R5,R4
+        MOV.W       @R4,R1
+        SWAP.B      R1,R1
+        RTS
+        EXTU.W      R1,R0
+
+; Uint16 vmsfs_getword_little(void *buf, Sint32 offset)
+; the little-endian field at buf + offset
+; @asm name: vmsasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c671ab6
+_vmsfs_getword_little:
+        ADD         R5,R4
+        MOV.W       @R4,R1
+        RTS
+        EXTU.W      R1,R0
+
+; void vmsfs_setword_big(void *buf, Sint32 offset, Uint16 value)
+; store value at buf + offset, big-endian
+; @asm opcode: swap, SWAP.B at 0x8c671abe swaps value's bytes
+_vmsfs_setword_big:
+        SWAP.B      R6,R6
+        ADD         R5,R4
+        RTS
+        MOV.W       R6,@R4
+
+; void vmsfs_setword_little(void *buf, Sint32 offset, Uint16 value)
+; store value at buf + offset, little-endian
+; @asm name: vmsasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c671ac6
+_vmsfs_setword_little:
+        ADD         R5,R4
+        RTS
+        MOV.W       R6,@R4
+        .END

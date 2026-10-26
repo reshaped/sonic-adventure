@@ -1,0 +1,141 @@
+# AL_MAIN.PRS, the code the gardens and the Chao race share
+#
+# section  start       end
+P          0x0c900000  0x0c91bae0
+D          0x0c91bae0  0x0ca84420
+B          0x0ca84420  0x0cb1eda0
+C          0x0cb1eda0  0x0cb2053c
+#
+# source                     section  start       end
+modules/al_main/chao.c       P        0x0c900000  0x0c900e00
+# ends where behavior.c's D begins, with no fill; its code indexes all 576 bytes, and its pool word at 0x0c900dcc is the only one in AL_MAIN, AL_RACE and the gardens that points into them
+modules/al_main/chao.c       D        0x0c91bae0  0x0c91bd20
+# its B opens B, and behavior.c's, the next object's, follows it. it holds alife_paused, at 0x0ca84428, to which only pool words of this code, card_menu.c's, egg.c's and vms.c's in AL_MAIN, AL_RACE, the gardens and 1ST_READ.BIN point, and the 8 bytes before it and the 12 after, to which no such word points. in zeros, the 12 could all be its, or the last 4 the linker's, before behavior.c's B on 8, or the last 8 behavior.c's, ahead of near_places, after 4 that are its or the linker's. neither the fill nor the build says whose
+modules/al_main/chao.c       B        0x0ca84420  0x0ca84438
+modules/al_main/behavior.c   P        0x0c900e00  0x0c901b60
+modules/al_main/behavior.c   D        0x0c91bd20  0x0c91be6c
+modules/al_main/behavior.c   B        0x0ca84438  0x0ca84458
+modules/al_main/card.c       P        0x0c901b60  0x0c902c80
+modules/al_main/card.c       D        0x0c91be70  0x0c91c490
+# its B starts on 8 where behavior.c's ends, with no fill. it holds the nine items its pool words name (0x0c901c4c to 0x0c902b4c), from card_menu_drives, which card_menu.c's and AL_RACE's cards.c's name too, to alife_data, which ends at 0x0cb0e4b0, and the 13,876 bytes among them past the sizes its code gives them, to which no word in AL_MAIN, AL_RACE or the gardens points. the row runs on to camera.c's B through 65,544 bytes of zeros, to which no such word points either. they could be its, cam_colli.c's, whose code names no data of its own, or camera.c's, ahead of garden_camera_still, and neither the fill nor the build says whose
+modules/al_main/card.c       B        0x0ca84458  0x0cb1e4b8
+modules/al_main/card.c       C        0x0cb1eda0  0x0cb1ee09
+modules/al_main/cam_colli.c  P        0x0c902c80  0x0c902e20
+# follows cam_colli.c with no fill; one file or two build the same
+modules/al_main/camera.c     P        0x0c902e20  0x0c9043c0
+# its B: what camera.h and the source declare, to camera_player, which ends at 0x0cb1e634, and the 548 bytes of zeros on to status.c's B, to which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points. they could be its, an object's linked between, shape.c to empty.c, after 4 bytes of fill, or status.c's, ahead of emotion_count, and neither the fill nor the build says whose
+modules/al_main/camera.c     B        0x0cb1e4b8  0x0cb1e858
+modules/al_main/camera.c     C        0x0cb1ee10  0x0cb1ee4c
+# shape_wear_jewel starts on 32 at 0x0c904a20 with no fill; alife_shape_init calls tree_copy, before it, with BSR at 0x0c904ce0
+modules/al_main/shape.c      P        0x0c9043c0  0x0c9069e0
+# its D meets data with no gap at both ends, after tables.c's animal_skill_bonuses and before sparkle.c's glint_texanims, so neither the fill nor the build decides its ends. the bonuses could be this object's, or these tables tables.c's, as tables.c's row says. the row holds the three tables the source declares, into which only pool words of this code and status.c's in AL_MAIN, AL_RACE and the gardens point: 0x0c904914, 0x0c904918 and 0x0c904d98, and 0x0c90e2c8, 0x0c90e2cc, 0x0c90e5c4 and 0x0c90e5c8
+modules/al_main/shape.c      D        0x0c91c730  0x0c91d318
+modules/al_main/shape.c      C        0x0cb1ee50  0x0cb1f014
+# 4 bytes on 8 where card.c's data ends, and a zero word to tables.c's chao_collisions on 8, to which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points and which no reader types. they could be card.c's, tables.c's, cam_colli.c's or camera.c's, which link after card.c with no row in D, though their code doesn't read them, or an object's of their own, and neither the fill nor the build says whose. they are placed as one of data alone, of unknown type, and the zero word is the linker's fill, as the fill rule takes it, or a word of their object
+modules/al_main/dat_0c91c490.c D        0x0c91c490  0x0c91c494
+# chao.c's, egg.c's and AL_RACE's entrant_chao.c's code read chao_collisions, and status.c's code reads the animals' tables. the first of those starts off 8 straight after the shapes, so they share an object. the skill bonuses start on 8 straight after the chances, so one file or two build the same there. the shapes start on 8 at 0x0c91c498, after dat_0c91c490.c's 4 bytes and a zero word, which nothing reads. those 8 bytes could be this object's, and were they card.c's, the shapes could be card.c's object's too. shape.c's D meets the bonuses on 8 with no gap at 0x0c91c730, so the bonuses could be shape.c's object's, or shape.c's tables this object's, as shape.c's row says, and neither the fill nor the build decides it. no code between card.c and shape.c, cam_colli.c's or camera.c's, reads any of it
+modules/al_main/tables.c     D        0x0c91c498  0x0c91c730
+modules/al_main/sparkle.c    P        0x0c9069e0  0x0c907240
+modules/al_main/sparkle.c    D        0x0c91d318  0x0c91d448
+modules/al_main/egg.c        P        0x0c907240  0x0c908700
+modules/al_main/egg.c        D        0x0c91d448  0x0c91d468
+modules/al_main/face.c       P        0x0c908700  0x0c908c40
+modules/al_main/face.c       D        0x0c91d468  0x0c91d58c
+modules/al_main/area.c       P        0x0c908c40  0x0c908d80
+# nine strings, each on 4, from 0x0cb1f018 to their last null, at 0x0cb1f079, which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN names and no code reads, so no reader gives them a type or a role. only their text suggests one, labels for the five areas area.c starts. they start on 8, 4 bytes past shape.c's constants, which end where its next constant would start on 4, and end 6 bytes short of icon.c's on 8. that is consistent with the constants of an object linked between, sparkle.c's, egg.c's, face.c's or area.c's, whose code reads none of them, or an object's of data alone, which the bytes leave open. they could be shape.c's or icon.c's only were the zero bytes beside them data. no generated row holds them, since no generated data names them. they are placed as one object's of data alone, of unknown type, and the fill rule takes the zero bytes on either side as the linker's fill
+modules/al_main/dat_0cb1f018.c C        0x0cb1f018  0x0cb1f07a
+modules/al_main/icon.c       P        0x0c908d80  0x0c90a220
+modules/al_main/icon.c       D        0x0c91d590  0x0c91d65c
+modules/al_main/icon.c       C        0x0cb1f080  0x0cb1f127
+# the material and strips of the model at 0x0c91d8c0, which it and its meshset at 0x0c91d758 name; nothing else reads them. the material starts on 8, 4 bytes past icon.c's data, which ends 4 bytes past 8. the word between, at 0x0c91d65c, which nothing in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of icon.c's object nothing reads. the strips follow the material off 8, so they are one object's, and the model's colors meet them on 8 with no fill, where one file or two build the same. the bytes leave them to the generated model's object, to icon.c's, were the word its, though its code doesn't read them, to physics.c's, motion.c's, chao_name.c's or empty.c's, which link between and place no data, though their code doesn't read them, or to one of data alone
+modules/al_main/dat_0c91d660.c D        0x0c91d660  0x0c91d6c8
+modules/al_main/physics.c    P        0x0c90a220  0x0c90c120
+modules/al_main/physics.c    C        0x0cb1f128  0x0cb1f170
+modules/al_main/motion.c     P        0x0c90c120  0x0c90c3c8
+modules/al_main/chao_name.c  P        0x0c90c3e0  0x0c90ca20
+modules/al_main/chao_name.c  C        0x0cb1f170  0x0cb1f1dc
+modules/al_main/empty.c      P        0x0c90ca20  0x0c90ca2c
+modules/al_main/status.c     P        0x0c90ca40  0x0c90ef20
+# its D meets data on 8 at both ends with no gap, after eight pointers from 0x0ca53298, to which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points, and before the drive's model at 0x0ca533e8, so neither the fill nor the build decides its ends. the row holds what the source declares, into which only this code's pool words in those images point (0x0c90cb18 to 0x0c90e2e4)
+modules/al_main/status.c     D        0x0ca532b8  0x0ca533e8
+# its B: the timers and the pointer's turn, to which only this code's pool words in AL_MAIN, AL_RACE, the gardens and 1ST_READ.BIN point (0x0c90cc84 to 0x0c90dee4), and the 8 bytes of zeros after them, to which no such word points: they could be its, the last 4 the linker's, before card_menu.c's B on 8, or card_menu.c's, ahead of card_menu, and neither the fill nor the build says whose
+modules/al_main/status.c     B        0x0cb1e858  0x0cb1e888
+modules/al_main/status.c     C        0x0cb1f1e0  0x0cb1f344
+# its D stays in generated data: the fill and the build leave open whether it starts at 0x0ca533e8, with the drive's model, or at 0x0ca539e0, past card_drive_object, and where it ends
+modules/al_main/card_menu.c  P        0x0c90ef20  0x0c910e60
+# its B: card_menu, to which pool words of this code and vms.c's point, the 4 bytes after it, to which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points, and which could be a last member of struct card_menu, and card_menu_cursor_steps, which only this code's words name. the 4 bytes of zeros on to alife.c's B on 8, to which no such word points, could be its or the linker's, and neither the fill nor the build says whose
+modules/al_main/card_menu.c  B        0x0cb1e888  0x0cb1e8bc
+# ends with no fill; its code reaches only these 200 bytes, its locals' initializers
+modules/al_main/card_menu.c  C        0x0cb1f348  0x0cb1f410
+# the code of AL_MAIN, the gardens and the race reads the three texlists, which with their tables run off 8 from 0x0ca54000 to 0x0ca54f24, so they share an object, and 4 zero bytes nothing points into end it before alife.c's D on 8. the names meet card_menu.c's initializers on 8 with no gap, and as one file with card_menu.c, R32 puts them after the initializers, as the next object would. the tables meet the menu's tables, in D's generated range, on 8 with no gap. so the bytes don't say whether they are card_menu.c's or an object's of their own
+modules/al_main/textures.c   C        0x0cb1f410  0x0cb20188
+modules/al_main/textures.c   D        0x0ca54000  0x0ca54f24
+modules/al_main/alife.c      P        0x0c910e60  0x0c911680
+modules/al_main/alife.c      D        0x0ca54f28  0x0ca54fe8
+# its B: alife_fruit_count, alife_character and alife_garden, which this code writes and card_menu.c's names none of, then the lists' counts and newest entries, which only this code's pool words name (0x0c910fc0 to 0x0c911350), alife_mark_count and dat_0cb1e8fc, and, past the sizes its code gives them and their alignment, 14 bytes among them to which no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points. the row runs on to vms.c's B through 152 bytes of zeros, to which no such word points either. they could be its, an object's linked between, mood.c to warp.c, or vms.c's, ahead of vms_taken, and neither the fill nor the build says whose
+modules/al_main/alife.c      B        0x0cb1e8c0  0x0cb1e998
+# the sprite express.c's favorite_draw draws, alife_favorite_sprite, which models.h declares, and the frames it names; nothing else reads them. the sprite follows the frames off 8, so they are one object's. the frames start on 8 straight after the texlist the sprite names, generated, where one file or two build the same. the zero word after the sprite, at 0x0ca5509c, which nothing in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as dat_0ca550a0.c's materials start on 8, or a last word of this object nothing reads. the bytes leave them to express.c's object, which links between and places no data, and whose code reads the sprite; to the texlist's object before them, and so to alife.c's, whose data the texlist meets on 8 with no fill, were the texlist its; to dat_0ca550a0.c's, were the word an unread datum of its; to mood.c's, follow.c's, take_animal.c's, hurt.c's, gesture.c's, hold.c's, evolve.c's, reborn.c's, court.c's, move.c's, music.c's or sleep.c's, which link between and place no data, though their code doesn't read them; or to one of data alone
+modules/al_main/favorite_sprite.c D        0x0ca54ff0  0x0ca5509c
+# the materials of alife_flower_object's model, at 0x0ca55ab4, which names them and gives their count; nothing else reads them. they start on 8, 4 bytes past favorite_sprite.c's data, past the zero word that row describes, and the model's strips meet them on 8 with no fill, where one file or two build the same. the bytes leave them to the generated model's object; to favorite_sprite.c's, were that word an unread datum of its, and so to express.c's or the others that row names; to court.c's, which links between and places no data, and whose code reads alife_flower_object, though not the materials; to mood.c's, follow.c's, take_animal.c's, hurt.c's, gesture.c's, hold.c's, evolve.c's, reborn.c's, move.c's, music.c's or sleep.c's, which link between and place no data, though their code doesn't read them; or to one of data alone
+modules/al_main/dat_0ca550a0.c D        0x0ca550a0  0x0ca550c8
+# fun_0c911f40 starts on 32 at 0x0c911f40 with no fill; split there, the code builds the same
+# fun_0c912120 starts on 32 at 0x0c912120 with no fill; split there, the code builds the same
+modules/al_main/mood.c       P        0x0c911680  0x0c912700
+# follows mood.c with no fill; one file or two build the same
+# alife_mark_favorite starts on 32 at 0x0c912820 with no fill; split there, the code builds the same
+modules/al_main/express.c    P        0x0c912700  0x0c91326c
+modules/al_main/express.c    C        0x0cb20188  0x0cb20194
+modules/al_main/follow.c     P        0x0c913280  0x0c9138c0
+modules/al_main/take_animal.c P       0x0c9138c0  0x0c913f80
+modules/al_main/take_animal.c C       0x0cb20198  0x0cb201bc
+modules/al_main/hurt.c       P        0x0c913f80  0x0c914380
+modules/al_main/gesture.c    P        0x0c914380  0x0c9148e0
+modules/al_main/hold.c       P        0x0c9148e0  0x0c914dc0
+# its constants: hold_offset, which its code reads, and 12 bytes after it, the same as hold_offset's, that no word in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN names. they start off 8 at 0x0cb201cc, so their first word is this object's. the last 8 start on 8 at 0x0cb201d0, so they could also start another object: one linked between, evolve.c's, reborn.c's, court.c's or move.c's, whose code reads none of them, music.c's, ahead of its constants, were its first constant one its code doesn't read, or an object's of data alone, and music.c's constants meet them on 8 with no gap. the source holds all 12 as an unread twin of hold_offset, which is consistent with the bytes, not proven by them
+modules/al_main/hold.c       C        0x0cb201c0  0x0cb201d8
+modules/al_main/evolve.c     P        0x0c914dc0  0x0c915080
+# follows evolve.c with no fill; one file or two build the same
+modules/al_main/reborn.c     P        0x0c915080  0x0c9153e0
+modules/al_main/court.c      P        0x0c9153e0  0x0c915b00
+modules/al_main/move.c       P        0x0c915b00  0x0c9172e0
+modules/al_main/music.c      P        0x0c9172e0  0x0c917aa0
+modules/al_main/music.c      C        0x0cb201d8  0x0cb201f0
+modules/al_main/sleep.c      P        0x0c917aa0  0x0c917ca0
+modules/al_main/animal.c     P        0x0c917ca0  0x0c918ba0
+# its D meets alife_white_flower_object on 8 with no gap, so neither the fill nor the build decides its start; only court.c's pool word in AL_MAIN, AL_RACE, the gardens and 1ST_READ.BIN points at that object (0x0c9155c4), and only this code's into the row (0x0c918488 to 0x0c918ad4)
+modules/al_main/animal.c     D        0x0ca56580  0x0ca56724
+modules/al_main/animal.c     C        0x0cb201f0  0x0cb20294
+# a motion's first keys, two of position, as its motion data at 0x0ca578d8 counts them; nothing else reads them. they start on 8, 4 bytes past animal.c's data, which ends 4 bytes past 8. the word between, at 0x0ca56724, which nothing in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of animal.c's object nothing reads. the next keys meet them on 8 with no fill, where one file or two build the same. the bytes leave them to the generated keys' object, to animal.c's, were the word its, though its code doesn't read them, or to one of data alone
+modules/al_main/dat_0ca56728.c D        0x0ca56728  0x0ca56748
+modules/al_main/tree.c       P        0x0c918ba0  0x0c91a120
+# its code reads alife_fruit_models, alife_fruit_scales and garden_tree_shapes, which end D before warp.c's on 8 past 4 zero bytes nothing points into. the fruit models start off 8, straight after an object no word names, so it is theirs. that object meets its model, the last of the fruits' in D's generated range, on 8 with no gap, so the bytes don't say whether those models are this object's. an object linked between animal.c and warp.c could hold all of it, and neither the fill nor the build says
+modules/al_main/tree.c       D        0x0ca801f8  0x0ca802ec
+modules/al_main/tree.c       C        0x0cb20298  0x0cb20364
+# warp_draw_at starts on 32 at 0x0c91a480 with no fill; split there, the code builds the same
+modules/al_main/warp.c       P        0x0c91a120  0x0c91aa48
+modules/al_main/warp.c       D        0x0ca802f0  0x0ca830a4
+modules/al_main/warp.c       C        0x0cb20368  0x0cb20438
+modules/al_main/vms.c        P        0x0c91aa60  0x0c91bae0
+modules/al_main/vms.c        D        0x0ca830a8  0x0ca84420
+# its B: vms_taken and vms_mail, which only this code's pool words in AL_MAIN, AL_RACE and the gardens point to (0x0c91afcc, 0x0c91b144, 0x0c91b268), and the 512 bytes between them, which R32 packs into the same object's bss
+modules/al_main/vms.c        B        0x0cb1e998  0x0cb1ed9c
+modules/al_main/vms.c        C        0x0cb20438  0x0cb2053c
+#
+# generated data ranges
+# models from the colors of dat_0c91d660.c's model
+gen/al_main/d_0c91d6c8.c     D        0x0c91d6c8  0x0c95d7e8
+gen/al_main/d_0c95d7e8.c     D        0x0c95d7e8  0x0c99dbf0
+gen/al_main/d_0c99dbf0.c     D        0x0c99dbf0  0x0c9de760
+gen/al_main/d_0c9de760.c     D        0x0c9de760  0x0ca1e8e8
+# to the node at 0x0ca52348, after its model, which shape.c reads through it: the row declares end, reading the node as the last datum of its object by the convention the next row's note admits, the likelier reading, not a proven one
+gen/al_main/d_0ca1e8e8.c     D        0x0ca1e8e8  0x0ca5237c  end
+# the data from 0x0ca52380, which motion.c reads as a table of motions, to the end of the row. the zero word before it, at 0x0ca5237c, which nothing in AL_MAIN, AL_RACE, the gardens or 1ST_READ.BIN points at, follows the node at 0x0ca52348, whose model shape.c reads, 4 bytes past 8: it is the linker's fill or a last word of that object. a model's data ends with its node, by the convention this row and the one before admit, and the table has another reader, so the row before declares end and this one start 8, and the splicer writes the word as the linker's fill: the likelier reading, not a proven one
+gen/al_main/d_0ca52380.c     D        0x0ca52380  0x0ca532b8  start 8
+gen/al_main/d_0ca533e8.c     D        0x0ca533e8  0x0ca54000
+# the texlist favorite_sprite.c's sprite names
+gen/al_main/d_0ca54fe8.c     D        0x0ca54fe8  0x0ca54ff0
+# alife_flower_object's model from its strips, after dat_0ca550a0.c's materials, and the models after it
+gen/al_main/d_0ca550c8.c     D        0x0ca550c8  0x0ca56580
+# motions and models from the keys after dat_0ca56728.c's
+gen/al_main/d_0ca56748.c     D        0x0ca56748  0x0ca5eec0
+gen/al_main/d_0ca5eec0.c     D        0x0ca5eec0  0x0ca801f8

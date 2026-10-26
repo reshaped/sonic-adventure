@@ -1,0 +1,125 @@
+; the decoder's section checks, and PSGSFD01's bytes. the checks test the
+; sizes and the order the link gives PSGSFD00 to PSGSFD03
+
+        .EXPORT     _MPVASEC_CheckSectionSiz
+        .EXPORT     _MPVASEC_CheckSectionSeq
+
+        .SECTION    PSG,CODE,ALIGN=4
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+        .SECTION    PSGSFD01,CODE,ALIGN=4
+        .SECTION    PSGSFD02,CODE,ALIGN=4
+        .SECTION    PSGSFD03,CODE,ALIGN=4
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; whether R5 is near R4: |R5 - R4| has no bit set outside 11, so it is 0 to 3
+; or 8 to 11. T and R0 are 1 when it is near, and 0 otherwise
+; @asm open: every instruction is one SHC writes for C
+within:
+        SUB         R4,R5
+        CMP/PZ      R5
+        MOV         #-12,R1                 ; ~11, every bit outside 11
+        MOV         R5,R0
+        BT          ?absolute
+        NEG         R0,R0
+?absolute:
+        TST         R1,R0
+        RTS
+        MOVT        R0
+        .ALIGN      4
+
+; Sint32 MPVASEC_CheckSectionSiz(void)
+; 0 when the linked size of each of PSGSFD00 to PSGSFD03 is near the size the
+; decoder wants of it, as within judges near. -1 otherwise
+; @asm operand: small-constant, MOV.L wanted+12,R5 at 0x8cedc836 loads 0 from
+; its pool, where R10 writes MOV #0,R5
+_MPVASEC_CheckSectionSiz:
+        STS.L       PR,@-R15
+        MOV.L       sizes,R4
+        MOV.L       wanted,R5
+        BSR         within
+        NOP
+        BF          ?missized
+        MOV.L       sizes+4,R4
+        MOV.L       wanted+4,R5
+        BSR         within
+        NOP
+        BF          ?missized
+        MOV.L       sizes+8,R4
+        MOV.L       wanted+8,R5
+        BSR         within
+        NOP
+        BF          ?missized
+        MOV.L       sizes+12,R4
+        MOV.L       wanted+12,R5
+        BSR         within
+        NOP
+        BF          ?missized
+        LDS.L       @R15+,PR
+        RTS
+        MOV         #0,R0
+?missized:
+        LDS.L       @R15+,PR
+        RTS
+        MOV         #-1,R0
+        .ALIGN      4
+
+; Sint32 MPVASEC_CheckSectionSeq(void)
+; 0 when each of PSGSFD01 to PSGSFD03 starts near the end of the section
+; before it, as within judges near. -1 otherwise
+; @asm open: no inspect rule reads the T its BF takes from within
+_MPVASEC_CheckSectionSeq:
+        STS.L       PR,@-R15
+        MOV.L       ends,R4
+        MOV.L       starts+4,R5
+        BSR         within
+        NOP
+        BF          ?unordered
+        MOV.L       ends+4,R4
+        MOV.L       starts+8,R5
+        BSR         within
+        NOP
+        BF          ?unordered
+        MOV.L       ends+8,R4
+        MOV.L       starts+12,R5
+        BSR         within
+        NOP
+        BF          ?unordered
+        LDS.L       @R15+,PR
+        RTS
+        MOV         #0,R0
+?unordered:
+        LDS.L       @R15+,PR
+        RTS
+        MOV         #-1,R0
+
+; each table holds one long a section, from PSGSFD00 on. the first three give
+; the section's start, end and size as linked, and wanted the size the decoder
+; wants of it
+starts:
+        .DATA.L     (STARTOF PSGSFD00)
+        .DATA.L     (STARTOF PSGSFD01)
+        .DATA.L     (STARTOF PSGSFD02)
+        .DATA.L     (STARTOF PSGSFD03)
+ends:
+        .DATA.L     (STARTOF PSGSFD00)+(SIZEOF PSGSFD00)
+        .DATA.L     (STARTOF PSGSFD01)+(SIZEOF PSGSFD01)
+        .DATA.L     (STARTOF PSGSFD02)+(SIZEOF PSGSFD02)
+        .DATA.L     (STARTOF PSGSFD03)+(SIZEOF PSGSFD03)
+sizes:
+        .DATA.L     (SIZEOF PSGSFD00)
+        .DATA.L     (SIZEOF PSGSFD01)
+        .DATA.L     (SIZEOF PSGSFD02)
+        .DATA.L     (SIZEOF PSGSFD03)
+wanted:
+        .DATA.L     H'000019F4
+        .DATA.L     H'0000060C
+        .DATA.L     H'00006000
+        .DATA.L     H'00000000
+
+        .SECTION    PSGSFD01,CODE,ALIGN=4
+
+; PSGSFD01's only bytes: 1,548 zeros, the size wanted asks of it
+        .DATAB.B    1548,0
+
+        .END

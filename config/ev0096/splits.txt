@@ -1,0 +1,25 @@
+# EV0096.PRS, Knuckles' third arrival in the past
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80958
+C          0x0cb80958  0x0cb809b0
+D          0x0cb809b0  0x0cb85ed4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0096/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0096/script.c                P        0x0cb80008  0x0cb80408
+events/ev0096/script.c                C        0x0cb80958  0x0cb809ae
+events/ev0096/script.c                D        0x0cb809b0  0x0cb809bc
+events/shared/fade.c                  P        0x0cb80408  0x0cb80594
+events/shared/fade.c                  D        0x0cb85ea8  0x0cb85ec8
+events/shared/sound.c                 P        0x0cb80594  0x0cb80954
+events/shared/sound.c                 D        0x0cb85ec8  0x0cb85ed4
+# position keys of a node of ev0096_knuckles_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80ba0, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0096/dat_0cb809c0.c          D        0x0cb809c0  0x0cb80ba0
+#
+# generated data ranges
+gen/ev0096/d_0cb80ba0.c               D        0x0cb80ba0  0x0cb85ea8

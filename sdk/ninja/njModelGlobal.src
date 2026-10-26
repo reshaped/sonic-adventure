@@ -1,0 +1,51 @@
+; Ninja's model workspace: 4768 bytes of bss, aligned to 32 bytes. each label
+; is a C name with SHC's leading underscore
+
+        .EXPORT     _polyvtx
+        .EXPORT     _texvtx
+        .EXPORT     _vtx2
+        .EXPORT     _vtx3
+        .EXPORT     _vtx4
+        .EXPORT     _vtxbuf
+        .EXPORT     __njm_inten
+        .EXPORT     __njm_col2
+        .EXPORT     __njm_col
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+        .SECTION    BSG32,DATA,ALIGN=32
+
+; 2080 bytes of no known type: no word in 1ST_READ.BIN points into them
+_polyvtx:
+        .RES.B      2080
+; 2080 bytes of no known type: no word in 1ST_READ.BIN points into them
+_texvtx:
+        .RES.B      2080
+; struct clip_vertex vtx2[4]
+; the textured corners njModel.c's clippers build, 64 bytes each. vtx2[2]
+; and vtx2[3] run on through vtx3
+_vtx2:
+        .RES.L      32
+; vtx3, the bytes of vtx2[2] and vtx2[3]
+_vtx3:
+        .RES.L      32
+; struct color_vertex vtx4[4]
+; the untextured corners njModel.c's clippers build, 32 bytes each
+_vtx4:
+        .RES.L      32
+; 128 bytes of no known type: no word in 1ST_READ.BIN points into them
+_vtxbuf:
+        .RES.B      128
+; one 96-byte block under three names, which no C object can give it.
+; _njm_inten, of no known type, _njm_col2 and _njm_col all start at its first
+; byte
+__njm_inten:
+; NJS_ARGB _njm_col2[2]
+; one vertex's lit colors, diffuse then specular, in _njm_col[0]'s bytes
+__njm_col2:
+; NJS_ARGB _njm_col[3][2]
+; the lit colors of a triangle's three corners, each diffuse then specular
+__njm_col:
+        .RES.L      24
+
+        .END

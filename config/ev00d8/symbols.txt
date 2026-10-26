@@ -1,0 +1,6 @@
+# EV00D8.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00d8_head
+0x0cb80008  ev00d8_script
+0x0cb804b0  ev00d8_textures

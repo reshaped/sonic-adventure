@@ -1,0 +1,40 @@
+        .EXPORT     __slow_mvn
+
+        .SECTION    P,CODE,ALIGN=4
+
+; copy R0 bytes from R2 to R1 a byte at a time, so neither block needs to be
+; aligned. R0 may be 0. the two blocks don't overlap. it changes R0, R1 and
+; T, and no other register
+; @asm open: no inspect rule reads R0 or R2 at its entry
+__slow_mvn:
+        MOV.L       R2,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       R4,@-R15
+        CMP/EQ      #0,R0
+        BT          smvn_copy_done
+        MOV         R2,R4
+        ADD         R0,R4
+smvn_copy_four:
+        MOV.B       @R2+,R0
+        MOV.B       R0,@R1
+        CMP/HI      R2,R4
+        BF          smvn_copy_done
+        MOV.B       @R2+,R0
+        MOV.B       R0,@(1,R1)
+        CMP/HI      R2,R4
+        BF          smvn_copy_done
+        MOV.B       @R2+,R0
+        MOV.B       R0,@(2,R1)
+        CMP/HI      R2,R4
+        BF          smvn_copy_done
+        MOV.B       @R2+,R0
+        MOV.B       R0,@(3,R1)
+        CMP/HI      R2,R4
+        ADD         #4,R1
+        BT          smvn_copy_four
+smvn_copy_done:
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R3
+        RTS
+        MOV.L       @R15+,R2
+        .END

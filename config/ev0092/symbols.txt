@@ -1,0 +1,34 @@
+# EV0092.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0092_head
+0x0cb80008  ev0092_script
+0x0cb805b4  event_fade_draw
+0x0cb8065e  event_fade_step
+0x0cb80680  event_fade_destroy
+0x0cb80684  event_fade_init
+0x0cb80692  event_fade_create
+0x0cb806ec  event_fade_set_speed
+0x0cb806f4  event_fade_set_alpha
+0x0cb80728  event_fade_set_color
+0x0cb80738  event_fade_set_depth
+0x0cb80740  event_sound_destroy
+0x0cb80750  event_sound_step
+0x0cb807f2  event_sound_hold
+0x0cb80852  event_sound_move_volume
+0x0cb80878  event_sound_move_pan
+0x0cb8089e  event_sound_move_pitch
+0x0cb808c4  event_sound_init
+0x0cb808ec  event_sound_stop_all
+0x0cb8094a  event_sound_start
+0x0cb8098a  event_sound_stop
+0x0cb80a04  event_sound_fade_volume
+0x0cb80a30  event_sound_fade_pan
+0x0cb80a5c  event_sound_fade_pitch
+0x0cb80a88  event_sound_play
+0x0cb80b38  ev0092_textures
+0x0cb80b48  ev0092_fade
+0x0cb80b50  event_fade_corners
+0x0cb80b70  event_sound_count
+0x0cb80b74  event_sounds
+0x0cb80b78  event_sound_next

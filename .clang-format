@@ -1,0 +1,23 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+PointerAlignment: Right
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+InsertBraces: true
+IndentCaseLabels: false
+SpaceAfterCStyleCast: false
+AlignAfterOpenBracket: Align
+AlignTrailingComments: false
+# SHC lays out bss in the order names are first declared, in headers too,
+# so moving an include can move bytes
+SortIncludes: Never
+NumericLiteralCase:
+  ExponentLetter: Lower
+  HexDigit: Lower
+  Prefix: Lower
+  Suffix: Upper

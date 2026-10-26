@@ -1,0 +1,19 @@
+# EV0134.PRS, back on the Egg Carrier, Amy wonders if her bird's family is still aboard, and hears a voice from above
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80298
+C          0x0cb80298  0x0cb80368
+D          0x0cb80368  0x0cb82e54
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0134/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0134/script.c               P        0x0cb80008  0x0cb80298
+events/ev0134/script.c               C        0x0cb80298  0x0cb80362
+events/ev0134/script.c               D        0x0cb80368  0x0cb80370
+#
+# generated data ranges
+gen/ev0134/d_0cb80370.c               D        0x0cb80370  0x0cb82e54

@@ -1,0 +1,32 @@
+# EV0097.PRS, Knuckles finds Tikal at the altar
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb823d0
+C          0x0cb823d0  0x0cb824a0
+D          0x0cb824a0  0x0cba95ac
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0097/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0097/script.c                P        0x0cb80008  0x0cb80904
+events/ev0097/script.c                C        0x0cb823d0  0x0cb8249e
+events/ev0097/script.c                D        0x0cb824a0  0x0cb824b4
+events/shared/prop.c                  P        0x0cb80904  0x0cb80bc4
+events/shared/prop.c                  D        0x0cba9530  0x0cba9558
+events/shared/move.c                  P        0x0cb80bc4  0x0cb816e8
+events/shared/move.c                  D        0x0cba9558  0x0cba9580
+events/shared/mover.c                 P        0x0cb816e8  0x0cb81e80
+events/shared/fade.c                  P        0x0cb81e80  0x0cb8200c
+events/shared/fade.c                  D        0x0cba9580  0x0cba95a0
+events/shared/sound.c                 P        0x0cb8200c  0x0cb823cc
+events/shared/sound.c                 D        0x0cba95a0  0x0cba95ac
+# position keys of a node of ev0097_knuckles_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and prop.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb82698, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0097/dat_0cb824b8.c          D        0x0cb824b8  0x0cb82698
+# ev0097_tikal_action_4 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to prop.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cba8ea8 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. the same two items, but for the words that point into the image, end the data before prop.c's in EV00FB, where each event's own source holds them: consistent with one object that each event links. script.c reads the action, and places its data elsewhere
+events/ev0097/tikal_action_4.c        D        0x0cba9518  0x0cba952c
+#
+# generated data ranges
+gen/ev0097/d_0cb82698.c               D        0x0cb82698  0x0cba9518

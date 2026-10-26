@@ -1,0 +1,9 @@
+/* the action Tails repeats throughout the event */
+#ifndef EV000B_TAILS_ACTION_0_H
+#define EV000B_TAILS_ACTION_0_H
+
+#include <ninja.h>
+
+extern NJS_ACTION ev000b_tails_action_0;
+
+#endif

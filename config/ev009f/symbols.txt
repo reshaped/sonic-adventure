@@ -1,0 +1,44 @@
+# EV009F.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev009f_head
+0x0cb80008  ev009f_script
+0x0cb803dc  event_sparkle_step
+0x0cb80472  event_sparkle_create
+0x0cb80508  event_sparkle_step_shrinking
+0x0cb8059e  event_sparkle_create_shrinking
+0x0cb80674  event_sprite_load_texture
+0x0cb8067a  event_sprite_loop_draw
+0x0cb8072c  event_sprite_loop_step
+0x0cb80730  event_sprite_destroy
+0x0cb8074e  event_sprite_draw
+0x0cb80916  event_sprite_step
+0x0cb80960  event_sprite_kill
+0x0cb80982  event_sprite_loop_start
+0x0cb80a1e  event_sprite_create_loop
+0x0cb80b48  event_sprite_start
+0x0cb80c28  event_sprite_create
+0x0cb80da6  event_sprite_set_scale
+0x0cb80dc4  event_sprite_set_color
+0x0cb80dec  event_sprite_turn
+0x0cb80e0c  event_sprite_set_growth
+0x0cb80e2c  event_sprite_nop
+0x0cb80e30  event_sprite_set_speed
+0x0cb80e70  event_fade_draw
+0x0cb80f1a  event_fade_step
+0x0cb80f3c  event_fade_destroy
+0x0cb80f40  event_fade_init
+0x0cb80f4e  event_fade_create
+0x0cb80fa8  event_fade_set_speed
+0x0cb80fb0  event_fade_set_alpha
+0x0cb80fe4  event_fade_set_color
+0x0cb80ff4  event_fade_set_depth
+0x0cb81160  ev009f_textures
+0x0cb833d4  ev009f_knuckles_action_0
+0x0cb83450  event_sprite_slots
+0x0cb834a0  event_sprite_splash_textures
+0x0cb83500  event_sprite_texlists
+0x0cb835b0  event_sprite_frames
+0x0cb836f0  event_fade_corners
+0x0cb83710  ev009f_sparkle_pos
+0x0cb8371c  ev009f_sparkle_speed

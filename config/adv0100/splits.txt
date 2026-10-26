@@ -1,0 +1,150 @@
+# ADV0100.PRS, the Egg Carrier outside
+#
+# section  start       end
+PHEAD      0x0c920000  0x0c9201a0
+CHEAD      0x0c9201a0  0x0c9218a0
+DHEAD      0x0c9218a0  0x0c923b60
+P          0x0c923b60  0x0c92f840
+D          0x0c92f840  0x0cb2c8b8
+C          0x0cb2c8b8  0x0cb2dd52
+B          0x0cb2dd58  0x0cb300d4
+#
+# source                        section  start       end
+# the pvm lists' names follow the texture names from 0x0c9217f8, on 4 where this object's next string would start and on 8 where another's would; the lists, in this object's DHEAD, decide it
+modules/adv0100/texlists.c      CHEAD    0x0c9201a0  0x0c92189d
+# the stage's pvm list starts off 8 at 0x0c923a8c, straight after raft_texlist, and the act list off 8 at 0x0c923b14, so both continue this object; the stage's list and the sea list share their first and last names, one string each at 0x0c9217f8 and 0x0c921818, as one object's strings merge
+modules/adv0100/texlists.c      DHEAD    0x0c9218a0  0x0c923b54
+# starts on 8 past a four-byte zero gap nothing points into, where texlists.c's next item would start on 4: as one file, texlists.c puts it at 0x0c923b54. only 1ST_READ.BIN's object_lists reads it. the bytes don't say whether its kinds at 0x0cae67f8, and their names in C, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/adv0100/object_list.c   DHEAD    0x0c923b58  0x0c923b60
+modules/adv0100/scene_change.c  P        0x0c923b60  0x0c923ec0
+modules/adv0100/gate.c          P        0x0c923ec0  0x0c9240c0
+modules/adv0100/gate.c          D        0x0ca86e08  0x0ca86e3c
+modules/adv0100/book.c          P        0x0c9240c0  0x0c924220
+modules/adv0100/book.c          D        0x0ca86e40  0x0ca86ea8
+modules/adv0100/beach_chair.c   P        0x0c924220  0x0c924380
+modules/adv0100/eggman_bed.c    P        0x0c924380  0x0c924500
+modules/adv0100/eggman_bed.c    D        0x0ca86ea8  0x0ca86edc
+modules/adv0100/parasol.c       P        0x0c924500  0x0c924600
+modules/adv0100/parasol.c       D        0x0ca86ee0  0x0ca86f14
+modules/adv0100/cannon.c        P        0x0c924600  0x0c9251e0
+modules/adv0100/cannon.c        D        0x0ca86f18  0x0ca87200
+modules/adv0100/cannon.c        C        0x0cb2c8b8  0x0cb2c912
+modules/adv0100/saturn.c        P        0x0c9251e0  0x0c9253c0
+modules/adv0100/saturn.c        D        0x0ca87200  0x0ca87234
+modules/adv0100/saturn.c        C        0x0cb2c918  0x0cb2c93c
+modules/adv0100/egg_cap.c       P        0x0c9253c0  0x0c925620
+modules/adv0100/egg_cap.c       D        0x0ca87238  0x0ca8726c
+modules/adv0100/egg_seat.c      P        0x0c925620  0x0c925ac0
+modules/adv0100/elevator.c      P        0x0c925ac0  0x0c925ea0
+modules/adv0100/elevator.c      D        0x0ca87270  0x0ca872a4
+modules/adv0100/heli.c          P        0x0c925ea0  0x0c925f80
+modules/adv0100/crate.c         P        0x0c925f80  0x0c9269a0
+modules/adv0100/crate.c         D        0x0ca872a8  0x0ca87318
+modules/adv0100/living_light.c  P        0x0c9269a0  0x0c926b04
+modules/adv0100/living_light.c  D        0x0ca87318  0x0ca873b4
+modules/adv0100/living_light.c  C        0x0cb2c940  0x0cb2c964
+modules/adv0100/move_seat.c     P        0x0c926b20  0x0c926da0
+modules/adv0100/move_seat.c     D        0x0ca873b8  0x0ca87434
+modules/adv0100/palm.c          P        0x0c926da0  0x0c926ea0
+modules/adv0100/palm.c          D        0x0ca87438  0x0ca8746c
+# search_light_swing starts on 32 at 0x0c926fe0 with no fill; split there, the code builds the same
+modules/adv0100/search_light.c  P        0x0c926ea0  0x0c927560
+modules/adv0100/search_light.c  D        0x0ca87470  0x0ca8750c
+modules/adv0100/search_light.c  C        0x0cb2c968  0x0cb2c9aa
+modules/adv0100/slot.c          P        0x0c927560  0x0c927a60
+modules/adv0100/slot.c          D        0x0ca87510  0x0ca87578
+modules/adv0100/slot.c          C        0x0cb2c9b0  0x0cb2c9ea
+modules/adv0100/tornado.c       P        0x0c927a60  0x0c927cc8
+modules/adv0100/washer.c        P        0x0c927ce0  0x0c928324
+modules/adv0100/washer.c        D        0x0ca87578  0x0ca875ac
+modules/adv0100/washer.c        C        0x0cb2c9f0  0x0cb2ca14
+modules/adv0100/side_lift.c     P        0x0c928340  0x0c928c60
+modules/adv0100/side_lift.c     C        0x0cb2ca18  0x0cb2ca76
+modules/adv0100/gunsight.c      P        0x0c928c60  0x0c9293a0
+modules/adv0100/gunsight.c      D        0x0ca875b0  0x0ca87618
+modules/adv0100/lightning.c     P        0x0c9293a0  0x0c92a060
+modules/adv0100/lightning.c     D        0x0ca87618  0x0ca87624
+modules/adv0100/lightning.c     C        0x0cb2ca78  0x0cb2ca9c
+modules/adv0100/propeller.c     P        0x0c92a060  0x0c92a1c0
+modules/adv0100/propeller.c     C        0x0cb2caa0  0x0cb2cac4
+modules/adv0100/pool_door.c     P        0x0c92a1c0  0x0c92a3c0
+modules/adv0100/pool_door.c     D        0x0ca87628  0x0ca8765c
+modules/adv0100/pool_door.c     C        0x0cb2cac8  0x0cb2caec
+modules/adv0100/pool_water.c    P        0x0c92a3c0  0x0c92a606
+modules/adv0100/egg_lift.c      P        0x0c92a620  0x0c92ace8
+modules/adv0100/egg_lift.c      D        0x0ca87660  0x0ca876ac
+modules/adv0100/monorail.c      P        0x0c92ad00  0x0c92b9a6
+modules/adv0100/monorail.c      D        0x0ca876b0  0x0ca87714
+modules/adv0100/monorail.c      B        0x0cb2dd58  0x0cb2de30
+modules/adv0100/door.c          P        0x0c92b9c0  0x0c92be60
+modules/adv0100/door.c          D        0x0ca87718  0x0ca877b4
+# follows door.c with no fill; as one file, the code runs 32 bytes shorter. 557 of its 1,708 bytes differ
+modules/adv0100/palm_base.c     P        0x0c92be60  0x0c92c0a0
+# its data ends 4 past 8, and the generated data starts on 8 4 bytes on, at 0x0ca87838: the word between, which nothing here, in ADV01OBJ.BIN or in 1ST_READ.BIN points at, is the linker's fill or a word of palm_base.c's object. the generated row declares start 8, and the splicer writes the word as the linker's fill: the likelier reading, not a proven one, as that row's note gives
+modules/adv0100/palm_base.c     D        0x0ca877b8  0x0ca87834
+modules/adv0100/pier.c          P        0x0c92c0a0  0x0c92c6e0
+modules/adv0100/pier.c          C        0x0cb2caf0  0x0cb2cb08
+# follows pier.c with no fill; one file or two build the same
+modules/adv0100/mast.c          P        0x0c92c6e0  0x0c92c8c0
+modules/adv0100/station.c       P        0x0c92c8c0  0x0c92cf20
+modules/adv0100/sky_deck.c      P        0x0c92cf20  0x0c92d1fa
+modules/adv0100/back_fire.c     P        0x0c92d200  0x0c92d2a0
+# follows back_fire.c with no fill; as one file, 134 of 260 code bytes differ
+modules/adv0100/countdown.c     P        0x0c92d2a0  0x0c92d320
+modules/adv0100/palette.src     P        0x0c92d320  0x0c92d3f0
+modules/adv0100/sky.c           PHEAD    0x0c920000  0x0c9200a0
+modules/adv0100/sky.c           P        0x0c92d400  0x0c92de60
+modules/adv0100/sky.c           D        0x0cae6c98  0x0cae6d54
+modules/adv0100/sky.c           C        0x0cb2cd88  0x0cb2cd98
+modules/adv0100/sky.c           B        0x0cb2de50  0x0cb300b0
+modules/adv0100/egg_carrier.c   PHEAD    0x0c9200a0  0x0c9201a0
+modules/adv0100/egg_carrier.c   P        0x0c92de60  0x0c92e760
+modules/adv0100/egg_carrier.c   D        0x0cae6d58  0x0cae6df8
+modules/adv0100/egg_carrier.c   B        0x0cb300b0  0x0cb300c8
+modules/adv0100/scripts.c       C        0x0cb2cd98  0x0cb2d879
+modules/adv0100/people.c        P        0x0c92e760  0x0c92f240
+# people_count ends 4 past 8, and dat_0cae7448.c's models start on 8 4 bytes on, at 0x0cae7448: the linker's fill, as the fill rule takes it, or a word of people.c's object nothing reads
+modules/adv0100/people.c        D        0x0cae7438  0x0cae7444
+# two nodes of the Eggmobile, which people.c's kinds draw through its action, dat_0caf2f44, and their models, with which the data of its tree opens. the second node's child is the first, and the second model's material follows the first node off 8. the first model's strips and colors follow its material off 8, and its normals follow its points off 8. the second model's meshset and points follow its colors off 8, and its model and the second node follow its normals off 8. but seven items start on 8 straight after the item before, with no fill: the first model's meshset, points and model, at 0x0cae7470, 0x0cae7488 and 0x0cae74d0, the first node, at 0x0cae74f8, and the second model's strips, colors and normals, at 0x0cae7540, 0x0cae7548 and 0x0cae7590. one file or several build the same at each of those seams, so the bytes join only those runs. the pointers between the parts are consistent with one object. each part from a seam on could be another object's: one of data alone, object_list.c's or texlists.c's, which can link between, or, with everything after it, the generated tree's. they start on 8, 4 bytes past people.c's data, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a word of people.c's object nothing reads, and either builds the same. the tree's next model starts on 8 straight after the second node, at 0x0cae7610, where one file or two build the same. the generated rest of the tree is consistent with one object with them. the object is one of data alone, the generated tree's, people.c's, were the zero word its, though its code doesn't read them, or object_list.c's or texlists.c's, objects of head data alone that can link between
+modules/adv0100/dat_0cae7448.c  D        0x0cae7448  0x0cae7610
+modules/adv0100/people.c        C        0x0cb2d880  0x0cb2db1d
+modules/adv0100/people.c        B        0x0cb300c8  0x0cb300d4
+modules/adv0100/boat.c          P        0x0c92f240  0x0c92f5a0
+modules/adv0100/boat.c          D        0x0cb01c38  0x0cb01cd4
+modules/adv0100/raft.c          P        0x0c92f5a0  0x0c92f840
+modules/adv0100/raft.c          D        0x0cb01cd8  0x0cb01d0c
+# the zones in which a player dies, one model of a quad for each of the six acts, the acts' lists and the array by act, which 1ST_READ.BIN's death_zones names, and death_zone_step and knuckles.c read for the act in hand. no code here reads them. the field's lands run to act 5 and its camera layouts to act 6, and the array's seventh entry names an empty list, so the array has seven entries. the word after it, at 0x0cae7434, which nothing reads, is fill the rule verifies, as people.c's data starts on 8; an eighth, null entry there would build the same. each item starts straight after the one before, with no fill. where one starts off 8 it joins the item before: acts 0's, 2's and 4's meshes join their materials, acts 1's, 3's and 5's materials join the act before's object, and their items from meshset to object join their meshes. the other items, the lists and the array start on 8, acts 0's, 2's and 4's meshsets 2 bytes past the meshes, where the next item on 4 would start too. one file or several build the same at each of those seams. the pointers between them are consistent with one object, as AL_GARDEN00's zone's do. the materials meet egg_carrier.c's data on 8 with no gap, so the bytes leave the zones to egg_carrier.c's object, though its code doesn't read them, to object_list.c's, scripts.c's or texlists.c's, which can link between, or to one of their own. were the word after the array its eighth entry, people.c's data would meet the array on 8 with no fill, and people.c's object could hold them too
+modules/adv0100/death_zones.c   D        0x0cae6df8  0x0cae7434
+# ec_transform_texlist, which egg_carrier.c and the pvm lists in texlists.c name, its 47 textures, and the materials and first two strips of the model after them, which its generated meshsets name. the texlist follows the textures off 8, and the materials and strips follow it off 8, so all are one object's. the next strips start on 8 straight after, at 0x0cb01fe8, where one file or two build the same, and the bytes don't say whether the rest of the model shares this object. the textures start on 8, 4 bytes past raft.c's data, where raft.c's next item would start on 4, and nothing points into the 4 bytes, which is consistent with separate objects. the names start on 8 where people.c's next string would start on 4, so the bytes don't part them there, but people.c's data lies before boat.c's and raft.c's, so it can't hold the textures. the names end C, and B starts on 8 6 bytes past the last. the object is one of its own, object_list.c's or texlists.c's, which can link after raft.c and people.c, or, were the 4 bytes before the textures a word of raft.c's, raft.c's
+modules/adv0100/transform_textures.c D   0x0cb01d10  0x0cb01fe8
+modules/adv0100/transform_textures.c C   0x0cb2db20  0x0cb2dd52
+# the node outside_act5_land's last entry names. it starts on 8 straight after the generated node at 0x0ca7fde4, which names the same model, at 0x0ca7be34, generated too. one file or two build the same there. act0_land.c's entries start on 8, 4 bytes past it, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, act0_land.c's, were the zero word its, scene_change.c's, which links between with no row in D, though its code doesn't read it, or object_list.c's or texlists.c's, objects of head data alone that can link between
+modules/adv0100/dat_0ca7fe18.c  D        0x0ca7fe18  0x0ca7fe4c
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code here reads: its 305 entries, its moving part and its table, which names both. the moving part follows the entries off 8, and the table the moving part, so the three are one object's. the entries start on 8, 4 bytes past dat_0ca7fe18.c's node, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of the node's object nothing reads, and either builds the same. act 1's land's entries start on 8 straight after the table, at 0x0ca82970, where one file or two build the same. the object is one of data alone, the node's, were the zero word its, that of the generated data after it, scene_change.c's, which links between with no row in D, though its code doesn't read it, or object_list.c's or texlists.c's, objects of head data alone that can link between
+modules/adv0100/act0_land.c     D        0x0ca7fe50  0x0ca82970
+# act 5's land, which 1ST_READ.BIN's world_lands names and no code here reads. it starts on 8 straight after its entries, generated, where one file or two build the same. the bytes don't say whether they share its object. act 0's is act0_land.c's, with its entries and moving part. the other acts' lands start 4 past 8, straight after their entries or motions, so each shares an object with the generated data before it, and stays in its row. gate.c's data starts on 8 4 bytes past the land, where the land's object's next item would start on 4, and nothing points into the 4 bytes. they are the linker's fill, as the fill rule takes them, or a last word of the land's object nothing reads, which builds the same. the land is an object's of data alone, its entries' object's, scene_change.c's, which links between with no row in D, though its code doesn't read it, object_list.c's or texlists.c's, objects of head data alone that can link between, or gate.c's, were the 4 bytes after it a word of gate.c's
+modules/adv0100/act5_land.c     D        0x0ca86de0  0x0ca86e04
+# the 59 kinds the object list names, which placement.c reads by a set entry's id, and their 57 names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds start on 8 straight after generated data, where one file or two build the same. they end 4 past 8, 4 bytes short of sky.c's data on 8: the linker's fill, as the fill rule takes them, or a last word of this object nothing reads, which builds the same. the names start on 8, 5 bytes past the one-texture list's name, 4 past where that object's next string would start, which is consistent with separate objects. sky.c's constants start on 8 3 bytes past the last, which the rule verifies. the bytes leave the kinds to an object of their own, the object list's, as B_EGM3's list shares its kinds' object, the generated data's before them, that of mast.c, station.c, sky_deck.c, back_fire.c or countdown.c, which link between in both sections with no row there, though their code doesn't read them, texlists.c's, an object of head data alone that can link between, or sky.c's, were the 4 bytes after them a word of sky.c's
+modules/adv0100/kinds.c         C        0x0cb2cb18  0x0cb2cd85
+modules/adv0100/kinds.c         D        0x0cae67f8  0x0cae6c94
+# the root object of pool_door_model, which pool_door.c draws, and a list of one texture and its texlist, which nothing names. the list follows the object off 8, so the two are one object's. the texlist starts on 8 straight after the list, which it names, where one file or two build the same. the object starts on 8 straight after the model, generated, and a material meets the texlist on 8 with no fill at 0x0cace718: the bytes don't say whether either shares this object. the name meets pier.c's constants on 8 with no fill. the kinds' names start on 8, 5 bytes past it, 4 past where this object's next string would start, which is consistent with separate objects. the fill rule verifies the 5 bytes. pool_door.c's data lies elsewhere in D, before palm_base.c's, so it can't hold them. the object is one of data alone, the model's, pier.c's, whose constants the name meets and which has no row in D, though its code doesn't read them, or that of mast.c, station.c, sky_deck.c, back_fire.c, countdown.c, object_list.c or texlists.c, which can link between in both sections
+modules/adv0100/pool_door_object.c D     0x0cace6d0  0x0cace718
+modules/adv0100/pool_door_object.c C     0x0cb2cb08  0x0cb2cb13
+#
+# generated data ranges
+gen/adv0100/d_0c92f840.c        D        0x0c92f840  0x0c96f840
+gen/adv0100/d_0c96f840.c        D        0x0c96f840  0x0c9afb00
+gen/adv0100/d_0c9afb00.c        D        0x0c9afb00  0x0c9efb48
+gen/adv0100/d_0c9efb48.c        D        0x0c9efb48  0x0ca308a8
+gen/adv0100/d_0ca308a8.c        D        0x0ca308a8  0x0ca70d70
+# ends where dat_0ca7fe18.c's node starts on 8, straight after the node at 0x0ca7fde4, which names the same model
+gen/adv0100/d_0ca70d70.c        D        0x0ca70d70  0x0ca7fe18
+# from act 1's land's entries, which start on 8 straight after act0_land.c's table, to act 5's land
+gen/adv0100/d_0ca82970.c        D        0x0ca82970  0x0ca86de0
+# opens with 176 bytes, to the material at 0x0ca878e8, that nothing points into, here, in ADV01OBJ.BIN or in 1ST_READ.BIN. their first 52 bytes are those ADV0130 holds on 8 at 0x0c9cd180, after a zero word and a node that differs from palm_base.c's model: one object linked in both images starts with them, as an R32 object starts its data on 8, so the row declares start 8. that is the likelier reading, not a proven one: two objects could hold the same bytes, and the word before them could then be palm_base.c's
+gen/adv0100/d_0ca87838.c        D        0x0ca87838  0x0cac7900  start 8
+gen/adv0100/d_0cac7900.c        D        0x0cac7900  0x0cace6d0
+gen/adv0100/d_0cace718.c        D        0x0cace718  0x0cae67f8
+# from the model after dat_0cae7448.c's nodes in the Eggmobile's tree, which starts on 8 straight after them
+gen/adv0100/d_0cae7610.c        D        0x0cae7610  0x0cb01c38
+gen/adv0100/d_0cb01fe8.c        D        0x0cb01fe8  0x0cb2c8b8

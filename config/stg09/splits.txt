@@ -1,0 +1,305 @@
+# STG09.PRS, Casinopolis
+#
+# section  start       end
+P          0x0c900000  0x0c925680
+D          0x0c925680  0x0cb17578
+C          0x0cb17578  0x0cb1b02d
+B          0x0cb1b030  0x0cb1b248
+#
+# source                              section  start       end
+# the act 0 land's textures, texlist and the materials after it, which follow the texlist off 8, one object to 0x0c927e90, where strips meet them on 8 with no fill. the textures meet casino_act0_land on 8 with no fill: one file or two build the same there, and the bytes leave them to their own object or the land's. their names start C. the generated row after them names their static dat_0c927ddc through symbols.txt: in C it could stay static only if the strips there are this object's
+modules/stg09/casino01_textures.c      C        0x0cb17578  0x0cb17c45
+modules/stg09/casino01_textures.c      D        0x0c9277b0  0x0c927e90
+# the act 1 land's textures and texlist. they meet the land at 0x0c96d994 on 8 with no fill, the texlist meets them so, and the data after it meets the texlist so. their names start on 8 where act 0's next string would. one file or two build the same at each, and the bytes leave them to their own object, the land's, or act 0's textures'
+modules/stg09/casino02_textures.c      C        0x0cb17c48  0x0cb17f97
+modules/stg09/casino02_textures.c      D        0x0c96d9b8  0x0c96dc78
+# act 2's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries, which start on 8 straight after the object before, which starts off 8, with no fill: one file or two build the same there. the table meets the entries on 8 with no fill, where one file or two build the same; its pointer to them is consistent with one object. the zero word after the table, at 0x0c9b0a24, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 2's textures start on 8, or a last word of this object nothing reads. acts 0, 1 and 3's lands stay in generated rows, which no run beside them needs bounded. the bytes leave it to an object of its own, to the generated models' before it, or to casino03_textures.c's, were the word an unread datum of its
+modules/stg09/land2.c                  D        0x0c9af530  0x0c9b0a24
+# the act 2 land's. they start on 8 four bytes past the land at 0x0c9b0a00. their names start on 8 where act 1's next string would: one file or two build the same there. the texlist meets them on 8 with no fill, as the data after it meets the texlist
+modules/stg09/casino03_textures.c      C        0x0cb17f98  0x0cb18128
+modules/stg09/casino03_textures.c      D        0x0c9b0a28  0x0c9b0b68
+# the act 3 land's. they meet the land at 0x0c9d9d24 on 8 with no fill: one file or two build the same there, and the bytes leave them to their own object or the land's. their texlist, the materials and the two strips after it each follow the item before off 8, one object to 0x0c9da0e8, where the uvs meet them on 8 with no fill. their names meet act 2's on 8 with no fill, and repeat strings of theirs, which SHC keeps one copy of in one file. the generated row after them names their statics dat_0c9da0a4, dat_0c9da0cc and dat_0c9da0de through symbols.txt: in C they could stay static only if the uvs there are this object's
+modules/stg09/casino04_textures.c      C        0x0cb18128  0x0cb184ad
+modules/stg09/casino04_textures.c      D        0x0c9d9d48  0x0c9da0e8
+# the object and action act 3's land's last motion names, at 0x0c9d9d18; the generated action before the object names the object too, and nothing else reads them. the object starts on 8 straight after that action with no fill, where one file or two build the same, and the action follows the object off 8, so they are one object's. the zero word after them, at 0x0ca0f654, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as the objects' textures start on 8, or a last word of this object nothing reads. the bytes leave them to the generated action's object, to obj_casino_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg09/dat_0ca0f618.c           D        0x0ca0f618  0x0ca0f654
+# OBJ_CASINO's textures and texlist, which casino.c loads, OBJ_CASINO2's, which follow it off 8, and the texlists the objects take runs of OBJ_CASINO2's with. they start on 8 four bytes past the action at 0x0ca0f64c, and their names start on 8 where act 3's next string would, and repeat strings of act 2's and act 3's. the texlists after OBJ_CASINO2's textures each meet the item before on 8 with no fill, as the material at 0x0ca10010 meets the last, and they point into the textures. the strings decide those seams: the generated table at 0x0ca732ac points at the generated names from 0x0cb18e48, and, at 0x0ca733e4, at one of OBJ_CASINO2's names, at 0x0cb186e4, which has no other copy. a texname table that points at another's strings is in that table's file, as SHC keeps one copy of a string in one file, so this object runs on unbroken in D through the hundreds of models to the emerald's texlist, which ends at 0x0caec1f4, and in C through those names to 0x0cb199fb. the generated rows hold the rest of it, since a body can't point at a string
+modules/stg09/obj_casino_textures.c    C        0x0cb184b0  0x0cb18e45
+modules/stg09/obj_casino_textures.c    D        0x0ca0f658  0x0ca10010
+modules/stg09/casino.c                 P        0x0c900000  0x0c900c60
+modules/stg09/casino.c                 D        0x0caec1f8  0x0caec400
+# the stage's eighteen paths, the list 1ST_READ.BIN's path_lists names for act 1, at 0x0caf19d0, and two lists no word names, of jdai.c's and rides.c's paths, which their code reads by name. the first points meet casino.c's data on 8 with no fill, and pinball_camera.c's data starts on 8 four bytes past the last list's null. those 4 bytes, at 0x0caf1a24, are the linker's fill or an eighth, null entry of casino_ride_paths: as [8], with this row to 0x0caf1a28, the list builds STG09 the same, and they are built as fill. each path follows its points. where the items meet on 8 with no fill, one file or two build the same, and the bytes leave the paths and lists to one object or several, among them casino.c's, whose data the first points meet, though its code doesn't read them
+modules/stg09/paths.c                  D        0x0caec400  0x0caf1a24
+modules/stg09/casino.c                 C        0x0cb19a00  0x0cb19a3b
+modules/stg09/pinball_camera.c         P        0x0c900c60  0x0c900ec0
+modules/stg09/pinball_camera.c         D        0x0caf1a28  0x0caf1b00
+# start_shot_destroy starts on 32 at 0x0c901d40 with no fill; split there, the code builds the same
+modules/stg09/pinball.c                P        0x0c900ec0  0x0c901e40
+modules/stg09/pinball.c                D        0x0caf1b00  0x0caf2214
+modules/stg09/flipper.c                P        0x0c901e40  0x0c902ae0
+modules/stg09/flipper.c                D        0x0caf2218  0x0caf2284
+# follows flipper.c with no fill; as one file, 119 of 4,548 code bytes differ
+# one object, though bumper2_step meets bumper_step's pool at 0x0c902f40 with no fill: bumper2_post_shape follows bumper_shape off 8, at 0x0caf22bc
+modules/stg09/bumper.c                 P        0x0c902ae0  0x0c903020
+modules/stg09/bumper.c                 D        0x0caf2288  0x0caf22f0
+modules/stg09/sling.c                  P        0x0c903020  0x0c9035e0
+modules/stg09/sling.c                  D        0x0caf22f0  0x0caf2358
+modules/stg09/stopper.c                P        0x0c9035e0  0x0c903ca0
+modules/stg09/stopper.c                D        0x0caf2358  0x0caf23f4
+modules/stg09/roll.c                   P        0x0c903ca0  0x0c904680
+modules/stg09/roll.c                   D        0x0caf23f8  0x0caf251c
+modules/stg09/jdai.c                   P        0x0c904680  0x0c904ea0
+modules/stg09/jdai.c                   D        0x0caf2520  0x0caf25bc
+modules/stg09/drop_target.c            P        0x0c904ea0  0x0c9057a0
+modules/stg09/drop_target.c            D        0x0caf25c0  0x0caf26f8
+modules/stg09/roll_up.c                P        0x0c9057a0  0x0c905c00
+modules/stg09/lanes.c                  P        0x0c905c00  0x0c9061c0
+modules/stg09/lanes.c                  D        0x0caf26f8  0x0caf27c8
+modules/stg09/table_lamps.c            P        0x0c9061c0  0x0c9066e0
+modules/stg09/table_lamps.c            D        0x0caf27c8  0x0caf29dc
+modules/stg09/table_neon.c             P        0x0c9066e0  0x0c906ac0
+modules/stg09/table_neon.c             D        0x0caf29e0  0x0caf2a28
+modules/stg09/black_wall.c             P        0x0c906ac0  0x0c906c00
+modules/stg09/obstacle.c               P        0x0c906c00  0x0c907000
+modules/stg09/obstacle.c               D        0x0caf2a28  0x0caf2ac4
+# follows obstacle.c with no fill; as one file, 137 of 2,192 code bytes differ
+modules/stg09/cannon.c                 P        0x0c907000  0x0c9074a0
+modules/stg09/ideacap.c                P        0x0c9074a0  0x0c9075a0
+modules/stg09/ideacap.c                D        0x0caf2ac8  0x0caf2ad8
+# follows ideacap.c with no fill; as one file, the code runs 8 bytes shorter. 327 of its 632 bytes differ
+modules/stg09/idea.c                   P        0x0c9075a0  0x0c907720
+modules/stg09/idea.c                   D        0x0caf2ad8  0x0caf2b28
+# follows idea.c with no fill; as one file, the code runs 32 bytes shorter. 3,761 of its 4,376 bytes differ
+modules/stg09/cards.c                  P        0x0c907720  0x0c9086e0
+modules/stg09/cards.c                  D        0x0caf2b28  0x0caf2dad
+modules/stg09/rides.c                  P        0x0c9086e0  0x0c908f00
+modules/stg09/rides.c                  D        0x0caf2db0  0x0caf2ee0
+modules/stg09/dice.c                   P        0x0c908f00  0x0c9090c0
+modules/stg09/dice.c                   D        0x0caf2ee0  0x0caf2f2c
+modules/stg09/big_star.c               P        0x0c9090c0  0x0c9091e0
+modules/stg09/big_star.c               D        0x0caf2f30  0x0caf2fd0
+modules/stg09/big_star.c               B        0x0cb1b030  0x0cb1b050
+# follows big_star.c with no fill; as one file, 277 of 1,148 code bytes differ
+modules/stg09/loop.c                   P        0x0c9091e0  0x0c909540
+# its frames run on off 8 past the eight its code steps through, to 0x0caf30cc: the two after them carry on the eight's run of consecutive texIds, and decor_arrow.c's data starts on 8 four bytes past them. one array of ten, or the eight and a global array of two after them, build the same
+modules/stg09/loop.c                   D        0x0caf2fd0  0x0caf30cc
+modules/stg09/loop.c                   B        0x0cb1b050  0x0cb1b070
+modules/stg09/decor_arrow.c            P        0x0c909540  0x0c909640
+modules/stg09/decor_arrow.c            D        0x0caf30d0  0x0caf30e0
+modules/stg09/tanemono.c               P        0x0c909640  0x0c909740
+modules/stg09/tanemono.c               D        0x0caf30e0  0x0caf3138
+modules/stg09/roll_prize.c             P        0x0c909740  0x0c909da0
+modules/stg09/roll_prize.c             D        0x0caf3138  0x0caf39f8
+# follows roll_prize.c with no fill; as one file, the code runs 32 bytes longer. 393 of its first 1,992 bytes differ
+modules/stg09/route_egg.c              P        0x0c909da0  0x0c909f20
+modules/stg09/chao.c                   P        0x0c909f20  0x0c90a440
+modules/stg09/chao.c                   D        0x0caf39f8  0x0caf3a2c
+modules/stg09/card_uv.c                P        0x0c90a440  0x0c90a5a0
+modules/stg09/card_uv.c                D        0x0caf3a30  0x0caf3b14
+modules/stg09/emergency.c              P        0x0c90a5a0  0x0c90a7e0
+modules/stg09/emergency.c              D        0x0caf3b18  0x0caf3b4c
+modules/stg09/emergency.c              C        0x0cb19a40  0x0cb19a5b
+# the first keys of the motion the generated motion data at 0x0cafe040 names, a hundred keys of position, as that data counts them; nothing else reads them. they start on 8, 4 bytes past emergency.c's data, which ends 4 bytes past 8: the word between, at 0x0caf3b4c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of emergency.c's object nothing reads. the next keys meet them on 8 with no fill, where one file or two build the same, and the bytes don't say whether the generated keys' object holds them. the bytes leave them to the generated keys' object, to emergency.c's, were the word its, though its code doesn't read them, or to one of data alone
+modules/stg09/dat_0caf3b50.c           D        0x0caf3b50  0x0caf4190
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds meet the action 1ST_READ.BIN names at 0x8c1dc088 on 8 with no fill, where one file or two build the same. the names start on 8, 4 bytes past where emergency.c's next string would start on 4: as one file, they start there, at 0x0cb19a5c, so C parts them from emergency.c's object unless that word is an unread constant of its, and the fill rule verifies the 5 bytes. as one file with an unread constant word after emergency.c's own, the names start where the image has them, and nothing here or in 1ST_READ.BIN points at the word. the scripts meet the names on 8 with no fill: as one file, in either order, the scripts' constants come ahead of the names, so they are no object of the scripts'. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to one of their own, to that of the generated data before them, or to emergency.c's, were the word at 0x0cb19a5c an unread constant of its, and the data between its own and the kinds its, though its code doesn't read them
+modules/stg09/kinds.c                  D        0x0cb12950  0x0cb13968
+modules/stg09/kinds.c                  C        0x0cb19a60  0x0cb1a220
+# the list 1ST_READ.BIN's object_lists names for acts 0 to 3, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, and tube.c's data meets it so: one file or two build the same at each, and the bytes leave it to the kinds' object, to tube.c's, though its code doesn't read it, to the scripts', or to one of its own
+modules/stg09/object_list.c            D        0x0cb13968  0x0cb13970
+# the table 1ST_READ.BIN's stage_scripts names at 0x0cb1a4a8, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. they meet the kinds' names on 8 with no fill: as one file, in either order, their constants come ahead of the names, so they are no object of the kinds'. the last text ends where tube.c's constants start on 8, which open with a string: as one file, in either order, tube.c's strings come ahead of the texts, so they are no object of tube.c's. the bytes leave them to an object of their own, or to the list's, were the list not the kinds' object's
+modules/stg09/scripts.c                C        0x0cb1a220  0x0cb1a9f8
+modules/stg09/tube.c                   P        0x0c90a7e0  0x0c90b540
+modules/stg09/tube.c                   D        0x0cb13970  0x0cb139a8
+modules/stg09/tube.c                   C        0x0cb1a9f8  0x0cb1aa1c
+modules/stg09/six_slot.c               P        0x0c90b540  0x0c90b9c0
+modules/stg09/six_slot.c               D        0x0cb139a8  0x0cb13a4c
+modules/stg09/six_slot.c               C        0x0cb1aa20  0x0cb1aa38
+modules/stg09/crystal.c                P        0x0c90b9c0  0x0c90bb60
+modules/stg09/crystal.c                D        0x0cb13a50  0x0cb13a88
+modules/stg09/gear.c                   P        0x0c90bb60  0x0c90bdc0
+modules/stg09/gear.c                   D        0x0cb13a88  0x0cb13a90
+modules/stg09/gear.c                   C        0x0cb1aa38  0x0cb1aa5c
+modules/stg09/helpers.c                P        0x0c90bdc0  0x0c90ed60
+modules/stg09/helpers.c                C        0x0cb1aa60  0x0cb1aaa5
+modules/stg09/damage_sphere.c          P        0x0c90ed60  0x0c90ee60
+modules/stg09/damage_sphere.c          D        0x0cb13a90  0x0cb13ac4
+modules/stg09/damage_sphere.c          C        0x0cb1aaa8  0x0cb1aab7
+modules/stg09/kk_door.c                P        0x0c90ee60  0x0c90f3e0
+modules/stg09/kk_door.c                D        0x0cb13ac8  0x0cb13b3c
+modules/stg09/sr_door.c                P        0x0c90f3e0  0x0c90f960
+modules/stg09/sr_door.c                D        0x0cb13b40  0x0cb13bb4
+modules/stg09/manf.c                   P        0x0c90f960  0x0c90ff40
+modules/stg09/manf.c                   D        0x0cb13bb8  0x0cb13bf8
+modules/stg09/manf.c                   C        0x0cb1aab8  0x0cb1aabf
+modules/stg09/counter.c                P        0x0c90ff40  0x0c9105e0
+modules/stg09/counter.c                D        0x0cb13bf8  0x0cb13d64
+modules/stg09/counter.c                C        0x0cb1aac0  0x0cb1aac4
+modules/stg09/lion.c                   P        0x0c9105e0  0x0c911632
+modules/stg09/lion.c                   D        0x0cb13d68  0x0cb1412c
+# light_a_step starts on 32 at 0x0c911f20 with no fill, and flower_a_shape on 8 at 0x0cb141b8; split there, the code and data build the same
+modules/stg09/props.c                  P        0x0c911640  0x0c912420
+modules/stg09/props.c                  D        0x0cb14130  0x0cb14958
+modules/stg09/props.c                  C        0x0cb1aac8  0x0cb1aad7
+modules/stg09/kaz.c                    P        0x0c912420  0x0c912d60
+modules/stg09/kaz.c                    D        0x0cb14958  0x0cb14bd4
+modules/stg09/kaz.c                    C        0x0cb1aad8  0x0cb1ab03
+modules/stg09/hand.c                   P        0x0c912d60  0x0c913a60
+modules/stg09/hand.c                   D        0x0cb14bd8  0x0cb14c6c
+# follows hand.c with no fill; as one file, 2,325 of 4,920 code bytes differ
+modules/stg09/coin_spray.c             P        0x0c913a60  0x0c914098
+modules/stg09/coin_spray.c             D        0x0cb14c70  0x0cb14c8c
+modules/stg09/gold.c                   P        0x0c9140a0  0x0c914780
+modules/stg09/gold.c                   D        0x0cb14c90  0x0cb14d24
+modules/stg09/gold.c                   C        0x0cb1ab08  0x0cb1ab48
+modules/stg09/gold_coin.c              P        0x0c914780  0x0c914a40
+modules/stg09/gold_coin.c              D        0x0cb14d28  0x0cb14d60
+modules/stg09/shower.c                 P        0x0c914a40  0x0c915020
+modules/stg09/shower.c                 D        0x0cb14d60  0x0cb14d80
+modules/stg09/water_drop.c             P        0x0c915020  0x0c915960
+modules/stg09/water_drop.c             D        0x0cb14d80  0x0cb14e24
+modules/stg09/quake.c                  P        0x0c915960  0x0c915ae0
+modules/stg09/quake.c                  D        0x0cb14e28  0x0cb14e34
+modules/stg09/sonic_statue.c           P        0x0c915ae0  0x0c915ce0
+modules/stg09/sonic_statue.c           D        0x0cb14e38  0x0cb14e98
+modules/stg09/burst_statue.c           P        0x0c915ce0  0x0c916d40
+modules/stg09/burst_statue.c           D        0x0cb14e98  0x0cb15360
+modules/stg09/burst_statue.c           C        0x0cb1ab48  0x0cb1ab51
+modules/stg09/water_smoke.c            P        0x0c916d40  0x0c917020
+modules/stg09/water_smoke.c            D        0x0cb15360  0x0cb15460
+# follows water_smoke.c with no fill; as one file, the code runs 32 bytes longer. 567 of its first 1,256 bytes differ
+modules/stg09/casino_flame.c           P        0x0c917020  0x0c917240
+modules/stg09/casino_flame.c           D        0x0cb15460  0x0cb154ec
+modules/stg09/arm.c                    P        0x0c917240  0x0c917580
+modules/stg09/arm.c                    D        0x0cb154f0  0x0cb1552c
+modules/stg09/ts_door.c                P        0x0c917580  0x0c917b80
+modules/stg09/ts_door.c                D        0x0cb15530  0x0cb155a4
+modules/stg09/mirror_ball.c            P        0x0c917b80  0x0c917d80
+modules/stg09/mirror_ball.c            D        0x0cb155a8  0x0cb155dc
+modules/stg09/mirror_ball.c            C        0x0cb1ab58  0x0cb1ab63
+modules/stg09/shutter.c                P        0x0c917d80  0x0c918640
+modules/stg09/shutter.c                D        0x0cb155e0  0x0cb15758
+modules/stg09/shutter.c                C        0x0cb1ab68  0x0cb1ab87
+modules/stg09/card_sign.c              P        0x0c918640  0x0c918928
+modules/stg09/card_sign.c              D        0x0cb15758  0x0cb15874
+modules/stg09/card_sign.c              C        0x0cb1ab88  0x0cb1abb4
+modules/stg09/slot_sign.c              P        0x0c918940  0x0c918ca0
+modules/stg09/slot_sign.c              D        0x0cb15878  0x0cb159c8
+modules/stg09/slot_sign.c              C        0x0cb1abb8  0x0cb1abe4
+modules/stg09/ladder.c                 P        0x0c918ca0  0x0c9195c0
+modules/stg09/ladder.c                 D        0x0cb159c8  0x0cb15a64
+modules/stg09/fan.c                    P        0x0c9195c0  0x0c91a860
+modules/stg09/fan.c                    D        0x0cb15a68  0x0cb15aac
+modules/stg09/fan.c                    C        0x0cb1abe8  0x0cb1ac07
+modules/stg09/fan.c                    B        0x0cb1b070  0x0cb1b084
+modules/stg09/land_anim.c              P        0x0c91a860  0x0c91aee0
+modules/stg09/land_anim.c              D        0x0cb15ab0  0x0cb15fd0
+modules/stg09/land_anim.c              B        0x0cb1b088  0x0cb1b1e4
+modules/stg09/hook.c                   P        0x0c91aee0  0x0c91b1e0
+modules/stg09/hook.c                   D        0x0cb15fd0  0x0cb16008
+modules/stg09/path_camera.c            P        0x0c91b1e0  0x0c91c920
+modules/stg09/path_camera.c            D        0x0cb16008  0x0cb16074
+modules/stg09/path_camera.c            C        0x0cb1ac08  0x0cb1ac0c
+modules/stg09/cowgirl.c                P        0x0c91c920  0x0c91ce20
+modules/stg09/cowgirl.c                D        0x0cb16078  0x0cb164cc
+modules/stg09/cowgirl.c                C        0x0cb1ac10  0x0cb1ac2c
+modules/stg09/flower_bed.c             P        0x0c91ce20  0x0c91cfe0
+modules/stg09/flower_bed.c             D        0x0cb164d0  0x0cb16670
+modules/stg09/invisible.c              P        0x0c91cfe0  0x0c91d8e0
+modules/stg09/invisible.c              D        0x0cb16670  0x0cb16710
+modules/stg09/invisible.c              C        0x0cb1ac30  0x0cb1ac8b
+modules/stg09/six_slot2.c              P        0x0c91d8e0  0x0c91dd60
+modules/stg09/six_slot2.c              D        0x0cb16710  0x0cb167b4
+modules/stg09/six_slot2.c              C        0x0cb1ac90  0x0cb1aca8
+modules/stg09/light_r.c                P        0x0c91dd60  0x0c91e008
+modules/stg09/light_r.c                D        0x0cb167b8  0x0cb167d0
+modules/stg09/light_r.c                C        0x0cb1aca8  0x0cb1acd1
+modules/stg09/light_g.c                P        0x0c91e020  0x0c91e2c8
+modules/stg09/light_g.c                D        0x0cb167d0  0x0cb167e8
+modules/stg09/light_g.c                C        0x0cb1acd8  0x0cb1ad01
+modules/stg09/water_spray.c            P        0x0c91e2e0  0x0c91e580
+modules/stg09/water_spray.c            D        0x0cb167e8  0x0cb16824
+modules/stg09/water_spray.c            C        0x0cb1ad08  0x0cb1ad49
+modules/stg09/water_spray2.c           P        0x0c91e580  0x0c91e8a0
+modules/stg09/water_spray2.c           D        0x0cb16828  0x0cb1686c
+modules/stg09/water_spray2.c           C        0x0cb1ad50  0x0cb1ad91
+modules/stg09/flies.c                  P        0x0c91e8a0  0x0c91f420
+modules/stg09/flies.c                  D        0x0cb16870  0x0cb168a0
+modules/stg09/flies.c                  C        0x0cb1ad98  0x0cb1adcf
+modules/stg09/mud.c                    P        0x0c91f420  0x0c91f760
+modules/stg09/mud.c                    D        0x0cb168a0  0x0cb168a8
+modules/stg09/mud.c                    C        0x0cb1add0  0x0cb1ade4
+modules/stg09/pirate_a.c               P        0x0c91f760  0x0c920300
+modules/stg09/pirate_a.c               D        0x0cb168a8  0x0cb16970
+modules/stg09/pirate_a.c               C        0x0cb1ade8  0x0cb1ae09
+modules/stg09/pirate_a.c               B        0x0cb1b1e8  0x0cb1b1f4
+modules/stg09/pirate_b.c               P        0x0c920300  0x0c920ea0
+modules/stg09/pirate_b.c               D        0x0cb16970  0x0cb16a38
+modules/stg09/pirate_b.c               C        0x0cb1ae10  0x0cb1ae31
+modules/stg09/pirate_b.c               B        0x0cb1b1f8  0x0cb1b204
+modules/stg09/pirate_c.c               P        0x0c920ea0  0x0c921a40
+modules/stg09/pirate_c.c               D        0x0cb16a38  0x0cb16b00
+modules/stg09/pirate_c.c               C        0x0cb1ae38  0x0cb1ae59
+modules/stg09/pirate_c.c               B        0x0cb1b208  0x0cb1b214
+modules/stg09/pirate_s.c               P        0x0c921a40  0x0c9225e0
+modules/stg09/pirate_s.c               D        0x0cb16b00  0x0cb16bc8
+modules/stg09/pirate_s.c               C        0x0cb1ae60  0x0cb1ae81
+modules/stg09/pirate_s.c               B        0x0cb1b218  0x0cb1b224
+modules/stg09/fragments.c              P        0x0c9225e0  0x0c9231a0
+modules/stg09/guide_sphere.c           P        0x0c9231a0  0x0c923460
+modules/stg09/guide_sphere.c           D        0x0cb16bc8  0x0cb16bd0
+modules/stg09/guide_sphere.c           C        0x0cb1ae88  0x0cb1aebf
+modules/stg09/sign_c.c                 P        0x0c923460  0x0c923720
+modules/stg09/sign_c.c                 D        0x0cb16bd0  0x0cb16cb0
+modules/stg09/sign_c.c                 C        0x0cb1aec0  0x0cb1aedc
+modules/stg09/sign_s.c                 P        0x0c923720  0x0c923960
+modules/stg09/sign_s.c                 D        0x0cb16cb0  0x0cb16d98
+modules/stg09/sign_s.c                 C        0x0cb1aee0  0x0cb1aeec
+modules/stg09/neon_sign.c              P        0x0c923960  0x0c923b80
+modules/stg09/neon_sign.c              D        0x0cb16d98  0x0cb16e4c
+modules/stg09/neon_sign.c              C        0x0cb1aef0  0x0cb1aefc
+modules/stg09/transfer_gate.c          P        0x0c923b80  0x0c923fc0
+modules/stg09/transfer_gate.c          D        0x0cb16e50  0x0cb170bc
+modules/stg09/transfer_gate.c          C        0x0cb1af00  0x0cb1af1c
+modules/stg09/lamp.c                   P        0x0c923fc0  0x0c9241c0
+modules/stg09/lamp.c                   D        0x0cb170c0  0x0cb170f4
+modules/stg09/lamp.c                   C        0x0cb1af20  0x0cb1af2a
+modules/stg09/launcher.c               P        0x0c9241c0  0x0c924740
+modules/stg09/launcher.c               D        0x0cb170f8  0x0cb17144
+modules/stg09/launcher.c               C        0x0cb1af30  0x0cb1af75
+modules/stg09/water_drops.c            P        0x0c924740  0x0c924d80
+modules/stg09/water_drops.c            D        0x0cb17148  0x0cb1720c
+modules/stg09/water_drops.c            C        0x0cb1af78  0x0cb1afaf
+modules/stg09/emerald.c                P        0x0c924d80  0x0c925280
+modules/stg09/emerald.c                D        0x0cb17210  0x0cb17254
+modules/stg09/emerald.c                C        0x0cb1afb0  0x0cb1afc5
+modules/stg09/emerald.c                B        0x0cb1b228  0x0cb1b248
+# the list 1ST_READ.BIN's stage_pvms names for the stage, which holds only strings and pointers. it starts on 8 four bytes past emerald.c's data, and its names on 8 past emerald.c's constants; banju_door.c's data meets its null on 8 with no fill: one file or two build the same there. the bytes leave it to its own object, to banju_door.c's, or to neon.c's, which links between emerald.c and banju_door.c and has no data or constants, though its code doesn't read it
+modules/stg09/pvms.c                   C        0x0cb1afc8  0x0cb1b02d
+modules/stg09/pvms.c                   D        0x0cb17258  0x0cb172b0
+modules/stg09/neon.c                   P        0x0c925280  0x0c9254e8
+modules/stg09/banju_door.c             P        0x0c925500  0x0c925680
+modules/stg09/banju_door.c             D        0x0cb172b0  0x0cb172e4
+# 1ST_READ.BIN's death_zones names the list by act, at 0x0cb17564; no code here reads it. the first zone's model, from its material at 0x0cb172e8 to its object, follows item on item off 8, so it is one object. the second's material meets that object on 8 with no fill, and its meshset, points, normals, model and object each start on 8 straight after the item before, where one file or two build the same. the zones' lists and the list by act follow the second object off 8, so they are its object's. the first material starts on 8 four bytes past banju_door.c's data, and C starts on 8 four bytes past the list's last null. those 4 bytes, at 0x0cb17574, are the linker's fill or a fifth, null entry of casino_death_zones: as [5], with this row to 0x0cb17578, the list builds STG09 the same, and they are built as fill
+modules/stg09/death_zones.c            D        0x0cb172e8  0x0cb17574
+#
+# generated data ranges
+gen/stg09/d_0c925680.c                 D        0x0c925680  0x0c9277b0
+gen/stg09/d_0c927e90.c                 D        0x0c927e90  0x0c965a68
+gen/stg09/d_0c965a68.c                 D        0x0c965a68  0x0c96d9b8
+gen/stg09/d_0c96dc78.c                 D        0x0c96dc78  0x0c9a5ff8
+# act 2's models, to the object before act 2's land's entries, which meet them on 8 with no fill
+gen/stg09/d_0c9a5ff8.c                 D        0x0c9a5ff8  0x0c9af530
+gen/stg09/d_0c9b0b68.c                 D        0x0c9b0b68  0x0c9d9d48
+gen/stg09/d_0c9da0e8.c                 D        0x0c9da0e8  0x0c9e6548
+# to the action before dat_0ca0f618.c's object, which meets it on 8 with no fill
+gen/stg09/d_0c9e6548.c                 D        0x0c9e6548  0x0ca0f618
+# obj_casino_textures.c's object runs on through it and the three rows after it, to 0x0caec1f4, as that source's row says
+gen/stg09/d_0ca10010.c                 D        0x0ca10010  0x0ca265a0
+gen/stg09/d_0ca265a0.c                 D        0x0ca265a0  0x0ca66ac8
+gen/stg09/d_0ca66ac8.c                 D        0x0ca66ac8  0x0caa6ae8
+# its last item is the emerald's texlist at 0x0caec1ec, the last datum of obj_casino_textures.c's object, whose texture names the generated row at 0x0cb18e48 holds. the zero word after it, at 0x0caec1f4, which nothing in the image or in 1ST_READ.BIN points at, is the linker's fill or a last word of that object: casino.c's data starts on 8 after it. STG08's emerald_textures.c, the same six texnames and texlist, ends its object with the texlist on 8, with no word after it, and STG02's copy ends 4 past 8 with a zero word after it, as here: so the row declares end, and the splicer writes the word as the linker's fill, the likelier reading, not a proven one
+gen/stg09/d_0caa6ae8.c                 D        0x0caa6ae8  0x0caec1f4  end
+# the stage's models, motions and actions, from the motion data that names dat_0caf3b50.c's keys, to the action before the kinds, which 1ST_READ.BIN names at 0x8c1dc088
+gen/stg09/d_0caf4190.c                 D        0x0caf4190  0x0cb12950
+# the names of the textures from 0x0ca732ac, those from 0x0ca73c38 and the emerald's, whose texlist the stage's pvm list names, at 0x0caec1ec. after the first table's, each table's names start off 8 straight after the string before, so they are one object's strings. the table at 0x0ca732ac points, at 0x0ca733e4, at the only copy of one of OBJ_CASINO2's names, in obj_casino_textures.c's constants, so these are that source's object's strings, and its D runs unbroken from 0x0ca0f658 to 0x0caec1f4: hundreds of models, which a source would hold to hold the names. they start on 8 where its next string would, so the 3 bytes at 0x0cb18e45 are that object's padding between two strings, not the linker's fill: the row declares continues 4, and the splicer writes them as that padding. casino.c's constants start on 8 five bytes past the last name, 4 past where its next string would start on 4, at 0x0cb199fc, which nothing points at. the 5 bytes are the linker's fill, and no item of this object, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares end, and the splicer writes them as the linker's fill
+gen/stg09/d_0cb18e48.c                 C        0x0cb18e48  0x0cb199fb  continues 4  end

@@ -1,0 +1,106 @@
+; decoding PRS, the LZ77 that packs the disc's files
+
+        .EXPORT     _prs_decompress
+
+        .SECTION    P,CODE,ALIGN=32
+
+; Sint32 prs_decompress(void *from, void *to)
+; decode the PRS stream at from into to, and return the bytes it decoded.
+; control bits come a byte at a time, low bit first, between the stream's
+; other bytes. a 1 is a literal byte. 00 and two bits of length are a short
+; copy of 2 to 5 bytes, from 1 to 256 back by the next byte. 01 is a long
+; copy by the next word, low byte first. the word's high 13 bits give the
+; distance back, from 1 to 8192, and its low 3 bits a length from 3 to 9.
+; where those are 0, a byte n after the word gives n + 1 bytes instead, and
+; a word of 0 ends the stream. R3 keeps to, for the count. R6 holds the
+; control bits left, and R7 one more than their number. R8 and R9 hold
+; -8192 and -256, the high bits of a long and a short copy's step back
+; @asm opcode: rotcl, ROTCL R0 at 0x8c04f624 and 0x8c04f634 shifts each length
+; bit in from T
+_prs_decompress:
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.W       #H'FF00,R9              ; -256
+        MOV.W       #H'E000,R8              ; -8192
+        MOV.B       @R4+,R6
+        MOV         #9,R7
+        BRA         ?next
+        MOV         R5,R3
+?literal:
+        MOV.B       @R4+,R1
+        MOV.B       R1,@R5
+        ADD         #1,R5
+?next:
+        DT          R7
+        BF/S        ?kind
+        SHLR        R6
+        MOV.B       @R4+,R6
+        MOV         #8,R7
+        SHLR        R6
+?kind:
+        BT          ?literal
+        DT          R7
+        BF/S        ?reach
+        SHLR        R6
+        MOV.B       @R4+,R6
+        MOV         #8,R7
+        SHLR        R6
+?reach:
+        BT          ?long
+        MOV         #0,R0
+        DT          R7
+        BF/S        ?length_high
+        SHLR        R6
+        MOV.B       @R4+,R6
+        MOV         #8,R7
+        SHLR        R6
+?length_high:
+        ROTCL       R0
+        DT          R7
+        BF/S        ?length_low
+        SHLR        R6
+        MOV.B       @R4+,R6
+        MOV         #8,R7
+        SHLR        R6
+?length_low:
+        MOV.B       @R4+,R2                 ; a short copy's offset: one byte
+        ROTCL       R0
+        OR          R9,R2
+?short:
+        ADD         #2,R0
+        ADD         R5,R2
+?copy:
+        MOV.B       @R2+,R1
+        DT          R0
+        MOV.B       R1,@R5
+        BF/S        ?copy
+        ADD         #1,R5
+        BRA         ?next
+        NOP
+?long:
+        MOV.B       @R4+,R0                 ; a long copy's word, low byte first
+        MOV.B       @R4+,R1                 ; 13 bits of offset over 3 of length
+        EXTU.B      R0,R2
+        SHLL8       R1
+        OR          R1,R2
+        TST         R2,R2                   ; a word of 0 ends the stream
+        BT          ?done
+        SHLR2       R2
+        SHLR        R2
+        AND         #H'07,R0
+        TST         R0,R0
+        BF/S        ?short                  ; three to nine bytes
+        OR          R8,R2
+        MOV.B       @R4+,R0                 ; or a byte of length, for up to 256
+        ADD         R5,R2
+        EXTU.B      R0,R0
+        BRA         ?copy
+        ADD         #1,R0
+?done:
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV         R5,R0
+        RTS
+        SUB         R3,R0
+
+        .END

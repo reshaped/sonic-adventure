@@ -1,0 +1,38 @@
+# EV016D.PRS, Warrior Feather pickup
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb84728
+C          0x0cb84728  0x0cb84b68
+D          0x0cb84b68  0x0cb8e64c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev016d/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev016d/script.c               P        0x0cb80008  0x0cb80390
+events/ev016d/script.c               C        0x0cb84728  0x0cb84795
+events/ev016d/script.c               D        0x0cb84b68  0x0cb869ac
+# follows script.c with no fill; its constants follow the fill after script.c's, and as one file, with the generated data between their data, 26 of 12,284 code bytes differ
+events/shared/path_editor.c           P        0x0cb80390  0x0cb83004
+events/shared/path_editor.c           C        0x0cb84798  0x0cb84b68
+events/shared/path_editor.c           D        0x0cb8e130  0x0cb8e63c
+# follows path_editor.c with no fill; as one file, the code runs 4 bytes longer. 931 of its first 12,340 bytes differ
+events/shared/sound.c                 P        0x0cb83004  0x0cb833c4
+events/shared/sound.c                 D        0x0cb8e640  0x0cb8e64c
+events/shared/light.c                 P        0x0cb833c4  0x0cb834f8
+events/shared/sdk/sscanf.c            P        0x0cb834f8  0x0cb83534
+events/shared/sdk/strchr.c            P        0x0cb83534  0x0cb83550
+events/shared/sdk/_fmtin.c           P        0x0cb83550  0x0cb843c8
+events/shared/sdk/_stf.c              P        0x0cb843c8  0x0cb84454
+events/shared/sdk/_calcfpow.c         P        0x0cb84454  0x0cb84614
+events/shared/sdk/_calcint.c          P        0x0cb84614  0x0cb846c0
+events/shared/sdk/_packf.c            P        0x0cb846c0  0x0cb84724
+# position keys of a node of ev016d_amy_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and path_editor.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb86ad0, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev016d/dat_0cb869b0.c          D        0x0cb869b0  0x0cb86ad0
+# ev016d_amy_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to path_editor.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb8dc38 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. the same two items, but for the words that point into the image, end the data before path_editor.c's in EV016C, where each event's own source holds them: consistent with one object that each event links. script.c reads the action, and places its data elsewhere
+events/ev016d/amy_action_2.c          D        0x0cb8e118  0x0cb8e12c
+#
+# generated data ranges
+gen/ev016d/d_0cb86ad0.c               D        0x0cb86ad0  0x0cb8e118

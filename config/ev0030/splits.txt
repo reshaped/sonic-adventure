@@ -1,0 +1,50 @@
+# EV0030.PRS, Tails' test flight
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb872c8
+C          0x0cb872c8  0x0cb879a8
+D          0x0cb879a8  0x0cbb8ccc
+B          0x0cbb8cd0  0x0cbb8d0c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0030/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0030/script.c               P        0x0cb80008  0x0cb811bc
+events/ev0030/script.c               C        0x0cb872c8  0x0cb873cb
+events/ev0030/script.c               D        0x0cb879a8  0x0cb89344
+# the clouds' texture names, its object's constants: they start on 8, past where script.c's next string would start on 4, and end 5 bytes of 0xff short of clouds.c's constants on 8
+events/ev0030/cloud_textures.c        C        0x0cb873d0  0x0cb873f3
+# the clouds' texture names and event_clouds_texlist, which clouds.c's sprite and the script's texture list point at. they start on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would, and their names start in C the same way, 4 bytes past where script.c's next string would start on 4. they end 4 past 8, 4 bytes of 0xff short of clouds.c's data on 8, and their names end 5 bytes short of clouds.c's constants on 8. each of those runs is the linker's fill, as the fill rule takes it, or data of the object before it. nothing with code links between script.c and clouds.c, so they are an object's of data alone, as built, or script.c's, were the words after its constants and its data its. clouds.c can't hold them: its object is the same in EV0026, EV0052, EV0080 and EV00C3, and in EV0080 and EV00C3 other strings come before its constants. EV00C3's textures.c holds the same names beside its pictures', so there they are another object's
+events/ev0030/cloud_textures.c        D        0x0cb89348  0x0cb89374
+events/shared/clouds.c                P        0x0cb811bc  0x0cb8177c
+events/shared/clouds.c                C        0x0cb873f8  0x0cb87408
+events/shared/clouds.c                D        0x0cb89378  0x0cb8944c
+events/shared/picture.c               P        0x0cb8177c  0x0cb818d8
+events/shared/picture.c               D        0x0cb89450  0x0cb89484
+events/shared/move.c                  P        0x0cb818d8  0x0cb823fc
+events/shared/move.c                  D        0x0cb89488  0x0cb894b0
+events/shared/mover.c                 P        0x0cb823fc  0x0cb82b94
+events/shared/dust.c                  P        0x0cb82b94  0x0cb82cb4
+events/shared/dust.c                  B        0x0cbb8cd0  0x0cbb8d0c
+events/shared/fade.c                  P        0x0cb82cb4  0x0cb82e40
+events/shared/fade.c                  D        0x0cb894b0  0x0cb894d0
+# follows fade.c with no fill; as one file, the code runs 4 bytes shorter. 9,870 of its 11,772 bytes differ
+events/shared/path_editor.c           P        0x0cb82e40  0x0cb85ab4
+events/shared/path_editor.c           C        0x0cb87408  0x0cb877d8
+events/shared/path_editor.c           D        0x0cb894d0  0x0cb899dc
+# follows path_editor.c with no fill; as one file, 60 of 11,932 code bytes differ
+events/ev0030/plane.c                P        0x0cb85ab4  0x0cb85cdc
+events/ev0030/plane.c                C        0x0cb877d8  0x0cb879a1
+events/ev0030/plane.c                D        0x0cb899e0  0x0cbb8cc0
+events/shared/sound.c                 P        0x0cb85cdc  0x0cb8609c
+events/shared/sound.c                 D        0x0cbb8cc0  0x0cbb8ccc
+events/shared/sdk/sscanf.c            P        0x0cb8609c  0x0cb860d8
+events/shared/sdk/strchr.c            P        0x0cb860d8  0x0cb860f4
+events/shared/sdk/_fmtin.c           P        0x0cb860f4  0x0cb86f6c
+events/shared/sdk/_stf.c              P        0x0cb86f6c  0x0cb86ff8
+events/shared/sdk/_calcfpow.c         P        0x0cb86ff8  0x0cb871b8
+events/shared/sdk/_calcint.c          P        0x0cb871b8  0x0cb87264
+events/shared/sdk/_packf.c            P        0x0cb87264  0x0cb872c8

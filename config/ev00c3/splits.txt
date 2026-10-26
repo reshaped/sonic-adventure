@@ -1,0 +1,50 @@
+# EV00C3.PRS, E-102's story: E-102 leaves Eggman's service and flies off the Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb87398
+C          0x0cb87398  0x0cb87f58
+D          0x0cb87f58  0x0cb892c0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00c3/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00c3/script.c                P        0x0cb80008  0x0cb80b0c
+events/ev00c3/script.c                C        0x0cb87398  0x0cb87af8
+events/ev00c3/script.c                D        0x0cb87f58  0x0cb88bbc
+events/ev00c3/textures.c              C        0x0cb87af8  0x0cb87b4f
+events/ev00c3/textures.c              D        0x0cb88bc0  0x0cb88c30
+events/shared/stopwatch.c             P        0x0cb80b0c  0x0cb80c90
+events/shared/stopwatch.c             C        0x0cb87b50  0x0cb87b69
+events/shared/stopwatch.c             D        0x0cb88c30  0x0cb88c34
+events/shared/fade.c                  P        0x0cb80c90  0x0cb80e1c
+events/shared/fade.c                  D        0x0cb88c38  0x0cb88c58
+# follows fade.c with no fill; as one file, the code runs 4 bytes shorter. 9,869 of its 11,772 bytes differ
+events/shared/path_editor.c           P        0x0cb80e1c  0x0cb83a90
+events/shared/path_editor.c           C        0x0cb87b70  0x0cb87f40
+events/shared/path_editor.c           D        0x0cb88c58  0x0cb89164
+# follows path_editor.c with no fill; as one file, the code runs 4 bytes longer. 2,650 of its first 14,232 bytes differ
+events/shared/move.c                  P        0x0cb83a90  0x0cb845b4
+events/shared/move.c                  D        0x0cb89168  0x0cb89190
+events/shared/mover.c                 P        0x0cb845b4  0x0cb84d4c
+events/shared/noise.c                 P        0x0cb84d4c  0x0cb854dc
+events/shared/noise.c                 D        0x0cb89190  0x0cb89194
+events/shared/clouds.c                P        0x0cb854dc  0x0cb85a9c
+events/shared/clouds.c                C        0x0cb87f40  0x0cb87f50
+events/shared/clouds.c                D        0x0cb89198  0x0cb8926c
+events/shared/picture.c               P        0x0cb85a9c  0x0cb85bf8
+events/shared/picture.c               D        0x0cb89270  0x0cb892a4
+events/shared/sound.c                 P        0x0cb85bf8  0x0cb85fb8
+events/shared/sound.c                 D        0x0cb892a8  0x0cb892b4
+events/shared/scanlines.c             P        0x0cb85fb8  0x0cb8616c
+events/shared/scanlines.c             C        0x0cb87f50  0x0cb87f58
+events/shared/scanlines.c             D        0x0cb892b8  0x0cb892c0
+events/shared/sdk/sscanf.c            P        0x0cb8616c  0x0cb861a8
+events/shared/sdk/strchr.c            P        0x0cb861a8  0x0cb861c4
+events/shared/sdk/_fmtin.c           P        0x0cb861c4  0x0cb8703c
+events/shared/sdk/_stf.c              P        0x0cb8703c  0x0cb870c8
+events/shared/sdk/_calcfpow.c         P        0x0cb870c8  0x0cb87288
+events/shared/sdk/_calcint.c          P        0x0cb87288  0x0cb87334
+events/shared/sdk/_packf.c            P        0x0cb87334  0x0cb87398

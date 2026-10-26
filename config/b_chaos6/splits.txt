@@ -1,0 +1,123 @@
+# B_CHAOS6.PRS, Chaos 6
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c9001a0
+CHEAD      0x0c9001a0  0x0c900248
+DHEAD      0x0c900248  0x0c9003c0
+P          0x0c9003c0  0x0c907a80
+C          0x0c907a80  0x0c908868
+D          0x0c908868  0x0ca91a30
+B          0x0ca91a30  0x0ca92e31
+#
+# source                              section  start       end
+modules/b_chaos6/chaos6.c              PHEAD    0x0c900000  0x0c900040
+modules/b_chaos6/chaos6.c              P        0x0c9003c0  0x0c900460
+# its own source: it shares only 1ST_READ.BIN's boss globals with boss.c, and neither fill nor build decides whether it is boss.c's head code
+modules/b_chaos6/event_modes.c         PHEAD    0x0c900040  0x0c9000a0
+# the list 1ST_READ.BIN's stage_pvms names, which nothing in the image reads. its names start CHEAD, where sky.c's PHEAD ends. its list meets boss.c's head data on 8 with no fill, and the snow pool meets it the same way: one file or two build the same at each seam. it is an object's of data alone or, though their code doesn't read it, boss.c's, snow.c's, or event_modes.c's, which can link between them, which the bytes leave open; it is placed as one of data alone
+modules/b_chaos6/pvms.c                CHEAD    0x0c9001a0  0x0c900224
+modules/b_chaos6/pvms.c                DHEAD    0x0c900288  0x0c9002e8
+# the list 1ST_READ.BIN's object_lists names, which nothing in the image reads, on 8, 4 bytes past frog.c's head data. act 0's land meets it on 8 with no fill, which one file or two build the same; in the other bosses' heads the land and the object list are placed as separate objects. the bytes don't say whether its kinds at 0x0ca4acc0 share its object. kinds.c holds them and their seven names
+modules/b_chaos6/object_list.c         DHEAD    0x0c900368  0x0c900370
+# the land 1ST_READ.BIN's world_lands names for act 0, which nothing in the image reads. its name starts on 8, 4 bytes past the pvm names, which end where their object's next string would start on 4. that is consistent with a later object. its name ends 6 bytes short of act 1's land's, and its table 4 short of that land's table, each on 8 past where its own object's next item would start, with nothing pointing into the gaps, which is consistent with separate objects. the bytes don't say whether its entries, motions and texlist, in D's generated range, share its object
+modules/b_chaos6/land_act0.c           CHEAD    0x0c900228  0x0c900232
+modules/b_chaos6/land_act0.c           DHEAD    0x0c900370  0x0c900394
+# the 77 textures, texlist, 46 entries and motion the table names, and the textures' names. the texlist follows the textures off 8, the entries follow it off 8, and the motion follows them off 8, so all are one object's. the textures start on 8 4 bytes past the kinds, which end where their object's next item would start on 4, and the fill rule verifies the 4 bytes. the names start on 8, 6 bytes past the kinds' names, 4 past where their object's next string would start. one file or two build the same with the table, and the bytes leave them to its object or one of their own. the motion ends 4 past 8, and dat_0ca4b788.c's model starts on 8 4 bytes on, at 0x0ca4b788. the zero word between, which nothing reads, is the linker's fill, as the fill rule takes it, or a last word of this object
+modules/b_chaos6/land_act0.c           C        0x0c9080b0  0x0c90847c
+modules/b_chaos6/land_act0.c           D        0x0ca4ad50  0x0ca4b784
+# the node the first entry of the first act's land, chaos6_act0_land_entries', names, and its model. it starts on 8, 4 bytes past land_act0.c's motion, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of land_act0.c's object nothing reads, and either builds the same. the generated data after it starts on 8 straight after the node, at 0x0ca53920, where one file or two build the same. inside, the model's first strips follow its materials off 8, but eight of its strip arrays start on 8 straight after the one before, with no fill, at 0x0ca4bb78, 0x0ca4bcf8, 0x0ca4bfd0, 0x0ca4c0b8, 0x0ca4c488, 0x0ca4c828, 0x0ca4c9b0 and 0x0ca4c9f0, and every other item follows the one before off 8, to the node. one file or several build the same at each of those seams, so the bytes don't say whether the parts after them share the materials' object. the pointers between the parts are consistent with one object. each part from a seam on could be another object's: one of data alone or, with everything after it, the generated data's after the node. the object is one of data alone, land_act0.c's, were the zero word its, or that of the generated data after it; no other object can link between
+modules/b_chaos6/dat_0ca4b788.c        D        0x0ca4b788  0x0ca53920
+# the land 1ST_READ.BIN's world_lands names for act 1, which nothing in the image reads. the 4 zero bytes after its table, to P's start on 32 at 0x0c9003c0, which nothing points into, are fill or a word of its object, which the bytes leave open: with the word in its object, the image builds the same. they are built as fill. the bytes don't say whether its entries and texlist, in D's generated range, share its object
+modules/b_chaos6/land_act1.c           CHEAD    0x0c900238  0x0c900244
+modules/b_chaos6/land_act1.c           DHEAD    0x0c900398  0x0c9003bc
+# the 79 textures, texlist and 66 entries the table names, and the textures' names: the texlist follows the textures off 8, and the entries follow it off 8, so all are one object's. the textures start on 8 straight after the generated data. the names start on 8, 4 bytes past the first land's, which end where that object's next string would start on 4. D starts on 8, 7 bytes past the last name. one file or two build the same with the table, and the bytes leave them to its object or one of their own. the entries end 4 past 8, and dat_0ca70168.c's model starts on 8 4 bytes on, at 0x0ca70168. the zero word between, which nothing reads, is the linker's fill, as the fill rule takes it, or a last word of this object
+modules/b_chaos6/land_act1.c           C        0x0c908480  0x0c908861
+modules/b_chaos6/land_act1.c           D        0x0ca6f460  0x0ca70164
+# the node the first entry of the second act's land, chaos6_act1_land_entries', names, and its model. it starts on 8, 4 bytes past land_act1.c's entries, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of land_act1.c's object nothing reads, and either builds the same. the generated data after it starts on 8 straight after the node, at 0x0ca70b18, where one file or two build the same. the object is one of data alone, land_act1.c's, were the zero word its, or that of the generated data after it; no other object can link between
+modules/b_chaos6/dat_0ca70168.c        D        0x0ca70168  0x0ca70b18
+# its head data starts DHEAD, where boss.c's lies if chaos6.c, linked first, has none. its code reads the words at 0x0c900248, 0x0c900254 and 0x0c900284, and the 13 between them, which nothing reads, lie between items of one object. jets.c, bomb.c, debris.c and frog.c each hold head data their code reads, in their link order. the bytes leave open whether the 64 bytes are one object or two or more meeting on 8, and whose: boss.c's, an object's of data alone or, though their code doesn't read them, chaos6.c's, linked first, event_modes.c's, which has only PHEAD and can link anywhere between chaos6.c and sky.c, the pvm list's object's, which meets them at 0x0c900288, or, were the snow pool another object's, snow.c's or inhale.c's. each builds the same
+modules/b_chaos6/boss.c                DHEAD    0x0c900248  0x0c900288
+# follows chaos6.c on 32 with no fill; as one file, chaos6_set_shapes starts at 0x0c90042c, in the fill ahead of chaos6.c's pool
+modules/b_chaos6/boss.c                P        0x0c900460  0x0c903480
+modules/b_chaos6/boss.c                C        0x0c907a80  0x0c907a90
+modules/b_chaos6/boss.c                D        0x0c908868  0x0c9097d4
+modules/b_chaos6/boss.c                B        0x0ca91a30  0x0ca91a9c
+# the frozen model, chaos6_frozen_object and what it reaches, which boss.c draws. the strips follow the material off 8, and from the colors, which start on 8 straight after the strips, everything follows off 8 to the root node. the model names all of it, consistent with one object, and one file or two build the same at the colors. the material starts on 8, 4 bytes past boss.c's data, where its next item would start on 4, which is consistent with its starting an object. the bytes leave the model to an object of its own or to boss.c's, were the 4 bytes before the material its. the next model's material meets the root node on 8 at 0x0c910350, and the bytes don't say whether it shares this object
+modules/b_chaos6/frozen_model.c        D        0x0c9097d8  0x0c910350
+# Chaos 6's, the effects' and the objects' textures and the texlists the code and the pvm list name. each texlist and the list of textures after it follow off 8, and the effects' names share strings with Chaos 6's, so all are one object's. the last texlist starts on 8 straight after its textures, and names them. the textures start on 8 straight after the jets' root node, and the names meet boss.c's constants on 8 with no fill, where boss.c's next string would start on 4 too. one file or two build the same at each, and the bytes leave them to an object of their own or the jets' model's. jets.c's constant starts on 8, 4 bytes past the last name
+modules/b_chaos6/textures.c            C        0x0c907a90  0x0c907cf4
+modules/b_chaos6/textures.c            D        0x0c93bf20  0x0c93c220
+# the inhale's inner model, which inhale.c draws by chaos6_inhale_inner_object and chaos6_inhale_inner_uvs: everything after the material follows off 8, to the root node, so it is one object's. the material starts on 8 straight after the generated models, and inhale.c's data starts on 8 straight after the root node. one file or two build the same at each, and the bytes don't say whether either neighbour shares this object
+modules/b_chaos6/inhale_model.c        D        0x0c951858  0x0c951db0
+# the pool 1ST_READ.BIN's chaos6_pools names, whose pool word snow.c's pool names, at 0x0c903500. it lies between the pvm list and jets.c's head data, each meeting it on 8 with no fill, as snow.c's object lies between boss.c's and jets.c's in P. it is snow.c's or, though their code doesn't read it, inhale.c's, whose object lies there too, event_modes.c's, which can link there, the pvm list's object's or jets.c's, which meet it, or an object's of data alone, which the bytes leave open: each builds the same
+modules/b_chaos6/snow.c                DHEAD    0x0c9002e8  0x0c9002f8
+modules/b_chaos6/snow.c                P        0x0c903480  0x0c903520
+modules/b_chaos6/inhale.c              P        0x0c903520  0x0c903820
+modules/b_chaos6/inhale.c              D        0x0c951db0  0x0c951db1
+modules/b_chaos6/inhale.c              B        0x0ca91aa0  0x0ca91ba8
+modules/b_chaos6/jets.c                DHEAD    0x0c9002f8  0x0c900310
+# one object, though chaos6_tail_glow_draw meets the jets' pool at 0x0c903e80 with no fill: jet_tasks follows tail_glow_on off 8, at 0x0ca91bac
+modules/b_chaos6/jets.c                P        0x0c903820  0x0c904000
+modules/b_chaos6/jets.c                C        0x0c907cf8  0x0c907cf9
+modules/b_chaos6/jets.c                D        0x0c951db8  0x0c952e20
+modules/b_chaos6/jets.c                B        0x0ca91ba8  0x0ca91c74
+# the defense's model, chaos6_defense_object, which defense.c draws, and the model of its child node, dat_0c953140, which it names. each model's data follow its material off 8 to its root node, and the second material starts on 8 straight after the child's root node, where one file or two build the same. the first material starts on 8 straight after jets.c's data, and bomb.c's data starts on 8 straight after the root node. the bytes don't say whether either neighbour shares this object
+modules/b_chaos6/defense_model.c       D        0x0c952e20  0x0c9537c8
+# chaos6_defense_step starts on 32 at 0x0c9041c0 with no fill; split there, the code builds the same
+modules/b_chaos6/defense.c             P        0x0c904000  0x0c904240
+modules/b_chaos6/bomb.c                DHEAD    0x0c900310  0x0c90032c
+modules/b_chaos6/bomb.c                P        0x0c904240  0x0c9058a0
+modules/b_chaos6/bomb.c                C        0x0c907d00  0x0c907d01
+modules/b_chaos6/bomb.c                D        0x0c9537c8  0x0c95812c
+modules/b_chaos6/bomb.c                B        0x0ca91c78  0x0ca91ce0
+modules/b_chaos6/eggman.c              P        0x0c9058a0  0x0c905de0
+modules/b_chaos6/eggman.c              D        0x0c958130  0x0c95d8f8
+modules/b_chaos6/eggman.c              B        0x0ca91ce0  0x0ca91cea
+# Eggman's textures and chaos6_eggman_texlist, which eggman.c draws with and the pvm list names, and a collision shape and its count, which nothing names, consistent with jets.c's and bomb.c's shapes and counts. the texlist and the shape follow the textures off 8, and the names follow the count off 8, so all are one object's. the count starts on 8, 7 bytes past bomb.c's constant, and shockwave.c's constants start on 8 a byte past the last name. the textures meet eggman.c's data on 8 with no fill, and debris.c's data meets the shape so. the object is eggman.c's, debris.c's or an object's of data alone, which the bytes leave open, and one file or two build the same at each
+modules/b_chaos6/eggman_textures.c     C        0x0c907d08  0x0c907e17
+modules/b_chaos6/eggman_textures.c     D        0x0c95d8f8  0x0c95da78
+modules/b_chaos6/debris.c              DHEAD    0x0c900330  0x0c900344
+modules/b_chaos6/debris.c              P        0x0c905de0  0x0c906180
+modules/b_chaos6/debris.c              D        0x0c95da78  0x0c95ee9c
+modules/b_chaos6/shockwave.c           P        0x0c906180  0x0c9065e0
+modules/b_chaos6/shockwave.c           C        0x0c907e18  0x0c907e23
+modules/b_chaos6/shockwave.c           D        0x0c95eea0  0x0c95f3a0
+modules/b_chaos6/frog.c                DHEAD    0x0c900348  0x0c900364
+modules/b_chaos6/frog.c                P        0x0c9065e0  0x0c906fc0
+modules/b_chaos6/frog.c                D        0x0c95f3a0  0x0c95f8e4
+modules/b_chaos6/frog.c                B        0x0ca91cf0  0x0ca91d00
+modules/b_chaos6/smoke.c               P        0x0c906fc0  0x0c907060
+modules/b_chaos6/smoke.c               C        0x0c907e28  0x0c907e44
+modules/b_chaos6/smoke.c               D        0x0c95f8e8  0x0c95f924
+modules/b_chaos6/sky.c                 PHEAD    0x0c9000a0  0x0c9001a0
+# follows smoke.c with no fill; as one file, its constants and data land 4 bytes early
+modules/b_chaos6/sky.c                 P        0x0c907060  0x0c907900
+modules/b_chaos6/sky.c                 C        0x0c907e48  0x0c907ecb
+modules/b_chaos6/sky.c                 D        0x0c95f928  0x0c960ae0
+modules/b_chaos6/sky.c                 B        0x0ca91d00  0x0ca92e30
+# chaos6_change_shape, the shape motion boss.c plays as Chaos 6 changes. it starts on 8 straight after its keys' records at 0x0ca4aaf8, in the generated row, whose object the bytes don't decide. hint.c's data starts on 8, 4 bytes past it, where this object's next item would start on 4. the 4 bytes are fill or a word of this object, and either builds the same
+modules/b_chaos6/change_shape.c        D        0x0ca4aca8  0x0ca4acb4
+# follows sky.c with no fill; as one file, its table lands ahead of sky.c's strings
+modules/b_chaos6/hint.c                P        0x0c907900  0x0c907a80
+modules/b_chaos6/hint.c                C        0x0c907ed0  0x0c908062
+modules/b_chaos6/hint.c                D        0x0ca4acb8  0x0ca4acbc
+modules/b_chaos6/hint.c                B        0x0ca92e30  0x0ca92e31
+# the 7 kinds the object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the names start on 8, 6 bytes past hint.c's constants, and the kinds on 8, 4 bytes past hint.c's data, each 4 past where hint.c's next item would start. the first land's names start on 8 6 bytes past the last name, and its textures on 8 4 bytes past the last kind, each 4 past where this object's next item would start. that is consistent with separate objects at each, and the fill rule verifies all four gaps. the bytes leave the kinds to an object of their own or the object list's, as B_EGM3's list shares its kinds' object
+modules/b_chaos6/kinds.c               C        0x0c908068  0x0c9080aa
+modules/b_chaos6/kinds.c               D        0x0ca4acc0  0x0ca4ad4c
+#
+# generated data ranges
+gen/b_chaos6/d_0c910350.c              D        0x0c910350  0x0c93bf20
+gen/b_chaos6/d_0c93c220.c              D        0x0c93c220  0x0c951858
+gen/b_chaos6/d_0c960ae0.c              D        0x0c960ae0  0x0c99fa00
+gen/b_chaos6/d_0c99fa00.c              D        0x0c99fa00  0x0c9dfa10
+gen/b_chaos6/d_0c9dfa10.c              D        0x0c9dfa10  0x0ca1faa0
+gen/b_chaos6/d_0ca1faa0.c              D        0x0ca1faa0  0x0ca4aca8
+# from the data after dat_0ca4b788.c's node, which starts on 8 straight after it
+gen/b_chaos6/d_0ca53920.c              D        0x0ca53920  0x0ca5fab8
+gen/b_chaos6/d_0ca5fab8.c              D        0x0ca5fab8  0x0ca6f460
+# from the data after dat_0ca70168.c's node, which starts on 8 straight after it
+gen/b_chaos6/d_0ca70b18.c              D        0x0ca70b18  0x0ca91950
+#
+# the strips, meshset, points, normals, model and root node of a model the second act's land names, whose materials, at 0x0ca9193c, follow the generated data off 8. from the meshset on everything follows off 8, and the strips start on 8 straight after the materials, so the bytes don't say whether the materials' object holds the rest. the root node's last word ends D
+modules/b_chaos6/dat_0ca91950.c        D        0x0ca91950  0x0ca91a30

@@ -1,0 +1,474 @@
+; the motion kernels. each predicts an 8 by 8 block from a reference frame:
+; it copies the block, or averages two or four samples at half-pel offsets
+
+; struct mpv_mc's field offsets
+MC_BLOCK:       .EQU    24
+MC_READ_PITCH:  .EQU    32
+MC_FIRST:       .EQU    36
+MC_SECOND:      .EQU    40
+
+        .EXPORT     _MPVAMC_OneRef1
+        .EXPORT     _MPVAMC_OneRef1Byte
+        .EXPORT     _MPVAMC_OneRef1Word
+        .EXPORT     _MPVAMC_OneRef1Long
+        .EXPORT     _MPVAMC_OneRefV2
+        .EXPORT     _MPVAMC_OneRefH2
+        .EXPORT     _MPVAMC_OneRef4
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; void MPVAMC_OneRef1(struct mpv_mc *mc)
+; copy the 8 by 8 block at mc->first, its rows mc->read_pitch apart, into
+; mc->block. it prefetches mc->first's cache line, then tail-jumps to the
+; copy kernel for mc->first's alignment:
+; mc->ref1[mc->first & 3](mc->block, mc->first, mc->read_pitch)
+; @asm open: every instruction is one SHC writes for C
+_MPVAMC_OneRef1:
+        MOV.L       @(MC_FIRST,R4),R5
+        PREF        @R5
+        MOV         R5,R0
+        AND         #3,R0
+        MOV.L       @(MC_READ_PITCH,R4),R6
+        SHLL2       R0
+        MOV.L       @(R0,R4),R1
+        JMP         @R1
+        MOV.L       @(MC_BLOCK,R4),R4
+        .ALIGN      4
+
+; void MPVAMC_OneRef1Byte(Uint8 *block, const Uint8 *src, Sint32 pitch)
+; copy the 8 by 8 block at src, its rows pitch apart, into block's 64 bytes.
+; it reads each row a byte at a time, and stores it as a long and four bytes.
+; it also reads src[8 * pitch] and drops it, so that byte must be readable.
+; block must be 4-byte aligned
+; @asm opcode: swap, SWAP.W at 0x8ceb2318 moves a row's first two bytes to the
+; high half for XTRCT
+_MPVAMC_OneRef1Byte:
+        MOV.L       R14,@-R15
+        ADD         #-8,R4
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        ADD         #-7,R6
+        MOV.L       R9,@-R15
+        MOV         #8,R9
+        MOV.B       @R5+,R0
+?row:
+        MOV.B       @R5+,R1
+        ADD         #16,R4
+        MOV.B       @R5+,R2
+        EXTU.B      R0,R7
+        MOV.B       @R5+,R3
+        SHLL8       R1
+        MOV.B       @R5+,R11
+        OR          R1,R7
+        MOV.B       @R5+,R12
+        EXTU.B      R2,R2
+        MOV.B       @R5+,R13
+        SHLL8       R3
+        MOV.B       @R5,R14
+        ADD         R6,R5
+        MOV.B       @R5+,R0                 ; the next row, even after the last
+        SWAP.W      R7,R7                   ; bytes 1 and 0 to the high half
+        MOV.B       R14,@-R4
+        OR          R3,R2
+        MOV.B       R13,@-R4
+        XTRCT       R2,R7                   ; bytes 3 to 0, high to low
+        MOV.B       R12,@-R4
+        DT          R9
+        MOV.B       R11,@-R4
+        BF/S        ?row
+        MOV.L       R7,@-R4
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+        .ALIGN      4
+
+; void MPVAMC_OneRef1Word(Uint8 *block, const Uint8 *src, Sint32 pitch)
+; copy the 8 by 8 block at src, its rows pitch apart, into block's 64 bytes.
+; it reads each row as four halfwords, and stores it as two longs. src's rows
+; must be 2-byte aligned, and block 4-byte aligned
+; @asm operand: zero-displacement, MOV.L R0,@(0,R4) at 0x8ceb2350 stores through
+; a zero displacement
+_MPVAMC_OneRef1Word:
+        ADD         #-6,R6
+        MOV         #8,R7
+        ADD         #-8,R4
+?row:
+        MOV.W       @R5+,R0
+        ADD         #8,R4
+        DT          R7
+        MOV.W       @R5+,R1
+        SHLL16      R0
+        MOV.W       @R5+,R2
+        XTRCT       R1,R0
+        MOV.W       @R5,R3
+        SHLL16      R2
+        MOV.L       R0,@(0,R4)
+        XTRCT       R3,R2
+        MOV.L       R2,@(4,R4)
+        BF/S        ?row
+        ADD         R6,R5
+        RTS
+        NOP
+        .ALIGN      4
+
+; void MPVAMC_OneRef1Long(Uint8 *block, const Uint8 *src, Sint32 pitch)
+; copy the 8 by 8 block at src, its rows pitch apart, into block's 64 bytes,
+; two longs a row. src's rows and block must be 4-byte aligned
+; @asm open: every instruction is one SHC writes for C
+_MPVAMC_OneRef1Long:
+        ADD         #-4,R6
+        MOV.L       @R5+,R3
+        MOV.L       @R5,R7
+        ADD         R6,R5
+        MOV.L       @R5+,R1
+        MOV.L       @R5,R2
+        MOV.L       R3,@R4
+        ADD         R6,R5
+        MOV.L       R7,@(4,R4)
+        MOV.L       @R5+,R3
+        MOV.L       @R5,R7
+        ADD         R6,R5
+        MOV.L       R1,@(8,R4)
+        MOV.L       R2,@(12,R4)
+        MOV.L       @R5+,R1
+        MOV.L       @R5,R2
+        MOV.L       R3,@(16,R4)
+        ADD         R6,R5
+        MOV.L       R7,@(20,R4)
+        MOV.L       @R5+,R7
+        MOV.L       @R5,R0
+        ADD         R6,R5
+        MOV.L       R1,@(24,R4)
+        MOV.L       R2,@(28,R4)
+        MOV.L       @R5+,R2
+        MOV.L       @R5,R3
+        MOV.L       R7,@(32,R4)
+        ADD         R6,R5
+        MOV.L       R0,@(36,R4)
+        MOV.L       @R5+,R7
+        MOV.L       @R5,R1
+        ADD         R6,R5
+        MOV.L       R2,@(40,R4)
+        MOV.L       R3,@(44,R4)
+        MOV.L       @R5+,R3
+        MOV.L       @R5,R5
+        MOV.L       R7,@(48,R4)
+        MOV.L       R1,@(52,R4)
+        MOV.L       R3,@(56,R4)
+        RTS
+        MOV.L       R5,@(60,R4)
+        .ALIGN      4
+
+; void MPVAMC_OneRefV2(struct mpv_mc *mc)
+; average the 8 by 8 blocks at mc->first and mc->second, their rows
+; mc->read_pitch apart, into mc->block's 64 bytes. a pixel a of the first and
+; the pixel b at its place in the second become (a + b + c) >> 1. c is 1 for a
+; row's first pixel. for each other pixel, it is the low bit of the previous
+; pixel's a + b + c. it also reads mc->first[8 * mc->read_pitch] and
+; mc->second[8 * mc->read_pitch] and drops them, so those bytes must be
+; readable
+; @asm opcode: sett, SETT at 0x8ceb23c8 sets T for the ADDC chain from
+; 0x8ceb23d2
+_MPVAMC_OneRefV2:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       @(MC_READ_PITCH,R4),R14
+        MOV.L       @(MC_FIRST,R4),R6
+        MOV         #8,R1
+        MOV.L       @(MC_SECOND,R4),R7
+        MOV.L       @(MC_BLOCK,R4),R13
+        ADD         #-7,R14
+        MOV.B       @R6+,R2
+        MOV.B       @R7+,R3
+?row:
+        SETT                                ; 1 for the row's first pixel
+        EXTU.B      R2,R2
+        MOV.B       @R6+,R4
+        EXTU.B      R3,R3
+        MOV.B       @R7+,R5
+        ADDC        R3,R2
+        SETT                                ; SHAR replaces this T
+        SHAR        R2
+        EXTU.B      R4,R4
+        MOV.B       R2,@R13
+        MOV.B       @R6+,R2
+        EXTU.B      R5,R0
+        MOV.B       @R7+,R3
+        ADDC        R4,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R2,R2
+        MOV.B       R0,@(1,R13)
+        MOV.B       @R6+,R4
+        EXTU.B      R3,R0
+        MOV.B       @R7+,R5
+        ADDC        R2,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R4,R4
+        MOV.B       R0,@(2,R13)
+        MOV.B       @R6+,R2
+        EXTU.B      R5,R0
+        MOV.B       @R7+,R3
+        ADDC        R4,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R2,R2
+        MOV.B       R0,@(3,R13)
+        MOV.B       @R6+,R4
+        EXTU.B      R3,R0
+        MOV.B       @R7+,R5
+        ADDC        R2,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R4,R4
+        MOV.B       R0,@(4,R13)
+        MOV.B       @R6+,R2
+        EXTU.B      R5,R0
+        MOV.B       @R7+,R3
+        ADDC        R4,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R2,R2
+        MOV.B       R0,@(5,R13)
+        MOV.B       @R6,R4
+        EXTU.B      R3,R0
+        MOV.B       @R7,R5
+        ADDC        R2,R0
+        SETT
+        SHAR        R0
+        EXTU.B      R4,R4
+        MOV.B       R0,@(6,R13)
+        EXTU.B      R5,R0
+        ADD         R14,R6
+        ADDC        R4,R0
+        ADD         R14,R7
+        MOV.B       @R6+,R2                 ; the next rows, even after the last
+        SHAR        R0
+        MOV.B       @R7+,R3
+        DT          R1
+        MOV.B       R0,@(7,R13)
+        BF/S        ?row
+        ADD         #8,R13
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+        .ALIGN      4
+
+; void MPVAMC_OneRefH2(struct mpv_mc *mc)
+; average each pixel of the 8 by 8 block at mc->first, its rows mc->read_pitch
+; apart, with the pixel to its right, into mc->block's 64 bytes. a pixel a
+; and the pixel b to its right become (a + b + c) >> 1, with c as in
+; MPVAMC_OneRefV2. it reads 9 bytes of each row
+; @asm opcode: sett, SETT at 0x8ceb248c sets T for the ADDC chain from
+; 0x8ceb2492
+_MPVAMC_OneRefH2:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV         #1,R7                   ; R7 to R13: the offsets 1 to 7
+        MOV.L       @(MC_READ_PITCH,R4),R14
+        MOV         #7,R13
+        MOV.L       @(MC_BLOCK,R4),R0
+        MOV         #8,R1
+        MOV.L       @(MC_FIRST,R4),R6
+        ADD         #-8,R14
+        MOV.L       R12,@-R15
+        ADD         #-8,R0
+        MOV.L       R11,@-R15
+        MOV         #6,R12
+        MOV.L       R10,@-R15
+        MOV         #5,R11
+        MOV.L       R9,@-R15
+        MOV         #4,R10
+        MOV.L       R8,@-R15
+        MOV         #3,R9
+        MOV         #2,R8
+?row:
+        MOV.B       @R6+,R2
+        MOV.B       @R6+,R3
+        ADD         #8,R0
+        MOV.B       @R6+,R4
+        EXTU.B      R2,R2
+        EXTU.B      R3,R3
+        SETT                                ; 1 for the row's first pixel
+        EXTU.B      R4,R4
+        MOV.B       @R6+,R5
+        ADDC        R3,R2
+        SETT                                ; SHAR replaces this T
+        SHAR        R2
+        EXTU.B      R5,R5
+        MOV.B       R2,@R0
+        MOV.B       @R6+,R2
+        ADDC        R4,R3
+        SETT
+        SHAR        R3
+        EXTU.B      R2,R2
+        MOV.B       R3,@(R0,R7)
+        MOV.B       @R6+,R3
+        ADDC        R5,R4
+        SETT
+        SHAR        R4
+        EXTU.B      R3,R3
+        MOV.B       R4,@(R0,R8)
+        MOV.B       @R6+,R4
+        ADDC        R2,R5
+        SETT
+        SHAR        R5
+        EXTU.B      R4,R4
+        MOV.B       R5,@(R0,R9)
+        MOV.B       @R6+,R5
+        ADDC        R3,R2
+        SETT
+        SHAR        R2
+        EXTU.B      R5,R5
+        MOV.B       R2,@(R0,R10)
+        MOV.B       @R6,R2
+        ADDC        R4,R3
+        SETT
+        SHAR        R3
+        EXTU.B      R2,R2
+        MOV.B       R3,@(R0,R11)
+        ADDC        R5,R4
+        SETT
+        SHAR        R4
+        ADDC        R2,R5
+        MOV.B       R4,@(R0,R12)
+        SHAR        R5
+        MOV.B       R5,@(R0,R13)
+        DT          R1
+        BF/S        ?row
+        ADD         R14,R6
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+        .ALIGN      4
+
+; void MPVAMC_OneRef4(struct mpv_mc *mc)
+; average four samples into each pixel of mc->block's 64 bytes, from the 8 by
+; 8 blocks at mc->first and mc->second, their rows mc->read_pitch apart. with
+; f and s a row of each block, pixel x becomes
+; (f[x] + f[x + 1] + s[x] + s[x + 1] + 2) >> 2. it reads 9 bytes of each row.
+; it also reads mc->first[8 * mc->read_pitch] and
+; mc->second[8 * mc->read_pitch] and drops them, so those bytes must be
+; readable
+; @asm open: every instruction is one SHC writes for C
+_MPVAMC_OneRef4:
+        MOV.L       R14,@-R15
+        MOV         #8,R1
+        MOV.L       @(MC_READ_PITCH,R4),R14
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        ADD         #-8,R14
+        MOV.L       @(MC_FIRST,R4),R6
+        MOV.L       @(MC_SECOND,R4),R7
+        MOV.L       @(MC_BLOCK,R4),R13
+        MOV.B       @R6+,R2
+        MOV.B       @R7+,R3
+?row:
+        EXTU.B      R2,R2
+        MOV.B       @R6+,R4
+        EXTU.B      R3,R3
+        MOV.B       @R7+,R5
+        ADD         R3,R2
+        MOV.B       @R6+,R11
+        EXTU.B      R4,R4
+        MOV.B       @R7+,R12
+        EXTU.B      R5,R5
+        ADD         R5,R4
+        EXTU.B      R11,R11
+        EXTU.B      R12,R12
+        ADD         R12,R11
+        MOV.B       @R7+,R3
+        MOV         R2,R0
+        ADD         R4,R0
+        MOV.B       @R6+,R2
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R2,R2
+        MOV.B       R0,@R13
+        EXTU.B      R3,R3
+        ADD         R3,R2
+        MOV.B       @R7+,R5
+        MOV         R4,R0
+        ADD         R11,R0
+        MOV.B       @R6+,R4
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R4,R4
+        MOV.B       R0,@(1,R13)
+        EXTU.B      R5,R5
+        ADD         R5,R4
+        MOV.B       @R7+,R12
+        MOV         R11,R0
+        ADD         R2,R0
+        MOV.B       @R6+,R11
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R11,R11
+        MOV.B       R0,@(2,R13)
+        EXTU.B      R12,R12
+        ADD         R12,R11
+        MOV.B       @R7+,R3
+        MOV         R2,R0
+        ADD         R4,R0
+        MOV.B       @R6+,R2
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R2,R2
+        MOV.B       R0,@(3,R13)
+        EXTU.B      R3,R3
+        ADD         R3,R2
+        MOV.B       @R7+,R5
+        MOV         R4,R0
+        ADD         R11,R0
+        MOV.B       @R6+,R4
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R4,R4
+        MOV.B       R0,@(4,R13)
+        EXTU.B      R5,R5
+        ADD         R5,R4
+        MOV.B       @R7,R12
+        MOV         R11,R0
+        ADD         R2,R0
+        MOV.B       @R6,R11
+        ADD         #2,R0
+        SHLR2       R0
+        EXTU.B      R11,R11
+        MOV.B       R0,@(5,R13)
+        EXTU.B      R12,R12
+        ADD         R12,R11
+        MOV         R2,R0
+        ADD         R4,R0
+        ADD         #2,R0
+        SHLR2       R0
+        MOV.B       R0,@(6,R13)
+        MOV         R4,R0
+        ADD         R11,R0
+        ADD         #2,R0
+        SHLR2       R0
+        MOV.B       R0,@(7,R13)
+        ADD         R14,R6
+        MOV.B       @R6+,R2                 ; the next rows, even after the last
+        ADD         R14,R7
+        MOV.B       @R7+,R3
+        DT          R1
+        BF/S        ?row
+        ADD         #8,R13
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+
+        .END

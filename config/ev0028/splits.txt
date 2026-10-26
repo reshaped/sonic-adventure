@@ -1,0 +1,23 @@
+# EV0028.PRS, Knuckles challenges Sonic, Sonic's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81df0
+C          0x0cb81df0  0x0cb81f18
+D          0x0cb81f18  0x0cb99270
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0028/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0028/script.c                P        0x0cb80008  0x0cb80adc
+events/ev0028/script.c                C        0x0cb81df0  0x0cb81f15
+events/ev0028/script.c                D        0x0cb81f18  0x0cb81f30
+events/shared/move.c                  P        0x0cb80adc  0x0cb81600
+events/shared/move.c                  D        0x0cb99248  0x0cb99270
+events/shared/mover.c                 P        0x0cb81600  0x0cb81d98
+events/shared/shapes.c                P        0x0cb81d98  0x0cb81df0
+#
+# generated data ranges
+gen/ev0028/d_0cb81f30.c               D        0x0cb81f30  0x0cb99248

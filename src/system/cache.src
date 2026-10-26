@@ -1,0 +1,165 @@
+; operand-cache control and the matrix below Ninja's stack top
+;
+; CCR's ORA bit maps half the operand cache as RAM. the three RAM-mode
+; entry points return at once, and the code after each RTS, which changes
+; it, never runs
+
+        .IMPORT     __nj_current_matrix_ptr_
+        .EXPORT     _cache_ram_init
+        .EXPORT     _cache_ram_restore
+        .EXPORT     _cache_ram_end
+        .EXPORT     _cache_empty
+        .EXPORT     _matrix_load_parent
+
+; CCR, the cache control register, and ORA, its bit for RAM mode
+CCR:            .EQU    H'FF00001C
+CCR_ORA:        .EQU    H'20
+; the operand cache's address array: a word for each of its 512 lines, 32
+; bytes apart. the second half of the lines starts OC_HALF bytes in, and
+; each half holds OC_HALF_LINES lines
+OC_ADDRESS:     .EQU    H'F4000000
+OC_HALF:        .EQU    H'2000
+OC_HALF_LINES:  .EQU    H'0100
+; P2, the view of memory that bypasses the caches
+P2:             .EQU    H'A0000000
+; SR's interrupt mask, bits 4 to 7
+SR_IMASK:       .EQU    H'F0
+
+        .SECTION    P,CODE,ALIGN=32
+
+; void cache_ram_init(void)
+; return at once. the code after the RTS at 0x8c02f1c0 would turn RAM mode
+; on, and never runs
+; @asm open: every instruction is one SHC writes for C
+_cache_ram_init:
+        RTS
+        NOP
+        MOV.L       #CCR,R1
+        MOV.L       @R1,R0
+        OR          #CCR_ORA,R0
+        MOV.L       R0,@R1
+        RTS
+        NOP
+
+; void cache_ram_restore(void)
+; return at once. the code after the RTS at 0x8c02f1d4 would turn RAM mode
+; back on and empty the cache, and never runs
+; @asm open: no inspect rule reads the R3 it hands cache_empty_lines
+_cache_ram_restore:
+        RTS
+        NOP
+        MOV.L       #CCR,R1
+        MOV.L       @R1,R0
+        OR          #CCR_ORA,R0
+        MOV.L       R0,@R1
+        MOV.W       #0,R2
+        MOV.W       #OC_HALF,R3
+        MOV.W       #OC_HALF_LINES,R7
+        BRA         _cache_empty_lines
+        NOP
+
+; invalidate R7 lines of the operand cache from each of two offsets into
+; its address array, R2 and R3. a zero written to a line's entry drops the
+; line without writing it back. interrupts stay masked while it works, and
+; are then unmasked, not set back to the mask they had
+; @asm open: no inspect rule reads R3 at its entry
+_cache_empty_lines:
+        MOV         #SR_IMASK/16,R1
+        SHLL2       R1
+        SHLL2       R1
+        NOT         R1,R1                   ; every bit but the mask's
+        STC         SR,R0
+        AND         R1,R0
+        OR          #SR_IMASK,R0
+        LDC         R0,SR
+        MOV.L       #OC_ADDRESS,R1
+        ADD         R1,R2
+        ADD         R1,R3
+        MOV         #0,R0
+?line:
+        MOV.L       R0,@R2
+        MOV.L       @R3,R4                  ; read, and not used
+        MOV.L       R0,@R3
+        ADD         #32,R2
+        ADD         #32,R3
+        DT          R7
+        BF          ?line
+        NOP
+        NOP
+        NOP
+        NOP
+        MOV         #SR_IMASK/16,R1
+        SHLL2       R1
+        SHLL2       R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        LDC         R0,SR
+        RTS
+        NOP
+
+; void cache_ram_end(void)
+; return at once. the code after the RTS at 0x8c02f238 would turn RAM mode
+; off and empty the cache, and never runs
+; @asm open: no inspect rule reads the R3 it hands cache_empty_lines
+_cache_ram_end:
+        RTS
+        NOP
+        MOV.L       #CCR,R1
+        MOV.L       @R1,R0
+        MOV.L       #~CCR_ORA,R2
+        AND         R2,R0
+        MOV.L       R0,@R1
+        MOV.W       #0,R2
+        MOV.W       #OC_HALF,R3
+        MOV.W       #OC_HALF_LINES,R7
+        BRA         _cache_empty_lines
+        NOP
+
+; void cache_empty(void)
+; invalidate every line of the operand cache, dropping dirty data. it runs
+; cache_empty_all through P2, outside the caches
+; @asm open: every instruction is one SHC writes for C
+_cache_empty:
+        MOV.L       #_cache_empty_all,R0
+        MOV.L       #P2,R1
+        OR          R1,R0
+        JMP         @R0
+        NOP
+
+; empty every line through cache_empty_lines, OC_HALF_LINES from each half
+; @asm open: no inspect rule reads the R3 it hands cache_empty_lines
+_cache_empty_all:
+        MOV.W       #0,R2
+        MOV.W       #OC_HALF,R3
+        MOV.W       #OC_HALF_LINES,R7
+        BRA         _cache_empty_lines
+        NOP
+
+; Bool matrix_load_parent(void)
+; load the matrix below Ninja's current one on its matrix stack into
+; XMTRX, and return TRUE. the stack stays as it is
+; @asm opcode: fschg, FSCHG at 0x8c02f292 turns FMOV to pairs for the matrix's
+; loads
+_matrix_load_parent:
+        MOV         #1,R4
+        SHLL2       R4
+        SHLL2       R4
+        MOV.L       #__nj_current_matrix_ptr_,R5
+        SHLL2       R4                      ; 64, a matrix
+        MOV.L       @R5,R1
+        SUB         R4,R1
+        FSCHG                               ; fmov moves 8 bytes to the next fschg
+        FMOV        @R1+,XD0
+        FMOV        @R1+,XD2
+        FMOV        @R1+,XD4
+        FMOV        @R1+,XD6
+        FMOV        @R1+,XD8
+        FMOV        @R1+,XD10
+        FMOV        @R1+,XD12
+        FMOV        @R1+,XD14
+        FSCHG
+        RTS
+        MOV         #1,R0
+
+        .END

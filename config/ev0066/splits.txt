@@ -1,0 +1,33 @@
+# EV0066.PRS, Amy's story: Amy clears Hot Shelter and rises with the balloon into Tikal's light
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82248
+C          0x0cb82248  0x0cb82250
+D          0x0cb82250  0x0cb83d84
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0066/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0066/script.c               P        0x0cb80008  0x0cb80550
+events/ev0066/script.c               C        0x0cb82248  0x0cb8224a
+events/ev0066/script.c               D        0x0cb82250  0x0cb82284
+events/shared/white.c                 P        0x0cb80550  0x0cb807d8
+events/shared/white.c                 D        0x0cb83d20  0x0cb83d24
+events/shared/prop.c                  P        0x0cb807d8  0x0cb80a98
+events/shared/prop.c                  D        0x0cb83d28  0x0cb83d50
+events/shared/move.c                  P        0x0cb80a98  0x0cb815bc
+events/shared/move.c                  D        0x0cb83d50  0x0cb83d78
+events/shared/mover.c                 P        0x0cb815bc  0x0cb81d54
+events/shared/light.c                 P        0x0cb81d54  0x0cb81e88
+events/shared/sound.c                 P        0x0cb81e88  0x0cb82248
+events/shared/sound.c                 D        0x0cb83d78  0x0cb83d84
+# position keys of a node of ev0066_amy_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and white.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb82388, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0066/dat_0cb82288.c          D        0x0cb82288  0x0cb82388
+# ev0066_amy_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb83828 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0066/amy_action.c            D        0x0cb83d08  0x0cb83d1c
+#
+# generated data ranges
+gen/ev0066/d_0cb82388.c               D        0x0cb82388  0x0cb83d08

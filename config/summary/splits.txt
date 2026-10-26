@@ -1,0 +1,54 @@
+# SUMMARY.PRS, the story so far, how to play and the staff roll
+#
+# section  start       end
+DHEAD      0x8c900000  0x8c900040  # summary_entries, the table main.c calls through
+P          0x8c900040  0x8c9032e8
+D          0x8c9032e8  0x8c907af0
+B          0x8c907af0  0x8c987d88  # zeroed, and stored in the file
+C          0x8c987d88  0x8c98f915
+#
+# source                              section  start       end
+# main.c reads six of the table's nine entries, through struct summary, the last at 0x8c90001c, and nothing points past the table; the 28 zero bytes after it end where P starts on 32, as ADVERTISE's 20 after its three do. the bytes don't say whether they are the linker's fill, as the fill rule takes them, unread entries of this object, or data of another object nothing names
+modules/summary/summary.c             DHEAD    0x8c900000  0x8c900024
+modules/summary/summary.c             P        0x8c900040  0x8c900800
+# the seven stories' lines point 151 times at one empty string, at 0x8c987e9c, so they and the pages between them are one compilation's, and each item from supersonic_summary_pages to summary_story_pages starts off 8, straight after the one before. outside the row, only summary.c's pool words, 0x8c900404, 0x8c900408 and 0x8c9007e8, and pages.c's, 0x8c9008c8, point into it. the lines start on 8 past summary_tunes' 7 bytes, where 4 would start them too, and the flags at 0x8c904630, 0x8c904690, 0x8c9046a0 and 0x8c9046b0 and pages.c's data at 0x8c904728 each start on 8 straight after the item before: from the lines on, the data is summary.c's, pages.c's or data-only objects', which the bytes leave open, and pages.c holding the flags and summary_scripts builds the same bytes
+modules/summary/summary.c             D        0x8c9032e8  0x8c904728
+modules/summary/summary.c             B        0x8c907cd0  0x8c907ce0
+# only the lines in summary.c's D name these texts, one empty string at 0x8c987e9c 151 times; the string at 0x8c98c720 is named only by picture_files, picture.c's
+modules/summary/summary.c             C        0x8c987d88  0x8c98c720
+# 480 zero bytes from B's start, which C follows in the file, that nothing points into, here or in 1ST_READ.BIN, and summary.c's B starts on 8 straight after them. they aren't fill: B starts on 8 where D ends, and the linker leaves at most 7 bytes before an object on 8, so they are the storage of one object or more. summary.c's code links first in P, so they are the B of objects of data alone, or of summary.c, whose B meets them on 8 with no fill, though its code doesn't read them, which the bytes leave open. with no code reading them, they are placed as one object of data alone, storage with no initializer and no type, as STG01's are
+modules/summary/dat_8c907af0.c        B        0x8c907af0  0x8c907cd0
+# 16 zero bytes between summary.c's B and picture.c's, each on 8, that nothing points into: the linker leaves at most 7 bytes before an object on 8, so at least 9 are storage nothing reads, summary.c's, pages.c's, which links between with no row in B, picture.c's, or an object's of data alone. placed as one object of data alone of the run's length, storage with no initializer and no type; an object of 9 to 15 bytes with the rest fill would build the same
+modules/summary/dat_8c907ce0.c        B        0x8c907ce0  0x8c907cf0
+modules/summary/pages.c               P        0x8c900800  0x8c9008e0
+modules/summary/pages.c               D        0x8c904728  0x8c904736
+modules/summary/picture.c             P        0x8c9008e0  0x8c900b00
+modules/summary/picture.c             D        0x8c904738  0x8c904be0
+modules/summary/picture.c             B        0x8c907cf0  0x8c907cfc
+modules/summary/picture.c             C        0x8c98c720  0x8c98ca68
+modules/summary/tutorial_screen.c     P        0x8c900b00  0x8c9012a0
+modules/summary/tutorial_screen.c     D        0x8c904be0  0x8c904cea
+modules/summary/tutorial_screen.c     B        0x8c907d00  0x8c907d18
+modules/summary/tutorial_screen.c     C        0x8c98ca68  0x8c98cb62
+# tutorial_back_step starts on 32 at 0x8c9014c0 with no fill; split there, the code builds the same
+modules/summary/tutorial_back.c       P        0x8c9012a0  0x8c901600
+modules/summary/tutorial_back.c       D        0x8c904cf0  0x8c904efc
+modules/summary/tutorial_back.c       C        0x8c98cb68  0x8c98cde5
+modules/summary/tutorial.c            P        0x8c901600  0x8c901b30
+modules/summary/tutorial.c            D        0x8c904f00  0x8c905e7c
+modules/summary/tutorial.c            C        0x8c98cde8  0x8c98d330
+modules/summary/staff_roll.c          P        0x8c901b40  0x8c902be0
+# outside the row, only this code's pool words point into it, 0x8c901d18 to 0x8c902afc. its items meet on 8 with no gap, in D and in the texts they name in C, at 26 places from 0x8c906048 to staff_roll_emblem_task at 0x8c907910: staff_roll.c's or data-only objects', which the bytes leave open. the 376 bytes that follow on 8 with no gap are the font's, which ADVERTISE links after drive_select.c's data
+modules/summary/staff_roll.c          D        0x8c905e80  0x8c907940
+modules/summary/staff_roll.c          B        0x8c907d18  0x8c907d38
+# the texts from 0x8c98d348 follow the code's two pvm names on 8 with no gap, and only staff_roll.c's D names them: staff_roll.c's or data-only objects', which the bytes leave open
+modules/summary/staff_roll.c          C        0x8c98d330  0x8c98f88a
+modules/advertise/font.c              P        0x8c902be0  0x8c902ecc
+modules/advertise/font.c              C        0x8c98f890  0x8c98f8a6
+modules/advertise/font.c              D        0x8c907940  0x8c907ab8
+modules/advertise/font.c              B        0x8c907d38  0x8c907d64
+# dialog_pixels_size starts on 32 at 0x8c9032c0 with no fill; split there, the code builds the same
+modules/advertise/dialog.c            P        0x8c902ee0  0x8c9032e4
+modules/advertise/dialog.c            C        0x8c98f8a8  0x8c98f915
+modules/advertise/dialog.c            D        0x8c907ab8  0x8c907aec
+modules/advertise/dialog.c            B        0x8c907d68  0x8c987d88

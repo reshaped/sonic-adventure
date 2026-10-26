@@ -1,0 +1,106 @@
+        .IMPORT     __errno
+        .EXPORT     __modlu
+
+        .SECTION    P,CODE,ALIGN=4
+
+; unsigned remainder for compiled code: R0 = R1 % R0. it changes R0, R1 and
+; SR's Q, M and T bits, and no other register. a zero divisor sets errno to
+; 1102 and returns 0
+; @asm opcode: rotcl, ROTCL R1 at 0x8c11bc12 and the 31 after it shift the
+; dividend out into T
+__modlu:
+        TST         R0,R0
+        BT          modlu_divide_by_zero
+        MOV.L       R3,@-R15
+        MOV         #0,R3
+        MOV.L       R4,@-R15
+        MOV         R0,R4
+        DIV0U
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        ROTCL       R1
+        DIV1        R4,R3
+        BF          modlu_add_divisor
+        MOV         R3,R0
+        MOV.L       @R15+,R4
+        RTS
+        MOV.L       @R15+,R3
+modlu_add_divisor:
+        ADD         R3,R0
+        MOV.L       @R15+,R4
+        RTS
+        MOV.L       @R15+,R3
+modlu_divide_by_zero:
+        MOV.L       R2,@-R15
+        MOV.L       modlu_errno_address,R1
+        MOV.L       modlu_errno_value,R2
+        MOV         #0,R0
+        MOV.L       R2,@R1
+        RTS
+        MOV.L       @R15+,R2
+        .ALIGN      4
+modlu_errno_address:
+        .DATA.L     __errno
+modlu_errno_value:
+        .DATA.L     H'0000044E
+        .END

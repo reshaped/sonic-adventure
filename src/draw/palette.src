@@ -1,0 +1,359 @@
+; the palette routines: copies, fills, a blend and a rotation of colors. a
+; palette in draw_palettes is 256 entries of 8 bytes, each a base color and
+; then an offset color. its base colors lie 8 bytes apart, as do its offset
+; colors
+
+        .IMPORT     _draw_palettes
+        .EXPORT     _fun_8c0566a0
+        .EXPORT     _fun_8c0566ac
+        .EXPORT     _palette_get
+        .EXPORT     _fun_8c0566d0
+        .EXPORT     _fun_8c0566ea
+        .EXPORT     _fun_8c056704
+        .EXPORT     _fun_8c056724
+        .EXPORT     _palette_mix
+        .EXPORT     _fun_8c0567dc
+        .EXPORT     _fun_8c056860
+        .EXPORT     _fun_8c05687a
+        .EXPORT     _fun_8c056896
+
+        .SECTION    P,CODE,ALIGN=16
+
+; void fun_8c0566a0(void *pointer)
+; keep pointer in dat_8c056ca0
+; @asm open: every instruction is one SHC writes for C
+_fun_8c0566a0:
+        MOV.L       #_dat_8c056ca0,R0
+        RTS
+        MOV.L       R4,@R0
+
+; void *fun_8c0566ac(void)
+; return the pointer in dat_8c056ca0
+; @asm open: every instruction is one SHC writes for C
+_fun_8c0566ac:
+        MOV.L       #_dat_8c056ca0,R0
+        RTS
+        MOV.L       @R0,R0
+
+; Uint32 *palette_get(int palette, int offsets)
+; the address of draw_palettes[palette]'s base colors, or of its offset
+; colors when offsets is nonzero
+; @asm open: every instruction is one SHC writes for C
+_palette_get:
+        SHLL8       R4                      ; 2048 bytes a palette
+        SHLL        R4
+        SHLL2       R4
+        TST         R5,R5
+        BT          ?base
+        ADD         #4,R4
+?base:
+        MOV.L       #_draw_palettes,R0
+        RTS
+        ADD         R4,R0
+
+; void fun_8c0566d0(Uint32 *out, Uint32 *in)
+; copy 256 colors, one after another, from in to out. with in equal to out
+; it writes nothing
+; @asm open: no inspect rule reads its MOV.L @R5+,R0
+_fun_8c0566d0:
+        CMP/EQ      R4,R5
+        BF          ?copy
+        RTS
+        NOP
+?copy:
+        MOV.W       #256,R7
+?next:
+        MOV.L       @R5+,R0
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?next
+        ADD         #4,R4
+        RTS
+        NOP
+
+; void fun_8c0566ea(Uint32 *out, Uint32 *in)
+; copy 512 colors, one after another, from in to out. with in equal to out
+; it writes nothing
+; @asm open: no inspect rule reads its MOV.L @R5+,R0
+_fun_8c0566ea:
+        CMP/EQ      R4,R5
+        BF          ?copy
+        RTS
+        NOP
+?copy:
+        MOV.W       #512,R7
+?next:
+        MOV.L       @R5+,R0
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?next
+        ADD         #4,R4
+        RTS
+        NOP
+
+; void fun_8c056704(Uint32 *out, Uint32 color)
+; fill 128 colors 8 bytes apart at out with color
+; @asm open: no inspect rule reads its MOV.W of 32
+_fun_8c056704:
+        MOV         #-4,R0
+        MOV.W       #32,R7
+?next:
+        ADD         #28,R4
+        MOV.L       R5,@-R4
+        ADD         R0,R4
+        MOV.L       R5,@-R4
+        ADD         R0,R4
+        MOV.L       R5,@-R4
+        ADD         R0,R4
+        MOV.L       R5,@-R4
+        DT          R7
+        BF/S        ?next
+        ADD         #32,R4
+        RTS
+        NOP
+
+; void fun_8c056724(Uint32 *out, Uint32 color)
+; fill 256 colors, one after another, at out with color
+; @asm open: no inspect rule reads its MOV.W of 32
+_fun_8c056724:
+        MOV.W       #32,R7
+?next:
+        ADD         #32,R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        DT          R7
+        BF/S        ?next
+        ADD         #32,R4
+        RTS
+        NOP
+
+; void palette_mix(Uint32 *out, Uint32 *from, Uint32 *to, Float share)
+; blend 256 colors 8 bytes apart: out gets share of from's and the rest of
+; to's. with to equal to from it writes nothing. for share from 0 to 1, let
+; w be share * 256, truncated. each channel of out, one of a color's low
+; three bytes, is then (from's * w + to's * (256 - w)) >> 8. each color's
+; top byte is 0
+; @asm opcode: swap, SWAP.B at 0x8c056798, 0x8c05679e and 0x8c0567a4 takes each
+; blended channel's bits 8 to 15
+_palette_mix:
+        CMP/EQ      R5,R6
+        BF          ?mix
+        RTS
+        NOP
+?mix:
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       #?scale,R0
+        FMOV.S      @R0,FR0
+        FMUL        FR4,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R8                 ; w
+        MOV.W       #256,R9
+        SUB         R8,R9                   ; 256 - w
+        MOV.W       #256,R7
+?next:
+        MOV.L       @R5+,R0
+        EXTU.B      R0,R3
+        SHLR8       R0
+        EXTU.B      R0,R2
+        SHLR8       R0
+        EXTU.B      R0,R1
+        MULS.W      R8,R1
+        STS         MACL,R1
+        MULS.W      R8,R2
+        STS         MACL,R2
+        MULS.W      R8,R3
+        STS         MACL,R3
+        MOV.L       @R6+,R0
+        EXTU.B      R0,R12
+        SHLR8       R0
+        EXTU.B      R0,R11
+        SHLR8       R0
+        EXTU.B      R0,R10
+        MULS.W      R9,R10
+        STS         MACL,R10
+        MULS.W      R9,R11
+        STS         MACL,R11
+        MULS.W      R9,R12
+        STS         MACL,R12
+        ADD         R10,R1
+        SWAP.B      R1,R1
+        EXTU.B      R1,R1
+        ADD         R11,R2
+        SWAP.B      R2,R2
+        EXTU.B      R2,R2
+        ADD         R12,R3
+        SWAP.B      R3,R3
+        EXTU.B      R3,R3
+        MOV.W       #256,R0                 ; its 1 shifts out: a top byte of 0
+        SHLL8       R0
+        OR          R1,R0
+        SHLL8       R0
+        OR          R2,R0
+        SHLL8       R0
+        OR          R3,R0
+        MOV.L       R0,@R4
+        ADD         #4,R5
+        ADD         #4,R6
+        DT          R7
+        BF/S        ?next
+        ADD         #8,R4
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        RTS
+        NOP
+?scale:
+        .FDATA.S    F'256.0
+
+; void fun_8c0567dc(Uint32 *out, Uint32 *in, Uint8 shift)
+; rotate 256 colors 8 bytes apart by shift: in's color k goes to out's color
+; (k + shift) % 256. shift 0 writes nothing. with in equal to out, it saves
+; the last shift colors in dat_8c0568a0, copies the rest onto themselves,
+; and puts the saved ones back where they were, so the colors stay as they
+; were. the save stores a color every 8 bytes (0x8c05682c, 0x8c056832), so
+; a shift above 128 runs past dat_8c0568a0's 1024 bytes and over
+; dat_8c056ca0. above 132 it runs over main's code, at 0x8c056cc0, and what
+; follows it, up to 0x8c057090 at shift 255
+; @asm open: every instruction is one SHC writes for C
+_fun_8c0567dc:
+        EXTU.B      R6,R6
+        TST         R6,R6
+        BF          ?shift
+        RTS
+        NOP
+?shift:
+        CMP/EQ      R4,R5
+        BT          ?same
+        MOV         R6,R0
+        SHLL2       R0
+        SHLL        R0
+        MOV         R4,R1
+        ADD         R0,R1
+        MOV.W       #256,R7
+        SUB         R6,R7
+?head:
+        MOV.L       @R5,R0
+        ADD         #8,R5
+        MOV.L       R0,@R1
+        DT          R7
+        BF/S        ?head
+        ADD         #8,R1
+        MOV         R6,R7
+?tail:
+        MOV.L       @R5,R0
+        ADD         #8,R5
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?tail
+        ADD         #8,R4
+        RTS
+        NOP
+?same:
+        MOV.W       #256,R0
+        SUB         R6,R0
+        SHLL2       R0
+        SHLL        R0
+        MOV         R5,R1
+        ADD         R0,R1
+        MOV         R6,R7
+        MOV.L       #_dat_8c0568a0,R2
+?save:
+        MOV.L       @R1,R0
+        ADD         #8,R1
+        MOV.L       R0,@R2
+        DT          R7
+        BF/S        ?save
+        ADD         #8,R2
+        MOV.W       #256,R7
+        SUB         R6,R7
+?keep:
+        MOV.L       @R5,R0
+        ADD         #8,R5
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?keep
+        ADD         #8,R4
+        MOV.L       #_dat_8c0568a0,R2
+        MOV         R6,R7
+?restore:
+        MOV.L       @R2,R0
+        ADD         #8,R2
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?restore
+        ADD         #8,R4
+        RTS
+        NOP
+
+; void fun_8c056860(Uint32 *out, Uint32 *in)
+; copy 256 colors, one after another at in, to 256 colors 8 bytes apart at
+; out. with in equal to out it writes nothing
+; @asm open: no inspect rule reads its MOV.L @R5+,R0
+_fun_8c056860:
+        CMP/EQ      R4,R5
+        BF          ?copy
+        RTS
+        NOP
+?copy:
+        MOV.W       #256,R7
+?next:
+        MOV.L       @R5+,R0
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?next
+        ADD         #8,R4
+        RTS
+        NOP
+
+; void fun_8c05687a(Uint32 *out, Uint32 *in)
+; copy 256 colors 8 bytes apart at in to 256 colors, one after another, at
+; out. with in equal to out it writes nothing
+; @asm open: every instruction is one SHC writes for C
+_fun_8c05687a:
+        CMP/EQ      R4,R5
+        BF          ?copy
+        RTS
+        NOP
+?copy:
+        MOV.W       #256,R7
+?next:
+        MOV.L       @R5,R0
+        ADD         #8,R5
+        MOV.L       R0,@R4
+        DT          R7
+        BF/S        ?next
+        ADD         #4,R4
+        RTS
+        NOP
+
+; void fun_8c056896(void)
+; return at once
+; @asm open: every instruction is one SHC writes for C
+_fun_8c056896:
+        RTS
+        NOP
+
+        .ALIGN      16
+
+; Uint32 dat_8c0568a0[256]
+; the colors fun_8c0567dc saves when in is out, 8 bytes apart
+_dat_8c0568a0:
+        .RES.L      256
+; void *dat_8c056ca0
+; the pointer fun_8c0566a0 keeps
+_dat_8c056ca0:
+        .RES.L      1
+
+        .END

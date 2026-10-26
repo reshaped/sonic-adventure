@@ -1,0 +1,25 @@
+# EV0044.PRS, Tails' story: Tails finds himself in the past
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80938
+C          0x0cb80938  0x0cb80988
+D          0x0cb80988  0x0cb8323c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0044/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0044/script.c               P        0x0cb80008  0x0cb802ec
+events/ev0044/script.c               C        0x0cb80938  0x0cb80988
+events/ev0044/script.c               D        0x0cb80988  0x0cb80990
+events/shared/white.c                 P        0x0cb802ec  0x0cb80574
+events/shared/white.c                 D        0x0cb83228  0x0cb8322c
+events/shared/sound.c                 P        0x0cb80574  0x0cb80934
+events/shared/sound.c                 D        0x0cb83230  0x0cb8323c
+# ev0044_tails_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb82dd0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0044/tails_action.c          D        0x0cb83210  0x0cb83224
+#
+# generated data ranges
+gen/ev0044/d_0cb80990.c               D        0x0cb80990  0x0cb83210

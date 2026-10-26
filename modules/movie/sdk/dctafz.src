@@ -1,0 +1,488 @@
+; the inverse DCT's kernels: one for a block that holds only its DC
+; coefficient, and one for the coded blocks, in 8-point passes through FTRV
+
+; the offsets of struct dct_fz_param's fields from round_bias, the field 32
+; bytes in. DCTAFZ_DenseCbp points r4 at round_bias, and the word it keeps on
+; the stack too. a MOV.L displacement, at most 60, then reaches every field
+; it uses
+FZ_ROUND_BIAS:  .EQU    0
+FZ_STRIDE:      .EQU    4
+FZ_CBP:         .EQU    8
+FZ_COEF:        .EQU    12
+FZ_CURSOR:      .EQU    20
+FZ_OUTPUT_BIAS: .EQU    24
+FZ_EVEN:        .EQU    32
+FZ_ODD:         .EQU    36
+FZ_SCRATCH:     .EQU    40
+FZ_LEFT:        .EQU    44
+FZ_SCRATCH_AT:  .EQU    48
+
+        .EXPORT     _DCTAFZ_DenseCbp
+        .EXPORT     _DCTAFZ_SparseDc
+
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+
+; void DCTAFZ_SparseDc(const Float *coef, Sint16 *block)
+; the inverse DCT of a block that holds only its DC coefficient, coef[0].
+; with v coef[0] truncated to an integer, each of the 64 shorts at block
+; becomes (|v| + 4) >> 3, with v's sign. block must be 8-byte aligned
+; @asm opcode: swap, SWAP.W at 0x8ceb1552 moves the result's low half up for
+; XTRCT to put it in both halves of a word
+_DCTAFZ_SparseDc:
+        FMOV.S      @R4,FR0
+        ADD         #64,R5
+        MOV         #-3,R1
+        FTRC        FR0,FPUL
+        STS         FPUL,R4
+        ADD         #64,R5
+        CMP/PZ      R4
+        BT          ?magnitude
+        NEG         R4,R4
+?magnitude:
+        ADD         #4,R4
+        SHLD        R1,R4
+        BT          ?signed                 ; t is still cmp/pz's
+        NEG         R4,R4
+?signed:
+        SWAP.W      R4,R6
+        XTRCT       R4,R6
+        LDS         R6,FPUL
+        FSTS        FPUL,FR0
+        FSTS        FPUL,FR1
+        NOP
+        FSCHG                               ; fmov moves pairs to the next fschg
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        FMOV        DR0,@-R5
+        RTS
+        FSCHG
+
+; void DCTAFZ_DenseCbp(struct dct_fz_param *param)
+; transform each block whose bit in param->cbp is set, block i in bit 31 - i.
+; block i's input is the 64 floats at param->coef + 64 * i. its output is the
+; 64 shorts at param->cursor[i], 8 rows of 8, 16 bytes apart. a result x is
+; stored as (int)(x + param->round_bias) - param->output_bias, and the cast
+; truncates. a pass along each axis takes a line's even coefficients through
+; the 4 by 4 matrix at param->even, and its odd ones through param->odd.
+; with DCT_FzInit's matrices, the passes make the inverse DCT of a block that
+; holds its coefficients in this order. write a float's index in the block as
+; 32h + 4k + j, with h from 0 to 1, k from 0 to 7 and j from 0 to 3. its
+; coefficient's vertical frequency is 0, 4, 2, 6, 1, 3, 5 or 7 as k runs from
+; 0 to 7. its horizontal frequency is 0, 4, 2 or 6 as j runs from 0 to 3 where
+; h is 0, and 1, 3, 5 or 7 where h is 1.
+; DCTAFZ_DenseCbp overwrites the first 32 floats of each block it transforms,
+; and the 64 floats 256 * i bytes past param->scratch. it reads the 16 bytes
+; past each block's 64 floats and past each of those scratch areas, which must
+; be readable. it steps param->cursor past all six output pointers, and keeps
+; its own state in param->left and param->scratch_at. it leaves the odd matrix
+; in xmtrx. once it transforms a block, it also leaves other values in fr12 to
+; fr15. param->stride must be 256, and param, the floats and the matrices
+; 8-byte aligned
+; @asm operand: fschg-pairs, FMOV @R3+,DR8 at 0x8ceb15dc and FMOV @R3+,DR10 at
+; 0x8ceb15de load pairs in the run FSCHG at 0x8ceb1598 opens
+_DCTAFZ_DenseCbp:
+        MOV.L       R14,@-R15
+        ADD         #32,R4
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       @(FZ_EVEN,R4),R0
+        FSCHG                               ; fmov moves pairs to the next fschg
+        FMOV        @R0+,XD0                ; the even matrix into xmtrx
+        MOV         #16,R8                  ; r8 to r14: rows 1 to 7 of 16 bytes
+        FMOV        @R0+,XD2
+        MOV         #32,R9
+        FMOV        @R0+,XD4
+        MOV         #48,R10
+        FMOV        @R0+,XD6
+        MOV         #64,R11
+        FMOV        @R0+,XD8
+        MOV         #80,R12
+        FMOV        @R0+,XD10
+        MOV         #96,R13
+        FMOV        @R0+,XD12
+        MOV         #112,R14
+        FMOV        @R0+,XD14
+        MOV.L       @(FZ_COEF,R4),R1
+        MOV         #6,R7
+        MOV.L       @(FZ_CBP,R4),R6
+        MOV         R1,R2
+        MOV         R1,R3
+        ADD         #16,R2
+        MOV.L       @(FZ_STRIDE,R4),R5
+        ADD         #32,R3
+        MOV.L       @(FZ_ODD,R4),R0
+        MOV         R1,R4
+        ADD         #48,R4
+; pass 1, along the rows: each coded block's even coefficients, 8 rows of 4,
+; through the even matrix, in place
+?pass1:
+        SHLL        R6
+        BF          ?pass1_next
+        FMOV        @R1+,DR0
+        FMOV        @R1+,DR2
+        FTRV        XMTRX,FV0
+        FMOV        @R2+,DR4
+        FMOV        @R2+,DR6
+        FMOV        @R3+,DR8
+        FMOV        @R3+,DR10
+        FTRV        XMTRX,FV4
+        FMOV        DR0,@-R1
+        FMOV        @R4+,DR12
+        FMOV        DR2,@-R1
+        FMOV        @R4+,DR14
+        ADD         #64,R1
+        FTRV        XMTRX,FV8
+        FMOV        DR4,@-R2
+        FMOV        @R1+,DR0
+        FMOV        DR6,@-R2
+        FMOV        @R1+,DR2
+        ADD         #64,R2
+        FTRV        XMTRX,FV12
+        FMOV        DR8,@-R3
+        FMOV        @R2+,DR4
+        FMOV        DR10,@-R3
+        FMOV        @R2+,DR6
+        ADD         #64,R3
+        FTRV        XMTRX,FV0
+        FMOV        DR12,@-R4
+        FMOV        @R3+,DR8
+        FMOV        DR14,@-R4
+        FMOV        @R3+,DR10
+        ADD         #64,R4
+        FTRV        XMTRX,FV4
+        FMOV        DR0,@-R1
+        FMOV        @R4+,DR12
+        FMOV        DR2,@-R1
+        FMOV        @R4+,DR14
+        ADD         #-64,R1
+        FTRV        XMTRX,FV8
+        FMOV        DR4,@-R2
+        FMOV        DR6,@-R2
+        ADD         #-64,R2
+        FTRV        XMTRX,FV12
+        FMOV        DR8,@-R3
+        FMOV        DR10,@-R3
+        ADD         #-64,R3
+        FMOV        DR12,@-R4
+        FMOV        DR14,@-R4
+        ADD         #-64,R4
+?pass1_next:
+        DT          R7
+        ADD         R5,R1
+        ADD         R5,R2
+        ADD         R5,R3
+        BF/S        ?pass1
+        ADD         R5,R4
+        MOV.L       @R15,R4
+        FMOV        @R0+,XD0
+        FMOV        @R0+,XD2
+        FMOV        @R0+,XD4
+        FMOV        @R0+,XD6
+        FMOV        @R0+,XD8
+        MOV         #64,R5
+        FMOV        @R0+,XD10
+        SHLL        R5
+        FMOV        @R0+,XD12
+        FMOV        @R0+,XD14
+        MOV.L       @(FZ_CBP,R4),R6
+        MOV         #6,R7
+        MOV.L       @(FZ_COEF,R4),R3
+        MOV         R5,R1
+        ADD         R3,R1
+        MOV.L       @(FZ_SCRATCH,R4),R0
+; pass 2, along the rows: the odd coefficients through the odd matrix, then
+; their sums and differences with pass 1's results. each row's 8 points go
+; down a column of scratch
+?pass2:
+        SHLL        R6
+        BF          ?pass2_next
+        MOV         #4,R2
+        FMOV        @R1+,DR8
+        FMOV        @R1+,DR10
+?pass2_rows0:
+        FTRV        XMTRX,FV8
+        FMOV        @R3+,DR2                ; pass 1 stores dr2 below dr0
+        FMOV        @R3+,DR0
+        FMOV        DR2,DR6
+        FMOV        DR0,DR4
+        FADD        FR8,FR0
+        FADD        FR9,FR1
+        FADD        FR10,FR2
+        FSCHG                               ; single moves to the next fschg
+        FMOV.S      FR0,@R0
+        FADD        FR11,FR3
+        FMOV.S      FR1,@(R0,R9)
+        FSUB        FR8,FR4
+        FMOV.S      FR2,@(R0,R11)
+        FSUB        FR9,FR5
+        FMOV.S      FR3,@(R0,R13)
+        FSUB        FR10,FR6
+        FMOV.S      FR4,@(R0,R14)
+        FSUB        FR11,FR7
+        FMOV.S      FR5,@(R0,R12)
+        FMOV.S      FR6,@(R0,R10)
+        DT          R2
+        FMOV.S      FR7,@(R0,R8)
+        FSCHG
+        FMOV        @R1+,DR8
+        FMOV        @R1+,DR10
+        BF/S        ?pass2_rows0
+        ADD         #4,R0
+        ADD         #112,R0
+        MOV         #4,R2
+?pass2_rows4:
+        FTRV        XMTRX,FV8
+        FMOV        @R3+,DR2
+        FMOV        @R3+,DR0
+        FMOV        DR2,DR6
+        FMOV        DR0,DR4
+        FADD        FR8,FR0
+        FADD        FR9,FR1
+        FADD        FR10,FR2
+        FSCHG
+        FMOV.S      FR0,@R0
+        FADD        FR11,FR3
+        FMOV.S      FR1,@(R0,R9)
+        FSUB        FR8,FR4
+        FMOV.S      FR2,@(R0,R11)
+        FSUB        FR9,FR5
+        FMOV.S      FR3,@(R0,R13)
+        FSUB        FR10,FR6
+        FMOV.S      FR4,@(R0,R14)
+        FSUB        FR11,FR7
+        FMOV.S      FR5,@(R0,R12)
+        FMOV.S      FR6,@(R0,R10)
+        DT          R2
+        FMOV.S      FR7,@(R0,R8)
+        FSCHG
+        FMOV        @R1+,DR8
+        FMOV        @R1+,DR10
+        BF/S        ?pass2_rows4
+        ADD         #4,R0
+        ADD         #-16,R1
+        SUB         R5,R1
+        ADD         #-16,R0
+        SUB         R5,R0
+        SUB         R5,R3
+?pass2_next:
+        SHLL        R5
+        DT          R7
+        ADD         R5,R0
+        ADD         R5,R3
+        ADD         R5,R1
+        BF/S        ?pass2
+        SHLR        R5
+        MOV.L       @(FZ_EVEN,R4),R0
+        FMOV        @R0+,XD0
+        FMOV        @R0+,XD2
+        FMOV        @R0+,XD4
+        FMOV        @R0+,XD6
+        FMOV        @R0+,XD8
+        FMOV        @R0+,XD10
+        FMOV        @R0+,XD12
+        FMOV        @R0+,XD14
+        MOV.L       @(FZ_SCRATCH,R4),R1
+        MOV         #6,R7
+        MOV.L       @(FZ_CBP,R4),R6
+        MOV         R1,R2
+        MOV         R1,R3
+        ADD         #16,R2
+        MOV.L       @(FZ_STRIDE,R4),R5
+        ADD         #32,R3
+        MOV.L       @(FZ_ODD,R4),R0
+        MOV         R1,R4
+        ADD         #48,R4
+; pass 3, down the columns: scratch's even points, 8 columns of 4, through
+; the even matrix, in place
+?pass3:
+        SHLL        R6
+        BF          ?pass3_next
+        FMOV        @R1+,DR0
+        FMOV        @R1+,DR2
+        FTRV        XMTRX,FV0
+        FMOV        @R2+,DR4
+        FMOV        @R2+,DR6
+        FMOV        @R3+,DR8
+        FMOV        @R3+,DR10
+        FTRV        XMTRX,FV4
+        FMOV        DR0,@-R1
+        FMOV        @R4+,DR12
+        FMOV        DR2,@-R1
+        FMOV        @R4+,DR14
+        ADD         #64,R1
+        FTRV        XMTRX,FV8
+        FMOV        DR4,@-R2
+        FMOV        @R1+,DR0
+        FMOV        DR6,@-R2
+        FMOV        @R1+,DR2
+        ADD         #64,R2
+        FTRV        XMTRX,FV12
+        FMOV        DR8,@-R3
+        FMOV        @R2+,DR4
+        FMOV        DR10,@-R3
+        FMOV        @R2+,DR6
+        ADD         #64,R3
+        FTRV        XMTRX,FV0
+        FMOV        DR12,@-R4
+        FMOV        @R3+,DR8
+        FMOV        DR14,@-R4
+        FMOV        @R3+,DR10
+        ADD         #64,R4
+        FTRV        XMTRX,FV4
+        FMOV        DR0,@-R1
+        FMOV        @R4+,DR12
+        FMOV        DR2,@-R1
+        FMOV        @R4+,DR14
+        ADD         #-64,R1
+        FTRV        XMTRX,FV8
+        FMOV        DR4,@-R2
+        FMOV        DR6,@-R2
+        ADD         #-64,R2
+        FTRV        XMTRX,FV12
+        FMOV        DR8,@-R3
+        FMOV        DR10,@-R3
+        ADD         #-64,R3
+        FMOV        DR12,@-R4
+        FMOV        DR14,@-R4
+        ADD         #-64,R4
+?pass3_next:
+        DT          R7
+        ADD         R5,R1
+        ADD         R5,R2
+        ADD         R5,R3
+        BF/S        ?pass3
+        ADD         R5,R4
+        MOV.L       @R15,R7
+        FMOV        @R0+,XD0
+        MOV         #6,R3
+        FMOV        @R0+,XD2
+        MOV.L       R3,@(FZ_LEFT,R7)        ; every register is in use
+        FMOV        @R0+,XD4
+        MOV         #64,R5
+        FMOV        @R0+,XD6
+        SHLL        R5
+        FMOV        @R0+,XD8
+        MOV.L       @(FZ_SCRATCH,R7),R3
+        FMOV        @R0+,XD10
+        FMOV        @R0+,XD12
+        MOV         R3,R1
+        MOV.L       @(FZ_CBP,R7),R6
+        ADD         R5,R1
+        FMOV        @R0+,XD14
+        SHLL        R5
+; pass 4, down the columns: the odd points through the odd matrix, then
+; their sums and differences with pass 3's results. each column's 8 results
+; go down a column of the block
+?pass4:
+        MOV.L       @(FZ_CURSOR,R7),R2
+        SHLL        R6
+        MOV.L       @R2+,R0
+        BF/S        ?pass4_next
+        MOV.L       R2,@(FZ_CURSOR,R7)
+        MOV         #8,R2
+        FMOV        @R1+,DR8
+        FMOV        @R1+,DR10
+?pass4_column:
+        FTRV        XMTRX,FV8
+        FMOV        @R3+,DR2                ; pass 3 stores dr2 below dr0
+        FMOV        @R3+,DR0
+        FMOV        DR2,DR6
+        FMOV        DR0,DR4
+        FADD        FR8,FR0
+        FADD        FR9,FR1
+        FADD        FR10,FR2
+        FADD        FR11,FR3
+        FSUB        FR8,FR4
+        FSUB        FR9,FR5
+        FMOV        @R7,DR12                ; round_bias, in fr12
+        FSUB        FR10,FR6
+        FMOV        @R1+,DR8
+        FSUB        FR11,FR7
+        FMOV        @R1+,DR10
+        FADD        FR12,FR0
+        MOV.L       R3,@(FZ_SCRATCH_AT,R7)  ; r3 takes output_bias
+        FADD        FR12,FR1
+        MOV.L       @(FZ_OUTPUT_BIAS,R7),R3
+        FADD        FR12,FR2
+        FADD        FR12,FR3
+        FADD        FR12,FR4
+        FADD        FR12,FR5
+        FADD        FR12,FR6
+        FADD        FR12,FR7
+        FTRC        FR0,FPUL
+        STS         FPUL,R4
+        FTRC        FR1,FPUL
+        STS         FPUL,R5
+        SUB         R3,R4
+        MOV.W       R4,@R0
+        FTRC        FR2,FPUL
+        STS         FPUL,R4
+        SUB         R3,R5
+        MOV.W       R5,@(R0,R9)
+        FTRC        FR3,FPUL
+        STS         FPUL,R5
+        SUB         R3,R4
+        MOV.W       R4,@(R0,R11)
+        FTRC        FR4,FPUL
+        STS         FPUL,R4
+        SUB         R3,R5
+        MOV.W       R5,@(R0,R13)
+        FTRC        FR5,FPUL
+        STS         FPUL,R5
+        SUB         R3,R4
+        MOV.W       R4,@(R0,R14)
+        FTRC        FR6,FPUL
+        STS         FPUL,R4
+        SUB         R3,R5
+        MOV.W       R5,@(R0,R12)
+        FTRC        FR7,FPUL
+        STS         FPUL,R5
+        SUB         R3,R4
+        MOV.W       R4,@(R0,R10)
+        DT          R2
+        SUB         R3,R5
+        MOV.W       R5,@(R0,R8)
+        ADD         #2,R0
+        BF/S        ?pass4_column
+        MOV.L       @(FZ_SCRATCH_AT,R7),R3
+        ADD         #-16,R1
+        MOV.L       @(FZ_STRIDE,R7),R5
+        ADD         #-128,R3
+        ADD         #-128,R1
+?pass4_next:
+        MOV.L       @(FZ_LEFT,R7),R4
+        ADD         R5,R3
+        DT          R4
+        MOV.L       R4,@(FZ_LEFT,R7)
+        BF/S        ?pass4
+        ADD         R5,R1
+        FSCHG
+        ADD         #4,R15
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14
+
+        .END

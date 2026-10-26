@@ -1,0 +1,37 @@
+# STG00.PRS, Hedgehog Hammer
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c9000a0
+CHEAD      0x0c9000a0  0x0c9001b0
+DHEAD      0x0c9001b0  0x0c900d20
+P          0x0c900d20  0x0c903d60
+D          0x0c903d60  0x0c92f6f8
+C          0x0c92f6f8  0x0c92f9f1
+B          0x0c92f9f8  0x0c92fa19
+#
+# source                              section  start       end
+modules/stg00/practice.c               PHEAD    0x0c900000  0x0c9000a0
+modules/stg00/practice.c               P        0x0c900d20  0x0c900e20
+# the land starts off 8 at 0x0c900bac, straight after its entries, so they share an object; only 1ST_READ.BIN's world_lands reads it. it meets the object list on 8 with no fill, as the list meets practice_textures: as one file, the three objects build the same. the bytes don't say whether its entries' objects, in D's generated range, share its object
+modules/stg00/land.c                   DHEAD    0x0c9001b0  0x0c900bd0
+# only 1ST_READ.BIN's object_lists reads it. the bytes don't say whether its kinds at 0x0c912ca0, and their names in C, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/stg00/object_list.c            DHEAD    0x0c900bd0  0x0c900bd8
+# the three kinds the list counts and their names, named arrays with bodies: each name before the last runs to a multiple of 4 bytes, so each sits where SHC would put its string literal. the names open C, and the kinds start on 8 straight after the generated data. the mole's textures start on 8 4 bytes past the kinds, where their object's next item would start on 4, and their names meet these on 8 with no fill, where one file or two build the same. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with their sharing the list's here; the bytes leave the kinds and names to the list's object or one of their own
+modules/stg00/object_list.c            D        0x0c912ca0  0x0c912cdc
+modules/stg00/object_list.c            C        0x0c92f6f8  0x0c92f717
+# the mole game's 57 textures and mole_texlist, which mole.c and the pvm list name, and the first piece of Eggman's model, whose material follows the texlist off 8: its strips start on 8 straight after the material, and the rest of the model follows to its root node, which a material meets on 8 at 0x0c9132e8. the bytes don't say whether that model, or the piece's own model past the material, shares this object. mole.c's constants meet the last name on 8 with no fill. ADV0130 links this object too: its 1,544 bytes of D and 584 of C match that image's once relocation is allowed for. linked in both images, its object holds nothing past its rows in either, and the neighbours differ, so no object either side of it here holds it: it is an object of data alone
+modules/stg00/mole_textures.c          D        0x0c912ce0  0x0c9132e8
+modules/stg00/mole_textures.c          C        0x0c92f718  0x0c92f960
+# the strings practice_textures and the pvm list name; the first pvm name starts at 0x0c900190, on 4 where this object's next string would start and on 8 where another's would, and the second off 8 straight after it
+modules/stg00/texlists.c               CHEAD    0x0c9000a0  0x0c9001a9
+# practice_texlist starts off 8 at 0x0c900cd4, straight after practice_textures, and the pvm list off 8 straight after it, so the three share an object. texture_load_stage stops at the null row at 0x0c900d04, and nothing points past 0x0c900d0c. the 20 zero bytes to P, on 32, hold at most two more rows, a row being 8 bytes, and another object could start in them only on 8, at 0x0c900d10 or 0x0c900d18: the bytes don't say whether they are the linker's fill, as the fill rule takes them, zero items of this object, or data of another object nothing names. practice_pvms[8], alone or with a 4-byte item after it, splices the same
+modules/stg00/texlists.c               DHEAD    0x0c900bd8  0x0c900d0c
+modules/stg00/mole.c                   P        0x0c900e20  0x0c903d60
+# starts at its tables: ADV0130's copy of them starts an object 4 bytes past monorail.c's data
+modules/stg00/mole.c                   D        0x0c92f108  0x0c92f6f4
+modules/stg00/mole.c                   C        0x0c92f960  0x0c92f9f1
+modules/stg00/mole.c                   B        0x0c92f9f8  0x0c92fa19
+#
+# generated data ranges
+gen/stg00/d_0c903d60.c                 D        0x0c903d60  0x0c912ca0
+gen/stg00/d_0c9132e8.c                 D        0x0c9132e8  0x0c92f108

@@ -1,0 +1,6 @@
+InheritParentConfig: true
+Checks: >
+  -bugprone-reserved-identifier,
+  -readability-identifier-naming,
+  -readability-identifier-length,
+  -misc-use-internal-linkage,

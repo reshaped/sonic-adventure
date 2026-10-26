@@ -1,0 +1,148 @@
+# STG07.PRS, Lost World
+#
+# section  start       end
+P          0x0c900000  0x0c90c6e0
+D          0x0c90c6e0  0x0ca5b968
+C          0x0ca5b968  0x0ca5d58c
+B          0x0ca5d590  0x0ca67288
+#
+# source                              section  start       end
+# 1ST_READ.BIN's death_zones names the array, and its death_zone_step and knuckles.c read the entry for the act in hand; no code here reads it. the stage has three acts, so the array has three entries. the zero word after it, at 0x0c90ce04, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as land0.c's entries start on 8, or a last word of this object nothing reads, such as a fourth, null entry, which builds the same. the lists start on 8 with no fill after the zones' models, generated, and each list and the array start on 8 straight after the item before with no fill, where one file or several build the same. the array's pointers to the lists are consistent with one object. the bytes leave them to the models' object, to land0.c's, were the word after the array an unread datum of its, to footholds.c's, which links first and places no data, though its code doesn't read them, or to one of data alone
+modules/stg07/death_zones.c            D        0x0c90cda8  0x0c90ce04
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries: the table meets them on 8 with no fill, where one file or two build the same. they start on 8 four bytes past death_zones.c's array, past the zero word that row describes. the zero word after the nine-word table, at 0x0c90dc84, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as ruin01_textures.c's data starts on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to death_zones.c's, were the word before the entries an unread datum of its, and so to the generated models' before that, were death_zones.c's data theirs, to ruin01_textures.c's, were the word after the table an unread datum of its, or to footholds.c's, which links first and places no data, though its code doesn't read it
+modules/stg07/land0.c                  D        0x0c90ce08  0x0c90dc84
+# the act 0 land's textures and texlist. they start on 8 four bytes past the land, at 0x0c90dc60, and their names start C. the texlist meets them on 8 with no fill, and the data after it meets it the same way: one file or two build the same at both. the act 1 land's names start on 8 where one object's next string would, but repeat strings of theirs, which SHC keeps one copy of in one file, so they are another file's. the zero word before them is the fill land0.c's row describes. the bytes leave them to their own object, to land0.c's, were that word an unread datum of its, or to footholds.c's, which links first and has no data or constants, though its code doesn't read them
+modules/stg07/ruin01_textures.c        C        0x0ca5b968  0x0ca5bc15
+modules/stg07/ruin01_textures.c        D        0x0c90dc88  0x0c90df48
+# the last of the objects act 0's land's entries name, at 0x0c90dc54, which land0.c holds; nothing else reads it. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c960eac, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 1's land's entries start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land1.c's, were the word an unread datum of its, to footholds.c's, which links first and places no data, though its code doesn't read it, or to one of data alone
+modules/stg07/dat_0c960e78.c           D        0x0c960e78  0x0c960eac
+# act 1's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries, which start on 8 past the zero word after act 0's last object, which dat_0c960e78.c's row describes. the table follows the entries off 8, so they are one object's, and act 1's textures meet the table on 8 with no fill, where one file or two build the same. act 2's land stays in a generated row: it ends on 8 where ruin03_textures.c's data starts, so no run lies beside it. the bytes leave act 1's land to an object of its own, to dat_0c960e78.c's, were the word between them an unread datum of its, to ruin02_textures.c's, or to footholds.c's, which links first and places no data, though its code doesn't read it
+modules/stg07/land1.c                  D        0x0c960eb0  0x0c964198
+# the act 1 land's. they meet the land, at 0x0c964174, on 8 with no fill: one file or two build the same there, and the bytes leave them to their own object, the land's, or footholds.c's, which links first and has no data or constants, though its code doesn't read them. the land's entries, in land1.c's row, name their static dat_0c964ecc, the object at the model's end, through symbols.txt: in C it could stay static only if the land is this object's; in any other owner it would be extern. their texlist, and the model after it to its object at 0x0c964ecc, each follow the item before off 8, so they are one object to 0x0c964f00, where the data after it meets it on 8 with no fill: one file or two build the same there. the act 2 land's names start on 8 where one object's next string would, but repeat strings of theirs, so they are another file's
+modules/stg07/ruin02_textures.c        C        0x0ca5bc18  0x0ca5c055
+modules/stg07/ruin02_textures.c        D        0x0c964198  0x0c964f00
+# the act 2 land's. they meet the land, at 0x0c9f9994, on 8 with no fill, and the texlist meets them the same way, as the data after it meets the texlist: one file or two build the same at each, and the bytes leave them to their own object, the land's, or footholds.c's, which links first and has no data or constants, though its code doesn't read them
+modules/stg07/ruin03_textures.c        C        0x0ca5c058  0x0ca5c1a1
+modules/stg07/ruin03_textures.c        D        0x0c9f99b8  0x0c9f9b28
+# the last of the objects act 2's land's entries name, at 0x0c9f9964, which lie in a generated row; nothing else reads it. it starts on 8 straight after its model with no fill, where one file or two build the same, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca2771c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as the objects' textures start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to obj_ruin_textures.c's, were the word an unread datum of its, to footholds.c's, which links first and has no data or constants, though its code doesn't read it, or to one of data alone
+modules/stg07/dat_0ca276e8.c           D        0x0ca276e8  0x0ca2771c
+# OBJ_RUIN's and OBJ_RUIN2's textures and texlists, which 1ST_READ.BIN's ruin_pvms names, and the sky's. they start on 8 four bytes past the object at 0x0ca276e8, and their names four bytes past where the act 2 land's next string would. OBJ_RUIN2's textures follow OBJ_RUIN's texlist off 8, and point at strings OBJ_RUIN's do, so they are one file to 0x0ca27f08. the four texlists after them, the sky's textures and their texlist each meet the item before on 8 with no fill, as the materials at 0x0ca27f60 meet the last: one file or two build the same at each. the texlists point into OBJ_RUIN2's textures, which fits one file, and the bytes leave the rest to this object or later ones, and the object to its own or to footholds.c's, which links first and has no data or constants, though its code doesn't read them
+modules/stg07/obj_ruin_textures.c      C        0x0ca5c1a8  0x0ca5c91e
+modules/stg07/obj_ruin_textures.c      D        0x0ca27720  0x0ca27f60
+# its textures, their texlist and the material after them follow tap_water_object off 8, so they are its object's to 0x0ca4dc08, where the strips meet the material on 8 with no fill. the object meets tap_water_model on 8 with no fill, and the names start on 8 where obj_ruin_textures.c's next string would: one file or two build the same at each, and the bytes leave it to its own object, the model's, obj_ruin_textures.c's, or footholds.c's, which links first and has no data or constants, though its code doesn't read them. the generated row after it names its static dat_0ca4dbf4 through symbols.txt: in C it could stay static only if the strips there are this object's
+modules/stg07/tap_water.c              C        0x0ca5c920  0x0ca5c94d
+modules/stg07/tap_water.c              D        0x0ca4db88  0x0ca4dc08
+# the action of Sonic's that 1ST_READ.BIN's sonic_actions names, which no code here reads, and its motion: the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same, and path_camera.c's data starts on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word at 0x0ca5791c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of this object nothing reads. the bytes leave the object to one of data alone, to the generated data's before it, to path_camera.c's, were the zero word an unread datum of its, though its code doesn't read them, or to footholds.c's, which links first and places no data, though its code doesn't read them
+modules/stg07/dat_0ca57908.c           D        0x0ca57908  0x0ca5791c
+modules/stg07/footholds.c              P        0x0c900000  0x0c900240
+modules/stg07/path_camera.c            P        0x0c900240  0x0c901940
+modules/stg07/path_camera.c            C        0x0ca5c950  0x0ca5c954
+modules/stg07/path_camera.c            D        0x0ca57920  0x0ca57958
+modules/stg07/dou.c                    P        0x0c901940  0x0c9019e0
+modules/stg07/gate.c                   P        0x0c9019e0  0x0c901bc0
+modules/stg07/gate.c                   D        0x0ca57958  0x0ca5798c
+modules/stg07/box.c                    P        0x0c901bc0  0x0c902040
+modules/stg07/box.c                    D        0x0ca57990  0x0ca579c4
+modules/stg07/boulder.c                P        0x0c902040  0x0c902780
+modules/stg07/boulder.c                D        0x0ca579c8  0x0ca57a1c
+modules/stg07/pillars.c                P        0x0c902780  0x0c90297e
+modules/stg07/pillars.c                D        0x0ca57a20  0x0ca57b24
+modules/stg07/snake_gate.c             P        0x0c902980  0x0c902bc0
+modules/stg07/snake_gate.c             D        0x0ca57b28  0x0ca57b5c
+modules/stg07/snake_statue.c           P        0x0c902bc0  0x0c903440
+modules/stg07/snake_statue.c           D        0x0ca57b60  0x0ca57b94
+modules/stg07/jump_stand.c             P        0x0c903440  0x0c903680
+# follows jump_stand.c with no fill; as one file, the code runs 32 bytes shorter. 770 of its 1,316 bytes differ
+modules/stg07/turn_cube.c              P        0x0c903680  0x0c9039a0
+modules/stg07/turn_cube.c              D        0x0ca57b98  0x0ca57bcc
+modules/stg07/turn_cube.c              C        0x0ca5c958  0x0ca5c975
+modules/stg07/turn_cube.c              B        0x0ca5d590  0x0ca5d5ac
+modules/stg07/rraf.c                   P        0x0c9039a0  0x0c9048c0
+modules/stg07/rraf.c                   D        0x0ca57bd0  0x0ca57edc
+modules/stg07/rraf.c                   C        0x0ca5c978  0x0ca5c9d4
+modules/stg07/sw_door.c                P        0x0c9048c0  0x0c905340
+modules/stg07/sw_door.c                D        0x0ca57ee0  0x0ca57fd0
+modules/stg07/sw_door.c                B        0x0ca5d5b0  0x0ca5d5bc
+modules/stg07/sw_door_x.c              P        0x0c905340  0x0c905820
+modules/stg07/sw_door_x.c              D        0x0ca57fd0  0x0ca58004
+modules/stg07/gravity_panel.c          P        0x0c905820  0x0c9065c0
+modules/stg07/gravity_panel.c          D        0x0ca58008  0x0ca58078
+modules/stg07/gravity_panel.c          C        0x0ca5c9d8  0x0ca5cbb0
+modules/stg07/spikes.c                 P        0x0c9065c0  0x0c906620
+modules/stg07/spikes.c                 D        0x0ca58078  0x0ca580ac
+modules/stg07/spike_block.c            P        0x0c906620  0x0c906b60
+modules/stg07/spike_block.c            D        0x0ca580b0  0x0ca58118
+modules/stg07/spike_block.c            C        0x0ca5cbb0  0x0ca5cbbc
+# grass_start starts on 32 at 0x0c907000 with no fill; split there, the code builds the same
+modules/stg07/grass.c                  P        0x0c906b60  0x0c907140
+modules/stg07/grass.c                  D        0x0ca58118  0x0ca5821c
+modules/stg07/grass.c                  B        0x0ca5d5e0  0x0ca5d5e4
+modules/stg07/burning_bow.c            P        0x0c907140  0x0c907520
+modules/stg07/burning_bow.c            D        0x0ca58220  0x0ca582f8
+modules/stg07/burning_bow.c            C        0x0ca5cbc0  0x0ca5cbfd
+# follows burning_bow.c with no fill; one file or two build the same
+modules/stg07/snake.c                  P        0x0c907520  0x0c907f00
+modules/stg07/snake.c                  D        0x0ca582f8  0x0ca58a04
+modules/stg07/snake.c                  C        0x0ca5cc00  0x0ca5cc47
+modules/stg07/snake.c                  B        0x0ca5d5e8  0x0ca67228
+modules/stg07/damage_box.c             P        0x0c907f00  0x0c908aa0
+modules/stg07/damage_box.c             D        0x0ca58a08  0x0ca58ae0
+modules/stg07/damage_box.c             C        0x0ca5cc48  0x0ca5cc78
+modules/stg07/mirror.c                 P        0x0c908aa0  0x0c909a20
+modules/stg07/mirror.c                 D        0x0ca58ae0  0x0ca58b9c
+modules/stg07/mirror.c                 C        0x0ca5cc78  0x0ca5ccc9
+modules/stg07/mirror.c                 B        0x0ca67228  0x0ca67244
+modules/stg07/light.c                  P        0x0c909a20  0x0c909bca
+modules/stg07/tap.c                    P        0x0c909be0  0x0c909d60
+modules/stg07/tap.c                    D        0x0ca58ba0  0x0ca58bd4
+modules/stg07/water_surface.c          P        0x0c909d60  0x0c90a200
+modules/stg07/water_surface.c          D        0x0ca58bd8  0x0ca58c10
+modules/stg07/water_surface.c          C        0x0ca5ccd0  0x0ca5ccdc
+# follows water_surface.c with no fill; as one file, the code runs 12 bytes shorter. 632 of its 1,700 bytes differ
+modules/stg07/fire.c                   P        0x0c90a200  0x0c90a420
+modules/stg07/fire.c                   D        0x0ca58c10  0x0ca58c94
+modules/stg07/fire.c                   C        0x0ca5cce0  0x0ca5ccf2
+modules/stg07/fire.c                   B        0x0ca67248  0x0ca67268
+modules/stg07/roll_path.c              P        0x0c90a420  0x0c90a6a0
+modules/stg07/roll_path.c              D        0x0ca58c98  0x0ca58ccc
+modules/stg07/textures.c               P        0x0c90a6a0  0x0c90a9c0
+modules/stg07/textures.c               D        0x0ca58cd0  0x0ca58d70
+# follows textures.c with no fill; as one file, the code runs 32 bytes shorter
+modules/stg07/slide.c                  P        0x0c90a9c0  0x0c90af00
+modules/stg07/aoki_switch.c            P        0x0c90af00  0x0c90b6e0
+modules/stg07/aoki_switch.c            D        0x0ca58d70  0x0ca58d84
+modules/stg07/aoki_switch.c            C        0x0ca5ccf8  0x0ca5cd62
+modules/stg07/aoki_switch.c            B        0x0ca67268  0x0ca67288
+modules/stg07/waterfall.c              P        0x0c90b6e0  0x0c90b980
+modules/stg07/waterfall.c              D        0x0ca58d88  0x0ca58d89
+modules/stg07/waterfall.c              C        0x0ca5cd68  0x0ca5cd73
+# the stage's seven paths, and the lists 1ST_READ.BIN's path_lists names for acts 0 and 1, at 0x0ca5b038 and 0x0ca5b048; boulder.c and slide.c read ruin_boulder_path and ruin_slide_path, and no word names the path at 0x0ca59074. the first points start on 8 seven bytes past waterfall.c's data, where that object ends. each path's points follow the path before; the items to ruin_boulder_path, at 0x0ca5a568, each follow the one before off 8, as do those from 0x0ca5a578 to ruin_slide_path, at 0x0ca5b028, so each run is one object. ruin_boulder_path, the points after it, ruin_slide_path and each list meet the item before on 8 with no fill, as ruin_fog meets the last list: one file or two build the same at each, and the bytes leave the runs and lists to one object or several, among them ruin.c's, which links between waterfall.c and breakable.c and has no data, though its code doesn't read them
+modules/stg07/paths.c                  D        0x0ca58d90  0x0ca5b058
+modules/stg07/ruin.c                   P        0x0c90b980  0x0c90c0c0
+modules/stg07/ruin.c                   C        0x0ca5cd78  0x0ca5cdb0
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, and their names, which the kinds point at; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds meet ruin_fog on 8 with no fill, and the names meet ruin.c's constants so: as one file with ruin.c, which places no data, the names start where the image has them, so one file or two build the same there. the names end 7 bytes short of where the scripts start on 8, 4 bytes past where their next string would start on 4: as one file, in either order, the scripts' constants come ahead of the names, so they are no object of the scripts', and the fill rule verifies the 7 bytes. the list meets the kinds on 8 with no fill. the bytes leave them to the list's object, to one of their own, to ruin_fog's, which mirror.c reads, or to ruin.c's, though neither one's code reads them
+modules/stg07/kinds.c                  D        0x0ca5b258  0x0ca5b910
+modules/stg07/kinds.c                  C        0x0ca5cdb0  0x0ca5d131
+# the list 1ST_READ.BIN's object_lists names for acts 0 to 2, which placement.c reads; no code here reads it. it meets the kinds on 8 with no fill, and breakable.c's data meets it so: one file or two build the same at each, and the bytes leave it to the kinds' object, to breakable.c's, though its code doesn't read it, to the scripts', or to one of its own
+modules/stg07/object_list.c            D        0x0ca5b910  0x0ca5b918
+# the table 1ST_READ.BIN's stage_scripts names at 0x0ca5d308, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 4 bytes past where the kinds' names' next string would start on 4, and the fill rule verifies the 7 bytes: as one file, in either order, its constants come ahead of the names, so they are no object of the kinds'. the last text ends 4 bytes short of breakable.c's constants on 8, where the object's next string would start on 4: as one file, in either order, breakable.c's constant comes ahead of the texts, so it is no constant of this object, and the fill rule verifies the 4 bytes, which nothing points at. the bytes leave them to an object of their own, or to the list's, were the list not the kinds' object's
+modules/stg07/scripts.c                C        0x0ca5d138  0x0ca5d57c
+modules/stg07/breakable.c              P        0x0c90c0c0  0x0c90c6e0
+modules/stg07/breakable.c              D        0x0ca5b918  0x0ca5b964
+modules/stg07/breakable.c              C        0x0ca5d580  0x0ca5d58c
+#
+# generated data ranges
+# from D's start to the death zones' lists, which death_zones.c's row describes: the zones' models, which the lists name and no code reads
+gen/stg07/d_0c90c6e0.c                 D        0x0c90c6e0  0x0c90cda8
+gen/stg07/d_0c90df48.c                 D        0x0c90df48  0x0c94c9e0
+gen/stg07/d_0c94c9e0.c                 D        0x0c94c9e0  0x0c960e78
+gen/stg07/d_0c964f00.c                 D        0x0c964f00  0x0c98ce68
+gen/stg07/d_0c98ce68.c                 D        0x0c98ce68  0x0c9cd330
+gen/stg07/d_0c9cd330.c                 D        0x0c9cd330  0x0c9f99b8
+gen/stg07/d_0c9f9b28.c                 D        0x0c9f9b28  0x0ca0ef50
+# act 2's models, to the object before dat_0ca276e8.c's, which meets them on 8 with no fill
+gen/stg07/d_0ca0ef50.c                 D        0x0ca0ef50  0x0ca276e8
+gen/stg07/d_0ca27f60.c                 D        0x0ca27f60  0x0ca4db88
+gen/stg07/d_0ca4dc08.c                 D        0x0ca4dc08  0x0ca57908
+# ruin_fog, which mirror.c reads. it meets the paths' last list on 8 with no fill, and the kinds meet it the same way: one file or two build the same at each
+gen/stg07/d_0ca5b058.c                 D        0x0ca5b058  0x0ca5b258

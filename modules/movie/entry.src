@@ -1,0 +1,17 @@
+; MOVIE.BIN's entry. movie_play calls the file's first bytes, which branch
+; to the player
+
+        .IMPORT     _movie_main
+        .EXPORT     _movie_entry
+
+        .SECTION    P,CODE,ALIGN=4
+
+; int movie_entry(int list)
+; play list as movie_main plays it, and return movie_main's result. the BRA
+; at 0x8ceb0000 is a tail call of movie_main, in movie.c's object
+; @asm open: no inspect rule reads its BRA into another section
+_movie_entry:
+        BRA         _movie_main
+        NOP
+
+        .END

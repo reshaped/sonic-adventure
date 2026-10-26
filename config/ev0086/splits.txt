@@ -1,0 +1,27 @@
+# EV0086.PRS, Knuckles returns to Station Square
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb809c8
+C          0x0cb809c8  0x0cb80a30
+D          0x0cb80a30  0x0cb83284
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0086/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0086/script.c               P        0x0cb80008  0x0cb8047c
+events/ev0086/script.c               C        0x0cb809c8  0x0cb80a30
+events/ev0086/script.c               D        0x0cb80a30  0x0cb80a3c
+events/shared/fade.c                  P        0x0cb8047c  0x0cb80608
+events/shared/fade.c                  D        0x0cb83258  0x0cb83278
+events/shared/sound.c                 P        0x0cb80608  0x0cb809c8
+events/shared/sound.c                 D        0x0cb83278  0x0cb83284
+# position keys of a node of ev0086_knuckles_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80c20, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0086/dat_0cb80a40.c          D        0x0cb80a40  0x0cb80c20
+# ev0086_knuckles_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to fade.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb82db0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. the same two items, but for the words that point into the image, end the data before fade.c's in EV0084, where each event's own source holds them: consistent with one object that each event links. script.c reads the action, and places its data elsewhere
+events/ev0086/knuckles_action.c       D        0x0cb83240  0x0cb83254
+#
+# generated data ranges
+gen/ev0086/d_0cb80c20.c               D        0x0cb80c20  0x0cb83240

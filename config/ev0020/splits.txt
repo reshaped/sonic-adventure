@@ -1,0 +1,36 @@
+# EV0020.PRS, Sonic finds the Lost World mural
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82550
+C          0x0cb82550  0x0cb82590
+D          0x0cb82590  0x0cb8659c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0020/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0020/script.c               P        0x0cb80008  0x0cb80824
+events/ev0020/script.c               C        0x0cb82550  0x0cb82585
+events/ev0020/script.c               D        0x0cb82590  0x0cb825a4
+events/shared/white.c                 P        0x0cb80824  0x0cb80aac
+events/shared/white.c                 D        0x0cb85a00  0x0cb85a04
+events/shared/move.c                  P        0x0cb80aac  0x0cb815d0
+events/shared/move.c                  D        0x0cb85a08  0x0cb85a30
+events/shared/mover.c                 P        0x0cb815d0  0x0cb81d68
+events/shared/light.c                 P        0x0cb81d68  0x0cb81e9c
+events/shared/wave.c                  P        0x0cb81e9c  0x0cb8218c
+# the wave's texture name, its one constant, which event_wave_textures points at: in D that table lies before its data, with the ring's models and motions, which wave.c's code draws
+events/shared/wave.c                  C        0x0cb82588  0x0cb8258f
+# from event_wave_materials, at 0x0cb85a30: the ring's model, its motions, its action and its texture name table and list, which wave.c's code reads, meet its data on 8 with no fill, the same 2,872 bytes in all six events that link it, but for the words that point into the image: consistent with wave.c's object, though one file or two build the same. the ring meets move.c's data on 8 with no fill, and light.c and mover.c link between move.c and wave.c with no data row. move.c, light.c and mover.c link in events without the ring, so their objects can't hold it, and the head's object, which is each event's own, can't hold what all six link alike: the ring is wave.c's or an object's of data alone that links in all six
+events/shared/wave.c                  D        0x0cb85a30  0x0cb86590
+events/shared/sound.c                 P        0x0cb8218c  0x0cb8254c
+events/shared/sound.c                 D        0x0cb86590  0x0cb8659c
+# position keys of a node of ev0020_sonic_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and white.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb82798, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0020/dat_0cb825a8.c          D        0x0cb825a8  0x0cb82798
+# ev0020_sonic_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb85558 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0020/sonic_action.c          D        0x0cb859e8  0x0cb859fc
+#
+# generated data ranges
+gen/ev0020/d_0cb82798.c               D        0x0cb82798  0x0cb859e8

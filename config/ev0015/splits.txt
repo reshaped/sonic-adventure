@@ -1,0 +1,27 @@
+# EV0015.PRS, Sonic sees Zero carrying Amy away
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81c58
+C          0x0cb81c58  0x0cb81fa8
+D          0x0cb81fa8  0x0cbb6e08
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0015/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0015/script.c               P        0x0cb80008  0x0cb806dc
+events/ev0015/script.c               C        0x0cb81c58  0x0cb81cdc
+events/ev0015/script.c               D        0x0cb81fa8  0x0cb81fbc
+events/shared/move.c                  P        0x0cb806dc  0x0cb81200
+events/shared/move.c                  D        0x0cb8bd18  0x0cb8bd40
+events/shared/mover.c                 P        0x0cb81200  0x0cb81998
+events/shared/zero.c                  P        0x0cb81998  0x0cb81c54
+events/shared/zero.c                  C        0x0cb81ce0  0x0cb81fa5
+events/shared/zero.c                  D        0x0cb8bd40  0x0cbb6e08
+# position keys of a node of ev0015_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and move.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb82040, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0015/dat_0cb81fc0.c          D        0x0cb81fc0  0x0cb82040
+#
+# generated data ranges
+gen/ev0015/d_0cb82040.c               D        0x0cb82040  0x0cb8bd18

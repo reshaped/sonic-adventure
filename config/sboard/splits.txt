@@ -1,0 +1,90 @@
+# SBOARD.PRS, Sand Hill
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900120
+CHEAD      0x0c900120  0x0c9001a8
+DHEAD      0x0c9001a8  0x0c902e80
+P          0x0c902e80  0x0c905940
+C          0x0c905940  0x0c90a708
+D          0x0c90a708  0x0c97c170
+B          0x0c97c170  0x0c97c370
+#
+# source                              section  start       end
+# nothing in the image reads the land; 1ST_READ.BIN's world_lands names it for both acts. its name ends at 0x0c90012a, and the pvms' names start on 8 at 0x0c900130, past where one object's next string would start on 4, at 0x0c90012c: built as one file, the two put the first pvm name there. its table follows its last entry off 8, at 0x0c902df4, so the entries are its object's. its textures and texlist follow; the bytes don't say whether the objects in D that its entries name share its object
+modules/sboard/land.c                  CHEAD    0x0c900120  0x0c90012a
+modules/sboard/land.c                  DHEAD    0x0c9001a8  0x0c902e18
+# the 50 textures and the texlist the table names, which open D, and the textures' names, which open C: the texlist starts on 8 straight after the textures, and names them, and the land's generated models meet it on 8 at 0x0c90a968. one file or two build the same with the table, and the bytes leave them to its object or one of their own: sky.c, linked first, has constants after these names, and SHC writes an object's strings after its constants
+modules/sboard/land.c                  C        0x0c905940  0x0c905b64
+modules/sboard/land.c                  D        0x0c90a708  0x0c90a968
+# the objects' 47 textures and obj_sandboard_texlist, which the pvm list names, and the sand gate's model, which sand_gate.c's data names: the texlist follows the textures off 8, and the model's material follows the texlist off 8, to the root node, so all are one object's. the names start on 8, 4 bytes past the land's, where that object's next string would start on 4, and the textures start on 8 straight after the generated models; a material meets the root node on 8 at 0x0c96ccf0, and the bytes don't say whether its model shares this object
+modules/sboard/object_textures.c       C        0x0c905b68  0x0c905cea
+modules/sboard/object_textures.c       D        0x0c96bf20  0x0c96ccf0
+# meets the land on 8 with no fill; one file or two build the same there, and its names, above, start an object of their own. its names end CHEAD's objects before sky.c's constants, on 8 at 0x0c900178
+modules/sboard/pvms.c                  CHEAD    0x0c900130  0x0c900171
+modules/sboard/pvms.c                  DHEAD    0x0c902e18  0x0c902e60
+# meets the pvms on 8 with no fill, and the pool list meets it so; one file or two build the same at each. the bytes leave it to the pvms' object, its own, or any later one's through gate_combo.c's, sunaboard.c's among them, which defines the kinds it counts
+modules/sboard/object_list.c           DHEAD    0x0c902e60  0x0c902e68
+# the pool list, which the bytes leave to its own object, the object list's, or any later one's through gate_combo.c's, sand.c's among them, which defines the pool it names. create_pools stops at the null at 0x0c902e6c, and nothing reads 0x0c902e70 to P at 0x0c902e80, fill to sky.c's code on 32, which more nulls here would build the same as
+modules/sboard/pools.c                 DHEAD    0x0c902e68  0x0c902e70
+modules/sboard/sky.c                   PHEAD    0x0c900000  0x0c900040
+modules/sboard/sky.c                   CHEAD    0x0c900178  0x0c900190
+modules/sboard/sky.c                   P        0x0c902e80  0x0c903140
+modules/sboard/sky.c                   C        0x0c905cf0  0x0c905cfd
+modules/sboard/sky.c                   B        0x0c97c170  0x0c97c370
+# the sky's model, sunaboard_sky_object, which sky.c draws, and its textures and sunaboard_sky_texlist: the textures and the texlist follow the root node off 8, and the model's parts before it name one another, meeting on 8 at each item but the normals, consistent with one object. its names start on 8, 3 bytes past sky.c's constants, where their next string would start on 4, and sunaboard.c's constants start a byte past the last. the material starts on 8 straight after the pillar's root node, and sunaboard.c's data starts on 8, 4 bytes past the texlist, where this object's next item would start on 4. the bytes leave the model to an object of its own or the pillar's
+modules/sboard/sky_model.c             C        0x0c905d00  0x0c905d17
+modules/sboard/sky_model.c             D        0x0c97adb8  0x0c97b954
+modules/sboard/sunaboard.c             PHEAD    0x0c900040  0x0c900080
+modules/sboard/sunaboard.c             CHEAD    0x0c900190  0x0c9001a8
+# follows sky.c with no fill; in PHEAD, zeros run from sky.c's task's pool to sunaboard.c's, where one object would hold SHC's 00 09
+modules/sboard/sunaboard.c             P        0x0c903140  0x0c9032c0
+modules/sboard/sunaboard.c             C        0x0c905d18  0x0c905ee3
+modules/sboard/sunaboard.c             D        0x0c97b958  0x0c97bc64
+# follows sunaboard.c with no fill; as one file, sunaboard.c's constants land 28 bytes late, after big_cactus.c's, whose data lands 4 bytes early
+modules/sboard/big_cactus.c            P        0x0c9032c0  0x0c9034e0
+modules/sboard/big_cactus.c            C        0x0c905ee8  0x0c905f04
+modules/sboard/big_cactus.c            D        0x0c97bc68  0x0c97bd34
+modules/sboard/pillar.c                P        0x0c9034e0  0x0c903a00
+modules/sboard/pillar.c                C        0x0c905f08  0x0c906040
+modules/sboard/pillar.c                D        0x0c97bd38  0x0c97bd44
+modules/sboard/rolling_rock.c          P        0x0c903a00  0x0c903fc0
+modules/sboard/rolling_rock.c          C        0x0c906040  0x0c907c9c
+modules/sboard/rolling_rock.c          D        0x0c97bd48  0x0c97bd9e
+modules/sboard/sand_frog.c             P        0x0c903fc0  0x0c904268
+modules/sboard/sand_frog.c             C        0x0c907ca0  0x0c907ca9
+# a list of the frog's twelve nodes that have models, which nothing in the image names; STG01's frog.c keeps the same list as a static, which its draw reads. it starts on 8, 2 bytes past rolling_rock.c's flags, where its next item would start on 4 too, and sand_gate.c's data meets it on 8 with no fill: one file or two build the same at each. sand_frog.c links between rolling_rock.c and sand_gate.c with no data of its own, and its code draws the frog whole, so the bytes leave the list to rolling_rock.c's object, sand_frog.c's, sand_gate.c's, or one of its own
+modules/sboard/frog_nodes.c            D        0x0c97bda0  0x0c97bdd0
+modules/sboard/sand_gate.c             P        0x0c904280  0x0c904460
+modules/sboard/sand_gate.c             C        0x0c907cb0  0x0c907cca
+modules/sboard/sand_gate.c             D        0x0c97bdd0  0x0c97be14
+modules/sboard/sand_jump.c             P        0x0c904460  0x0c9044a0
+modules/sboard/small_cactus.c          P        0x0c9044a0  0x0c904980
+modules/sboard/small_cactus.c          C        0x0c907cd0  0x0c907d04
+modules/sboard/small_cactus.c          D        0x0c97be18  0x0c97bea0
+modules/sboard/sand_rock.c             P        0x0c904980  0x0c904b60
+modules/sboard/sand_rock.c             C        0x0c907d08  0x0c907d2c
+modules/sboard/sand_worm.c             P        0x0c904b60  0x0c905200
+modules/sboard/sand_worm.c             C        0x0c907d30  0x0c90a370
+modules/sboard/sand_worm.c             D        0x0c97bea0  0x0c97bfd8
+# the sand's 24 textures and eff_sandboard_texlist, which sand.c, sand_smoke.c and the pvm list name: the texlist starts on 8 straight after the textures, and names them. the names meet sand_worm.c's constants on 8 with no fill, where their next string would start on 4 too, and the textures meet sand_worm.c's data so. sand.c's constants start on 8, 3 bytes past the last name, and SHC writes an object's strings after its constants, so these are no part of sand.c's. one file or two build the same at each seam, and the bytes leave them to sand_worm.c's object, though its code doesn't read them, or one of their own
+modules/sboard/sand_textures.c         C        0x0c90a370  0x0c90a48d
+modules/sboard/sand_textures.c         D        0x0c97bfd8  0x0c97c100
+modules/sboard/sand.c                  PHEAD    0x0c900080  0x0c900120
+modules/sboard/sand.c                  P        0x0c905200  0x0c9052c0
+modules/sboard/sand.c                  C        0x0c90a490  0x0c90a544
+modules/sboard/sand.c                  D        0x0c97c100  0x0c97c110
+modules/sboard/sand_smoke.c            P        0x0c9052c0  0x0c905540
+modules/sboard/sand_smoke.c            C        0x0c90a548  0x0c90a6a0
+modules/sboard/sand_smoke.c            D        0x0c97c110  0x0c97c130
+modules/sboard/act.c                   P        0x0c905540  0x0c9056c0
+modules/sboard/act.c                   C        0x0c90a6a0  0x0c90a6c4
+modules/sboard/act.c                   D        0x0c97c130  0x0c97c134
+modules/sboard/rumble.c                P        0x0c9056c0  0x0c905720
+modules/sboard/gate_combo.c            P        0x0c905720  0x0c905940
+modules/sboard/gate_combo.c            C        0x0c90a6c8  0x0c90a708
+modules/sboard/gate_combo.c            D        0x0c97c138  0x0c97c170
+#
+# generated data ranges
+gen/sboard/d_0c90a968.c                D        0x0c90a968  0x0c94a738
+gen/sboard/d_0c94a738.c                D        0x0c94a738  0x0c96bf20
+gen/sboard/d_0c96ccf0.c                D        0x0c96ccf0  0x0c97adb8

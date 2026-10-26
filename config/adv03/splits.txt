@@ -1,0 +1,123 @@
+# ADV03.PRS, the Past
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c9001c0
+CHEAD      0x0c9001c0  0x0c9001f8
+DHEAD      0x0c9001f8  0x0c900320
+P          0x0c900320  0x0c905180
+D          0x0c905180  0x0ca00e00
+B          0x0ca00e00  0x0ca01050
+C          0x0ca01050  0x0ca02da0
+#
+# source                              section  start       end
+modules/adv03/past.c                   PHEAD    0x0c900000  0x0c900160
+modules/adv03/past.c                   P        0x0c900320  0x0c900940
+# obj_past_textures names the strings past.c's C holds from 0x0ca01194, off 8, straight after the skies' texture names, so it and all of D before it are past.c's; each item from it to pyramid_snake_object starts off 8, straight after the one before. the data from 0x0c90c150 to script_sonic_fire.c's follows on 8 with no gap: past.c's or data-only objects', which the bytes leave open
+modules/adv03/past.c                   D        0x0c905180  0x0c90c150
+modules/adv03/past.c                   B        0x0ca00e00  0x0ca01020
+# the string at 0x0ca014d8 starts on 8, and the one word that names it, at 0x0c92ada8, lies in data after script_last_angry.c's: a later object's
+modules/adv03/past.c                   C        0x0ca01050  0x0ca014d5
+modules/adv03/start.c                  PHEAD    0x0c900160  0x0c9001c0
+modules/adv03/start.c                  D        0x0c9c9578  0x0c9c95d8
+modules/adv03/pvms.c                   CHEAD    0x0c9001c0  0x0c9001f5
+# meets the scripts on 8 with no fill; one file or two build the same
+modules/adv03/pvms.c                   DHEAD    0x0c9001f8  0x0c900240
+# only 1ST_READ.BIN's story tables read them, each by address. they meet each other, the pvm list and the act 0 land on 8 with no fill; one file or two build the same at each seam. the bytes don't say whether each is its script's object's: they lie in the scripts' link order, skipping script_amy_tikal.c and script_last_angry.c, whose objects hold theirs in D. every script_*.c in ADV00, ADV01OBJ and ADV02 holds its own story_script, though in D, which is consistent with each here being its script's object's
+modules/adv03/scripts.c                DHEAD    0x0c900240  0x0c900278
+# the three lands lie on 8, each four bytes past where the one before would place its next item on 4, and nothing points into the gaps: built as one file, the act 1 land follows the act 0 land at 0x0c90029c, and the act 2 land the act 1 land at 0x0c9002c4. only 1ST_READ.BIN's world_lands reads them. the bytes don't say whether their entries and texlists, in D's generated ranges, share their objects
+modules/adv03/act0_land.c              DHEAD    0x0c900278  0x0c90029c
+modules/adv03/act1_land.c              DHEAD    0x0c9002a0  0x0c9002c4
+modules/adv03/act2_land.c              DHEAD    0x0c9002c8  0x0c9002ec
+# starts on 8 four bytes past the act 2 land: built as one file with act2_land.c, it follows the land at 0x0c9002ec. only 1ST_READ.BIN's object_lists reads it. it meets the pool list on 8 with no fill; one file or two build the same. the bytes don't say whether its kinds at 0x0c9c9258, and their names in C, share its object. in B_EGM3, whose kinds lie in DHEAD, the list starts off 8 at 0x0c9588cc, straight after its kinds, so there they share one, which is consistent with their sharing one here
+modules/adv03/object_list.c            DHEAD    0x0c9002f0  0x0c9002f8
+# a list of particle_pool_spec pointers to a null, in the form 1ST_READ.BIN's stage_pools lists take, though its row for the past is null and nothing points at it. the bytes don't say whether the 24 zero bytes to P, on 32, are the linker's fill, as the fill rule takes them, more nulls of this object, or data of another object nothing names, starting on 8 at 0x0c900308, 0x0c900310 or 0x0c900318
+modules/adv03/pools.c                  DHEAD    0x0c9002f8  0x0c900308
+# follows past.c with no fill; as one file, the code runs 28 bytes longer
+modules/adv03/script_sonic_fire.c      P        0x0c900940  0x0c900a00
+modules/adv03/script_sonic_fire.c      D        0x0c927c90  0x0c927c9c
+modules/adv03/script_tails_tikal.c     P        0x0c900a00  0x0c900b00
+modules/adv03/script_tails_tikal.c     D        0x0c927ca0  0x0c927cac
+modules/adv03/script_knuckles_tikal.c  P        0x0c900b00  0x0c900be0
+modules/adv03/script_knuckles_tikal.c  D        0x0c927cb0  0x0c927cbc
+modules/adv03/script_knuckles_chaos.c  P        0x0c900be0  0x0c900ce0
+modules/adv03/script_knuckles_chaos.c  D        0x0c927cc0  0x0c927ccc
+modules/adv03/script_knuckles_fire.c   P        0x0c900ce0  0x0c900dc0
+modules/adv03/script_knuckles_fire.c   D        0x0c927cd0  0x0c927cdc
+modules/adv03/script_amy_tikal.c       P        0x0c900dc0  0x0c900ea0
+modules/adv03/script_amy_tikal.c       D        0x0c927ce0  0x0c927cf4
+modules/adv03/script_e102_chaos.c      P        0x0c900ea0  0x0c900fa0
+# follows script_e102_chaos.c with no fill; as one file, the code runs 8 bytes longer. 193 of its first 452 bytes differ
+modules/adv03/script_big_emerald.c     P        0x0c900fa0  0x0c901080
+modules/adv03/script_big_emerald.c     D        0x0c927cf8  0x0c927d04
+modules/adv03/script_last_angry.c      P        0x0c901080  0x0c9011a6
+modules/adv03/script_last_angry.c      D        0x0c927d08  0x0c927d1c
+# the 345 entries of the past's act 0 land, which past_act0_land in act0_land.c names. they start on 8, 4 bytes past script_last_angry.c's data, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a word of script_last_angry.c's object nothing reads, and either builds the same. act0_textures.c's data starts on 8, 4 bytes past them, where this object's next item would start on 4. that zero word, which nothing reads, is the fill the rule takes, or a last word of this object, and either builds the same. the object is one of data alone, script_last_angry.c's, were the first zero word its, act0_textures.c's, were the second its, scene_change.c's, which links between with no row in D, though its code doesn't read them, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/act0_land_entries.c      D        0x0c927d20  0x0c92ada4
+modules/adv03/scene_change.c           P        0x0c9011c0  0x0c901300
+# follows scene_change.c with no fill; as one file, the code runs 4 bytes shorter. 165 of its 528 bytes differ
+modules/adv03/well.c                   P        0x0c901300  0x0c9013e0
+modules/adv03/well.c                   D        0x0c9c95d8  0x0c9c960c
+modules/adv03/palm.c                   P        0x0c9013e0  0x0c901560
+modules/adv03/tree.c                   P        0x0c901560  0x0c9016e0
+modules/adv03/pyramid_snake.c          P        0x0c9016e0  0x0c9017a0
+modules/adv03/fall_tree.c              P        0x0c9017a0  0x0c901920
+modules/adv03/stairs.c                 P        0x0c901920  0x0c901ac0
+modules/adv03/knuckles_tree.c          P        0x0c901ac0  0x0c901be0
+modules/adv03/knuckles_tree.c          D        0x0c9c9610  0x0c9c9644
+modules/adv03/knuckles_door.c          P        0x0c901be0  0x0c901ca0
+modules/adv03/plants.c                 P        0x0c901ca0  0x0c902120
+modules/adv03/plants.c                 D        0x0c9c9648  0x0c9c967c
+modules/adv03/smoke.c                  P        0x0c902120  0x0c902620
+modules/adv03/smoke.c                  D        0x0c9c9680  0x0c9c9770
+modules/adv03/ambient_sound.c          P        0x0c902620  0x0c902780
+modules/adv03/ambient_sound.c          D        0x0c9c9770  0x0c9c978c
+modules/adv03/ambient_sound.c          C        0x0ca02568  0x0ca02592
+modules/adv03/master_emerald.c         P        0x0c902780  0x0c902880
+modules/adv03/master_emerald.c         D        0x0c9c9790  0x0c9c97c4
+modules/adv03/chaos_emerald.c          P        0x0c902880  0x0c9029a0
+modules/adv03/chaos_emerald.c          D        0x0c9c97c8  0x0c9c97e4
+modules/adv03/knuckles_lamp.c          P        0x0c9029a0  0x0c902b40
+modules/adv03/knuckles_lamp.c          D        0x0c9c97e8  0x0c9c9844
+# follows knuckles_lamp.c with no fill; as one file, the code runs 4 bytes shorter. 345 of its 652 bytes differ
+modules/adv03/fire.c                   P        0x0c902b40  0x0c902c40
+modules/adv03/fire.c                   D        0x0c9c9848  0x0c9c9888
+modules/adv03/burning.c                P        0x0c902c40  0x0c902e80
+modules/adv03/burning.c                D        0x0c9c9888  0x0c9c9898
+modules/adv03/fire_smoke.c             P        0x0c902e80  0x0c9030e0
+modules/adv03/crowd.c                  P        0x0c9030e0  0x0c904b60
+modules/adv03/crowd.c                  D        0x0ca00c50  0x0ca00df8
+modules/adv03/crowd.c                  C        0x0ca026d8  0x0ca0283e
+modules/adv03/shadow.c                 P        0x0c904b60  0x0c904c00
+modules/adv03/people.c                 P        0x0c904c00  0x0c905180
+modules/adv03/people.c                 D        0x0ca00df8  0x0ca00dfc
+modules/adv03/people.c                 B        0x0ca01020  0x0ca01050
+modules/adv03/people.c                 C        0x0ca02840  0x0ca02da0
+# the act 0 land's 60 textures and past00_texlist, which act0_land.c and 1ST_READ.BIN's past_act_pvms name. the textures start on 8, 4 bytes past act0_land_entries.c's entries, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the entries' object. the texlist and the material after it each start on 8 straight after the item before, where one file or two build the same at each seam. the texlist is placed with the textures it names. the names start on 8 where past.c's next string would start on 4, so the bytes don't part them there, but past.c's data lies before the script sources' in D, so it can't hold the textures. act 1's names start on 8 4 bytes past the last, which ends where this object's next string would start on 4. that is consistent with separate objects. the object is one of its own, the entries', were the zero word that object's, scene_change.c's, which links between with no row in D or C, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/act0_textures.c          D        0x0c92ada8  0x0c92b080
+modules/adv03/act0_textures.c          C        0x0ca014d8  0x0ca018ec
+# the node past_act0_land's last entry names. it starts on 8 straight after the generated node at 0x0c967574, which names the same model, at 0x0c9646c8, generated too. one file or two build the same there. act1_land_entries.c's entries start on 8, 4 bytes past it, where this object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of this object nothing reads, and either builds the same. the object is one of data alone, the generated data's before it, act1_land_entries.c's, were the zero word its, scene_change.c's, which links between with no row in D, though its code doesn't read it, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/dat_0c9675a8.c           D        0x0c9675a8  0x0c9675dc
+# the 221 entries of the past's act 1 land, which past_act1_land in act1_land.c names. they start on 8, 4 bytes past dat_0c9675a8.c's node, where that object's next item would start on 4. the zero word is the linker's fill, as the fill rule takes it, or a last word of the node's object nothing reads, and either builds the same. act1_textures.c's data starts on 8, 4 bytes past them, where this object's next item would start on 4. that zero word, which nothing reads, is the fill the rule takes, or a last word of this object, and either builds the same. the object is one of data alone, the node's, were the first zero word its, act1_textures.c's, were the second its, scene_change.c's, which links between with no row in D, though its code doesn't read them, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/act1_land_entries.c      D        0x0c9675e0  0x0c9694f4
+# the act 1 land's 83 textures, past01_texlist, which act1_land.c and 1ST_READ.BIN's past_act_pvms name, and the first material of the model after them, which its generated meshsets name. the texlist follows the textures off 8 and the material follows the texlist off 8, so the three are one object's. the textures start on 8, 4 bytes past act1_land_entries.c's entries, past a zero word nothing reads, which is the linker's fill, as the fill rule takes it, or a last word of the entries' object. the model's strips start on 8 straight after the material, at 0x0c9698f8, where one file or two build the same. the bytes don't say whether the generated data after it shares this object. the names start on 8 4 bytes past act 0's, which end where that object's next string would start on 4, and act 2's start on 8 6 bytes past the last: consistent with separate objects at each. the object is one of its own, the entries', were the zero word that object's, scene_change.c's, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/act1_textures.c          D        0x0c9694f8  0x0c9698f8
+modules/adv03/act1_textures.c          C        0x0ca018f0  0x0ca01e4a
+# the act 2 land's 85 textures, past02_texlist, which act2_land.c and 1ST_READ.BIN's past_act_pvms name, and the first material of the model after them, which its generated meshsets name. the texlist follows the textures off 8 and the material follows the texlist off 8, so the three are one object's. the textures start on 8 straight after the land's entries, generated, and the model's strips start on 8 straight after the material, at 0x0c999be8. one file or two build the same at each, and the bytes don't say whether the generated data either side shares this object. the names start on 8 6 bytes past act 1's, 4 past where that object's next string would start, which is consistent with separate objects. the kinds' names start on 8 where this object's next string would start on 4, so the bytes don't part them there. the object is one of its own, scene_change.c's, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between. were the kinds' names its constants, the kinds' object could hold it too
+modules/adv03/act2_textures.c          D        0x0c9997d0  0x0c999be8
+modules/adv03/act2_textures.c          C        0x0ca01e50  0x0ca023ce
+# the past's 24 effect textures, eff_past_texlist, which the pvm list names, and past_fire_texlist, the first 16 of them, which fire.c and a generated sprite name. the texlists start on 8 straight after the textures and each other, where one file or several build the same, and they are placed with the textures they name. the textures meet burning.c's data on 8 with no gap, and past_fire_frames, which fire.c also reads, meets the texlists on 8 with no fill at 0x0c9c99c8. the bytes don't say whether either shares this object. fire.c's data lies before burning.c's, so it can't hold them. the names start on 8, 4 bytes past where ambient_sound.c's next string would start on 4, which is consistent with separate objects. crowd.c's constants start on 8 where this object's next string would start on 4. the object is one of its own, burning.c's, though its code doesn't read them, fire_smoke.c's, which links between with no row in D or C, or act0_land.c's, act1_land.c's, act2_land.c's, object_list.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/effect_textures.c        D        0x0c9c9898  0x0c9c99c8
+modules/adv03/effect_textures.c        C        0x0ca02598  0x0ca026d5
+# the 40 kinds the object list names, which placement.c reads by a set entry's id, and their 39 names, which the kinds point at, in values and texts; no code here reads them. a literal is its own file's, so the names and the kinds are one object. the kinds start on 8 straight after a generated object, and start.c's data meets them on 8 with no fill: one file or two build the same at each. the names start on 8 where act2_textures.c's next string would start on 4, so the bytes don't part them there, and the fill rule verifies the 2 bytes. ambient_sound.c's constants start on 8 3 bytes past the last, which the rule verifies too. the bytes leave the kinds to an object of their own, the object list's, as B_EGM3's list shares its kinds' object, start.c's, though its code doesn't read them, act2_textures.c's, were the generated data between its, scene_change.c's, which links between in both sections with no row there, though its code doesn't read them, or act0_land.c's, act1_land.c's, act2_land.c's, pools.c's, pvms.c's or scripts.c's, objects of head data alone that can link between
+modules/adv03/kinds.c                  C        0x0ca023d0  0x0ca02565
+modules/adv03/kinds.c                  D        0x0c9c9258  0x0c9c9578
+#
+# generated data ranges
+# ends with the root object of the Rhythm Brooch's model, which 1ST_READ.BIN's level_item_models names, at 0x0c927c5c: its last word, its sibling, ends D's generated data where script_sonic_fire.c's data starts on 8
+gen/adv03/d_0c90c150.c                 D        0x0c90c150  0x0c927c90
+# ends where dat_0c9675a8.c's node starts on 8, straight after the node at 0x0c967574, which names the same model
+gen/adv03/d_0c92b080.c                 D        0x0c92b080  0x0c9675a8
+gen/adv03/d_0c9698f8.c                 D        0x0c9698f8  0x0c9997d0
+gen/adv03/d_0c999be8.c                 D        0x0c999be8  0x0c9a9790
+gen/adv03/d_0c9a9790.c                 D        0x0c9a9790  0x0c9c9258
+gen/adv03/d_0c9c99c8.c                 D        0x0c9c99c8  0x0ca00c50

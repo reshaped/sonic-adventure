@@ -1,0 +1,23 @@
+# EV0056.PRS, Tails' story: Tails and Sonic find Eggman holds two Chaos Emeralds to their one
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80818
+C          0x0cb80818  0x0cb80928
+D          0x0cb80928  0x0cb924a8
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0056/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0056/script.c               P        0x0cb80008  0x0cb80688
+events/ev0056/script.c               C        0x0cb80818  0x0cb80922
+events/ev0056/script.c               D        0x0cb80928  0x0cb8093c
+events/shared/fade.c                  P        0x0cb80688  0x0cb80814
+events/shared/fade.c                  D        0x0cb92488  0x0cb924a8
+# position keys of a node of ev0056_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80a30, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0056/dat_0cb80940.c          D        0x0cb80940  0x0cb80a30
+#
+# generated data ranges
+gen/ev0056/d_0cb80a30.c               D        0x0cb80a30  0x0cb92488

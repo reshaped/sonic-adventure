@@ -1,0 +1,31 @@
+# EV00DB.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00db_head
+0x0cb80008  ev00db_script
+0x0cb80288  event_white_start
+0x0cb802ea  event_white_start_hold
+0x0cb80350  event_white_kill
+0x0cb8036c  event_white_init
+0x0cb803d0  event_white_step
+0x0cb80456  event_white_draw
+0x0cb804e4  event_white_destroy
+0x0cb80510  event_sound_destroy
+0x0cb80520  event_sound_step
+0x0cb805c2  event_sound_hold
+0x0cb80622  event_sound_move_volume
+0x0cb80648  event_sound_move_pan
+0x0cb8066e  event_sound_move_pitch
+0x0cb80694  event_sound_init
+0x0cb806bc  event_sound_stop_all
+0x0cb8071a  event_sound_start
+0x0cb8075a  event_sound_stop
+0x0cb807d4  event_sound_fade_volume
+0x0cb80800  event_sound_fade_pan
+0x0cb8082c  event_sound_fade_pitch
+0x0cb80858  event_sound_play
+0x0cb808f0  ev00db_textures
+0x0cb808f8  event_white
+0x0cb80900  event_sound_count
+0x0cb80904  event_sounds
+0x0cb80908  event_sound_next

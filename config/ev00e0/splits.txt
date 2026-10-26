@@ -1,0 +1,29 @@
+# EV00E0.PRS, Big leaves the Chaos 6 arena
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb818f0
+C          0x0cb818f0  0x0cb81988
+D          0x0cb81988  0x0cb887a8
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00e0/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00e0/script.c                P        0x0cb80008  0x0cb804a4
+events/ev00e0/script.c                C        0x0cb818f0  0x0cb81945
+events/ev00e0/script.c                D        0x0cb81988  0x0cb819a0
+events/shared/move.c                  P        0x0cb804a4  0x0cb80fc8
+events/shared/move.c                  D        0x0cb88760  0x0cb88788
+events/shared/mover.c                 P        0x0cb80fc8  0x0cb81760
+events/shared/fade.c                  P        0x0cb81760  0x0cb818ec
+events/shared/fade.c                  D        0x0cb88788  0x0cb887a8
+# the names its table points at, its object's constants: they start on 8 at 0x0cb81948, after script.c
+events/shared/froggy_textures.c       C        0x0cb81948  0x0cb81988
+# the names of the textures the script's FROG texlist lists, for the frog model its actions draw. it meets an action at 0x0cb84d40 on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the action before it, were the table that object's too. its bytes are the same in EV0055, EV00B7, EV00BB, EV00DF and EV00E3 but for the words that point at its names. the words before it differ in each of those events, while it and the 7,960 bytes from it match, which is consistent with an object that starts here. ev00e0_frog_texlist meets it on 8 with no fill at 0x0cb84da8: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/froggy_textures.c       D        0x0cb84d48  0x0cb84da8
+#
+# generated data ranges
+gen/ev00e0/d_0cb819a0.c               D        0x0cb819a0  0x0cb84d48
+gen/ev00e0/d_0cb84da8.c               D        0x0cb84da8  0x0cb88760

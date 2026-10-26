@@ -1,0 +1,345 @@
+# STG12.PRS, Hot Shelter
+#
+# section  start       end
+P          0x0c900000  0x0c918ec0
+D          0x0c918ec0  0x0caa13c8
+C          0x0caa13c8  0x0caa5400
+B          0x0caa5400  0x0caa5900
+CFISH      0x0caa5900  0x0caa5c78
+DFISH      0x0caa5c78  0x0cad0c34
+#
+# source                              section  start       end
+# the action act 0's land's last moving part plays, at 0x0c91a5a4, and its motion; the moving part names the action's object too, and nothing else reads them. the action follows the motion off 8, so the two are one object's. the motion starts on 8 straight after its motion data, generated, where one file or two build the same, and act 1's land's entries start on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word at 0x0c94dc7c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of this object nothing reads. the bytes leave the object to one of data alone, to the generated data's before it, or to land1.c's, were the word an unread datum of its; no object with code can link between
+modules/stg12/dat_0c94dc68.c           D        0x0c94dc68  0x0c94dc7c
+# act 1's land, which 1ST_READ.BIN's world_lands names and no code reads, its entries and its moving parts: the moving parts meet the entries on 8 with no fill, and the table meets them the same way, where one file or two build the same at each. the entries start on 8 past the zero word after dat_0c94dc68.c's action, which that row describes. the zero word after the nine-word table, at 0x0c953644, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as dat_0c953648.c's materials start on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to dat_0c94dc68.c's, were the word before it an unread datum of its, or to dat_0c953648.c's, were the word after it an unread datum of its; no object with code can link between
+modules/stg12/land1.c                  D        0x0c94dc80  0x0c953644
+# the object act 1's land's first entry draws, which nothing else reads, and its model: its materials start on 8, and each item after them follows the one before off 8 to the object, so they are one object's. the next model's materials, generated, start on 8 straight after the object, where one file or two build the same. the zero word before the materials is the fill land1.c's row describes. the bytes leave it to an object of its own, to land1.c's, were that word an unread datum of its, or to the generated models' after it; no object with code can link between
+modules/stg12/dat_0c953648.c           D        0x0c953648  0x0c953a30
+# the object act 1's land's last moving part moves, at 0x0c953614, and the action it plays, at 0x0c953618; nothing else reads them. the object shares its model, and the action its motion, with the object and action of the land's third moving part, generated. the object starts on 8 straight after a generated action, where one file or two build the same, and the action follows the object off 8, so they are one object's. act 2's land's entries start on 8, 4 bytes past the action, where this object's next item would start on 4. the zero word at 0x0c9ae214, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, or a last word of this object nothing reads. the bytes leave the object to one of data alone, to the generated data's before it, or to land2.c's, were the word an unread datum of its; no object with code can link between
+modules/stg12/dat_0c9ae1d8.c           D        0x0c9ae1d8  0x0c9ae214
+# act 2's land, which 1ST_READ.BIN's world_lands names and no code reads, its entries and its moving parts: the moving parts meet the entries on 8 with no fill, and the table meets them the same way, where one file or two build the same at each. the entries start on 8 past the zero word after dat_0c9ae1d8.c's action, which that row describes. the zero word after the nine-word table, at 0x0c9b1c74, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as dat_0c9b1c78.c's materials start on 8, or a last word of this object nothing reads. the bytes leave the land to an object of its own, to dat_0c9ae1d8.c's, were the word before it an unread datum of its, or to dat_0c9b1c78.c's, were the word after it an unread datum of its; no object with code can link between
+modules/stg12/land2.c                  D        0x0c9ae218  0x0c9b1c74
+# the materials of the model of the object act 2's land's first entry draws, at 0x0c9b1e60; the model names them, and nothing else. its four materials end on 8 where its strips start, generated, with no fill, where one file or two build the same. the rest of the model and the object lie in the generated row, and the next model's materials follow the object off 8. the zero word before the materials is the fill land2.c's row describes. the bytes leave them to an object of their own, to land2.c's, were that word an unread datum of its, or to the generated model's after them; no object with code can link between
+modules/stg12/dat_0c9b1c78.c           D        0x0c9b1c78  0x0c9b1cc8
+# the object and action act 2's land's last motion names, at 0x0c9b1c44; the generated action before the object names the object too, and nothing else reads them. the object starts on 8 straight after that action with no fill, where one file or two build the same, and the action follows the object off 8, so they are one object's. the zero word after them, at 0x0ca0a4b4, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as HotShelter0's textures start on 8, or a last word of this object nothing reads. the bytes leave them to the generated action's object, to hotshelter0_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg12/dat_0ca0a478.c           D        0x0ca0a478  0x0ca0a4b4
+# HotShelter0's textures and texlist, which the stage's pvm list names, and the sparks'. their names start C, and the sparks' follow off 8, so the two tables are one object's strings, and its D runs from the first textures to the sparks' texlist. they start on 8 four bytes past the action at 0x0ca0a4ac; the data after the last texlist meets it on 8 with no fill: one file or two build the same there. shelter.c, which links first and has no constants, can't hold them: its data would run on from theirs to its own, at 0x0ca89850, over act 1's and act 2's land's textures, which are two files
+modules/stg12/hotshelter0_textures.c   C        0x0caa13c8  0x0caa1a4b
+modules/stg12/hotshelter0_textures.c   D        0x0ca0a4b8  0x0ca0aac8
+# break_wall_broken_world_object, which break_wall.c's code reads. it starts on 8 straight after its model with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca5e5ac, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 0's land's textures start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to hotshelter1_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg12/break_wall_object.c      D        0x0ca5e578  0x0ca5e5ac
+# act 0's land's textures and texlist and the columns', whose names point at strings the land's do, which SHC keeps one copy of in one file. the columns' texlist and the material after it follow them off 8, one object to 0x0ca5e9b8, where strips meet it on 8 with no fill. the textures start on 8 four bytes past break_wall_broken_world_object, and their names start on 8 four bytes past where HotShelter0's next name would. shelter.c, which links first and has no constants, can't hold them: its data would run on from theirs to its own, at 0x0ca89850, over act 1's and act 2's land's textures, which are two files. the generated row after them names their static dat_0ca5e9a4 through symbols.txt: in C it could stay static only if the strips there are this object's
+modules/stg12/hotshelter1_textures.c   C        0x0caa1a50  0x0caa1e75
+modules/stg12/hotshelter1_textures.c   D        0x0ca5e5b0  0x0ca5e9b8
+# the water surface's textures and texlist, which act 0's pvm list names. they meet water_column_action on 8 with no fill, the texlist meets them so, and the data after it meets the texlist so. their names start on 8 where act 0's land's next name would. one file or two build the same at each, and the bytes leave them to their own object or to one before. shelter.c, which links first and has no constants, can't hold them: its data would run on from theirs to its own, at 0x0ca89850, over act 1's and act 2's land's textures, which are two files
+modules/stg12/suimen_textures.c        C        0x0caa1e78  0x0caa1f1d
+modules/stg12/suimen_textures.c        D        0x0ca5f740  0x0ca5f7f0
+# shelter_waterfall_object, which waterfall.c's code reads. it starts on 8 straight after its model with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca6223c, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 1's land's textures start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to hotshelter2_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg12/waterfall_object.c       D        0x0ca62208  0x0ca6223c
+# act 1's land's textures and texlist and the robot screen's, whose names point at strings the land's do; each texlist and table meets the one before on 8 with no fill, as the data after meets the last. they start on 8 four bytes past shelter_waterfall_object; their names start on 8 where the water's next name would: one file or two build the same there. shelter.c, which links first and has no constants, can't hold them: its data would run on from theirs to its own, at 0x0ca89850, over act 2's land's textures, which are another file
+modules/stg12/hotshelter2_textures.c   C        0x0caa1f20  0x0caa27fe
+modules/stg12/hotshelter2_textures.c   D        0x0ca62240  0x0ca62a60
+# crash_tv_object, which crash_tv.c's code reads. it starts on 8 straight after its frame's model with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0ca790ec, which nothing in the image or 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 2's land's textures start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to hotshelter3_textures.c's, were the word an unread datum of its, or to one of data alone
+modules/stg12/crash_tv_object.c        D        0x0ca790b8  0x0ca790ec
+# act 2's land's textures, and their texlist, which follows them off 8. they start on 8 four bytes past crash_tv_object, and their names start on 8 where act 1's next name would, but repeat strings of act 1's, so they are another file's. HOTSHELTER4's textures start on 8 four bytes past the texlist, and their names four bytes past where these would put a next string. shelter.c, which links first and has no constants, could hold them only were its data to run on unbroken from theirs to its own, at 0x0ca89850, through HOTSHELTER4's textures, the generated data and container_door.c's, and so hold those too
+modules/stg12/hotshelter3_textures.c   C        0x0caa2800  0x0caa2e54
+modules/stg12/hotshelter3_textures.c   D        0x0ca790f0  0x0ca796a4
+# HOTSHELTER4's textures and texlist, which act 2's and act 3's pvm lists name. the texlist meets them on 8 with no fill, as the data after it meets the texlist: one file or two build the same there. shelter.c, which links first and has no constants, could hold them only were its data to run on unbroken from theirs to its own, at 0x0ca89850, through the generated data and container_door.c's, and so hold those too
+modules/stg12/hotshelter4_textures.c   C        0x0caa2e58  0x0caa3049
+modules/stg12/hotshelter4_textures.c   D        0x0ca796a8  0x0ca79860
+# the enemy container's door, which enemy_container.c reads. it meets its model on 8 with no fill: one file or two build the same there, and the bytes leave it to its own object or its model's. shelter.c's data starts on 8 four bytes past it
+modules/stg12/container_door.c         D        0x0ca89818  0x0ca8984c
+modules/stg12/shelter.c                P        0x0c900000  0x0c900660
+modules/stg12/shelter.c                D        0x0ca89850  0x0ca89858
+modules/stg12/shelter.c                B        0x0caa5400  0x0caa5604
+# the kinds the act's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for act 0, at 0x0ca89fc4, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. the kinds meet shelter.c's data on 8 with no fill, and as one file with shelter.c, which places no constants, the kinds and the names start where the image has them, so one file or two build the same. the names start on 8, 4 bytes past where HOTSHELTER4's textures' next name would start on 4: as one file, they start there, at 0x0caa304c, so C parts them from that object, and nothing in the image or 1ST_READ.BIN points at the word; the fill rule verifies the 7 bytes. the zero word after the list, at 0x0ca89fcc, which nothing points at, is the linker's fill the rule verifies, as act 1's kinds start on 8, or a last word of this object nothing reads. act 1's names start on 8, 4 bytes past where these would put a next string, which the rule verifies too. the bytes leave them to an object of their own, or to shelter.c's, though its code doesn't read them
+modules/stg12/act0_object_list.c       D        0x0ca89858  0x0ca89fcc
+modules/stg12/act0_object_list.c       C        0x0caa3050  0x0caa3479
+# the kinds the act's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for act 1, at 0x0ca8a6c4, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. they start on 8 past the word after act 0's list and 4 bytes past where act 0's names' next string would start on 4, so they are no data of act 0's object unless both words are unread data of its. the zero word after the list, at 0x0ca8a6cc, which nothing points at, is the linker's fill the rule verifies, as act 2's kinds start on 8, or a last word of this object nothing reads, and act 2's names start on 8, 4 bytes past where these would put a next string. the bytes leave them to an object of their own, or to act 0's or act 2's, were the words between them unread data of its
+modules/stg12/act1_object_list.c       D        0x0ca89fd0  0x0ca8a6cc
+modules/stg12/act1_object_list.c       C        0x0caa3480  0x0caa3869
+# the kinds the act's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for act 2, at 0x0ca8ae00, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. the list ends on 8, and act 3's kinds meet it on 8 with no fill, as act 3's names start where these would put a next string on 4: one file or two build the same at each, and the fill rule verifies the byte between the names. the bytes leave them to an object of their own, to act 3's, or to act 1's, were the words between them unread data of its
+modules/stg12/act2_object_list.c       D        0x0ca8a6d0  0x0ca8ae08
+modules/stg12/act2_object_list.c       C        0x0caa3870  0x0caa3c7f
+# the kinds the act's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for act 3, at 0x0ca8b4d4, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. they meet act 2's on 8 with no fill, which act 2's row describes. the zero word after the list, at 0x0ca8b4dc, which nothing points at, is the linker's fill the rule verifies, as the unread shape's data starts on 8, or a last word of this object nothing reads. chimney.c's constants start on 8 where the names would put a next string on 4, so the bytes don't part them there. but chimney.c's constants open with a string, and as one file, in either order, its strings come ahead of the names, so they are no object of chimney.c's, and the fill rule verifies the 3 bytes. the bytes leave them to an object of their own, to act 2's, or to unused_shape_1.c's, were the word after the list an unread datum of its: chimney.c, which links between and places no data, holds none of them, by that trial
+modules/stg12/act3_object_list.c       D        0x0ca8ae08  0x0ca8b4dc
+modules/stg12/act3_object_list.c       C        0x0caa3c80  0x0caa4055
+# follows shelter.c with no fill; as one file, the code runs 16 bytes shorter. 585 of its 2,172 bytes differ
+modules/stg12/chimney.c                P        0x0c900660  0x0c9008a0
+modules/stg12/chimney.c                C        0x0caa4058  0x0caa4088
+# a collision box laid out as shelter_light_1_shape, which no word in the image or in 1ST_READ.BIN names. it starts on 8 four bytes past act3_object_list.c's list, and light_1.c's data starts on 8 four bytes past it: the bytes leave it to its own object, to act3_object_list.c's, were the zero word before it an unread datum of that object, or, unread, to chimney.c's, which links between shelter.c and light_1.c and has no data, or to light_1.c's, were the 4 bytes after it a word of that object. the zero word before it, at 0x0ca8b4dc, which nothing points at, follows act 3's list, which ends 4 bytes past 8, so it is the linker's fill the rule verifies or a last word of that list's object
+modules/stg12/unused_shape_1.c         D        0x0ca8b4e0  0x0ca8b514
+modules/stg12/light_1.c                P        0x0c9008a0  0x0c900a0c
+modules/stg12/light_1.c                D        0x0ca8b518  0x0ca8b54c
+modules/stg12/light_1.c                C        0x0caa4088  0x0caa40ac
+modules/stg12/light_2.c                P        0x0c900a20  0x0c900b6c
+modules/stg12/light_2.c                D        0x0ca8b550  0x0ca8b584
+modules/stg12/light_2.c                C        0x0caa40b0  0x0caa40d4
+modules/stg12/light_3.c                P        0x0c900b80  0x0c900ccc
+modules/stg12/light_3.c                D        0x0ca8b588  0x0ca8b5bc
+modules/stg12/light_3.c                C        0x0caa40d8  0x0caa40fc
+modules/stg12/container.c              P        0x0c900ce0  0x0c9011e0
+modules/stg12/container.c              D        0x0ca8b5c0  0x0ca8b5fc
+modules/stg12/container.c              C        0x0caa4100  0x0caa4121
+modules/stg12/handle.c                 P        0x0c9011e0  0x0c901800
+modules/stg12/handle.c                 D        0x0ca8b600  0x0ca8b634
+modules/stg12/handle.c                 C        0x0caa4128  0x0caa41e8
+modules/stg12/handle.c                 B        0x0caa5608  0x0caa5708
+modules/stg12/handle_meter.c           P        0x0c901800  0x0c901a40
+modules/stg12/handle_meter.c           D        0x0ca8b638  0x0ca8b684
+modules/stg12/handle_meter.c           C        0x0caa41e8  0x0caa420c
+modules/stg12/spark.c                  P        0x0c901a40  0x0c901c20
+modules/stg12/spark.c                  D        0x0ca8b688  0x0ca8b81c
+modules/stg12/spark.c                  C        0x0caa4210  0x0caa4234
+modules/stg12/gate_1.c                 P        0x0c901c20  0x0c901f30
+modules/stg12/gate_1.c                 D        0x0ca8b820  0x0ca8b888
+modules/stg12/gate_1.c                 C        0x0caa4238  0x0caa4248
+modules/stg12/elevator.c               P        0x0c901f40  0x0c902460
+modules/stg12/elevator.c               D        0x0ca8b888  0x0ca8b904
+modules/stg12/elevator.c               C        0x0caa4248  0x0caa426c
+modules/stg12/bridge.c                 P        0x0c902460  0x0c903068
+modules/stg12/bridge.c                 C        0x0caa4270  0x0caa4294
+modules/stg12/support_1a.c             P        0x0c903080  0x0c9031ec
+modules/stg12/support_1a.c             D        0x0ca8b908  0x0ca8b93c
+modules/stg12/support_1a.c             C        0x0caa4298  0x0caa42bc
+modules/stg12/support_1b.c             P        0x0c903200  0x0c90336c
+modules/stg12/support_1b.c             D        0x0ca8b940  0x0ca8b974
+modules/stg12/support_1b.c             C        0x0caa42c0  0x0caa42e4
+modules/stg12/support_1c.c             P        0x0c903380  0x0c9034ec
+modules/stg12/support_1c.c             D        0x0ca8b978  0x0ca8b9ac
+modules/stg12/support_1c.c             C        0x0caa42e8  0x0caa430c
+modules/stg12/support_1d.c             P        0x0c903500  0x0c90366c
+modules/stg12/support_1d.c             D        0x0ca8b9b0  0x0ca8b9e4
+modules/stg12/support_1d.c             C        0x0caa4310  0x0caa4334
+modules/stg12/gear_1.c                 P        0x0c903680  0x0c903a40
+modules/stg12/gear_1.c                 C        0x0caa4338  0x0caa435d
+modules/stg12/gear_2.c                 P        0x0c903a40  0x0c903e20
+modules/stg12/gear_2.c                 C        0x0caa4360  0x0caa4385
+modules/stg12/gear_3.c                 P        0x0c903e20  0x0c9041e0
+modules/stg12/gear_3.c                 C        0x0caa4388  0x0caa43ad
+modules/stg12/gear_4.c                 P        0x0c9041e0  0x0c9045a0
+modules/stg12/gear_4.c                 C        0x0caa43b0  0x0caa43d5
+modules/stg12/gear_5.c                 P        0x0c9045a0  0x0c904980
+modules/stg12/gear_5.c                 C        0x0caa43d8  0x0caa43fd
+modules/stg12/gear_6.c                 P        0x0c904980  0x0c904d40
+modules/stg12/gear_6.c                 C        0x0caa4400  0x0caa4425
+modules/stg12/gate_2.c                 P        0x0c904d40  0x0c905120
+modules/stg12/gate_2.c                 D        0x0ca8b9e8  0x0ca8ba1c
+modules/stg12/gate_2.c                 C        0x0caa4428  0x0caa4471
+modules/stg12/vent.c                   P        0x0c905120  0x0c90528c
+modules/stg12/vent.c                   D        0x0ca8ba20  0x0ca8ba54
+modules/stg12/vent.c                   C        0x0caa4478  0x0caa449c
+modules/stg12/propeller.c              P        0x0c9052a0  0x0c905460
+modules/stg12/propeller.c              D        0x0ca8ba58  0x0ca8ba8c
+modules/stg12/propeller.c              C        0x0caa44a0  0x0caa44c4
+modules/stg12/banji.c                  P        0x0c905460  0x0c905700
+modules/stg12/banji.c                  D        0x0ca8ba90  0x0ca8bac4
+modules/stg12/banji.c                  C        0x0caa44c8  0x0caa44ec
+modules/stg12/sub_tv.c                 P        0x0c905700  0x0c905980
+modules/stg12/sub_tv.c                 D        0x0ca8bac8  0x0ca8bafc
+modules/stg12/sub_tv.c                 C        0x0caa44f0  0x0caa4524
+modules/stg12/robo_tv.c                P        0x0c905980  0x0c905d00
+modules/stg12/robo_tv.c                D        0x0ca8bb00  0x0ca8bdbc
+modules/stg12/robo_tv.c                C        0x0caa4528  0x0caa455c
+# follows robo_tv.c with no fill; as one file, the two keep one copy of "-> ROTATE X", "-> ROTATE Y" and "-> ROTATE Z", and its data lands 4 bytes early
+modules/stg12/crash_tv.c               P        0x0c905d00  0x0c906d20
+modules/stg12/crash_tv.c               D        0x0ca8bdc0  0x0ca8be3c
+modules/stg12/crash_tv.c               C        0x0caa4560  0x0caa4584
+modules/stg12/crash_tv.c               B        0x0caa5708  0x0caa570c
+# 8 bytes of bss, from 0x0caa5710, which nothing in the image or 1ST_READ.BIN reads. the 4 bytes before them, from crash_tv.c's bss, are the linker's fill the rule verifies, or more of crash_tv.c's bss. the 8 bytes can't be fill, as an object after crash_tv.c's would start at 0x0caa5710. they are crash_tv.c's bss, which its C doesn't hold, the bss of one of the 28 objects that link between crash_tv.c and waterfall.c with no bss, debris.c to hiyoko_floor.c, though their code doesn't read it, waterfall.c's, as they meet its bss on 8 with no fill, the bss of scripts.c's, death_zones.c's, unused_shape_2.c's or big_action.c's object, or of the generated data's from 0x0ca8c140, objects of data alone that can link between, or an object's of bss alone. with no reader, they are placed as one of bss alone, a static array of their length with no initializer, as STG01's 96 bytes are
+modules/stg12/dat_0caa5710.c           B        0x0caa5710  0x0caa5718
+modules/stg10/debris.c                 P        0x0c906d20  0x0c906f00
+modules/stg10/debris.c                 D        0x0ca8be40  0x0ca8be58
+modules/stg10/puff.c                   P        0x0c906f00  0x0c907060
+modules/stg10/puff.c                   D        0x0ca8be58  0x0ca8bf58
+# follows puff.c with no fill; as one file, the code runs 4 bytes longer. 416 of its first 716 bytes differ
+modules/stg12/drum_can.c               P        0x0c907060  0x0c9071cc
+modules/stg12/drum_can.c               D        0x0ca8bf58  0x0ca8bf8c
+modules/stg12/drum_can.c               C        0x0caa4588  0x0caa45ac
+modules/stg12/ornament_1.c             P        0x0c9071e0  0x0c90734c
+modules/stg12/ornament_1.c             D        0x0ca8bf90  0x0ca8bfc4
+modules/stg12/ornament_1.c             C        0x0caa45b0  0x0caa45d4
+modules/stg12/ornament_2.c             P        0x0c907360  0x0c9074cc
+modules/stg12/ornament_2.c             D        0x0ca8bfc8  0x0ca8bffc
+modules/stg12/ornament_2.c             C        0x0caa45d8  0x0caa45fc
+modules/stg12/lighting.c               P        0x0c9074e0  0x0c90762c
+modules/stg12/lighting.c               C        0x0caa4600  0x0caa4624
+modules/stg12/computer.c               P        0x0c907640  0x0c907880
+modules/stg12/computer.c               C        0x0caa4628  0x0caa464c
+modules/stg12/turntable.c              P        0x0c907880  0x0c907b60
+modules/stg12/turntable.c              C        0x0caa4650  0x0caa465d
+# a collision box laid out as shelter_light_1_shape, which no word in the image or in 1ST_READ.BIN names. it starts on 8 four bytes past ornament_2.c's data, and toilet_door.c's data starts on 8 four bytes past it: the bytes leave it to lighting.c's, computer.c's or turntable.c's object, unread, which hold no data of their own, or to its own
+modules/stg12/unused_shape_2.c         D        0x0ca8c000  0x0ca8c034
+modules/stg12/toilet_door.c            P        0x0c907b60  0x0c907da0
+modules/stg12/toilet_door.c            D        0x0ca8c038  0x0ca8c06c
+modules/stg12/toilet_door.c            C        0x0caa4660  0x0caa4684
+modules/stg12/daruma.c                 P        0x0c907da0  0x0c9080c0
+modules/stg12/daruma.c                 D        0x0ca8c070  0x0ca8c0d8
+modules/stg12/daruma.c                 C        0x0caa4688  0x0caa46ac
+modules/stg12/box.c                    P        0x0c9080c0  0x0c908400
+modules/stg12/box.c                    D        0x0ca8c0d8  0x0ca8c140
+modules/stg12/box.c                    C        0x0caa46b0  0x0caa46d4
+# a motion of 1ST_READ.BIN's big_object, and the action that pairs them, which follows it off 8 and which no word names. the motion meets the item before on 8 with no fill: one file or two build the same there. ladder.c's data starts on 8 four bytes past the action
+modules/stg12/big_action.c             D        0x0ca905b0  0x0ca905c4
+modules/stg12/ladder.c                 P        0x0c908400  0x0c908700
+modules/stg12/ladder.c                 D        0x0ca905c8  0x0ca90600
+modules/stg12/box_hole.c               P        0x0c908700  0x0c9089e8
+modules/stg12/box_hole.c               C        0x0caa46d8  0x0caa46e8
+modules/stg12/box_switch.c             P        0x0c908a00  0x0c909000
+modules/stg12/box_switch.c             D        0x0ca90600  0x0ca906f4
+modules/stg12/box_switch.c             C        0x0caa46e8  0x0caa4707
+# 1ST_READ.BIN's death_zones names the list by act, at 0x0ca91520; no code here reads it. the zones' ten models, each from its material to its object, then the zones' lists for acts 0 to 2 and the list by act. they start on 8 four bytes past box_switch.c's data, and light_4.c's data meets the list's null on 8 with no fill. where an item meets the one before on 8 with no fill, one file or two build the same, and the bytes leave the models to the lists' object or objects of their own, and the lists to their own object or light_4.c's, whose data meets the last on 8 with no fill, though its code doesn't read them
+modules/stg12/death_zones.c            D        0x0ca906f8  0x0ca91530
+modules/stg12/light_4.c                P        0x0c909000  0x0c9091c0
+modules/stg12/light_4.c                D        0x0ca91530  0x0ca91564
+modules/stg12/light_4.c                C        0x0caa4708  0x0caa472c
+modules/stg12/glow.c                   P        0x0c9091c0  0x0c90930c
+modules/stg12/glow.c                   D        0x0ca91568  0x0ca9159c
+modules/stg12/glow.c                   C        0x0caa4730  0x0caa4754
+modules/stg12/fence.c                  P        0x0c909320  0x0c90948c
+modules/stg12/fence.c                  D        0x0ca915a0  0x0ca915d4
+modules/stg12/fence.c                  C        0x0caa4758  0x0caa477c
+modules/stg12/dryer.c                  P        0x0c9094a0  0x0c9095ec
+modules/stg12/dryer.c                  D        0x0ca915d8  0x0ca9160c
+modules/stg12/dryer.c                  C        0x0caa4780  0x0caa47a4
+modules/stg12/wc_mark_1.c              P        0x0c909600  0x0c90974c
+modules/stg12/wc_mark_1.c              D        0x0ca91610  0x0ca91644
+modules/stg12/wc_mark_1.c              C        0x0caa47a8  0x0caa47cc
+modules/stg12/wc_mark_2.c              P        0x0c909760  0x0c9098ac
+modules/stg12/wc_mark_2.c              D        0x0ca91648  0x0ca9167c
+modules/stg12/wc_mark_2.c              C        0x0caa47d0  0x0caa47f4
+modules/stg12/jellyfish.c              P        0x0c9098c0  0x0c90a280
+modules/stg12/jellyfish.c              D        0x0ca91680  0x0ca916f8
+modules/stg12/jellyfish.c              C        0x0caa47f8  0x0caa483b
+modules/stg12/break_wall.c             P        0x0c90a280  0x0c90b260
+modules/stg12/break_wall.c             D        0x0ca916f8  0x0ca91768
+modules/stg12/break_wall.c             C        0x0caa4840  0x0caa4864
+modules/stg12/break_glass.c            P        0x0c90b260  0x0c90c140
+modules/stg12/break_glass.c            D        0x0ca91768  0x0ca917d8
+modules/stg12/break_glass.c            C        0x0caa4868  0x0caa488c
+# the table 1ST_READ.BIN's stage_scripts names at 0x0caa4b58, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 4 bytes past where break_glass.c's next item would start on 4: as one file, it starts there, at 0x0caa488c, so C parts it from break_glass.c's object unless that word is an unread constant of its, and the fill rule verifies the 4 bytes. as one file with an unread constant word after break_glass.c's own, it starts where the image has it, and nothing here or in 1ST_READ.BIN points at the word. the last text ends 7 bytes short of stairs.c's constants on 8, 4 past where the object's next string would start on 4: as one file, in either order, stairs.c's constants come ahead of the texts, so they are no object of stairs.c's, and the fill rule verifies the 7 bytes. the bytes leave them to an object of their own, or to break_glass.c's, were the word at 0x0caa488c an unread constant of its, though its code doesn't read them
+modules/stg12/scripts.c                C        0x0caa4890  0x0caa5049
+modules/stg12/stairs.c                 P        0x0c90c140  0x0c90c680
+modules/stg12/stairs.c                 D        0x0ca917d8  0x0ca9180c
+modules/stg12/stairs.c                 C        0x0caa5050  0x0caa5076
+modules/stg12/water_tank.c             P        0x0c90c680  0x0c90cfca
+modules/stg12/water_tank.c             D        0x0ca91810  0x0ca91880
+modules/stg12/water_tank.c             C        0x0caa5078  0x0caa5084
+modules/stg12/water_column.c           P        0x0c90cfe0  0x0c90d220
+modules/stg12/water_surface.c          P        0x0c90d220  0x0c90d560
+modules/stg12/water_surface.c          D        0x0ca91880  0x0ca918a0
+modules/stg12/water_surface.c          C        0x0caa5088  0x0caa509a
+modules/stg12/hiyoko_floor.c           P        0x0c90d560  0x0c90de2e
+modules/stg12/hiyoko_floor.c           D        0x0ca918a0  0x0ca9194c
+modules/stg12/hiyoko_floor.c           C        0x0caa50a0  0x0caa50b0
+modules/stg12/waterfall.c              P        0x0c90de40  0x0c90e560
+# its bss meets dat_0caa5710.c's on 8 with no fill, which that row describes
+modules/stg12/waterfall.c              B        0x0caa5718  0x0caa581c
+# follows waterfall.c with no fill; as one file, its bss lands 4 bytes early
+modules/stg12/dam.c                    P        0x0c90e560  0x0c90e840
+modules/stg12/dam.c                    B        0x0caa5820  0x0caa5828
+modules/stg12/dam_spill.c              P        0x0c90e840  0x0c90f1a0
+modules/stg12/dam_spill.c              C        0x0caa50b0  0x0caa50bc
+modules/stg12/dam_spill.c              B        0x0caa5828  0x0caa58c0
+modules/stg12/water.c                  P        0x0c90f1a0  0x0c90f220
+modules/stg12/water.c                  B        0x0caa58c0  0x0caa58c8
+modules/stg12/lower_water.c            P        0x0c90f220  0x0c90fa80
+modules/stg12/lower_water.c            D        0x0ca91950  0x0ca91a40
+modules/stg12/upper_pool.c             P        0x0c90fa80  0x0c90fc00
+modules/stg12/upper_pool.c             D        0x0ca91a40  0x0ca91a44
+modules/stg12/upper_pool.c             B        0x0caa58c8  0x0caa58cc
+modules/stg12/lid.c                    P        0x0c90fc00  0x0c90ffc0
+# follows lid.c with no fill; as one file, the code runs 16 bytes longer. 423 of its first 1,344 bytes differ
+modules/stg12/dam_water.c              P        0x0c90ffc0  0x0c910140
+# follows dam_water.c with no fill; as one file, 562 of 1,704 code bytes differ
+modules/stg12/upper_water.c            P        0x0c910140  0x0c910680
+modules/stg12/upper_water.c            D        0x0ca91a48  0x0ca91b38
+modules/stg12/deep_water.c             P        0x0c910680  0x0c910aa0
+# its data meets upper_water.c's on 8 with no fill; in the image, only its pool and its own records point into it, the pool from 0x0c910778 at shelter_deep_water_object, whose model points at its first item
+modules/stg12/deep_water.c             D        0x0ca91b38  0x0ca91c28
+modules/stg12/plug.c                   P        0x0c910aa0  0x0c910f20
+modules/stg12/floats.c                 P        0x0c910f20  0x0c911120
+modules/stg12/floats.c                 D        0x0ca91c28  0x0ca91c7c
+modules/stg12/floating_island.c        P        0x0c911120  0x0c911600
+modules/stg12/crane.c                  P        0x0c911600  0x0c911ea0
+modules/stg12/crane.c                  D        0x0ca91c80  0x0ca91d20
+modules/stg12/crane.c                  C        0x0caa50c0  0x0caa50dc
+modules/stg12/cargo_train.c            P        0x0c911ea0  0x0c912220
+modules/stg12/cargo_train.c            D        0x0ca91d20  0x0ca91d78
+modules/stg12/cargo_train.c            B        0x0caa58d0  0x0caa58d4
+# 8 bytes of bss on 8, 4 bytes past cargo_train.c's, that nothing in the image or in 1ST_READ.BIN reads but e105_drawing_task, at 0x0caa58dc, which e105.c reads and keeps extern, as allocating it there moves e105.c's bss. the 4 bytes before them are the linker's fill, as the fill rule takes them, or more of cargo_train.c's bss, which its C doesn't hold, were these its too. the 8 are e105.c's, the reader's, which has no bss row; cargo_train.c's; one of the 15 other objects that link between cargo_train.c and camera_sweep.c with no bss, cargo_ride.c to switch.c, though their code doesn't read them; camera_sweep.c's, as they meet its bss on 8 with no fill; or an object's of bss alone, which the bytes leave open. they are placed as one of bss alone, which defines e105_drawing_task
+modules/stg12/dat_0caa58d8.c           B        0x0caa58d8  0x0caa58e0
+modules/stg12/cargo_ride.c             P        0x0c912220  0x0c912480
+modules/stg12/cargo_ride.c             D        0x0ca91d78  0x0ca91d8c
+modules/stg12/cargo_tunnel.c           P        0x0c912480  0x0c912720
+modules/stg12/cargo_world.c            P        0x0c912720  0x0c912a86
+modules/stg12/cargo_car.c              P        0x0c912aa0  0x0c912da0
+modules/stg12/cargo_car.c              D        0x0ca91d90  0x0ca91dc4
+modules/stg12/cargo_top.c              P        0x0c912da0  0x0c9130a0
+modules/stg12/cargo_container.c        P        0x0c9130a0  0x0c9133a0
+modules/stg12/cargo_container.c        D        0x0ca91dc8  0x0ca91e40
+modules/stg12/enemy_container.c        P        0x0c9133a0  0x0c913760
+modules/stg12/connection.c             P        0x0c913760  0x0c9138c0
+modules/stg12/connection.c             D        0x0ca91e40  0x0ca91e74
+modules/stg12/gate_side.c              P        0x0c9138c0  0x0c913a00
+modules/stg12/gate_side.c              D        0x0ca91e78  0x0ca91ee0
+modules/stg12/blue_light.c             P        0x0c913a00  0x0c913b20
+modules/stg12/handle_lift.c            P        0x0c913b20  0x0c9140a0
+modules/stg12/handle_lift.c            C        0x0caa50e0  0x0caa50f6
+modules/stg12/cargo_start.c            P        0x0c9140a0  0x0c9145e0
+# follows cargo_start.c with no fill; as one file, the code runs 16 bytes longer. 435 of its first 1,692 bytes differ
+modules/stg12/cargo_fade.c             P        0x0c9145e0  0x0c914740
+modules/stg12/cargo_fade.c             D        0x0ca91ee0  0x0ca91f14
+modules/stg12/gate_switch.c            P        0x0c914740  0x0c914a00
+modules/stg12/gate_switch.c            D        0x0ca91f18  0x0ca91f4c
+modules/stg12/gate_switch.c            C        0x0caa50f8  0x0caa512c
+modules/stg12/switch.c                 P        0x0c914a00  0x0c914ce0
+modules/stg12/switch.c                 D        0x0ca91f50  0x0ca91f84
+modules/stg12/switch.c                 C        0x0caa5130  0x0caa517a
+modules/stg12/e105.c                   P        0x0c914ce0  0x0c9166a0
+modules/stg12/e105.c                   D        0x0ca91f88  0x0ca92058
+modules/stg12/e105.c                   C        0x0caa5180  0x0caa5192
+# shelter_ray_create starts on 32 at 0x0c916880 with no fill; split there, the code builds the same
+modules/stg12/camera_sweep.c           P        0x0c9166a0  0x0c9168c0
+modules/stg12/camera_sweep.c           D        0x0ca92058  0x0ca92090
+modules/stg12/camera_sweep.c           B        0x0caa58e0  0x0caa58fc
+# E-105's textures, their texlist, which act 2's pvm list names, and the materials and strips after it, which follow it off 8, one object to 0x0ca92240, where more strips meet them on 8 with no fill. they meet camera_sweep.c's data on 8 with no fill, and their names start on 8 six bytes past e105.c's constants: the bytes leave them to their own object or to camera_sweep.c's, which has no constants, though its code doesn't read them. the generated row after them names their statics dat_0ca921dc and dat_0ca92204 through symbols.txt: in C they could stay static only if the strips there are this object's
+modules/stg12/e105_textures.c          C        0x0caa5198  0x0caa52d9
+modules/stg12/e105_textures.c          D        0x0ca92090  0x0ca92240
+# e105_ring_motion, which e105.c plays. it meets its mdata on 8 with no fill: one file or two build the same there. missile.c's data starts on 8 four bytes past it
+modules/stg12/e105_ring_motion.c       D        0x0caa0c58  0x0caa0c64
+modules/stg12/missile.c                P        0x0c9168c0  0x0c9172c0
+modules/stg12/missile.c                D        0x0caa0c68  0x0caa0cdc
+# the list 1ST_READ.BIN's stage_pvms names for the stage, and the lists texture.c's shelter_acts names for acts 0 to 3, which hold only strings and pointers. act 2's and act 3's lists point at one string, which SHC keeps one copy of in one file. they start on 8 four bytes past missile.c's data, and fish.c's data meets act 3's on 8 with no fill: one file or two build the same there. their names start on 8 four bytes past where E-105's textures' next name would
+modules/stg12/pvms.c                   C        0x0caa52e0  0x0caa53fd
+modules/stg12/pvms.c                   D        0x0caa0ce0  0x0caa0de8
+modules/stg01/fish.c                   P        0x0c9172c0  0x0c918eba
+modules/stg01/fish.c                   D        0x0caa0de8  0x0caa13c8
+# CFISH holds the names its texnames point at, each once, in the order they first name them; one file with fish.c or two build the same, so the bytes leave open whether fish.c's object holds both sections. texnames of different kinds share names, such as the one at 0x0caa5958 that eleven kinds' texnames point at, and each kind's texnames lie after the models before them, so the texture lists and models are one compile. the actions, from 0x0cac96a0 to the end of DFISH, name no string: they meet fish_ryu_object on 8 with no fill, and fish_sb_swim_ang1, fish_sb_hooked_ang1, fish_an_swim_ang1, fish_an_hooked_ang1, fish_an_ke_bite_ang1, fish_una_swim_ang1 and fish_una_hooked_ang1 each start on 8 straight after the item before. as a source of their own the actions build the same, so the bytes leave open whether this object holds them
+modules/stg01/fish_models.c            CFISH    0x0caa5900  0x0caa5c74
+modules/stg01/fish_models.c            DFISH    0x0caa5c78  0x0cad0c34
+#
+# generated data ranges
+# to the motion data of the action dat_0c94dc68.c holds, which its motion meets on 8 with no fill
+gen/stg12/d_0c918ec0.c                 D        0x0c918ec0  0x0c94dc68
+# act 1's models, from the materials after the object dat_0c953648.c holds, which meet it on 8 with no fill
+gen/stg12/d_0c953a30.c                 D        0x0c953a30  0x0c958ec8
+gen/stg12/d_0c958ec8.c                 D        0x0c958ec8  0x0c998ee0
+# to the action before the object dat_0c9ae1d8.c holds, which meets it on 8 with no fill
+gen/stg12/d_0c998ee0.c                 D        0x0c998ee0  0x0c9ae1d8
+# act 2's models, from the strips of the model whose materials dat_0c9b1c78.c holds, which meet them on 8 with no fill
+gen/stg12/d_0c9b1cc8.c                 D        0x0c9b1cc8  0x0c9d8f30
+# to the action before dat_0ca0a478.c's object, which meets it on 8 with no fill
+gen/stg12/d_0c9d8f30.c                 D        0x0c9d8f30  0x0ca0a478
+gen/stg12/d_0ca0aac8.c                 D        0x0ca0aac8  0x0ca19690
+gen/stg12/d_0ca19690.c                 D        0x0ca19690  0x0ca59c90
+# to the model before break_wall_object.c's object, which meets it on 8 with no fill
+gen/stg12/d_0ca59c90.c                 D        0x0ca59c90  0x0ca5e578
+gen/stg12/d_0ca5e9b8.c                 D        0x0ca5e9b8  0x0ca5f740
+# to the model before waterfall_object.c's object, which meets it on 8 with no fill
+gen/stg12/d_0ca5f7f0.c                 D        0x0ca5f7f0  0x0ca62208
+# to the model before crash_tv_object.c's object, which meets it on 8 with no fill
+gen/stg12/d_0ca62a60.c                 D        0x0ca62a60  0x0ca790b8
+gen/stg12/d_0ca79860.c                 D        0x0ca79860  0x0ca89818
+gen/stg12/d_0ca8c140.c                 D        0x0ca8c140  0x0ca905b0
+gen/stg12/d_0ca92240.c                 D        0x0ca92240  0x0caa0c58

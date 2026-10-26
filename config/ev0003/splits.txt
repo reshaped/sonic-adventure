@@ -1,0 +1,30 @@
+# EV0003.PRS, Sonic's story: Sonic sees Tails' plane fall
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81518
+C          0x0cb81518  0x0cb81960
+D          0x0cb81960  0x0cb951f0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0003/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0003/script.c               P        0x0cb80008  0x0cb80fcc
+events/ev0003/script.c               C        0x0cb81518  0x0cb8174a
+events/ev0003/script.c               D        0x0cb81960  0x0cb81b64
+events/shared/sound.c                 P        0x0cb80fcc  0x0cb8138c
+events/shared/sound.c                 D        0x0cb951c0  0x0cb951cc
+events/shared/fade.c                  P        0x0cb8138c  0x0cb81518
+events/shared/fade.c                  D        0x0cb951d0  0x0cb951f0
+# position keys of a node of ev0003_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and sound.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb81bb8, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0003/dat_0cb81b68.c          D        0x0cb81b68  0x0cb81bb8
+# the names of the textures that the texture name table at 0x0cb91528 in this object's data names: after the table at 0x0cb91528, each item to colors at 0x0cb91864 starts off 8, so they share its object. the names and the data from 0x0cb91528 to 0x0cb918e0 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0003_plane_texlist, which names the table at 0x0cb91528. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 3 bytes short of D on 8. they are script.c's, whose code reads ev0003_plane_texlist, were the 6 bytes before them and the 4 bytes after its data, dat_0cb81b68.c's data and the data from there to the table its too; dat_0cb81b68.c's, which has no constants row and can link between them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. sound.c can't hold them: it links in events without them. the 6 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the 3 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 6 bytes before them and the 3 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev0003/plane_textures.c        C        0x0cb81750  0x0cb8195d
+# its data, from 0x0cb91528 to 0x0cb918e0: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb9171c, dat_0cb9176c, dat_0cb917bc, dat_0cb917fc, dat_0cb9184a and dat_0cb91864, which the generated data after it name, are static here, as a source's own data the generated rows reach through symbols.txt: they could stay so only were that data this object's
+events/ev0003/plane_textures.c        D        0x0cb91528  0x0cb918e0
+#
+# generated data ranges
+gen/ev0003/d_0cb81bb8.c               D        0x0cb81bb8  0x0cb91528
+gen/ev0003/d_0cb918e0.c               D        0x0cb918e0  0x0cb951c0

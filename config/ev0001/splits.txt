@@ -1,0 +1,44 @@
+# EV0001.PRS, Sonic's opening scene in Station Square
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83018
+C          0x0cb83018  0x0cb83388
+D          0x0cb83388  0x0cb93bd0
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0001/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0001/script.c               P        0x0cb80008  0x0cb81468
+# its constants meet helicopter_textures.c's names, from 0x0cb83268, on 8 with no fill; the only words that name those are texture names in the data past its own, from 0x0cb8d978
+events/ev0001/script.c               C        0x0cb83018  0x0cb83268
+events/ev0001/script.c               D        0x0cb83388  0x0cb86cb4
+events/shared/picture.c               P        0x0cb81468  0x0cb815c4
+events/shared/picture.c               D        0x0cb93a68  0x0cb93a9c
+events/shared/move.c                  P        0x0cb815c4  0x0cb820e8
+events/shared/move.c                  D        0x0cb93aa0  0x0cb93ac8
+events/shared/mover.c                 P        0x0cb820e8  0x0cb82880
+events/shared/fade.c                  P        0x0cb82880  0x0cb82a0c
+events/shared/fade.c                  D        0x0cb93ac8  0x0cb93ae8
+events/shared/sound.c                 P        0x0cb82a0c  0x0cb82dcc
+events/shared/sound.c                 D        0x0cb93ae8  0x0cb93af4
+events/shared/floor.c                 P        0x0cb82dcc  0x0cb82ee4
+events/shared/floor.c                 D        0x0cb93af8  0x0cb93bd0
+events/shared/light.c                 P        0x0cb82ee4  0x0cb83018
+# angle keys of a node of ev0001_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and picture.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb86cd8, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0001/dat_0cb86cb8.c          D        0x0cb86cb8  0x0cb86cd8
+# the names of the textures that the 2 texture name tables at 0x0cb8d978 and 0x0cb910ac in this object's data name: the tables at 0x0cb8d978 and 0x0cb910ac share names, so they are one file's, with the data between them. the table at 0x0cb910ac starts off 8, straight after an action at 0x0cb910a4, so it shares that item's object. after the table at 0x0cb910ac, each item to a material at 0x0cb9115c starts off 8, so they share its object. the names and the data from 0x0cb8d978 to 0x0cb91170 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0001_helicopter_texlist and ev0001_patrol_car_texlist, which name the tables at 0x0cb8d978 and 0x0cb910ac. they start on 8 straight after script.c's constants, and end 3 bytes short of patrol_car_action.c's names, which begin on 8 where these names' next string would. nothing ties them to the names of patrol_car_action.c, which lie beside them in C with their tables elsewhere in D, so they may be one object's with them, were the data between the tables in D its too; the build makes each an object of its own. they are script.c's, whose code reads ev0001_helicopter_action, ev0001_helicopter_texlist and 1 more in that data, were the 4 bytes after its data, dat_0cb86cb8.c's data and the data from there to the tables its too; dat_0cb86cb8.c's, which has no constants row and can link between them, were the data from its own data to the tables its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. picture.c can't hold them: it links in events without them
+events/ev0001/helicopter_textures.c   C        0x0cb83268  0x0cb83375
+# its data, from 0x0cb8d978 to 0x0cb91170: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb9115c, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0001/helicopter_textures.c   D        0x0cb8d978  0x0cb91170
+# the names of the textures that the texture name table at 0x0cb93a54 in this object's data names: the table at 0x0cb93a54 starts off 8, straight after an action at 0x0cb93a4c, so it shares that item's object. the names and the data from 0x0cb93a40 to 0x0cb93a60 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0001_picture_texlist, which names the table at 0x0cb93a54. they start on 8 after helicopter_textures.c's names, where that object's next string would, and end 7 bytes short of D on 8. nothing ties them to the names of helicopter_textures.c, which lie beside them in C with their tables elsewhere in D, so they may be one object's with them, were the data between the tables in D its too; the build makes each an object of its own. they are script.c's, whose code reads ev0001_patrol_car_action, were helicopter_textures.c's names and the data their tables join and the 4 bytes after its data, dat_0cb86cb8.c's data and the data from there to the table its too; dat_0cb86cb8.c's, which has no constants row and can link between them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. picture.c can't hold them: it links in events without them. the 3 bytes of 0xff before them are padding to 4, were these and helicopter_textures.c's names one object's, or the linker's fill; the 7 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 7 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev0001/patrol_car_action.c     C        0x0cb83378  0x0cb83381
+# its data, from 0x0cb93a40 to 0x0cb93a60: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. ev0001_picture_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0001/patrol_car_action.c     D        0x0cb93a40  0x0cb93a60
+#
+# generated data ranges
+gen/ev0001/d_0cb86cd8.c               D        0x0cb86cd8  0x0cb8d978
+gen/ev0001/d_0cb91170.c               D        0x0cb91170  0x0cb93a40
+gen/ev0001/d_0cb93a60.c               D        0x0cb93a60  0x0cb93a68

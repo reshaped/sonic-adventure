@@ -1,0 +1,29 @@
+# EV0088.PRS, Eggman deceives Knuckles after Chaos 2
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81390
+C          0x0cb81390  0x0cb81708
+D          0x0cb81708  0x0cb99594
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0088/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0088/script.c               P        0x0cb80008  0x0cb80e44
+events/ev0088/script.c               C        0x0cb81390  0x0cb816f2
+events/ev0088/script.c               D        0x0cb81708  0x0cb81730
+# follows script.c with no fill; as one file, event_fade_draw starts at 0x0cb80e3c, in script.c's last pool, and the code runs 8 bytes shorter. 551 of its 4,032 bytes differ
+events/shared/fade.c                  P        0x0cb80e44  0x0cb80fd0
+events/shared/fade.c                  D        0x0cb99568  0x0cb99588
+events/shared/sound.c                 P        0x0cb80fd0  0x0cb81390
+events/shared/sound.c                 D        0x0cb99588  0x0cb99594
+# the names of the textures that the texture name table at 0x0cb99554 in this object's data names: the table at 0x0cb99554 starts off 8, straight after an action at 0x0cb9954c, so it shares that item's object. the names and the data from 0x0cb99540 to 0x0cb99560 in D are the least those joins make one object's, and this source holds no more. script.c's code reads event_chaos0_water_texlist, which names the table at 0x0cb99554. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 4 bytes short of D on 8. they are script.c's, whose code reads ev0088_eggman_action, were the 6 bytes before them and the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. fade.c can't hold them: it links in events without them. the 6 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the 4 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 6 bytes before them and the 4 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev0088/eggman_action.c         C        0x0cb816f8  0x0cb81704
+# its data, from 0x0cb99540 to 0x0cb99560: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. event_chaos0_water_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0088/eggman_action.c         D        0x0cb99540  0x0cb99560
+#
+# generated data ranges
+gen/ev0088/d_0cb81730.c               D        0x0cb81730  0x0cb99540
+gen/ev0088/d_0cb99560.c               D        0x0cb99560  0x0cb99568

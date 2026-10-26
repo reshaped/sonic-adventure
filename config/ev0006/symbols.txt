@@ -1,0 +1,44 @@
+# EV0006.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0006_head
+0x0cb80008  ev0006_script
+0x0cb80dfc  event_fade_draw
+0x0cb80ea6  event_fade_step
+0x0cb80ec8  event_fade_destroy
+0x0cb80ecc  event_fade_init
+0x0cb80eda  event_fade_create
+0x0cb80f34  event_fade_set_speed
+0x0cb80f3c  event_fade_set_alpha
+0x0cb80f70  event_fade_set_color
+0x0cb80f80  event_fade_set_depth
+0x0cb80f88  event_sound_destroy
+0x0cb80f98  event_sound_step
+0x0cb8103a  event_sound_hold
+0x0cb8109a  event_sound_move_volume
+0x0cb810c0  event_sound_move_pan
+0x0cb810e6  event_sound_move_pitch
+0x0cb8110c  event_sound_init
+0x0cb81134  event_sound_stop_all
+0x0cb81192  event_sound_start
+0x0cb811d2  event_sound_stop
+0x0cb8124c  event_sound_fade_volume
+0x0cb81278  event_sound_fade_pan
+0x0cb812a4  event_sound_fade_pitch
+0x0cb812d0  event_sound_play
+0x0cb81618  ev0006_fade
+0x0cb8161c  ev0006_emerald
+0x0cb81620  ev0006_textures
+0x0cb82804  ev0006_sonic_action
+0x0cb856f8  ev0006_tails_action
+0x0cb85700  ev0006_emerald_textures
+0x0cb8570c  ev0006_emerald_texlist
+0x0cb85714  dat_0cb85714
+0x0cb864f4  dat_0cb864f4
+0x0cb86a68  dat_0cb86a68
+0x0cb86ab8  ev0006_emerald_motion
+0x0cb86ac4  ev0006_emerald_action
+0x0cb86ad0  event_fade_corners
+0x0cb86af0  event_sound_count
+0x0cb86af4  event_sounds
+0x0cb86af8  event_sound_next

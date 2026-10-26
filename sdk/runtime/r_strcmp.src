@@ -1,0 +1,116 @@
+        .EXPORT     __slow_strcmp1
+        .EXPORT     __quick_strcmp1
+
+        .SECTION    P,CODE,ALIGN=4
+
+; int _slow_strcmp1(const char *s1, const char *s2)
+; compare s1, in R4, with s2, in R5. return s1's byte less s2's, each
+; sign-extended, at the first byte where they differ, or 0 for equal strings.
+; when both are word aligned, it runs on into _quick_strcmp1, and otherwise it
+; compares a byte at a time. it changes R0 to R5 and T, and no other register
+; @asm open: every instruction is one SHC writes for C
+__slow_strcmp1:
+        MOV         R4,R0
+        OR          R5,R0
+        TST         #3,R0
+        BF          strcmp_unaligned_compare
+
+; int _quick_strcmp1(const char *s1, const char *s2)
+; the same compare, a word at a time, for s1 and s2 both word aligned. it
+; reads neither string past the word that holds its terminator. it changes R0
+; to R5 and T, and no other register
+; @asm open: no inspect rule reads its CMP/STR
+__quick_strcmp1:
+        MOV.L       @R5+,R3
+        MOV         #0,R2
+strcmp_compare_words:
+        MOV.L       @R4+,R0
+        CMP/STR     R2,R3
+        BT          strcmp_compare_bytes
+        CMP/EQ      R0,R3
+        MOV.L       @R5+,R1
+        BF          strcmp_back_one_word
+        MOV.L       @R4+,R0
+        CMP/STR     R2,R1
+        BT          strcmp_compare_bytes
+        CMP/EQ      R0,R1
+        MOV.L       @R5+,R3
+        BF          strcmp_back_one_word
+        MOV.L       @R4+,R0
+        CMP/STR     R2,R3
+        BT          strcmp_compare_bytes
+        CMP/EQ      R0,R3
+        MOV.L       @R5+,R1
+        BF          strcmp_back_one_word
+        MOV.L       @R4+,R0
+        CMP/STR     R2,R1
+        BT          strcmp_compare_bytes
+        CMP/EQ      R0,R1
+        MOV.L       @R5+,R3
+        BT          strcmp_compare_words
+; R5 is one word ahead of R4 here
+strcmp_back_one_word:
+        ADD         #-4,R5
+; s1's and s2's words here differ, or s2's holds its terminator: compare them
+; a byte at a time. when their first three bytes match, their fourth bytes
+; differ or are both 0, so they need no test
+strcmp_compare_bytes:
+        ADD         #-4,R5
+        MOV.B       @R5+,R1
+        ADD         #-4,R4
+        MOV.B       @R4+,R0
+        CMP/EQ      R2,R1
+        BT          strcmp_byte_difference
+        CMP/EQ      R0,R1
+        BF          strcmp_byte_difference
+        MOV.B       @R5+,R1
+        MOV.B       @R4+,R0
+        CMP/EQ      R2,R1
+        BT          strcmp_byte_difference
+        CMP/EQ      R0,R1
+        BF          strcmp_byte_difference
+        MOV.B       @R5+,R1
+        MOV.B       @R4+,R0
+        CMP/EQ      R2,R1
+        BT          strcmp_byte_difference
+        CMP/EQ      R0,R1
+        BF          strcmp_byte_difference
+        MOV.B       @R4+,R0
+        MOV.B       @R5+,R1
+strcmp_byte_difference:
+        RTS
+        SUB         R1,R0
+; unreached
+        RTS
+        SUB         R3,R0
+        .ALIGN      4
+; _slow_strcmp1's compare, for strings not both word aligned
+strcmp_unaligned_compare:
+        MOV.B       @R4+,R0
+        CMP/EQ      #0,R0
+        MOV.B       @R5+,R3
+        BT          strcmp_unaligned_difference
+        CMP/EQ      R0,R3
+        BF          strcmp_unaligned_difference
+        MOV.B       @R4+,R0
+        MOV.B       @R5+,R3
+        CMP/EQ      #0,R0
+        BT          strcmp_unaligned_difference
+        CMP/EQ      R0,R3
+        BF          strcmp_unaligned_difference
+        MOV.B       @R4+,R0
+        MOV.B       @R5+,R3
+        CMP/EQ      #0,R0
+        BT          strcmp_unaligned_difference
+        CMP/EQ      R0,R3
+        BF          strcmp_unaligned_difference
+        MOV.B       @R4+,R0
+        MOV.B       @R5+,R3
+        CMP/EQ      #0,R0
+        BT          strcmp_unaligned_difference
+        CMP/EQ      R0,R3
+        BT          strcmp_unaligned_compare
+strcmp_unaligned_difference:
+        RTS
+        SUB         R3,R0
+        .END

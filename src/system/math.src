@@ -1,0 +1,1114 @@
+; vector and point math, angle lookups, color conversion and memory fills.
+; across means in the x-z plane: an _across function reads x and z and
+; ignores y. an angle is in Ninja's units, 65536 to a turn
+
+        .IMPORT     __nj_screen_
+        .IMPORT     __nj_scr_aspect_x_
+        .IMPORT     __nj_scr_aspect_y_
+        .IMPORT     _njExecuteFade
+        .IMPORT     _njFadeDisable
+        .IMPORT     _njFadeEnable
+        .IMPORT     _njSetFadeColor
+        .IMPORT     _syCfgExit
+        .IMPORT     _syCfgGetSoundMode
+        .IMPORT     _syCfgInit
+        .IMPORT     _syCfgSetSoundMode
+        .EXPORT     _angle_sin_over_abs_cos
+        .EXPORT     _vector_inner_product
+        .EXPORT     _vector_inner_product_across
+        .EXPORT     _vector_outer_product
+        .EXPORT     _vector_magnitude
+        .EXPORT     _vector_magnitude_across
+        .EXPORT     _vector_magnitude_squared
+        .EXPORT     _vector_magnitude_squared_across
+        .EXPORT     _vector_unit
+        .EXPORT     _vector_unit_across
+        .EXPORT     _vector_cosine
+        .EXPORT     _point_distance
+        .EXPORT     _point_distance_across
+        .EXPORT     _point_distance_squared
+        .EXPORT     _point_distance_squared_across
+        .EXPORT     _angle_arc_tan2
+        .EXPORT     _point_project_centered
+        .EXPORT     _float_mod
+        .EXPORT     _angle_arc_sin
+        .EXPORT     _angle_arc_cos
+        .EXPORT     _point_calc_xy
+        .EXPORT     _color_to_argb
+        .EXPORT     _color_from_argb
+        .EXPORT     _color_multiply
+        .EXPORT     _color_to_argb_unit
+        .EXPORT     _color_from_argb_unit
+        .EXPORT     _fill_bytes
+        .EXPORT     _fill_blocks
+
+; a quarter and a half of a turn
+QUARTER:        .EQU    H'4000
+HALF:           .EQU    H'8000
+
+        .SECTION    P,CODE,ALIGN=32
+
+; the addresses of Ninja's fade calls and Shinobi's configuration calls,
+; which the image holds ahead of this file's first function. nothing shows a
+; reader of the table: no PC-relative load or MOVA reaches it, and no word in
+; the game's programs points into it
+        .DATA.L     _njExecuteFade
+        .DATA.L     _njFadeEnable
+        .DATA.L     _njFadeDisable
+        .DATA.L     _njSetFadeColor
+        .DATA.L     _syCfgInit
+        .DATA.L     _syCfgExit
+        .DATA.L     _syCfgSetSoundMode
+        .DATA.L     _syCfgGetSoundMode
+
+; Float angle_sin_over_abs_cos(Angle ang)
+; return sin(ang) / |cos(ang)|, from FSCA's sine and cosine and FSRRA's
+; reciprocal square root. where cos(ang) is negative, that is -tan(ang)
+; @asm open: no inspect rule reads the FR0 and FR1 its FSCA leaves in place
+_angle_sin_over_abs_cos:
+        EXTU.W      R4,R4
+        LDS         R4,FPUL
+        FSCA        FPUL,DR0
+        FMUL        FR1,FR1
+        FSRRA       FR1
+        RTS
+        FMUL        FR1,FR0
+        .ALIGN      4
+
+; Float vector_inner_product(NJS_VECTOR *a, NJS_VECTOR *b)
+; return a . b. the FIPR at 0x8c08a8be also multiplies FR7, which the
+; caller left, by FR3, which the FLDI0 at 0x8c08a8b2 zeroes
+; @asm open: no inspect rule reads FV0 and FV4 filled by three loads each before
+; its FIPR
+_vector_inner_product:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FMOV.S      @R5+,FR4
+        FMOV.S      @R5+,FR5
+        FMOV.S      @R5+,FR6
+        FIPR        FV4,FV0                 ; fr3 is fv4 . fv0
+        RTS
+        FMOV.S      FR3,FR0
+
+; Float vector_inner_product_across(NJS_VECTOR *a, NJS_VECTOR *b)
+; return a . b across. the FIPR at 0x8c08a8d4 also multiplies FR5 and FR7,
+; which the caller left, by FR1 and FR3, which the FLDI0s at 0x8c08a8ca and
+; 0x8c08a8d2 zero
+; @asm open: no inspect rule reads FV0 and FV4 filled by two loads each before
+; its FIPR
+_vector_inner_product_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R4+,FR2
+        FLDI0       FR1
+        FMOV.S      @R5+,FR4
+        ADD         #4,R5
+        FMOV.S      @R5+,FR6
+        FLDI0       FR3
+        FIPR        FV4,FV0
+        RTS
+        FMOV.S      FR3,FR0
+        .ALIGN      4
+
+; void vector_outer_product(NJS_VECTOR *a, NJS_VECTOR *b, NJS_VECTOR *out)
+; write a x b to out, z first. each part is one FIPR FV0,FV4 of two of a's
+; parts, the second negated, and two of b's. it also multiplies FR6 and
+; FR7, as it finds them, by FR2 and FR3, which the FLDI0s at 0x8c08a8dc and
+; 0x8c08a8de zero. out must be neither a nor b: the later parts read the z
+; it writes first
+; @asm operand: fipr-registers, FIPR FV0,FV4 at 0x8c08a8f0, 0x8c08a902 and
+; 0x8c08a914
+_vector_outer_product:
+        FLDI0       FR2
+        FLDI0       FR3
+        ADD         #12,R6                  ; z, y and x, down from out's end
+        MOV         #0,R0
+        FMOV.S      @(R0,R4),FR0
+        FMOV.S      @(R0,R5),FR5
+        MOV         #4,R0
+        FMOV.S      @(R0,R4),FR1
+        FNEG        FR1
+        FMOV.S      @(R0,R5),FR4
+        FIPR        FV0,FV4                 ; a.x b.y - a.y b.x
+        FMOV.S      FR7,@-R6
+        MOV         #8,R0
+        FMOV.S      @(R0,R4),FR0
+        FMOV.S      @(R0,R5),FR5
+        MOV         #0,R0
+        FMOV.S      @(R0,R4),FR1
+        FNEG        FR1
+        FMOV.S      @(R0,R5),FR4
+        FIPR        FV0,FV4                 ; a.z b.x - a.x b.z
+        FMOV.S      FR7,@-R6
+        MOV         #4,R0
+        FMOV.S      @(R0,R4),FR0
+        FMOV.S      @(R0,R5),FR5
+        MOV         #8,R0
+        FMOV.S      @(R0,R4),FR1
+        FNEG        FR1
+        FMOV.S      @(R0,R5),FR4
+        FIPR        FV0,FV4                 ; a.y b.z - a.z b.y
+        RTS
+        FMOV.S      FR7,@-R6
+        .ALIGN      4
+
+; Float vector_magnitude(NJS_VECTOR *vector)
+; the vector's length
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a924
+_vector_magnitude:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FIPR        FV0,FV0
+        FMOV.S      FR3,FR0
+        RTS
+        FSQRT       FR0
+
+; Float vector_magnitude_across(NJS_VECTOR *vector)
+; the vector's length across
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a936
+_vector_magnitude_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R4+,FR2
+        FLDI0       FR1
+        FLDI0       FR3
+        FIPR        FV0,FV0
+        FMOV.S      FR3,FR0
+        RTS
+        FSQRT       FR0
+        .ALIGN      4
+
+; Float vector_magnitude_squared(NJS_VECTOR *vector)
+; the square of the vector's length
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a948
+_vector_magnitude_squared:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FIPR        FV0,FV0
+        RTS
+        FMOV.S      FR3,FR0
+        .ALIGN      4
+
+; Float vector_magnitude_squared_across(NJS_VECTOR *vector)
+; the square of the vector's length across
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a95a
+_vector_magnitude_squared_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R4+,FR2
+        FLDI0       FR1
+        FLDI0       FR3
+        FIPR        FV0,FV0
+        RTS
+        FMOV.S      FR3,FR0
+
+; Float vector_unit(NJS_VECTOR *vector, NJS_VECTOR *out)
+; normalize vector into out and return the reciprocal of its length, as
+; FSRRA approximates it. it doesn't check for a zero length
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a968
+_vector_unit:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        FIPR        FV0,FV0
+        FSRRA       FR3
+        FMUL        FR3,FR0
+        FMUL        FR3,FR1
+        FMUL        FR3,FR2
+        ADD         #12,R5
+        FMOV.S      FR2,@-R5
+        FMOV.S      FR1,@-R5
+        FMOV.S      FR0,@-R5
+        RTS
+        FMOV.S      FR3,FR0
+        .ALIGN      4
+
+; Float vector_unit_across(NJS_VECTOR *vector, NJS_VECTOR *out)
+; normalize vector's x and z across into out's, and return the reciprocal
+; of their length, as FSRRA approximates it. out->y keeps its value. it
+; doesn't check for a zero length
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a98a
+_vector_unit_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R4+,FR2
+        FLDI0       FR1
+        FLDI0       FR3
+        FIPR        FV0,FV0
+        FSRRA       FR3
+        FMUL        FR3,FR0
+        FMUL        FR3,FR2
+        ADD         #12,R5
+        FMOV.S      FR2,@-R5
+        ADD         #-4,R5
+        FMOV.S      FR0,@-R5
+        RTS
+        FMOV.S      FR3,FR0
+        .ALIGN      4
+
+; Float vector_cosine(NJS_VECTOR *a, NJS_VECTOR *b)
+; return the cosine of the angle between a and b: a . b times the
+; reciprocals of their lengths, as FSRRA approximates them
+; @asm operand: fipr-registers, FIPR FV4,FV4 at 0x8c08a9a8, FV8,FV8 at
+; 0x8c08a9b6 and FV4,FV8 at 0x8c08a9be
+_vector_cosine:
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R4+,FR5
+        FMOV.S      @R4+,FR6
+        FLDI0       FR7
+        FIPR        FV4,FV4
+        FSRRA       FR7
+        FMOV.S      FR7,FR0
+        FMOV.S      @R5+,FR8
+        FMOV.S      @R5+,FR9
+        FMOV.S      @R5+,FR10
+        FLDI0       FR11
+        FIPR        FV8,FV8
+        FSRRA       FR11
+        FMUL        FR11,FR0
+        FLDI0       FR7
+        FIPR        FV4,FV8
+        RTS
+        FMUL        FR11,FR0
+
+; Float point_distance(NJS_POINT3 *from, NJS_POINT3 *to)
+; the distance between the points
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a9d8
+_point_distance:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R5+,FR4
+        FSUB        FR4,FR0
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R5+,FR4
+        FSUB        FR4,FR1
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R5+,FR2
+        FSUB        FR4,FR2
+        FIPR        FV0,FV0
+        FMOV.S      FR3,FR0
+        RTS
+        FSQRT       FR0
+
+; Float point_distance_across(NJS_POINT3 *from, NJS_POINT3 *to)
+; the distance between the points, across
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08a9f4
+_point_distance_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R5+,FR4
+        ADD         #4,R5
+        FSUB        FR4,FR0
+        FLDI0       FR1
+        FMOV.S      @R4+,FR4
+        FLDI0       FR3
+        FMOV.S      @R5+,FR2
+        FSUB        FR4,FR2
+        FIPR        FV0,FV0
+        FMOV.S      FR3,FR0
+        RTS
+        FSQRT       FR0
+
+; Float point_distance_squared(NJS_POINT3 *from, NJS_POINT3 *to)
+; the square of the distance between the points
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08aa10
+_point_distance_squared:
+        FMOV.S      @R4+,FR0
+        FLDI0       FR3
+        FMOV.S      @R5+,FR4
+        FSUB        FR4,FR0
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R5+,FR4
+        FSUB        FR4,FR1
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R5+,FR2
+        FSUB        FR4,FR2
+        FIPR        FV0,FV0
+        RTS
+        FMOV.S      FR3,FR0
+
+; Float point_distance_squared_across(NJS_POINT3 *from, NJS_POINT3 *to)
+; the square of the distance between the points, across
+; @asm operand: fipr-registers, FIPR FV0,FV0 at 0x8c08aa2a
+_point_distance_squared_across:
+        FMOV.S      @R4+,FR0
+        ADD         #4,R4
+        FMOV.S      @R5+,FR4
+        ADD         #4,R5
+        FMOV.S      @R5+,FR2
+        FSUB        FR4,FR0
+        FMOV.S      @R4+,FR4
+        FSUB        FR4,FR2
+        FLDI0       FR1
+        FLDI0       FR3
+        FIPR        FV0,FV0
+        RTS
+        FMOV.S      FR3,FR0
+
+; Angle angle_arc_tan2(Float y, Float x)
+; return the angle from the x axis to (x, y), from -HALF to HALF, or
+; H'80000000 when both are 0. the smaller of |x| and |y| over the larger is
+; the tangent of an angle up to an eighth of a turn. ?atan_table gives that
+; angle, interpolated between two entries and rounded. R1 is the octant's
+; offset in ?octants: 8 where x <= 0, 4 more where y <= 0, and 2 more where
+; |y| >= |x|. the BRAF at 0x8c08aa92 jumps to the octant's code, which turns
+; the angle into the result. ?atan_table's 513 angles, at 0x8c08aaf0, lie
+; inside the function, which addresses them by the MOVA at 0x8c08aa76
+; @asm open: no inspect rule reads its BRAF through a MOVA table with no range
+; check
+_angle_arc_tan2:
+        FLDI0       FR0
+        FCMP/EQ     FR4,FR0
+        BF          ?octant
+        FCMP/EQ     FR5,FR0
+        BF          ?octant
+        MOV         #1,R0
+        RTS
+        ROTR        R0
+?octant:
+        MOV         #0,R1
+        FCMP/GT     FR0,FR5
+        BT          ?right
+        FABS        FR5
+        MOV         #8,R1
+?right:
+        FCMP/GT     FR0,FR4
+        BT          ?upper
+        FABS        FR4
+        ADD         #4,R1
+?upper:
+        FCMP/GT     FR4,FR5
+        BT          ?ratio
+        FMOV.S      FR4,FR0
+        FMOV.S      FR5,FR4
+        FMOV.S      FR0,FR5
+        ADD         #2,R1
+?ratio:
+        FDIV        FR5,FR4                 ; 0 to 1
+        MOVA        ?octants,R0
+        MOV.W       @(R0,R1),R1
+        MOVA        ?steps,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR4,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R2                 ; the entry at or under the ratio
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FSUB        FR2,FR1                 ; and how far past it
+        SHLL        R2
+        MOVA        ?atan_table,R0
+        MOV.W       @(R0,R2),R4
+        ADD         #2,R2
+        MOV.W       @(R0,R2),R3
+        MOV         R4,R2
+        SUB         R2,R3
+        LDS         R3,FPUL
+        FLOAT       FPUL,FR3
+        FMUL        FR1,FR3
+        MOVA        ?half,R0
+        FMOV.S      @R0,FR0
+        FADD        FR0,FR3
+        FTRC        FR3,FPUL
+        STS         FPUL,R3
+        BRAF        R1
+        ADD         R3,R2                   ; the angle within the octant
+?octant_base:
+        RTS                                 ; no octant comes here
+        MOV         #0,R0
+?octant_0:
+        RTS
+        MOV         R2,R0
+?octant_1:
+        MOV.L       ?quarter,R0
+        RTS
+        SUB         R2,R0
+?octant_5:
+        MOV.L       ?quarter,R0
+        RTS
+        ADD         R2,R0
+?octant_4:
+        MOV.L       ?half_turn,R0
+        RTS
+        SUB         R2,R0
+?octant_6:
+        MOV.L       ?half_turn,R0
+        SUB         R0,R2
+        RTS
+        MOV         R2,R0
+?octant_7:
+        MOV.L       ?back_quarter,R0
+        RTS
+        SUB         R2,R0
+?octant_3:
+        MOV.L       ?quarter,R0
+        SUB         R0,R2
+        RTS
+        MOV         R2,R0
+?octant_2:
+        RTS
+        NEG         R2,R0
+        .DATA.W     0                       ; the angles start on a long
+?quarter:
+        .DATA.L     QUARTER
+?half_turn:
+        .DATA.L     HALF
+?back_quarter:
+        .DATA.L     -QUARTER
+; the offset of each octant's code past ?octant_base, where the BRAF counts
+; its jump from
+?octants:
+        .DATA.W     ?octant_0-?octant_base,?octant_1-?octant_base
+        .DATA.W     ?octant_2-?octant_base,?octant_3-?octant_base
+        .DATA.W     ?octant_4-?octant_base,?octant_5-?octant_base
+        .DATA.W     ?octant_6-?octant_base,?octant_7-?octant_base
+?steps:
+        .FDATA.S    F'512.0
+?half:
+        .FDATA.S    F'0.5
+; the angle whose tangent is n/512, for n from 0 to 512: up to an eighth of
+; a turn
+?atan_table:
+        .DATA.W     H'0000,H'0014,H'0028,H'003D,H'0051,H'0065,H'007A,H'008E
+        .DATA.W     H'00A2,H'00B7,H'00CB,H'00E0,H'00F4,H'0108,H'011D,H'0131
+        .DATA.W     H'0145,H'015A,H'016E,H'0182,H'0197,H'01AB,H'01BF,H'01D4
+        .DATA.W     H'01E8,H'01FC,H'0211,H'0225,H'0239,H'024E,H'0262,H'0276
+        .DATA.W     H'028B,H'029F,H'02B3,H'02C7,H'02DC,H'02F0,H'0304,H'0318
+        .DATA.W     H'032D,H'0341,H'0355,H'0369,H'037E,H'0392,H'03A6,H'03BA
+        .DATA.W     H'03CE,H'03E3,H'03F7,H'040B,H'041F,H'0433,H'0448,H'045C
+        .DATA.W     H'0470,H'0484,H'0498,H'04AC,H'04C0,H'04D4,H'04E8,H'04FD
+        .DATA.W     H'0511,H'0525,H'0539,H'054D,H'0561,H'0575,H'0589,H'059D
+        .DATA.W     H'05B1,H'05C5,H'05D9,H'05ED,H'0601,H'0614,H'0628,H'063C
+        .DATA.W     H'0650,H'0664,H'0678,H'068C,H'06A0,H'06B3,H'06C7,H'06DB
+        .DATA.W     H'06EF,H'0703,H'0716,H'072A,H'073E,H'0752,H'0765,H'0779
+        .DATA.W     H'078D,H'07A0,H'07B4,H'07C8,H'07DB,H'07EF,H'0803,H'0816
+        .DATA.W     H'082A,H'083D,H'0851,H'0864,H'0878,H'088B,H'089F,H'08B2
+        .DATA.W     H'08C6,H'08D9,H'08ED,H'0900,H'0913,H'0927,H'093A,H'094D
+        .DATA.W     H'0961,H'0974,H'0987,H'099B,H'09AE,H'09C1,H'09D4,H'09E8
+        .DATA.W     H'09FB,H'0A0E,H'0A21,H'0A34,H'0A47,H'0A5A,H'0A6D,H'0A80
+        .DATA.W     H'0A94,H'0AA7,H'0ABA,H'0ACD,H'0AE0,H'0AF2,H'0B05,H'0B18
+        .DATA.W     H'0B2B,H'0B3E,H'0B51,H'0B64,H'0B77,H'0B89,H'0B9C,H'0BAF
+        .DATA.W     H'0BC2,H'0BD4,H'0BE7,H'0BFA,H'0C0C,H'0C1F,H'0C32,H'0C44
+        .DATA.W     H'0C57,H'0C69,H'0C7C,H'0C8E,H'0CA1,H'0CB3,H'0CC6,H'0CD8
+        .DATA.W     H'0CEB,H'0CFD,H'0D0F,H'0D22,H'0D34,H'0D46,H'0D58,H'0D6B
+        .DATA.W     H'0D7D,H'0D8F,H'0DA1,H'0DB4,H'0DC6,H'0DD8,H'0DEA,H'0DFC
+        .DATA.W     H'0E0E,H'0E20,H'0E32,H'0E44,H'0E56,H'0E68,H'0E7A,H'0E8C
+        .DATA.W     H'0E9E,H'0EAF,H'0EC1,H'0ED3,H'0EE5,H'0EF7,H'0F08,H'0F1A
+        .DATA.W     H'0F2C,H'0F3D,H'0F4F,H'0F61,H'0F72,H'0F84,H'0F95,H'0FA7
+        .DATA.W     H'0FB8,H'0FCA,H'0FDB,H'0FED,H'0FFE,H'1010,H'1021,H'1032
+        .DATA.W     H'1044,H'1055,H'1066,H'1077,H'1089,H'109A,H'10AB,H'10BC
+        .DATA.W     H'10CD,H'10DE,H'10EF,H'1100,H'1111,H'1122,H'1133,H'1144
+        .DATA.W     H'1155,H'1166,H'1177,H'1188,H'1199,H'11A9,H'11BA,H'11CB
+        .DATA.W     H'11DC,H'11EC,H'11FD,H'120E,H'121E,H'122F,H'123F,H'1250
+        .DATA.W     H'1260,H'1271,H'1281,H'1292,H'12A2,H'12B3,H'12C3,H'12D3
+        .DATA.W     H'12E4,H'12F4,H'1304,H'1314,H'1325,H'1335,H'1345,H'1355
+        .DATA.W     H'1365,H'1375,H'1385,H'1395,H'13A5,H'13B5,H'13C5,H'13D5
+        .DATA.W     H'13E5,H'13F5,H'1405,H'1415,H'1424,H'1434,H'1444,H'1454
+        .DATA.W     H'1463,H'1473,H'1483,H'1492,H'14A2,H'14B1,H'14C1,H'14D0
+        .DATA.W     H'14E0,H'14EF,H'14FF,H'150E,H'151E,H'152D,H'153C,H'154C
+        .DATA.W     H'155B,H'156A,H'1579,H'1589,H'1598,H'15A7,H'15B6,H'15C5
+        .DATA.W     H'15D4,H'15E3,H'15F2,H'1601,H'1610,H'161F,H'162E,H'163D
+        .DATA.W     H'164C,H'165B,H'166A,H'1678,H'1687,H'1696,H'16A5,H'16B3
+        .DATA.W     H'16C2,H'16D1,H'16DF,H'16EE,H'16FC,H'170B,H'1719,H'1728
+        .DATA.W     H'1736,H'1745,H'1753,H'1761,H'1770,H'177E,H'178C,H'179B
+        .DATA.W     H'17A9,H'17B7,H'17C5,H'17D4,H'17E2,H'17F0,H'17FE,H'180C
+        .DATA.W     H'181A,H'1828,H'1836,H'1844,H'1852,H'1860,H'186E,H'187C
+        .DATA.W     H'188A,H'1897,H'18A5,H'18B3,H'18C1,H'18CE,H'18DC,H'18EA
+        .DATA.W     H'18F7,H'1905,H'1913,H'1920,H'192E,H'193B,H'1949,H'1956
+        .DATA.W     H'1964,H'1971,H'197F,H'198C,H'1999,H'19A7,H'19B4,H'19C1
+        .DATA.W     H'19CE,H'19DC,H'19E9,H'19F6,H'1A03,H'1A10,H'1A1D,H'1A2A
+        .DATA.W     H'1A37,H'1A44,H'1A51,H'1A5E,H'1A6B,H'1A78,H'1A85,H'1A92
+        .DATA.W     H'1A9F,H'1AAC,H'1AB9,H'1AC5,H'1AD2,H'1ADF,H'1AEC,H'1AF8
+        .DATA.W     H'1B05,H'1B12,H'1B1E,H'1B2B,H'1B37,H'1B44,H'1B50,H'1B5D
+        .DATA.W     H'1B69,H'1B76,H'1B82,H'1B8F,H'1B9B,H'1BA7,H'1BB4,H'1BC0
+        .DATA.W     H'1BCC,H'1BD9,H'1BE5,H'1BF1,H'1BFD,H'1C09,H'1C16,H'1C22
+        .DATA.W     H'1C2E,H'1C3A,H'1C46,H'1C52,H'1C5E,H'1C6A,H'1C76,H'1C82
+        .DATA.W     H'1C8E,H'1C9A,H'1CA5,H'1CB1,H'1CBD,H'1CC9,H'1CD5,H'1CE0
+        .DATA.W     H'1CEC,H'1CF8,H'1D04,H'1D0F,H'1D1B,H'1D26,H'1D32,H'1D3E
+        .DATA.W     H'1D49,H'1D55,H'1D60,H'1D6C,H'1D77,H'1D83,H'1D8E,H'1D99
+        .DATA.W     H'1DA5,H'1DB0,H'1DBB,H'1DC7,H'1DD2,H'1DDD,H'1DE9,H'1DF4
+        .DATA.W     H'1DFF,H'1E0A,H'1E15,H'1E20,H'1E2C,H'1E37,H'1E42,H'1E4D
+        .DATA.W     H'1E58,H'1E63,H'1E6E,H'1E79,H'1E84,H'1E8F,H'1E99,H'1EA4
+        .DATA.W     H'1EAF,H'1EBA,H'1EC5,H'1ED0,H'1EDA,H'1EE5,H'1EF0,H'1EFB
+        .DATA.W     H'1F05,H'1F10,H'1F1B,H'1F25,H'1F30,H'1F3A,H'1F45,H'1F4F
+        .DATA.W     H'1F5A,H'1F64,H'1F6F,H'1F79,H'1F84,H'1F8E,H'1F99,H'1FA3
+        .DATA.W     H'1FAD,H'1FB8,H'1FC2,H'1FCC,H'1FD7,H'1FE1,H'1FEB,H'1FF5
+        .DATA.W     H'2000
+        .ALIGN      4
+
+; void point_project_centered(NJS_POINT3 *pos, NJS_POINT3 *out)
+; project pos, in view space, onto the screen, from the screen's center.
+; out->x and out->y are pos->x and pos->y times the screen's distance and
+; Ninja's aspect for their axis, over pos->z. out->z is pos->z. asmsh writes
+; the pool past the RTS's slot, and the zero word at 0x8c08af1e aligns it
+; @asm open: every instruction is one SHC writes for C
+_point_project_centered:
+        MOV.L       #__nj_screen_,R1
+        FMOV.S      @R1,FR4                 ; dist
+        MOV         #8,R0
+        FMOV.S      @(R0,R4),FR3
+        ADD         #12,R5
+        FMOV.S      FR3,@-R5
+        FDIV        FR3,FR4
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR2
+        MOV.L       #__nj_scr_aspect_y_,R1
+        FMOV.S      @R1,FR0
+        FMUL        FR4,FR0
+        FMUL        FR2,FR0
+        FMOV.S      FR0,@-R5
+        MOV.L       #__nj_scr_aspect_x_,R1
+        FMOV.S      @R1,FR0
+        FMUL        FR4,FR0
+        FMUL        FR1,FR0
+        FMOV.S      FR0,@-R5
+        RTS
+        NOP
+
+; Float float_mod(Float x, Float y)
+; return x - y * trunc(x / y), or 0 when y is 0
+; @asm open: every instruction is one SHC writes for C
+_float_mod:
+        FLDI0       FR0
+        FCMP/EQ     FR5,FR0
+        BT          ?none
+        FMOV.S      FR4,FR0
+        FDIV        FR5,FR4
+        FTRC        FR4,FPUL
+        STS         FPUL,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        FMUL        FR5,FR4
+        RTS
+        FSUB        FR4,FR0
+?none:
+        RTS
+        NOP
+
+; Angle angle_arc_sin(Float sine)
+; return the angle whose sine is sine, from -QUARTER to QUARTER, by
+; _asin_table. it runs on into _angle_from_table with R5 at the table's
+; middle entry
+; @asm open: every instruction is one SHC writes for C
+_angle_arc_sin:
+        MOV.L       #_asin_table+512,R5
+
+; return the angle for FR4, from -1 to 1, in the 513-entry table whose
+; middle entry R5 points to. FR4 times 256, truncated toward 0, picks an
+; entry n. the result adds to entry n the step to entry n + 1, times the
+; fraction the truncation dropped. that fraction keeps FR4's sign, and the
+; product truncates toward 0. an FR4 of 1 reads the word past the table,
+; which a fraction of 0 scales away
+; @asm open: every instruction is one SHC writes for C
+_angle_from_table:
+        FMOV.S      FR4,FR3
+        MOVA        ?steps,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR3,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        LDS         R1,FPUL
+        FLOAT       FPUL,FR0
+        FSUB        FR0,FR1
+        MOV         R1,R3
+        SHLL        R3
+        MOV         R5,R0
+        MOV.W       @(R0,R3),R1
+        ADD         #2,R3
+        MOV.W       @(R0,R3),R2
+        SUB         R1,R2
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FMUL        FR1,FR2
+        FTRC        FR2,FPUL
+        STS         FPUL,R0
+        RTS
+        ADD         R1,R0
+?steps:
+        .FDATA.S    F'256.0
+; the angle whose sine is n/256, for n from -256 to 256
+_asin_table:
+        .DATA.W     H'C000,H'C39B,H'C51A,H'C63F,H'C737,H'C812,H'C8D8,H'C98E
+        .DATA.W     H'CA37,H'CAD7,H'CB6E,H'CBFE,H'CC87,H'CD0B,H'CD8A,H'CE05
+        .DATA.W     H'CE7C,H'CEF0,H'CF60,H'CFCD,H'D037,H'D09F,H'D105,H'D168
+        .DATA.W     H'D1CA,H'D229,H'D287,H'D2E3,H'D33D,H'D396,H'D3ED,H'D443
+        .DATA.W     H'D498,H'D4EC,H'D53E,H'D58F,H'D5E0,H'D62F,H'D67D,H'D6CA
+        .DATA.W     H'D716,H'D762,H'D7AD,H'D7F6,H'D840,H'D888,H'D8CF,H'D916
+        .DATA.W     H'D95D,H'D9A2,H'D9E7,H'DA2B,H'DA6F,H'DAB2,H'DAF5,H'DB37
+        .DATA.W     H'DB78,H'DBB9,H'DBFA,H'DC3A,H'DC7A,H'DCB9,H'DCF7,H'DD36
+        .DATA.W     H'DD73,H'DDB1,H'DDEE,H'DE2A,H'DE67,H'DEA2,H'DEDE,H'DF19
+        .DATA.W     H'DF54,H'DF8E,H'DFC8,H'E002,H'E03C,H'E075,H'E0AE,H'E0E6
+        .DATA.W     H'E11E,H'E156,H'E18E,H'E1C5,H'E1FD,H'E233,H'E26A,H'E2A0
+        .DATA.W     H'E2D7,H'E30C,H'E342,H'E377,H'E3AD,H'E3E2,H'E416,H'E44B
+        .DATA.W     H'E47F,H'E4B3,H'E4E7,H'E51B,H'E54E,H'E582,H'E5B5,H'E5E8
+        .DATA.W     H'E61A,H'E64D,H'E67F,H'E6B1,H'E6E3,H'E715,H'E747,H'E778
+        .DATA.W     H'E7AA,H'E7DB,H'E80C,H'E83D,H'E86E,H'E89E,H'E8CF,H'E8FF
+        .DATA.W     H'E92F,H'E95F,H'E98F,H'E9BF,H'E9EE,H'EA1E,H'EA4D,H'EA7D
+        .DATA.W     H'EAAC,H'EADB,H'EB0A,H'EB38,H'EB67,H'EB95,H'EBC4,H'EBF2
+        .DATA.W     H'EC20,H'EC4E,H'EC7C,H'ECAA,H'ECD8,H'ED06,H'ED33,H'ED61
+        .DATA.W     H'ED8E,H'EDBB,H'EDE8,H'EE15,H'EE42,H'EE6F,H'EE9C,H'EEC9
+        .DATA.W     H'EEF5,H'EF22,H'EF4E,H'EF7B,H'EFA7,H'EFD3,H'F000,H'F02C
+        .DATA.W     H'F058,H'F084,H'F0AF,H'F0DB,H'F107,H'F132,H'F15E,H'F189
+        .DATA.W     H'F1B5,H'F1E0,H'F20C,H'F237,H'F262,H'F28D,H'F2B8,H'F2E3
+        .DATA.W     H'F30E,H'F339,H'F364,H'F38E,H'F3B9,H'F3E4,H'F40E,H'F439
+        .DATA.W     H'F463,H'F48E,H'F4B8,H'F4E2,H'F50D,H'F537,H'F561,H'F58B
+        .DATA.W     H'F5B5,H'F5E0,H'F60A,H'F633,H'F65D,H'F687,H'F6B1,H'F6DB
+        .DATA.W     H'F705,H'F72E,H'F758,H'F782,H'F7AB,H'F7D5,H'F7FF,H'F828
+        .DATA.W     H'F852,H'F87B,H'F8A5,H'F8CE,H'F8F7,H'F921,H'F94A,H'F973
+        .DATA.W     H'F99D,H'F9C6,H'F9EF,H'FA18,H'FA41,H'FA6A,H'FA94,H'FABD
+        .DATA.W     H'FAE6,H'FB0F,H'FB38,H'FB61,H'FB8A,H'FBB3,H'FBDC,H'FC05
+        .DATA.W     H'FC2E,H'FC57,H'FC80,H'FCA8,H'FCD1,H'FCFA,H'FD23,H'FD4C
+        .DATA.W     H'FD75,H'FD9D,H'FDC6,H'FDEF,H'FE18,H'FE41,H'FE69,H'FE92
+        .DATA.W     H'FEBB,H'FEE4,H'FF0D,H'FF35,H'FF5E,H'FF87,H'FFB0,H'FFD8
+        .DATA.W     H'0000,H'0029,H'0051,H'007A,H'00A3,H'00CC,H'00F4,H'011D
+        .DATA.W     H'0146,H'016F,H'0198,H'01C0,H'01E9,H'0212,H'023B,H'0264
+        .DATA.W     H'028C,H'02B5,H'02DE,H'0307,H'0330,H'0359,H'0381,H'03AA
+        .DATA.W     H'03D3,H'03FC,H'0425,H'044E,H'0477,H'04A0,H'04C9,H'04F2
+        .DATA.W     H'051B,H'0544,H'056D,H'0597,H'05C0,H'05E9,H'0612,H'063B
+        .DATA.W     H'0664,H'068E,H'06B7,H'06E0,H'070A,H'0733,H'075C,H'0786
+        .DATA.W     H'07AF,H'07D9,H'0802,H'082C,H'0856,H'087F,H'08A9,H'08D3
+        .DATA.W     H'08FC,H'0926,H'0950,H'097A,H'09A4,H'09CE,H'09F7,H'0A21
+        .DATA.W     H'0A4C,H'0A76,H'0AA0,H'0ACA,H'0AF4,H'0B1F,H'0B49,H'0B73
+        .DATA.W     H'0B9E,H'0BC8,H'0BF3,H'0C1D,H'0C48,H'0C73,H'0C9D,H'0CC8
+        .DATA.W     H'0CF3,H'0D1E,H'0D49,H'0D74,H'0D9F,H'0DCA,H'0DF5,H'0E21
+        .DATA.W     H'0E4C,H'0E78,H'0EA3,H'0ECF,H'0EFA,H'0F26,H'0F52,H'0F7D
+        .DATA.W     H'0FA9,H'0FD5,H'1001,H'102E,H'105A,H'1086,H'10B3,H'10DF
+        .DATA.W     H'110C,H'1138,H'1165,H'1192,H'11BF,H'11EC,H'1219,H'1246
+        .DATA.W     H'1273,H'12A0,H'12CE,H'12FB,H'1329,H'1357,H'1385,H'13B3
+        .DATA.W     H'13E1,H'140F,H'143D,H'146C,H'149A,H'14C9,H'14F7,H'1526
+        .DATA.W     H'1555,H'1584,H'15B4,H'15E3,H'1613,H'1642,H'1672,H'16A2
+        .DATA.W     H'16D2,H'1702,H'1732,H'1763,H'1793,H'17C4,H'17F5,H'1826
+        .DATA.W     H'1857,H'1889,H'18BA,H'18EC,H'191E,H'1950,H'1982,H'19B4
+        .DATA.W     H'19E7,H'1A19,H'1A4C,H'1A7F,H'1AB3,H'1AE6,H'1B1A,H'1B4E
+        .DATA.W     H'1B82,H'1BB6,H'1BEB,H'1C1F,H'1C54,H'1C8A,H'1CBF,H'1CF5
+        .DATA.W     H'1D2A,H'1D61,H'1D97,H'1DCE,H'1E04,H'1E3C,H'1E73,H'1EAB
+        .DATA.W     H'1EE3,H'1F1B,H'1F53,H'1F8C,H'1FC5,H'1FFF,H'2039,H'2073
+        .DATA.W     H'20AD,H'20E8,H'2123,H'215F,H'219A,H'21D7,H'2213,H'2250
+        .DATA.W     H'228E,H'22CB,H'230A,H'2348,H'2387,H'23C7,H'2407,H'2448
+        .DATA.W     H'2489,H'24CA,H'250C,H'254F,H'2592,H'25D6,H'261A,H'265F
+        .DATA.W     H'26A4,H'26EB,H'2732,H'2779,H'27C1,H'280B,H'2854,H'289F
+        .DATA.W     H'28EB,H'2937,H'2984,H'29D2,H'2A21,H'2A72,H'2AC3,H'2B15
+        .DATA.W     H'2B69,H'2BBE,H'2C14,H'2C6B,H'2CC4,H'2D1E,H'2D7A,H'2DD8
+        .DATA.W     H'2E37,H'2E99,H'2EFC,H'2F62,H'2FCA,H'3034,H'30A1,H'3111
+        .DATA.W     H'3185,H'31FC,H'3277,H'32F6,H'337A,H'3403,H'3493,H'352A
+        .DATA.W     H'35CA,H'3673,H'3729,H'37EF,H'38CA,H'39C2,H'3AE7,H'3C66
+        .DATA.W     H'4000
+        .ALIGN      4
+
+; Angle angle_arc_cos(Float cosine)
+; return the angle whose cosine is cosine, from 0 to HALF, by ?acos_table,
+; but -HALF for a cosine of -1: the MOV.W that reads the table's first
+; entry, H'8000, extends its sign. ?acos_table's 513 angles, at 0x8c08b38c,
+; lie inside the function. the MOVA at 0x8c08b384 addresses their middle
+; entry, at 0x8c08b58c, for _angle_from_table
+; @asm open: every instruction is one SHC writes for C
+_angle_arc_cos:
+        MOVA        ?acos_table+512,R0
+        BRA         _angle_from_table
+        MOV         R0,R5
+        .ALIGN      4
+; the angle whose cosine is n/256, for n from -256 to 256
+?acos_table:
+        .DATA.W     H'8000,H'7C66,H'7AE7,H'79C2,H'78CA,H'77EF,H'7729,H'7673
+        .DATA.W     H'75CA,H'752A,H'7493,H'7403,H'737A,H'72F6,H'7277,H'71FC
+        .DATA.W     H'7185,H'7111,H'70A1,H'7034,H'6FCA,H'6F62,H'6EFC,H'6E99
+        .DATA.W     H'6E37,H'6DD8,H'6D7A,H'6D1E,H'6CC4,H'6C6B,H'6C14,H'6BBE
+        .DATA.W     H'6B69,H'6B15,H'6AC3,H'6A72,H'6A21,H'69D2,H'6984,H'6937
+        .DATA.W     H'68EB,H'689F,H'6854,H'680B,H'67C1,H'6779,H'6732,H'66EB
+        .DATA.W     H'66A4,H'665F,H'661A,H'65D6,H'6592,H'654F,H'650C,H'64CA
+        .DATA.W     H'6489,H'6448,H'6407,H'63C7,H'6387,H'6348,H'630A,H'62CB
+        .DATA.W     H'628E,H'6250,H'6213,H'61D7,H'619A,H'615F,H'6123,H'60E8
+        .DATA.W     H'60AD,H'6073,H'6039,H'5FFF,H'5FC5,H'5F8C,H'5F53,H'5F1B
+        .DATA.W     H'5EE3,H'5EAB,H'5E73,H'5E3C,H'5E04,H'5DCE,H'5D97,H'5D61
+        .DATA.W     H'5D2A,H'5CF5,H'5CBF,H'5C8A,H'5C54,H'5C1F,H'5BEB,H'5BB6
+        .DATA.W     H'5B82,H'5B4E,H'5B1A,H'5AE6,H'5AB3,H'5A7F,H'5A4C,H'5A19
+        .DATA.W     H'59E7,H'59B4,H'5982,H'5950,H'591E,H'58EC,H'58BA,H'5889
+        .DATA.W     H'5857,H'5826,H'57F5,H'57C4,H'5793,H'5763,H'5732,H'5702
+        .DATA.W     H'56D2,H'56A2,H'5672,H'5642,H'5613,H'55E3,H'55B4,H'5584
+        .DATA.W     H'5555,H'5526,H'54F7,H'54C9,H'549A,H'546C,H'543D,H'540F
+        .DATA.W     H'53E1,H'53B3,H'5385,H'5357,H'5329,H'52FB,H'52CE,H'52A0
+        .DATA.W     H'5273,H'5246,H'5219,H'51EC,H'51BF,H'5192,H'5165,H'5138
+        .DATA.W     H'510C,H'50DF,H'50B3,H'5086,H'505A,H'502E,H'5001,H'4FD5
+        .DATA.W     H'4FA9,H'4F7D,H'4F52,H'4F26,H'4EFA,H'4ECF,H'4EA3,H'4E78
+        .DATA.W     H'4E4C,H'4E21,H'4DF5,H'4DCA,H'4D9F,H'4D74,H'4D49,H'4D1E
+        .DATA.W     H'4CF3,H'4CC8,H'4C9D,H'4C73,H'4C48,H'4C1D,H'4BF3,H'4BC8
+        .DATA.W     H'4B9E,H'4B73,H'4B49,H'4B1F,H'4AF4,H'4ACA,H'4AA0,H'4A76
+        .DATA.W     H'4A4C,H'4A21,H'49F7,H'49CE,H'49A4,H'497A,H'4950,H'4926
+        .DATA.W     H'48FC,H'48D3,H'48A9,H'487F,H'4856,H'482C,H'4802,H'47D9
+        .DATA.W     H'47AF,H'4786,H'475C,H'4733,H'470A,H'46E0,H'46B7,H'468E
+        .DATA.W     H'4664,H'463B,H'4612,H'45E9,H'45C0,H'4597,H'456D,H'4544
+        .DATA.W     H'451B,H'44F2,H'44C9,H'44A0,H'4477,H'444E,H'4425,H'43FC
+        .DATA.W     H'43D3,H'43AA,H'4381,H'4359,H'4330,H'4307,H'42DE,H'42B5
+        .DATA.W     H'428C,H'4264,H'423B,H'4212,H'41E9,H'41C0,H'4198,H'416F
+        .DATA.W     H'4146,H'411D,H'40F4,H'40CC,H'40A3,H'407A,H'4051,H'4029
+        .DATA.W     H'4000,H'3FD7,H'3FAF,H'3F86,H'3F5D,H'3F34,H'3F0C,H'3EE3
+        .DATA.W     H'3EBA,H'3E91,H'3E68,H'3E40,H'3E17,H'3DEE,H'3DC5,H'3D9C
+        .DATA.W     H'3D74,H'3D4B,H'3D22,H'3CF9,H'3CD0,H'3CA7,H'3C7F,H'3C56
+        .DATA.W     H'3C2D,H'3C04,H'3BDB,H'3BB2,H'3B89,H'3B60,H'3B37,H'3B0E
+        .DATA.W     H'3AE5,H'3ABC,H'3A93,H'3A69,H'3A40,H'3A17,H'39EE,H'39C5
+        .DATA.W     H'399C,H'3972,H'3949,H'3920,H'38F6,H'38CD,H'38A4,H'387A
+        .DATA.W     H'3851,H'3827,H'37FE,H'37D4,H'37AA,H'3781,H'3757,H'372D
+        .DATA.W     H'3704,H'36DA,H'36B0,H'3686,H'365C,H'3632,H'3609,H'35DF
+        .DATA.W     H'35B4,H'358A,H'3560,H'3536,H'350C,H'34E1,H'34B7,H'348D
+        .DATA.W     H'3462,H'3438,H'340D,H'33E3,H'33B8,H'338D,H'3363,H'3338
+        .DATA.W     H'330D,H'32E2,H'32B7,H'328C,H'3261,H'3236,H'320B,H'31DF
+        .DATA.W     H'31B4,H'3188,H'315D,H'3131,H'3106,H'30DA,H'30AE,H'3083
+        .DATA.W     H'3057,H'302B,H'2FFF,H'2FD2,H'2FA6,H'2F7A,H'2F4D,H'2F21
+        .DATA.W     H'2EF4,H'2EC8,H'2E9B,H'2E6E,H'2E41,H'2E14,H'2DE7,H'2DBA
+        .DATA.W     H'2D8D,H'2D60,H'2D32,H'2D05,H'2CD7,H'2CA9,H'2C7B,H'2C4D
+        .DATA.W     H'2C1F,H'2BF1,H'2BC3,H'2B94,H'2B66,H'2B37,H'2B09,H'2ADA
+        .DATA.W     H'2AAB,H'2A7C,H'2A4C,H'2A1D,H'29ED,H'29BE,H'298E,H'295E
+        .DATA.W     H'292E,H'28FE,H'28CE,H'289D,H'286D,H'283C,H'280B,H'27DA
+        .DATA.W     H'27A9,H'2777,H'2746,H'2714,H'26E2,H'26B0,H'267E,H'264C
+        .DATA.W     H'2619,H'25E7,H'25B4,H'2581,H'254D,H'251A,H'24E6,H'24B2
+        .DATA.W     H'247E,H'244A,H'2415,H'23E1,H'23AC,H'2376,H'2341,H'230B
+        .DATA.W     H'22D6,H'229F,H'2269,H'2232,H'21FC,H'21C4,H'218D,H'2155
+        .DATA.W     H'211D,H'20E5,H'20AD,H'2074,H'203B,H'2001,H'1FC7,H'1F8D
+        .DATA.W     H'1F53,H'1F18,H'1EDD,H'1EA1,H'1E66,H'1E29,H'1DED,H'1DB0
+        .DATA.W     H'1D72,H'1D35,H'1CF6,H'1CB8,H'1C79,H'1C39,H'1BF9,H'1BB8
+        .DATA.W     H'1B77,H'1B36,H'1AF4,H'1AB1,H'1A6E,H'1A2A,H'19E6,H'19A1
+        .DATA.W     H'195C,H'1915,H'18CE,H'1887,H'183F,H'17F5,H'17AC,H'1761
+        .DATA.W     H'1715,H'16C9,H'167C,H'162E,H'15DF,H'158E,H'153D,H'14EB
+        .DATA.W     H'1497,H'1442,H'13EC,H'1395,H'133C,H'12E2,H'1286,H'1228
+        .DATA.W     H'11C9,H'1167,H'1104,H'109E,H'1036,H'0FCC,H'0F5F,H'0EEF
+        .DATA.W     H'0E7B,H'0E04,H'0D89,H'0D0A,H'0C86,H'0BFD,H'0B6D,H'0AD6
+        .DATA.W     H'0A36,H'098D,H'08D7,H'0811,H'0736,H'063E,H'0519,H'039A
+        .DATA.W     H'0000
+        .ALIGN      4
+
+; void point_calc_xy(NJS_MATRIX *matrix, NJS_POINT3 *point, Float *out)
+; write to out[0] and out[1] the x and y of (point->x, point->y, 0, 1)
+; times matrix. a NULL matrix takes XMTRX as it stands
+; @asm operand: fipr-registers, FIPR FV0,FV4 at 0x8c08b7b4 and 0x8c08b7c4
+_point_calc_xy:
+        FMOV.S      @R5+,FR0
+        TST         R4,R4
+        FMOV.S      @R5+,FR1
+        FLDI0       FR2
+        BF/S        ?matrix
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        ADD         #8,R6
+        FMOV.S      FR1,@-R6
+        RTS
+        FMOV.S      FR0,@-R6
+        .ALIGN      4
+?matrix:
+        MOV         #0,R0
+        FMOV.S      @(R0,R4),FR4
+        MOV         #16,R0
+        FMOV.S      @(R0,R4),FR5
+        MOV         #48,R0
+        FMOV.S      @(R0,R4),FR7
+        FIPR        FV0,FV4                 ; fr6, never loaded, meets fr2's 0
+        FMOV.S      FR7,@R6
+        MOV         #4,R0
+        FMOV.S      @(R0,R4),FR4
+        MOV         #20,R0
+        FMOV.S      @(R0,R4),FR5
+        MOV         #52,R0
+        FMOV.S      @(R0,R4),FR7
+        FIPR        FV0,FV4
+        MOV         #4,R0
+        FMOV.S      FR7,@(R0,R6)
+        RTS
+        NOP
+        .ALIGN      4
+
+; void color_to_argb(Uint32 color, NJS_ARGB *argb)
+; write color's channels to argb as floats from 0 to 255
+; @asm open: every instruction is one SHC writes for C
+_color_to_argb:
+        ADD         #16,R5                  ; b, g, r and a, from argb's end
+        MOV         #-1,R1
+        EXTU.B      R1,R1
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        LDS         R4,FPUL
+        FLOAT       FPUL,FR0
+        RTS
+        FMOV.S      FR0,@-R5
+        .ALIGN      4
+
+; Uint32 color_from_argb(NJS_ARGB *argb)
+; return the color with argb's channels, each truncated. it doesn't mask
+; them, so a channel outside 0 to 255 sets bits of the channels above it
+; @asm open: every instruction is one SHC writes for C
+_color_from_argb:
+        FMOV.S      @R4+,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        SHLL16      R0
+        SHLL8       R0
+        FMOV.S      @R4+,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R1
+        SHLL16      R1
+        OR          R1,R0
+        FMOV.S      @R4+,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R1
+        SHLL8       R1
+        OR          R1,R0
+        FMOV.S      @R4+,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R1
+        RTS
+        OR          R1,R0
+
+; Uint32 color_multiply(Uint32 color, Uint32 by)
+; return each channel of color times by's, over 255 and rounded. it
+; multiplies the two as fractions of 1, holds the product to 1, and scales
+; it back by 255
+; @asm open: every instruction is one SHC writes for C
+_color_multiply:
+        MOVA        ?per_255,R0
+        FMOV.S      @R0,FR0
+        MOVA        ?full,R0
+        FMOV.S      @R0,FR3
+        FLDI1       FR4
+        MOVA        ?half,R0
+        FMOV.S      @R0,FR5
+        MOV         #-1,R3
+        EXTU.B      R3,R3
+        MOV         R3,R1
+        MOV         R3,R2
+        AND         R4,R1
+        AND         R5,R2
+        LDS         R1,FPUL
+        FLOAT       FPUL,FR1
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FMUL        FR0,FR1
+        FMUL        FR0,FR2
+        FMUL        FR2,FR1
+        FCMP/GT     FR1,FR4
+        BT          ?blue
+        FMOV.S      FR4,FR1
+?blue:
+        FMUL        FR3,FR1
+        FADD        FR5,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R0
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R3,R1
+        MOV         R3,R2
+        AND         R4,R1
+        AND         R5,R2
+        LDS         R1,FPUL
+        FLOAT       FPUL,FR1
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FMUL        FR0,FR1
+        FMUL        FR0,FR2
+        FMUL        FR2,FR1
+        FCMP/GT     FR1,FR4
+        BT          ?green
+        FMOV.S      FR4,FR1
+?green:
+        FMUL        FR3,FR1
+        FADD        FR5,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        SHLL8       R1
+        OR          R1,R0
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R3,R1
+        MOV         R3,R2
+        AND         R4,R1
+        AND         R5,R2
+        LDS         R1,FPUL
+        FLOAT       FPUL,FR1
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FMUL        FR0,FR1
+        FMUL        FR0,FR2
+        FMUL        FR2,FR1
+        FCMP/GT     FR1,FR4
+        BT          ?red
+        FMOV.S      FR4,FR1
+?red:
+        FMUL        FR3,FR1
+        FADD        FR5,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        SHLL16      R1
+        OR          R1,R0
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R3,R1
+        MOV         R3,R2
+        AND         R4,R1
+        AND         R5,R2
+        LDS         R1,FPUL
+        FLOAT       FPUL,FR1
+        LDS         R2,FPUL
+        FLOAT       FPUL,FR2
+        FMUL        FR0,FR1
+        FMUL        FR0,FR2
+        FMUL        FR2,FR1
+        FCMP/GT     FR1,FR4
+        BT          ?alpha
+        FMOV.S      FR4,FR1
+?alpha:
+        FMUL        FR3,FR1
+        FADD        FR5,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        SHLL16      R1
+        SHLL8       R1
+        RTS
+        OR          R1,R0
+        .ALIGN      4
+?per_255:
+        .DATA.L     H'3B808080              ; a hair under 1/255
+?full:
+        .FDATA.S    F'255.0
+?half:
+        .FDATA.S    F'0.5
+
+; void color_to_argb_unit(Uint32 color, NJS_ARGB *argb)
+; write color's channels to argb as floats from 0 to 1: each byte times a
+; hair under 1/255
+; @asm open: every instruction is one SHC writes for C
+_color_to_argb_unit:
+        MOVA        ?per_255,R0
+        FMOV.S      @R0,FR3
+        ADD         #16,R5
+        MOV         #-1,R1
+        EXTU.B      R1,R1
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMUL        FR3,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMUL        FR3,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        MOV         R1,R0
+        AND         R4,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        FMUL        FR3,FR0
+        FMOV.S      FR0,@-R5
+        SHLR8       R4
+        LDS         R4,FPUL
+        FLOAT       FPUL,FR0
+        FMUL        FR3,FR0
+        RTS
+        FMOV.S      FR0,@-R5
+        .ALIGN      4
+?per_255:
+        .DATA.L     H'3B808080              ; a hair under 1/255
+
+; Uint32 color_from_argb_unit(NJS_ARGB *argb)
+; return the color with argb's channels, from 0 to 1, each times 255 and
+; rounded. it doesn't mask them, so a channel that rounds outside 0 to 255
+; sets bits of the channels above it
+; @asm open: every instruction is one SHC writes for C
+_color_from_argb_unit:
+        MOVA        ?half,R0
+        FMOV.S      @R0,FR2
+        MOVA        ?full,R0
+        FMOV.S      @R0,FR3
+        FMOV.S      @R4+,FR0
+        FMOV.S      FR2,FR1
+        FMAC        FR0,FR3,FR1             ; fr1 is fr0 fr3 + fr1
+        FTRC        FR1,FPUL
+        STS         FPUL,R0
+        SHLL16      R0
+        SHLL8       R0
+        FMOV.S      @R4+,FR0
+        FMOV.S      FR2,FR1
+        FMAC        FR0,FR3,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        SHLL16      R1
+        OR          R1,R0
+        FMOV.S      @R4+,FR0
+        FMOV.S      FR2,FR1
+        FMAC        FR0,FR3,FR1
+        FTRC        FR1,FPUL
+        STS         FPUL,R1
+        SHLL8       R1
+        OR          R1,R0
+        FMOV.S      @R4+,FR0
+        FMAC        FR0,FR3,FR2
+        FTRC        FR2,FPUL
+        STS         FPUL,R1
+        RTS
+        OR          R1,R0
+        .ALIGN      4
+?full:
+        .FDATA.S    F'255.0
+?half:
+        .FDATA.S    F'0.5
+
+; void fill_bytes(void *mem, int value, int count)
+; set the count bytes at mem to value's low byte, from the last down.
+; count must be positive: DT decrements it before testing it, so a count of
+; 0 writes 2^32 bytes below mem
+; @asm open: every instruction is one SHC writes for C
+_fill_bytes:
+        ADD         R6,R4
+?byte:
+        DT          R6
+        BF/S        ?byte
+        MOV.B       R5,@-R4
+        RTS
+        NOP
+
+; void fill_blocks(void *mem, Uint32 value, int size)
+; set the size bytes at mem to value, eight longs a pass, from the last
+; down. size must be a positive multiple of 32, and mem a multiple of 4
+; @asm open: no inspect rule reads its SHLD R0,R6
+_fill_blocks:
+        ADD         R6,R4
+        MOV         #-5,R0
+        SHLD        R0,R6                   ; the passes, one per 32 bytes
+        NOP
+?block:
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        MOV.L       R5,@-R4
+        DT          R6
+        BF/S        ?block
+        MOV.L       R5,@-R4
+        RTS
+        NOP
+
+        .END

@@ -1,0 +1,34 @@
+# EV000D.PRS, Tornado takeoff, Sonic's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82330
+C          0x0cb82330  0x0cb82d98
+D          0x0cb82d98  0x0cb953e4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev000d/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev000d/script.c               P        0x0cb80008  0x0cb80b28
+events/ev000d/script.c               C        0x0cb82330  0x0cb82b16
+events/ev000d/script.c               D        0x0cb83540  0x0cb83564
+events/shared/move.c                  P        0x0cb80b28  0x0cb8164c
+events/shared/move.c                  D        0x0cb95390  0x0cb953b8
+events/shared/mover.c                 P        0x0cb8164c  0x0cb81de4
+events/shared/fade.c                  P        0x0cb81de4  0x0cb81f70
+events/shared/fade.c                  D        0x0cb953b8  0x0cb953d8
+events/shared/sound.c                 P        0x0cb81f70  0x0cb82330
+events/shared/sound.c                 D        0x0cb953d8  0x0cb953e4
+# position keys of a node of ev000d_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and move.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb835b8, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev000d/dat_0cb83568.c          D        0x0cb83568  0x0cb835b8
+# the names of the textures that the texture name table at 0x0cb86b84 in this object's data names: the table at 0x0cb86b84 starts off 8, straight after an action at 0x0cb86b7c, so it shares that item's object. after the table at 0x0cb86b84, each item to a model's node at 0x0cb86db4 starts off 8, so they share its object. the names and the data from 0x0cb86b70 to 0x0cb86de8 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev000d_tornado_texlist, which names the table at 0x0cb86b84. they start on 8 after script.c's constants, where script.c's next string would, and end 6 bytes short of D on 8. they are script.c's, whose code reads ev000d_sonic_action_2 and ev000d_tornado_texlist, were the 4 bytes after its data, dat_0cb83568.c's data and the data from there to the table its too; dat_0cb83568.c's, which has no constants row and can link between them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. move.c can't hold them: it links in events without them. the 2 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill; the 6 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 2 bytes before them and the 6 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev000d/sonic_action_2.c        C        0x0cb82b18  0x0cb82d92
+# its data, from 0x0cb86b70 to 0x0cb86de8: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb86db4, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev000d/sonic_action_2.c        D        0x0cb86b70  0x0cb86de8
+#
+# generated data ranges
+gen/ev000d/d_0cb82d98.c               D        0x0cb82d98  0x0cb83540
+gen/ev000d/d_0cb835b8.c               D        0x0cb835b8  0x0cb86b70
+gen/ev000d/d_0cb86de8.c               D        0x0cb86de8  0x0cb95390

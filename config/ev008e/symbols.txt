@@ -1,0 +1,31 @@
+# EV008E.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev008e_head
+0x0cb80008  ev008e_script
+0x0cb802ac  event_white_start
+0x0cb8030e  event_white_start_hold
+0x0cb80374  event_white_kill
+0x0cb80390  event_white_init
+0x0cb803f4  event_white_step
+0x0cb8047a  event_white_draw
+0x0cb80508  event_white_destroy
+0x0cb80534  event_sound_destroy
+0x0cb80544  event_sound_step
+0x0cb805e6  event_sound_hold
+0x0cb80646  event_sound_move_volume
+0x0cb8066c  event_sound_move_pan
+0x0cb80692  event_sound_move_pitch
+0x0cb806b8  event_sound_init
+0x0cb806e0  event_sound_stop_all
+0x0cb8073e  event_sound_start
+0x0cb8077e  event_sound_stop
+0x0cb807f8  event_sound_fade_volume
+0x0cb80824  event_sound_fade_pan
+0x0cb80850  event_sound_fade_pitch
+0x0cb8087c  event_sound_play
+0x0cb80930  ev008e_textures
+0x0cb80938  event_white
+0x0cb80940  event_sound_count
+0x0cb80944  event_sounds
+0x0cb80948  event_sound_next

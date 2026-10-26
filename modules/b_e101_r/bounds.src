@@ -1,0 +1,25 @@
+; the bounds of the module's data sections, as the image's link places them:
+; D's start, R's start and end, B's start, and B's end. D holds initialized
+; data and B bss. R is empty here, at B's end. files.c reads the last word
+; as e101_r_bss_end. no image refers to the other four
+
+        .EXPORT     _e101_r_bss_end
+
+        .SECTION    D,DATA,ALIGN=4
+        .SECTION    R,DATA,ALIGN=4
+        .SECTION    B,DATA,ALIGN=4
+
+        .SECTION    C,DATA,ALIGN=4
+
+        .DATA.L     (STARTOF D)
+        .DATA.L     (STARTOF R)
+        .DATA.L     (STARTOF R)+(SIZEOF R)
+        .DATA.L     (STARTOF B)
+
+; Uint8 *e101_r_bss_end
+; B's end, where the module ends. e101_r_load loads E101R.PB and E101R.NB
+; at that address, rounded up to a multiple of 32
+_e101_r_bss_end:
+        .DATA.L     (STARTOF B)+(SIZEOF B)
+
+        .END

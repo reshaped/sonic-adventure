@@ -1,0 +1,30 @@
+# EV009F.PRS, Knuckles' ending
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81000
+C          0x0cb81000  0x0cb81160
+D          0x0cb81160  0x0cb83710
+B          0x0cb83710  0x0cb83728
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev009f/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev009f/script.c               P        0x0cb80008  0x0cb803dc
+events/ev009f/script.c               C        0x0cb81000  0x0cb810e0
+events/ev009f/script.c               D        0x0cb81160  0x0cb81168
+events/ev009f/script.c               B        0x0cb83710  0x0cb83728
+events/shared/sparkle.c               P        0x0cb803dc  0x0cb80674
+# EFF_REGULAR's four sparkle textures' texlist, four NJS_TEXANIM frames on them and a struct particle_anim naming both: the 108 bytes 1ST_READ.BIN's src/effect/sparkle.c opens its data with, sparkle_texlist, sparkle_frames and sparkle_anim, but for the anim's two pointers. nothing points into them, in this event or 1ST_READ.BIN, but those two words. sparkle.c links only in EV009F and EV00D0, and both hold the bytes on 8 just before sprite.c's data, where sparkle.c's data falls in link order. EV002B, which links chaos0.c straight before sprite.c without sparkle.c, holds no such bytes. so they are sparkle.c's data, the likelier reading: an object of data alone linked beside it would build the same. the 4 bytes of 0xff after them, to sprite.c's data on 8, are the linker's fill, as the fill rule takes them, or a last word of this object
+events/shared/sparkle.c               D        0x0cb833e0  0x0cb8344c
+events/shared/sprite.c                P        0x0cb80674  0x0cb80e70
+events/shared/sprite.c                C        0x0cb810e0  0x0cb8115f
+events/shared/sprite.c                D        0x0cb83450  0x0cb836f0
+events/shared/fade.c                  P        0x0cb80e70  0x0cb80ffc
+events/shared/fade.c                  D        0x0cb836f0  0x0cb83710
+#
+# generated data ranges
+# the 4 bytes of 0xff after this row, to sparkle.c's data on 8, which nothing points into, are the linker's fill or a last word of the object before them: 8 bytes that hold ev009f_knuckles_action_0, which script.c reads, straight after the motion it names, so its object's. across the 204 events, a word of 0xff bytes follows some of the actions that end 4 past 8 straight after the motion they name, and none of those that end on 8, as the linker's fill before an object on 8 would: so the row declares end, and the splicer writes the 4 bytes as the linker's fill. an unread last word of the object would build the same
+gen/ev009f/d_0cb81168.c               D        0x0cb81168  0x0cb833dc  end

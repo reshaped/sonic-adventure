@@ -1,0 +1,43 @@
+# EV0083.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0083_head
+0x0cb80008  ev0083_script
+0x0cb80424  event_fade_draw
+0x0cb804ce  event_fade_step
+0x0cb804f0  event_fade_destroy
+0x0cb804f4  event_fade_init
+0x0cb80502  event_fade_create
+0x0cb8055c  event_fade_set_speed
+0x0cb80564  event_fade_set_alpha
+0x0cb80598  event_fade_set_color
+0x0cb805a8  event_fade_set_depth
+0x0cb805b0  event_light_destroy
+0x0cb805b6  event_light_draw
+0x0cb805ba  event_light_step
+0x0cb8062c  event_light_create
+0x0cb806e4  event_sound_destroy
+0x0cb806f4  event_sound_step
+0x0cb80796  event_sound_hold
+0x0cb807f6  event_sound_move_volume
+0x0cb8081c  event_sound_move_pan
+0x0cb80842  event_sound_move_pitch
+0x0cb80868  event_sound_init
+0x0cb80890  event_sound_stop_all
+0x0cb808ee  event_sound_start
+0x0cb8092e  event_sound_stop
+0x0cb809a8  event_sound_fade_volume
+0x0cb809d4  event_sound_fade_pan
+0x0cb80a00  event_sound_fade_pitch
+0x0cb80a2c  event_sound_play
+0x0cb80aa8  ev0083_light_points
+0x0cb815c8  ev0083_light_path
+0x0cb815d0  ev0083_light
+0x0cb815d4  ev0083_fade
+0x0cb815d8  ev0083_textures
+0x0cb85fec  ev0083_knuckles_action_0
+0x0cb88130  ev0083_knuckles_action_1
+0x0cb88138  event_fade_corners
+0x0cb88158  event_sound_count
+0x0cb8815c  event_sounds
+0x0cb88160  event_sound_next

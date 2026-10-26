@@ -1,0 +1,24 @@
+# EV0075.PRS, Sonic pursues Zero and Amy
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81ce0
+C          0x0cb81ce0  0x0cb81fd8
+D          0x0cb81fd8  0x0cbad100
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0075/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0075/script.c               P        0x0cb80008  0x0cb805d8
+events/ev0075/script.c               C        0x0cb81ce0  0x0cb81d10
+events/ev0075/script.c               D        0x0cb81fd8  0x0cb81ff0
+events/shared/zero.c                  P        0x0cb805d8  0x0cb80894
+events/shared/zero.c                  C        0x0cb81d10  0x0cb81fd5
+events/shared/zero.c                  D        0x0cb81ff0  0x0cbad0b8
+events/shared/move.c                  P        0x0cb80894  0x0cb813b8
+events/shared/move.c                  D        0x0cbad0b8  0x0cbad0e0
+events/shared/mover.c                 P        0x0cb813b8  0x0cb81b50
+events/shared/fade.c                  P        0x0cb81b50  0x0cb81cdc
+events/shared/fade.c                  D        0x0cbad0e0  0x0cbad100

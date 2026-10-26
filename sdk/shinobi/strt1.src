@@ -1,0 +1,226 @@
+; the program's entry, its module's start and end records, and the tables
+; that give where its sections start and end
+
+        .IMPORT     __INIT
+        .EXPORT     _START_SYS
+        .EXPORT     _crt0
+
+        .SECTION    DSGLH,DATA,ALIGN=4
+
+; void START_SYS(void)
+; the program's entry. it sets CCR.ICI, which invalidates the instruction
+; cache, and clears the bits CCR doesn't define. it then jumps to _INIT
+; through jump_to_init. its code lies in DSGLH, a data section, before the
+; start record's ID at 0x8c010030
+; @asm open: no inspect rule reads its code in the DATA section DSGLH
+_START_SYS:
+; void crt0(void)
+; START_SYS, by a second name
+_crt0:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+START:
+        MOV.L       ccr_address,R0
+        MOV.L       @R0,R1
+        MOV.L       ccr_defined_bits,R2
+        AND         R2,R1
+        MOV.W       ccr_ici,R2
+        OR          R2,R1
+        MOV.L       R1,@R0
+        MOV.L       jump_to_init_address,R0
+        JMP         @R0
+        NOP
+ccr_ici:
+        .DATA.W     H'0800
+        .ALIGN      4
+ccr_address:
+        .DATA.L     H'FF00001C
+ccr_defined_bits:
+        .DATA.L     H'000089AF          ; every bit CCR defines
+jump_to_init_address:
+        .DATA.L     jump_to_init
+; the start record's ID, which ovMdlEntryTbl finds at the module's offset
+; 0x30. the library handles follow it, up to the end record
+        .SDATA      "Lib Handle Start"
+
+        .SECTION    DSGLE,DATA,ALIGN=4
+
+; the end record: four zero words, then its ID
+        .DATA.L     0,0,0,0
+        .SDATA      "Lib Handle End  "
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void jump_to_init(void)
+; @asm open: every instruction is one SHC writes for C
+jump_to_init:
+        MOV.L       init_address,R0
+        JMP         @R0
+        NOP
+        .ALIGN      4
+init_address:
+        .DATA.L     __INIT
+
+        .SECTION    C,DATA,ALIGN=4
+
+__D_ROM:
+        .DATA.L     (STARTOF D)
+__D32_ROM:
+        .DATA.L     (STARTOF D32)
+__D_BGN:
+        .DATA.L     (STARTOF R)
+__D4_END:
+        .DATA.L     (STARTOF R)+(SIZEOF R)
+__D32_BGN:
+        .DATA.L     (STARTOF R32)
+__D_END:
+        .DATA.L     (STARTOF R32)+(SIZEOF R32)
+__B_BGN:
+        .DATA.L     (STARTOF B)
+__B4_END:
+        .DATA.L     (STARTOF B)+(SIZEOF B)
+__B32_BGN:
+        .DATA.L     (STARTOF B32)
+__B_END:
+        .DATA.L     (STARTOF B32)+(SIZEOF B32)
+
+        .SECTION    C32,DATA,ALIGN=32
+        .SECTION    D,DATA,ALIGN=4
+        .SECTION    D32,DATA,ALIGN=32
+        .SECTION    R,DATA,ALIGN=4
+        .SECTION    R32,DATA,ALIGN=32
+        .SECTION    PSG,CODE,ALIGN=4
+
+        .SECTION    CSG,DATA,ALIGN=4
+
+__DSGLH_BGN:
+        .DATA.L     (STARTOF DSGLH)
+__DSGLH_END:
+        .DATA.L     (STARTOF DSGLH)+(SIZEOF DSGLH)
+__DSGLE_BGN:
+        .DATA.L     (STARTOF DSGLE)
+__DSGLE_END:
+        .DATA.L     (STARTOF DSGLE)+(SIZEOF DSGLE)
+__DSG_ROM:
+        .DATA.L     (STARTOF DSG)
+__DSG32_ROM:
+        .DATA.L     (STARTOF DSG32)
+__DSG_BGN:
+        .DATA.L     (STARTOF RSG)
+__DSG4_END:
+        .DATA.L     (STARTOF RSG)+(SIZEOF RSG)
+__DSG32_BGN:
+        .DATA.L     (STARTOF RSG32)
+__DSG_END:
+        .DATA.L     (STARTOF RSG32)+(SIZEOF RSG32)
+__BSG_BGN:
+        .DATA.L     (STARTOF BSG)
+__BSG4_END:
+        .DATA.L     (STARTOF BSG)+(SIZEOF BSG)
+__BSG32_BGN:
+        .DATA.L     (STARTOF BSG32)
+__BSG_END:
+        .DATA.L     (STARTOF BSG32)+(SIZEOF BSG32)
+
+        .SECTION    CSG32,DATA,ALIGN=32
+        .SECTION    DSG,DATA,ALIGN=4
+        .SECTION    DSG32,DATA,ALIGN=32
+        .SECTION    RSG,DATA,ALIGN=4
+        .SECTION    RSG32,DATA,ALIGN=32
+        .SECTION    PSGNJ00,CODE,ALIGN=4
+        .SECTION    PSGNJ01,CODE,ALIGN=4
+        .SECTION    PSGNJ02,CODE,ALIGN=4
+        .SECTION    PSGNJ03,CODE,ALIGN=4
+        .SECTION    PSGNJ04,CODE,ALIGN=4
+        .SECTION    PSGNJ05,CODE,ALIGN=4
+        .SECTION    PSGNJ06,CODE,ALIGN=4
+        .SECTION    PSGNJ07,CODE,ALIGN=4
+        .SECTION    PSGNJ08,CODE,ALIGN=4
+        .SECTION    PSGNJ09,CODE,ALIGN=4
+        .SECTION    PSGNJ10,CODE,ALIGN=4
+        .SECTION    PSGNJ11,CODE,ALIGN=4
+        .SECTION    PSGNJ12,CODE,ALIGN=4
+        .SECTION    PSGNJ13,CODE,ALIGN=4
+        .SECTION    PSGNJ14,CODE,ALIGN=4
+        .SECTION    PSGNJ15,CODE,ALIGN=4
+        .SECTION    DSGNJ00,DATA,ALIGN=4
+        .SECTION    DSGNJ01,DATA,ALIGN=4
+        .SECTION    DSGNJ02,DATA,ALIGN=4
+        .SECTION    DSGNJ03,DATA,ALIGN=4
+        .SECTION    DSGNJ04,DATA,ALIGN=4
+        .SECTION    DSGNJ05,DATA,ALIGN=4
+        .SECTION    DSGNJ06,DATA,ALIGN=4
+        .SECTION    DSGNJ07,DATA,ALIGN=4
+        .SECTION    DSGNJ08,DATA,ALIGN=4
+        .SECTION    DSGNJ09,DATA,ALIGN=4
+        .SECTION    DSGNJ10,DATA,ALIGN=4
+        .SECTION    DSGNJ11,DATA,ALIGN=4
+        .SECTION    DSGNJ12,DATA,ALIGN=4
+        .SECTION    DSGNJ13,DATA,ALIGN=4
+        .SECTION    DSGNJ14,DATA,ALIGN=4
+        .SECTION    DSGNJ15,DATA,ALIGN=4
+        .SECTION    PSGMW00,CODE,ALIGN=4
+        .SECTION    PSGMW01,CODE,ALIGN=4
+        .SECTION    PSGMW02,CODE,ALIGN=4
+        .SECTION    PSGMW03,CODE,ALIGN=4
+        .SECTION    PSGMW04,CODE,ALIGN=4
+        .SECTION    PSGMW05,CODE,ALIGN=4
+        .SECTION    PSGMW06,CODE,ALIGN=4
+        .SECTION    PSGMW07,CODE,ALIGN=4
+        .SECTION    PSGMW08,CODE,ALIGN=4
+        .SECTION    PSGMW09,CODE,ALIGN=4
+        .SECTION    PSGMW10,CODE,ALIGN=4
+        .SECTION    PSGMW11,CODE,ALIGN=4
+        .SECTION    PSGMW12,CODE,ALIGN=4
+        .SECTION    PSGMW13,CODE,ALIGN=4
+        .SECTION    PSGMW14,CODE,ALIGN=4
+        .SECTION    PSGMW15,CODE,ALIGN=4
+        .SECTION    DSGMW00,DATA,ALIGN=4
+        .SECTION    DSGMW01,DATA,ALIGN=4
+        .SECTION    DSGMW02,DATA,ALIGN=4
+        .SECTION    DSGMW03,DATA,ALIGN=4
+        .SECTION    DSGMW04,DATA,ALIGN=4
+        .SECTION    DSGMW05,DATA,ALIGN=4
+        .SECTION    DSGMW06,DATA,ALIGN=4
+        .SECTION    DSGMW07,DATA,ALIGN=4
+        .SECTION    DSGMW08,DATA,ALIGN=4
+        .SECTION    DSGMW09,DATA,ALIGN=4
+        .SECTION    DSGMW10,DATA,ALIGN=4
+        .SECTION    DSGMW11,DATA,ALIGN=4
+        .SECTION    DSGMW12,DATA,ALIGN=4
+        .SECTION    DSGMW13,DATA,ALIGN=4
+        .SECTION    DSGMW14,DATA,ALIGN=4
+        .SECTION    DSGMW15,DATA,ALIGN=4
+        .SECTION    PSGSFD00,CODE,ALIGN=4
+        .SECTION    PSGSFD01,CODE,ALIGN=4
+        .SECTION    PSGSFD02,CODE,ALIGN=4
+        .SECTION    PSGSFD03,CODE,ALIGN=4
+        .SECTION    DSGSFD00,DATA,ALIGN=4
+        .SECTION    DSGSFD01,DATA,ALIGN=4
+        .SECTION    DSGSFD02,DATA,ALIGN=4
+        .SECTION    DSGSFD03,DATA,ALIGN=4
+        .SECTION    PSGRSV0,CODE,ALIGN=4
+        .SECTION    PSGRSV1,CODE,ALIGN=4
+        .SECTION    PSGRSV2,CODE,ALIGN=4
+        .SECTION    PSGRSV3,CODE,ALIGN=4
+        .SECTION    DSGRSV0,DATA,ALIGN=4
+        .SECTION    DSGRSV1,DATA,ALIGN=4
+        .SECTION    DSGRSV2,DATA,ALIGN=4
+        .SECTION    DSGRSV3,DATA,ALIGN=4
+        .SECTION    PUSER0,CODE,ALIGN=4
+        .SECTION    PUSER1,CODE,ALIGN=4
+        .SECTION    PUSER2,CODE,ALIGN=4
+        .SECTION    PUSER3,CODE,ALIGN=4
+        .SECTION    DUSER0,DATA,ALIGN=4
+        .SECTION    DUSER1,DATA,ALIGN=4
+        .SECTION    DUSER2,DATA,ALIGN=4
+        .SECTION    DUSER3,DATA,ALIGN=4
+        .SECTION    B,DATA,ALIGN=4
+        .SECTION    B32,DATA,ALIGN=32
+        .SECTION    BSG,DATA,ALIGN=4
+        .SECTION    BSG32,DATA,ALIGN=32
+        .END

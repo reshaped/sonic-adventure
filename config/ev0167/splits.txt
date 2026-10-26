@@ -1,0 +1,29 @@
+# EV0167.PRS, Ancient Light pickup
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81338
+C          0x0cb81338  0x0cb81440
+D          0x0cb81440  0x0cb8e154
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0167/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0167/script.c               P        0x0cb80008  0x0cb80648
+events/ev0167/script.c               C        0x0cb81338  0x0cb813bb
+events/ev0167/script.c               D        0x0cb81440  0x0cb83284
+events/shared/sprite.c                P        0x0cb80648  0x0cb80e44
+events/shared/sprite.c                C        0x0cb813c0  0x0cb8143f
+events/shared/sprite.c                D        0x0cb8dea8  0x0cb8e148
+events/shared/light.c                 P        0x0cb80e44  0x0cb80f78
+events/shared/sound.c                 P        0x0cb80f78  0x0cb81338
+events/shared/sound.c                 D        0x0cb8e148  0x0cb8e154
+# position keys of a node of ev0167_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and sprite.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb83488, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0167/dat_0cb83288.c          D        0x0cb83288  0x0cb83488
+# ev0167_sonic_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to sprite.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb8da00 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0167/sonic_action_2.c        D        0x0cb8de90  0x0cb8dea4
+#
+# generated data ranges
+gen/ev0167/d_0cb83488.c               D        0x0cb83488  0x0cb8de90

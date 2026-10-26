@@ -1,0 +1,148 @@
+; the player's copy: through the store queues, 32 bytes at a time, when source
+; and destination are both 32-byte aligned, and through memcpy otherwise
+
+        .IMPORT     _memcpy
+        .IMPORT     _syCacheOCBI
+        .EXPORT     _mwPlySh4CpyMem
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void mwPlySh4CpyMem(void *destination, const void *source, Sint32 size)
+; copy size bytes from source to destination, or none for a size below 1. when
+; both are 32-byte aligned, copy_lines copies only the size / 32 whole lines,
+; and the last size % 32 bytes stay uncopied. otherwise memcpy copies them all.
+; the aligned copy needs FPSCR.SZ 0, and loses FR0 to FR7. it invalidates each
+; destination line in the operand cache without writing it back. once it has
+; copied a line, QACR0 and QACR1 hold bits 28 to 26 of the first destination
+; @asm open: every instruction is one SHC writes for C
+_mwPlySh4CpyMem:
+        MOV.L       R14,@-R15
+        MOV         R6,R14
+        CMP/PL      R14
+        BF          ?done
+        MOV         #31,R6
+        MOV         R4,R2
+        TST         R6,R2
+        BF          ?bytes
+        MOV         R5,R1
+        TST         R6,R1
+        BF          ?bytes
+        MOV         R14,R6
+        BRA         copy_lines
+        MOV.L       @R15+,R14
+?bytes:
+        MOV.L       memcpy_at,R2
+        MOV         R14,R6
+        JMP         @R2
+        MOV.L       @R15+,R14
+?done:
+        RTS
+        MOV.L       @R15+,R14
+
+; copy R6 / 32 lines of 32 bytes from R5 to R4, both 32-byte aligned.
+; mwPlySh4CpyMem branches here, so the RTS returns to mwPlySh4CpyMem's caller.
+; each line goes through the store queue at H'E0000000 plus the destination's
+; low 26 bits, with interrupts masked. four FMOV pairs fill the queue, and
+; PREF of the queue's address writes it out. the frame holds the queue's
+; address at @R15, the lines left at @(4,R15), and the QACR value at @(8,R15)
+; @asm opcode: cache-line, OCBI @R9 at 0x8ced9570 invalidates the destination's
+; line
+copy_lines:
+        MOV.L       R12,@-R15
+        FSCHG                               ; SZ 1: an FMOV moves a pair
+        MOV.L       R11,@-R15
+        MOV         #-5,R3
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV         R5,R10
+        MOV.L       R8,@-R15
+        MOV         R4,R9
+        STS.L       PR,@-R15
+        ADD         #-12,R15
+        STC         SR,R8
+        SHAD        R3,R6
+        MOV.L       R6,@(4,R15)
+        MOV         R9,R0
+        NOP
+        SHLR16      R0
+        MOV.L       offset_mask,R3
+        SHLR8       R0
+        MOV.L       queue_base,R2
+        AND         R9,R3
+        AND         #H'1C,R0                ; bits 28 to 26 as QACR's 4 to 2
+        OR          R2,R3
+        MOV.L       R0,@(8,R15)
+        MOV.L       R3,@R15
+        PREF        @R10
+        MOV.L       @(4,R15),R3
+        CMP/PL      R3
+        BF          ?done
+?line:
+        MOV         R10,R2
+        ADD         #32,R2
+        PREF        @R2
+        STC         SR,R0
+        MOV.W       not_imask,R3
+        AND         R3,R0
+        OR          #H'F0,R0
+        LDC         R0,SR
+        MOV.L       @R15,R3
+        FMOV        @R10+,DR0
+        FMOV        @R10+,DR2
+        FMOV        @R10+,DR4
+        FMOV        @R10+,DR6
+        FMOV        DR0,@R3
+        ADD         #8,R3
+        FMOV        DR2,@R3
+        ADD         #8,R3
+        FMOV        DR4,@R3
+        ADD         #8,R3
+        FMOV        DR6,@R3
+        ADD         #8,R3
+        OCBI        @R9
+        MOV         R9,R4
+        MOV.L       @(8,R15),R2
+        MOV.L       qacr0,R3
+        MOV.L       R2,@R3
+        MOV.L       @(8,R15),R1
+        MOV.L       qacr1,R2
+        MOV.L       R1,@R2
+        MOV.L       @R15,R1
+        PREF        @R1                     ; writes the queue out
+        LDC         R8,SR
+        MOV.L       @R15,R0
+        ADD         #32,R9
+        ADD         #32,R0
+        MOV.L       R0,@R15
+        MOV.L       @(4,R15),R3
+        ADD         #-1,R3
+        CMP/PL      R3
+        BT/S        ?line
+        MOV.L       R3,@(4,R15)
+?done:
+        ADD         #12,R15
+        LDS.L       @R15+,PR
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        FSCHG
+        MOV.L       @R15+,R11
+        RTS
+        MOV.L       @R15+,R12
+        .ALIGN      4
+not_imask:
+        .DATA.W     H'FF0F
+        .DATA.W     0
+memcpy_at:
+        .DATA.L     _memcpy
+        .DATA.L     _syCacheOCBI
+offset_mask:
+        .DATA.L     H'03FFFFFF
+queue_base:
+        .DATA.L     H'E0000000
+qacr0:
+        .DATA.L     H'FF000038
+qacr1:
+        .DATA.L     H'FF00003C
+
+        .END

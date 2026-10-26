@@ -1,0 +1,31 @@
+# EV0142.PRS, E-102 reports E-105 rescued, two pictures appear over the screen in turn, and E-101 flies past
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80e70
+C          0x0cb80e70  0x0cb810b0
+D          0x0cb810b0  0x0cb95e6c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0142/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0142/script.c               P        0x0cb80008  0x0cb807a0
+events/ev0142/script.c               C        0x0cb80e70  0x0cb80ee0
+events/ev0142/script.c               D        0x0cb810b0  0x0cb81868
+events/shared/picture.c               P        0x0cb807a0  0x0cb808fc
+events/shared/picture.c               D        0x0cb95e20  0x0cb95e54
+events/shared/scanlines.c             P        0x0cb808fc  0x0cb80ab0
+events/shared/scanlines.c             C        0x0cb810a8  0x0cb810b0
+events/shared/scanlines.c             D        0x0cb95e58  0x0cb95e60
+events/shared/sound.c                 P        0x0cb80ab0  0x0cb80e70
+events/shared/sound.c                 D        0x0cb95e60  0x0cb95e6c
+# the names of the textures that the 2 texture name tables at 0x0cb8a6ec and 0x0cb95e00 in this object's data name. the names of the table at 0x0cb95e00 start off 8 straight after those of the table at 0x0cb8a6ec, so they are one object's constants. the table at 0x0cb8a6ec starts off 8, straight after an action at 0x0cb8a6e4, so it shares that item's object. after the table at 0x0cb8a6ec, each item to a model's node at 0x0cb8a874 starts off 8, so they share its object. the names and the data from 0x0cb8a6d8 to 0x0cb95e18 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0142_e101_texlist and ev0142_memory_texlist, which name the tables at 0x0cb8a6ec and 0x0cb95e00. they start on 8 straight after script.c's constants, and end 4 bytes short of scanlines.c's constants on 8. they are script.c's, whose code reads ev0142_e101_action, ev0142_e101_texlist and 1 more in that data, were the data from its own data to the tables its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. picture.c can't hold them: it links in events without them. scanlines.c can't hold them while picture.c's data, between its own and the tables, is picture.c's. the 4 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 4 bytes after them, and the fill rule takes them as the linker's fill
+events/ev0142/e102_action_2.c         C        0x0cb80ee0  0x0cb810a4
+# its data, from 0x0cb8a6d8 to 0x0cb95e18: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. ev0142_memory_textures, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0142/e102_action_2.c         D        0x0cb8a6d8  0x0cb95e18
+#
+# generated data ranges
+gen/ev0142/d_0cb81868.c               D        0x0cb81868  0x0cb8a6d8
+gen/ev0142/d_0cb95e18.c               D        0x0cb95e18  0x0cb95e20

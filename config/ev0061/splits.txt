@@ -1,0 +1,31 @@
+# EV0061.PRS, Amy's story: a bird fleeing Zero crashes into Amy, and she vows to protect it
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb83320
+C          0x0cb83320  0x0cb835c8
+D          0x0cb835c8  0x0cbb4cbc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0061/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0061/script.c               P        0x0cb80008  0x0cb81828
+events/ev0061/script.c               C        0x0cb83320  0x0cb835c2
+events/ev0061/script.c               D        0x0cb835c8  0x0cb84010
+events/shared/white.c                 P        0x0cb81828  0x0cb81ab0
+events/shared/white.c                 D        0x0cbb4c20  0x0cbb4c24
+events/shared/black.c                 P        0x0cb81ab0  0x0cb81b8c
+events/shared/black.c                 D        0x0cbb4c28  0x0cbb4c7c
+events/ev0061/look_camera.c          P        0x0cb81b8c  0x0cb81c48
+events/ev0061/look_camera.c          D        0x0cbb4c80  0x0cbb4c84
+events/shared/move.c                  P        0x0cb81c48  0x0cb8276c
+events/shared/move.c                  D        0x0cbb4c88  0x0cbb4cb0
+events/shared/mover.c                 P        0x0cb8276c  0x0cb82f04
+events/shared/sound.c                 P        0x0cb82f04  0x0cb832c4
+events/shared/sound.c                 D        0x0cbb4cb0  0x0cbb4cbc
+events/shared/shapes.c                P        0x0cb832c4  0x0cb8331c
+#
+# generated data ranges
+gen/ev0061/d_0cb84010.c               D        0x0cb84010  0x0cbb4c20

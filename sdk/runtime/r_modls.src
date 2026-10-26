@@ -1,0 +1,114 @@
+        .IMPORT     __errno
+        .EXPORT     __modls
+
+        .SECTION    P,CODE,ALIGN=4
+
+; signed remainder for compiled code: R0 = R1 % R0, with the dividend's sign.
+; it changes R0, R1 and SR's Q, M and T bits, and no other register. a zero
+; divisor sets errno to 1102 and returns 0
+; @asm opcode: rotcl, ROTCL R1 at 0x8c11bb52 and the 31 after it shift the
+; dividend out into T
+__modls:
+        TST         R0,R0
+        MOV.L       R2,@-R15
+        BT          modls_divide_by_zero
+        MOV.L       R3,@-R15
+        MOV         #0,R2
+        MOV.L       R4,@-R15
+        DIV0S       R2,R1
+        MOVT        R4
+        SUBC        R3,R3
+        SUBC        R2,R1
+        DIV0S       R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        ROTCL       R1
+        DIV1        R0,R3
+        DIV0S       R2,R3
+        MOVT        R2
+        XOR         R4,R2
+        ROTCR       R2
+        BF          modls_finish
+        DIV0S       R0,R3
+        SHAR        R3
+        DIV1        R0,R3
+modls_finish:
+        ADD         R4,R3
+        MOV         R3,R0
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R3
+        RTS
+        MOV.L       @R15+,R2
+modls_divide_by_zero:
+        MOV.L       modls_errno_address,R1
+        MOV.L       modls_errno_value,R2
+        MOV         #0,R0
+        MOV.L       R2,@R1
+        RTS
+        MOV.L       @R15+,R2
+        .ALIGN      4
+modls_errno_address:
+        .DATA.L     __errno
+modls_errno_value:
+        .DATA.L     H'0000044E
+        .END

@@ -1,0 +1,23 @@
+; the bounds of the module's data and bss, as the link of the whole image
+; places them: the start of D, the start and end of R, and the start and end
+; of B. SHC computes no section's bounds, so the table is assembly
+
+        .EXPORT     _eggmanrobo_bss_end
+
+        .SECTION    D,DATA,ALIGN=4
+        .SECTION    R,DATA,ALIGN=4
+        .SECTION    B,DATA,ALIGN=4
+
+        .SECTION    C,DATA,ALIGN=4
+
+        .DATA.L     (STARTOF D)
+        .DATA.L     (STARTOF R)
+        .DATA.L     (STARTOF R)+(SIZEOF R)
+        .DATA.L     (STARTOF B)
+
+; Uint8 *eggmanrobo_bss_end
+; the end of B, past which erobo_load reads Zero's banks
+_eggmanrobo_bss_end:
+        .DATA.L     (STARTOF B)+(SIZEOF B)
+
+        .END

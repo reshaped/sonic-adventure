@@ -1,0 +1,163 @@
+; the boot ROM's GD-ROM drive calls, which shinobi.h declares but for the last
+; three. each entry names its call in R6 and R7, and jumps to the boot ROM's
+; entry for the drive, which returns to the caller. R6 is 0 for the gdGdc
+; calls and -1 for the gdBtGdc ones, and R7 numbers the call among them. R4
+; and R5 reach the boot ROM as the caller left them
+
+        .EXPORT     _gdGdcReqCmd
+        .EXPORT     _gdGdcGetCmdStat
+        .EXPORT     _gdGdcExecServer
+        .EXPORT     _gdGdcInitSystem
+        .EXPORT     _gdGdcGetDrvStat
+        .EXPORT     _gdGdcG1DmaEnd
+        .EXPORT     _gdGdcReqDmaTrans
+        .EXPORT     _gdGdcCheckDmaTrans
+        .EXPORT     _gdGdcReadAbort
+        .EXPORT     _gdGdcReset
+        .EXPORT     _gdGdcChangeDataType
+        .EXPORT     _gdBtGdcReInitEntry
+        .EXPORT     _gdBtGdcAddDesc
+
+; the address of the word that holds the boot ROM's entry for the drive
+GDC_VECTOR:     .EQU    H'8C0000BC
+
+        .SECTION    P,CODE,ALIGN=4
+
+; @asm operand: small-constant, MOV.L at 0x8c122616 loads its call, 0, from the
+; pool
+_gdGdcReqCmd:
+        MOV         #0,R6
+        MOV.L       #0,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c12262a loads its call, 1, from the
+; pool
+_gdGdcGetCmdStat:
+        MOV         #0,R6
+        MOV.L       #1,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c12263e loads its call, 2, from the
+; pool
+_gdGdcExecServer:
+        MOV         #0,R6
+        MOV.L       #2,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c122652 loads its call, 3, from the
+; pool
+_gdGdcInitSystem:
+        MOV         #0,R6
+        MOV.L       #3,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c122666 loads its call, 4, from the
+; pool
+_gdGdcGetDrvStat:
+        MOV         #0,R6
+        MOV.L       #4,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c12267a loads its call, 5, from the
+; pool
+_gdGdcG1DmaEnd:
+        MOV         #0,R6
+        MOV.L       #5,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c12268e loads its call, 6, from the
+; pool
+_gdGdcReqDmaTrans:
+        MOV         #0,R6
+        MOV.L       #6,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c1226a2 loads its call, 7, from the
+; pool
+_gdGdcCheckDmaTrans:
+        MOV         #0,R6
+        MOV.L       #7,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c1226b6 loads its call, 8, from the
+; pool
+_gdGdcReadAbort:
+        MOV         #0,R6
+        MOV.L       #8,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; @asm operand: small-constant, MOV.L at 0x8c1226ca loads its call, 9, from the
+; pool
+_gdGdcReset:
+        MOV         #0,R6
+        MOV.L       #9,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; Sint32 gdGdcChangeDataType(Sint32 *param)
+; change the type and size of the sectors the drive reads, as param gives
+; them
+; @asm operand: small-constant, MOV.L at 0x8c1226de loads its call, 10, from
+; the pool
+_gdGdcChangeDataType:
+        MOV         #0,R6
+        MOV.L       #10,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; Sint32 gdBtGdcReInitEntry(void)
+; initialize the boot ROM's drive entry again
+; @asm operand: small-constant, MOV.L at 0x8c1226f2 loads its call, 0, from the
+; pool
+_gdBtGdcReInitEntry:
+        MOV         #-1,R6
+        MOV.L       #0,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; Sint32 gdBtGdcAddDesc(Sint32 descriptor, Uint32 address)
+; add descriptor, with address, to the boot ROM's descriptors
+; @asm operand: small-constant, MOV.L at 0x8c122706 loads its call, 1, from the
+; pool
+_gdBtGdcAddDesc:
+        MOV         #-1,R6
+        MOV.L       #1,R7
+        MOV.L       #GDC_VECTOR,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+        .END

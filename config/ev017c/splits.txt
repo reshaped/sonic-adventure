@@ -1,0 +1,14 @@
+# EV017C.PRS, West Rock and island door reveal, E-102
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80138
+D          0x0cb80138  0x0cb80140
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev017c/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev017c/script.c               P        0x0cb80008  0x0cb80138
+events/ev017c/script.c               D        0x0cb80138  0x0cb80140

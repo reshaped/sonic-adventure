@@ -1,0 +1,16 @@
+/build/
+/orig/*
+!/orig/.gitkeep
+/tools/wibo-*
+/tools/shc-*
+/tools/llvm
+
+# Python's bytecode from a tool run outside make, which puts it in build/
+__pycache__/
+
+# disc files stay out of git, wherever they land
+*.[Bb][Ii][Nn]
+*.[Pp][Rr][Ss]
+*.[Dd][Rr][Vv]
+*.[Gg][Dd][Ii]
+*.[Rr][Aa][Ww]

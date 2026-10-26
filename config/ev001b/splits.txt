@@ -1,0 +1,27 @@
+# EV001B.PRS, Amy stops the fight with E-102, Sonic's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81fd0
+C          0x0cb81fd0  0x0cb821a8
+D          0x0cb821a8  0x0cba51ac
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev001b/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev001b/script.c                P        0x0cb80008  0x0cb81b74
+events/ev001b/script.c                C        0x0cb81fd0  0x0cb82195
+events/ev001b/script.c                D        0x0cb821a8  0x0cb821cc
+events/shared/lightning.c             P        0x0cb81b74  0x0cb81e58
+events/shared/lightning.c             D        0x0cba5160  0x0cba5184
+events/shared/fade_in.c               P        0x0cb81e58  0x0cb81fcc
+events/shared/fade_in.c               D        0x0cba5188  0x0cba51ac
+# the names of the textures that the texture name table at 0x0cb821d0 in this object's data names: after the table at 0x0cb821d0, each item to a material at 0x0cb821e4 starts off 8, so they share its object. the names and the data from 0x0cb821d0 to 0x0cb82220 in D are the least those joins make one object's, and this source holds no more. they start on 8 after script.c's constants, where script.c's next string would, and end 5 bytes short of D on 8. they are script.c's, though its code doesn't read them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. lightning.c can't hold them: it links in events without them. the 3 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill; the 5 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 3 bytes before them and the 5 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev001b/dat_0cb821d0.c          C        0x0cb82198  0x0cb821a3
+# its data, from 0x0cb821d0 to 0x0cb82220: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. the generator had left pointer words at 0x0cb821d0 (a texture name table and its texlist). the source types them as consistent with the words they hold, and nothing reads the texlist at 0x0cb821dc: no word in this event or 1ST_READ.BIN points at it. it starts on 8 after the 4 bytes of 0xff after script.c's data, which ends 4 past 8: the linker's fill, as the fill rule takes them, or a last word of script.c's object, and nothing points into them. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data after it. dat_0cb821e4, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV001C, EV0023, EV0026, EV006A and EV00F5 hold the same bytes, but for the words that point into the image. equal bytes don't make one object linked twice: EV001C holds the same 1,244 bytes at the head of data that shared names make one file's to 0x0cb986a8, and this event's data doesn't run on as that does, so this is the event's own
+events/ev001b/dat_0cb821d0.c          D        0x0cb821d0  0x0cb82220
+#
+# generated data ranges
+gen/ev001b/d_0cb82220.c               D        0x0cb82220  0x0cba5160

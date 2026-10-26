@@ -1,0 +1,14 @@
+; LOADER.BIN's stack-pointer setter
+
+        .EXPORT     __SetSP
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void _SetSP(void *sp)
+; set the stack pointer to sp
+; @asm abi: stack-written, MOV R4,R15 at 0x8ce003e2 sets the stack pointer
+__SetSP:
+        RTS
+        MOV         R4,R15
+
+        .END

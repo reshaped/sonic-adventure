@@ -1,0 +1,65 @@
+# B_EGM3.PRS, the Egg Viper
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900220
+P          0x0c900220  0x0c90b460
+CHEAD      0x0c90b460  0x0c90b540
+D          0x0c90b540  0x0c958840
+DHEAD      0x0c958840  0x0c958970
+C          0x0c958970  0x0c9593dc
+B          0x0c9593e0  0x0c95b434
+#
+# source                              section  start       end
+modules/b_egm3/eggmobile3.c            PHEAD    0x0c900000  0x0c900160
+modules/b_egm3/eggmobile3.c            P        0x0c900220  0x0c900840
+modules/b_egm3/eggmobile3.c            D        0x0c938928  0x0c938a45
+modules/b_egm3/eggmobile3.c            B        0x0c9593e0  0x0c959488
+# the land 1ST_READ.BIN's world_lands names, which nothing in the image reads. its name starts CHEAD and its table DHEAD. its name ends 5 bytes short of the object kinds' names, and its table 4 short of the kinds, each on 8 past where its object's next item would start, with nothing pointing into the gaps: consistent with separate objects. the bytes don't say whether its entries and motions, which open D's generated range, share its object
+modules/b_egm3/land.c                  CHEAD    0x0c90b460  0x0c90b46b
+modules/b_egm3/land.c                  DHEAD    0x0c958840  0x0c958864
+# the node and action of the land's last moving part, which the land's motion table names, and the land's 45 textures and the texlist its table names: the action follows the node off 8 and the textures follow the action off 8, so the three are one object's. the texlist starts on 8 straight after the textures, and names them. the node starts on 8 straight after the generated motion data, and eggmobile3.c's data meets the texlist on 8 with no fill: one file or two build the same at each, and the bytes leave them to an object of their own, the generated land data's, or eggmobile3.c's, though its code doesn't read them. the names open C, and egg_viper.c's constants start on 8, 7 bytes past the last
+modules/b_egm3/land_textures.c         D        0x0c9386c8  0x0c938928
+modules/b_egm3/land_textures.c         C        0x0c958970  0x0c958bb1
+# the five object kinds, their names, and the list 1ST_READ.BIN's object_lists names, at 0x0c9588cc. the list follows the kinds off 8, so the list and the kinds are one object's, and a literal is its own file's, so the names are too. the kinds hold values and texts, and the list a body. nothing in the image reads them. the names start on 8, 5 bytes past the land's name, and the kinds on 8, 4 bytes past the land's table, each past where the land's object's next item would start, with nothing pointing into the gaps: consistent with separate objects, and the fill rule verifies both. the pvm list's names start on 8, 2 bytes past the last name, where this object's next string would start on 4, and its list on 8, 4 bytes past the object list, where this object's next item would start on 4: consistent with separate objects, and the rule verifies both
+modules/b_egm3/object_list.c           CHEAD    0x0c90b470  0x0c90b4a6
+modules/b_egm3/object_list.c           DHEAD    0x0c958868  0x0c9588d4
+# the list 1ST_READ.BIN's stage_pvms names, which nothing in the image reads. its names start on 8, 2 bytes past the kinds' names, where their object's next string would start on 4 and one file or two build the same. its list starts on 8, 4 bytes past the object list, where that object's next item would start on 4, with nothing pointing into the 4 bytes: consistent with separate objects. camera.c's constants meet its names on 8 with no fill
+modules/b_egm3/pvms.c                  CHEAD    0x0c90b4a8  0x0c90b4c8
+modules/b_egm3/pvms.c                  DHEAD    0x0c9588d8  0x0c958900
+# 16 zero bytes nothing points at, between the pvm list and camera.c's head data, which starts on 8 and so leaves them no fill. texture_load_stage reads the list to its terminator, at 0x0c9588f8, and in the other boss heads each pvm list ends at its terminator. they are the pvm list's, camera.c's, those of eggmobile3.c, egg_viper.c or floor.c, which could link between the two, or an object's of data alone, which the bytes leave open; with no code reading them, they are placed as one of data alone, of unknown type
+modules/b_egm3/dat_0c958900.c          DHEAD    0x0c958900  0x0c958910
+modules/b_egm3/egg_viper.c             P        0x0c900840  0x0c9089a0
+modules/b_egm3/egg_viper.c             D        0x0c938a48  0x0c939340
+modules/b_egm3/egg_viper.c             C        0x0c958bb8  0x0c958d91
+modules/b_egm3/egg_viper.c             B        0x0c959488  0x0c95af34
+# meets egg_viper.c's code with no fill: egg_viper.c ends with viper_muzzle's and viper_ball_point's pool, on 32 (0x0c908980 to 0x0c9089a0); built as one
+# file with it, SHC carries that pool on, floor_panel_step starts at 0x0c90896a and floor.c's globals fall among the boss's bss
+modules/b_egm3/floor.c                 P        0x0c9089a0  0x0c909200
+modules/b_egm3/floor.c                 D        0x0c939340  0x0c939408
+modules/b_egm3/floor.c                 B        0x0c95af38  0x0c95b390
+# the Egg Viper's 75 textures and egm3mdl_texlist, which the code and the pvm list name, and a motion's keys, records, motion and action: the texlist and the keys follow the textures off 8, and every item after them follows off 8 to the motion, so all are one object's. the action starts on 8 straight after the motion, and names it. the textures start on 8 straight after a root node at 0x0c94eb8c, and data meet the action on 8 at 0x0c951d90: the bytes don't say whether either shares this object. the names start on 8, 7 bytes past egg_viper.c's constants, where their next string would start on 4
+modules/b_egm3/model_textures.c        D        0x0c94ebc0  0x0c951d90
+modules/b_egm3/model_textures.c        C        0x0c958d98  0x0c9591de
+# the effects' 35 textures and egg_viper_effect_texlist, six groups of frames, each with a sprite and a record that use it, and egg_viper_sprites, which egg_viper.c draws by: the texlist and the first frames follow the textures off 8, the records name the sprites, the sprites the frames and the texlist, and the list every record, consistent with one object. the list's null ends it where camera.c's data starts. the textures start on 8 straight after floor_panel_texlists, and the names on 8 straight after the model textures', where that object's next string would start on 4 too: one file or two build the same at each. blast.c's constants start a byte past the last name
+modules/b_egm3/effects.c               D        0x0c957768  0x0c957dd0
+modules/b_egm3/effects.c               C        0x0c9591e0  0x0c9593cf
+modules/b_egm3/camera.c                PHEAD    0x0c900160  0x0c900220
+modules/b_egm3/camera.c                P        0x0c909200  0x0c90a440
+modules/b_egm3/camera.c                CHEAD    0x0c90b4c8  0x0c90b53a
+modules/b_egm3/camera.c                D        0x0c957dd0  0x0c957e3c
+modules/b_egm3/camera.c                DHEAD    0x0c958910  0x0c958970
+modules/b_egm3/camera.c                B        0x0c95b390  0x0c95b3c8
+# egg_viper_blast_create starts on 32 at 0x0c90a8c0 with no fill; split there, the code builds the same
+modules/b_egm3/blast.c                 P        0x0c90a440  0x0c90a9e0
+modules/b_egm3/blast.c                 D        0x0c957e40  0x0c957e94
+modules/b_egm3/blast.c                 C        0x0c9593d0  0x0c9593dc
+# the blast's ball, blast_ball_object and its model, which blast.c draws: everything after the material follows off 8 but the normals, which start on 8 straight after the points, where one file or two build the same. the material starts on 8, 4 bytes past blast.c's data, where its next item would start on 4, consistent with the material starting an object, and egg_viper_event.c's data meets the root node on 8 with no fill. B_EGM2's ball differs from this one in a word, so it is no object linked twice
+modules/b_egm3/blast_ball.c            D        0x0c957e98  0x0c958780
+modules/b_egm3/egg_viper_event.c       P        0x0c90a9e0  0x0c90b460
+modules/b_egm3/egg_viper_event.c       D        0x0c958780  0x0c95883c
+modules/b_egm3/egg_viper_event.c       B        0x0c95b3c8  0x0c95b434
+#
+# generated data ranges
+gen/b_egm3/d_0c90b540.c                D        0x0c90b540  0x0c9386c8
+gen/b_egm3/d_0c939408.c                D        0x0c939408  0x0c94ebc0
+gen/b_egm3/d_0c951d90.c                D        0x0c951d90  0x0c957768

@@ -1,0 +1,23 @@
+; the Maple bus driver's byte order swap of a run of words
+
+        .EXPORT     _mpdrv_swaplong
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; Sint32 mpdrv_swaplong(Uint32 *words, Sint32 count)
+; reverse the byte order of each of count words at words, in place, and
+; return 0. count must be 1 or more
+; @asm opcode: swap, SWAP.B at 0x8c67789e and 0x8c6778a2 and SWAP.W at
+; 0x8c6778a0 reverse each word's bytes
+_mpdrv_swaplong:
+        MOV.L       @R4,R0
+        SWAP.B      R0,R1
+        SWAP.W      R1,R0
+        SWAP.B      R0,R1
+        DT          R5
+        MOV.L       R1,@R4
+        BF/S        _mpdrv_swaplong
+        ADD         #4,R4
+        RTS
+        MOV         #0,R0
+        .END

@@ -1,0 +1,30 @@
+# EV0006.PRS, Sonic's story: Sonic finds Tails by his crashed plane
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81348
+C          0x0cb81348  0x0cb81618
+D          0x0cb81618  0x0cb86afc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0006/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0006/script.c               P        0x0cb80008  0x0cb80dfc
+events/ev0006/script.c               C        0x0cb81348  0x0cb81602
+events/ev0006/script.c               D        0x0cb81618  0x0cb81638
+events/shared/fade.c                  P        0x0cb80dfc  0x0cb80f88
+events/shared/fade.c                  D        0x0cb86ad0  0x0cb86af0
+events/shared/sound.c                 P        0x0cb80f88  0x0cb81348
+events/shared/sound.c                 D        0x0cb86af0  0x0cb86afc
+# ev0006_emerald_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to fade.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb86a68 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev0006/emerald_action.c        D        0x0cb86ab8  0x0cb86acc
+# the names of the textures that the texture name table at 0x0cb85700 in this object's data names: after the table at 0x0cb85700, each item to a material at 0x0cb85714 starts off 8, so they share its object. the names and the data from 0x0cb85700 to 0x0cb85728 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0006_emerald_texlist, which names the table at 0x0cb85700. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end where D begins. they are script.c's, whose code reads ev0006_emerald_texlist, were the 6 bytes before them and the data from its own data to the table its too; emerald_action.c's, which has no constants row and can link between them, were the data from the table to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. the 6 bytes of 0xff before them are script.c's padding or data, or the linker's fill. nothing points into the 6 bytes before them, and the fill rule takes them as the linker's fill
+events/ev0006/emerald_textures.c      C        0x0cb81608  0x0cb81618
+# its data, from 0x0cb85700 to 0x0cb85728: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb85714, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0007, EV0032, EV0033 and EV0034 hold the same bytes, but for the words that point into the image. equal bytes don't make one object linked twice, and nothing here shows more, so the build keeps it the event's own
+events/ev0006/emerald_textures.c      D        0x0cb85700  0x0cb85728
+#
+# generated data ranges
+gen/ev0006/d_0cb81638.c               D        0x0cb81638  0x0cb85700
+gen/ev0006/d_0cb85728.c               D        0x0cb85728  0x0cb86ab8

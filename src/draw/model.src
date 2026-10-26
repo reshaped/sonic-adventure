@@ -1,0 +1,4459 @@
+; the model renderer. it draws a Ninja basic model, an NJS_MODEL, in the
+; current matrix. it projects the model's points and shades them from a
+; palette. then it sends each meshset's polygons as strips straight to the
+; tile accelerator's lists
+;
+; a point is near when its z in view space is at most NEAR, draw_work's
+; copy of _nj_near_clip_. a model with a near point goes through the
+; clipping strip functions. they cut each triangle with a point nearer than
+; z = 1 at z = 1, and send what is left of it as a strip of its own
+;
+; the functions keep conventions SHC's calling interface doesn't. GBR holds
+; draw_work's address from draw_model_init on, and they reach draw_work's
+; words through it. R4 holds the model, and every function here that a draw
+; calls leaves R4 as it was. cull_model returns its result in T and leaves
+; R7 alone, so its callers keep PR in R7 across their BSR to it. R13 counts
+; the near points. each draw zeroes it in the slot of its BSR to
+; project_points, which counts them, and draw_meshes reads the count
+;
+; draw_model, draw_model_nested and draw_model_unculled save R8 to R14,
+; FR12 to FR15 and PR in draw_work's SAVED words, not on the stack. the
+; functions they call may change those registers without saving them
+;
+; the near clippers, near_clip_tex, near_clip_env and near_clip, work on
+; register bank 0. each clears SR.RB on entry and sets it again on exit, so
+; the R2 to R7 of the strip function that calls it wait in bank 1. the
+; switch writes R0 and R1, and each clipper puts the caller's R1 back
+;
+; the file lays out as asmsh lays it out. .ALIGN fills with NOPs, H'0009,
+; where SHC's objects fill with the word H'0900. each literal pool follows
+; the next unconditional branch and aligns to 4. the game's C aligns its
+; pools, and the code after them, to 32
+
+; byte offsets of draw_work's words
+CX:             .EQU    0               ; the screen's center, from _nj_screen_
+CY:             .EQU    4
+DIST:           .EQU    8               ; the screen's distance
+ASPECT_Y:       .EQU    12              ; _nj_scr_aspect_y_
+NEAR:           .EQU    16              ; _nj_near_clip_
+SCALE_X:        .EQU    20              ; DIST times _nj_scr_aspect_x_
+SCALE_Y:        .EQU    24              ; DIST times ASPECT_Y
+CONSTANT_ATTR:  .EQU    28              ; 1 under NJD_CONTROL_3D_CONSTANT_ATTR
+ATTR_AND:       .EQU    32              ; _nj_constant_attr_and_
+ATTR_OR:        .EQU    36              ; _nj_constant_attr_or_
+ALPHA_MODE:     .EQU    40              ; an ALPHA_ value
+ATTRS:          .EQU    44              ; the material's attrflags, as drawn
+FIRST_MATERIAL: .EQU    52              ; the first meshset's material
+OFFSETS:        .EQU    56              ; the offset colors the strips send
+POINTS:         .EQU    60              ; the projected points
+LIT_OFFSETS:    .EQU    64              ; the offset colors shade_points writes
+POLYS_LEFT:     .EQU    68              ; the meshset's polygons left to send
+COLOR_A:        .EQU    72              ; a clipped triangle's offset colors
+COLOR_B:        .EQU    76
+COLOR_C:        .EQU    80
+POLY_SIZE:      .EQU    84              ; from poly_sizes
+PALETTE:        .EQU    88              ; the palette the models shade from
+SAVED:          .EQU    92              ; R8 to R14, FR12 to FR15 and PR
+SAVED_END:      .EQU    140
+LIGHTS:         .EQU    140             ; how many lights draw_lights holds
+CLIP_IN:        .EQU    192             ; a triangle to clip, three clip points
+CLIP_OUT:       .EQU    312             ; what clipping leaves, three or four
+ENV_INDEX:      .EQU    472             ; byte offsets of a, b and c's normals
+
+; ALPHA_MODE's values: a material's alpha is its own, _nj_constant_material_'s
+; in its place, or the two added
+ALPHA_OWN:      .EQU    0
+ALPHA_CONSTANT: .EQU    1               ; NJD_CONTROL_3D_CONSTANT_MATERIAL
+ALPHA_OFFSET:   .EQU    -1              ; NJD_CONTROL_3D_OFFSET_MATERIAL
+
+; byte offsets of a clip point's fields: where it is in view space and on
+; the screen, its base and offset colors, and its u and v. a clip point takes
+; CP_SIZE bytes
+CP_Z:           .EQU    0
+CP_Y:           .EQU    4
+CP_X:           .EQU    8
+CP_RHW:         .EQU    12              ; 1/z
+CP_SY:          .EQU    16
+CP_SX:          .EQU    20
+CP_BASE:        .EQU    24
+CP_OFFSET:      .EQU    28
+CP_U:           .EQU    32
+CP_V:           .EQU    36
+CP_SIZE:        .EQU    40
+
+; material flags and 3D control flags, as ninja.h names them, and the mask
+; of a meshset's type, as njtypes.h names it
+NJD_FLAG_IGNORE_LIGHT:              .EQU    H'02000000
+NJD_FLAG_USE_ENV:                   .EQU    H'00400000
+NJD_FLAG_USE_TEXTURE:               .EQU    H'00200000
+NJD_FLAG_USE_ALPHA:                 .EQU    H'00100000
+NJD_FLAG_IGNORE_SPECULAR:           .EQU    H'00080000
+NJD_CONTROL_3D_CONSTANT_ATTR:       .EQU    H'00000004
+NJD_CONTROL_3D_CONSTANT_MATERIAL:   .EQU    H'00000010
+NJD_CONTROL_3D_OFFSET_MATERIAL:     .EQU    H'00000020
+NJD_MESHSET_MASK:                   .EQU    H'C000
+
+; masks, as njModel.c names them: the material index in a meshset's
+; type_matId, a strip's point count below NJD_TRIMESH_END, and the texture
+; number in a material's attr_texId
+MATERIAL_ID:    .EQU    H'3FFF
+STRIP_COUNT:    .EQU    H'7FFF
+MATERIAL_TEXTURE:       .EQU    H'3FFFFFFF
+
+; byte offsets of NJS_MODEL's fields, of NJS_MESHSET's and of NJS_MATERIAL's,
+; and the sizes of the last two
+MD_POINTS:      .EQU    0
+MD_NORMALS:     .EQU    4
+MD_NBPOINT:     .EQU    8
+MD_MESHSETS:    .EQU    12
+MD_MATS:        .EQU    16
+MD_NBMESHSET:   .EQU    20
+MD_CENTER:      .EQU    24              ; and r after it
+MS_TYPE_MATID:  .EQU    0
+MS_NBMESH:      .EQU    2
+MS_MESHES:      .EQU    4
+MS_VERTUV:      .EQU    20
+MS_SIZE:        .EQU    24
+MT_ALPHA:       .EQU    3               ; the diffuse color's alpha byte
+MT_SPECULAR:    .EQU    4
+MT_ATTR_TEXID:  .EQU    12
+MT_ATTRFLAGS:   .EQU    16
+MT_SIZE:        .EQU    20
+
+; byte offsets of NJS_TEXLIST's textures, of NJS_TEXNAME's texaddr, and of
+; NJS_TEXMEMLIST's globalIndex, tspparambuffer and texparambuffer
+TL_TEXTURES:    .EQU    0
+TN_TEXADDR:     .EQU    8
+TM_INDEX:       .EQU    0
+TM_TSP:         .EQU    8
+TM_TEXTURE:     .EQU    12
+
+; byte offsets of NJS_SCREEN's cx and cy
+SC_CX:          .EQU    12
+SC_CY:          .EQU    16
+
+; byte offsets of _nj_parameterkm_'s words: the polygon header's global,
+; ISP, TSP and texture words, then the opaque and the translucent list's
+; write pointers
+KM_GLOBAL:      .EQU    0
+KM_ISP:         .EQU    4
+KM_TSP:         .EQU    8
+KM_TEXTURE:     .EQU    12
+KM_OPAQUE:      .EQU    16
+KM_TRANS:       .EQU    20
+
+; fields of the polygon header's global and TSP words, as njkm.c names them.
+; GLOBAL_VERTEX_TYPE, which njkm.c doesn't name, is the object control
+; byte's color type, texture, offset, Gouraud and 16-bit UV bits.
+; MODULATE_ALPHA is the TSP_SHADING instruction with both bits set, where
+; decal clears both
+GLOBAL_TRANSLUCENT:     .EQU    H'02000000
+GLOBAL_OBJECT_CONTROL:  .EQU    H'000000FF
+GLOBAL_VERTEX_TYPE:     .EQU    H'0000003F
+GLOBAL_OFFSET:  .EQU    H'00000004
+TSP_FACTORS:    .EQU    H'FC000000
+TSP_ALPHA:      .EQU    H'00100000
+TSP_IGNORE_ALPHA:       .EQU    H'00080000
+TSP_SHADING:    .EQU    H'000000C0
+TSP_UV_SIZE:    .EQU    H'0000003F
+MODULATE_ALPHA: .EQU    TSP_SHADING
+
+; the TSP bits a material's flags hold. an opaque header clears TSP_BLEND,
+; then sets TSP_OPAQUE: a source factor of 1, a destination factor of 0,
+; and TSP_IGNORE_ALPHA
+MATERIAL_TSP:   .EQU    H'FC07FF00
+TSP_BLEND:      .EQU    TSP_FACTORS|TSP_ALPHA
+TSP_OPAQUE:     .EQU    H'20000000|TSP_IGNORE_ALPHA
+
+; the flags param_set_flags takes. their FLAGS_GLOBAL bits go to the global
+; word, and their FLAGS_TSP bits to the TSP word. an untextured meshset
+; takes ninja.h's COLOR_MODE_OPAQUE or COLOR_MODE_TRANS. a textured one
+; takes FLAGS_DECAL, FLAGS_OPAQUE_TEX or FLAGS_TRANS_TEX, which add
+; TEXTURED: a texture and an offset color
+FLAGS_GLOBAL:   .EQU    GLOBAL_TRANSLUCENT|GLOBAL_VERTEX_TYPE
+FLAGS_TSP:      .EQU    TSP_ALPHA|TSP_IGNORE_ALPHA|TSP_SHADING
+COLOR_MODE_OPAQUE:      .EQU    H'00080002
+COLOR_MODE_TRANS:       .EQU    H'02100002
+COLOR_MODE_TEXTURE:     .EQU    H'00000008
+TEXTURED:       .EQU    COLOR_MODE_TEXTURE|GLOBAL_OFFSET
+FLAGS_DECAL:    .EQU    COLOR_MODE_OPAQUE|TEXTURED
+FLAGS_OPAQUE_TEX:       .EQU    COLOR_MODE_OPAQUE|TEXTURED|MODULATE_ALPHA
+FLAGS_TRANS_TEX:        .EQU    COLOR_MODE_TRANS|TEXTURED|MODULATE_ALPHA
+
+; the store queues. a store at SQ_BASE | (address & SQ_ADDRESS) reaches
+; address, once QACR0 and QACR1 hold (address >> 24) & SQ_AREA, its bits
+; 28 to 26. LIST_TOP keeps a list's write pointer's top 6 bits, which
+; list_set_end puts back
+SQ_BASE:        .EQU    H'E0000000
+SQ_ADDRESS:     .EQU    H'03FFFFFF
+SQ_AREA:        .EQU    H'1C
+LIST_TOP:       .EQU    H'FC000000
+QACR0:          .EQU    H'FF000038
+QACR1:          .EQU    H'FF00003C
+
+; a polygon header as the tile accelerator takes it, HEADER_SIZE bytes. it
+; opens with _nj_parameterkm_'s global, ISP and TSP words, which end at
+; HEADER_END, and a textured header's texture word, which ends at
+; HEADER_TEX_END
+HEADER_END:     .EQU    KM_TEXTURE
+HEADER_TEX_END: .EQU    KM_TEXTURE+4
+HEADER_SIZE:    .EQU    32
+
+; a vertex as the tile accelerator takes it, VERTEX_SIZE bytes: its control
+; word, x, y, 1/z, u, v, base color and offset color, a word each. the
+; offset color's byte offset is VX_OFFSET. the control word is PCW_VERTEX
+; for each of a strip's vertices but the last, which takes PCW_END
+VERTEX_SIZE:    .EQU    32
+VX_OFFSET:      .EQU    28
+PCW_VERTEX:     .EQU    H'E0000000
+PCW_END:        .EQU    H'F0000000
+
+; byte offsets of a projected point's words: its x and y on the screen, its
+; 1/z, and its base color, with the alpha in byte PT_ALPHA. a projected point
+; takes PT_SIZE bytes
+PT_RHW:         .EQU    8
+PT_COLOR:       .EQU    12
+PT_ALPHA:       .EQU    15
+PT_SIZE:        .EQU    16
+
+; the flags of a triangle's points a, b and c in the clipping strip
+; functions. a point is flagged when it lies nearer than z = 1: BEHIND when
+; its 1/z is at most 0, and NEARER when its 1/z is over 1. FLAGS_A holds
+; both of a's bits, and FLAGS_B and FLAGS_C b's and c's
+BEHIND_A:       .EQU    H'01
+BEHIND_B:       .EQU    H'02
+BEHIND_C:       .EQU    H'04
+NEARER_A:       .EQU    H'10
+NEARER_B:       .EQU    H'20
+NEARER_C:       .EQU    H'40
+FLAGS_A:        .EQU    BEHIND_A|NEARER_A
+FLAGS_B:        .EQU    BEHIND_B|NEARER_B
+FLAGS_C:        .EQU    BEHIND_C|NEARER_C
+
+; the sizes of the arrays model.h declares, as it names them: DRAW_PALETTES
+; palettes of DRAW_PALETTE_ENTRIES entries, PALETTE_SIZE bytes each, the
+; words of draw_unlit_offsets and those of draw_debug_counts. an entry is a
+; base color and an offset color, so an entry's byte offset is its index
+; shifted left by ENTRY_SHIFT
+DRAW_PALETTES:  .EQU    8
+DRAW_PALETTE_ENTRIES:   .EQU    256
+ENTRY_SHIFT:    .EQU    3
+PALETTE_SIZE:   .EQU    DRAW_PALETTE_ENTRIES<<ENTRY_SHIFT
+DRAW_UNLIT_OFFSETS:     .EQU    512
+DRAW_DEBUG_COUNTS:      .EQU    20
+
+; the most points lit_offsets has room for, an offset color each
+MOST_POINTS:    .EQU    2048
+
+; a point light as the queue and draw_lights hold it, in LT_SIZE bytes: its
+; position, its range, and its palette's address at LT_PALETTE. in
+; draw_lights, the word at LT_REACH says whether the light reaches the
+; model being drawn. the queue holds MOST_LIGHTS at most
+LT_PALETTE:     .EQU    16
+LT_REACH:       .EQU    20
+LT_SIZE:        .EQU    24
+MOST_LIGHTS:    .EQU    16
+
+; apply_point_lights' masks: each byte's low 7 bits, and the top bits of
+; red, green and blue
+CHANNEL_LOW:    .EQU    H'7F7F7F7F
+CHANNEL_TOP:    .EQU    H'00808080
+
+; SR's register bank bit
+SR_RB:          .EQU    H'20000000
+
+        .IMPORT     _draw_work
+        .IMPORT     _draw_lights
+        .IMPORT     _frame_step
+        .IMPORT     _njGetkmPointer
+        .IMPORT     _njSetkmPointer
+        .IMPORT     __nj_2d_clip_           ; its left, top, right and bottom
+        .IMPORT     __nj_constant_attr_and_
+        .IMPORT     __nj_constant_attr_or_
+        .IMPORT     __nj_constant_material_
+        .IMPORT     __nj_control_3d_flag_
+        .IMPORT     __nj_current_texlist
+        .IMPORT     __nj_current_texture
+        .IMPORT     __nj_far_clip_
+        .IMPORT     __nj_listtype_          ; the open list's write pointer's address
+        .IMPORT     __nj_near_clip_
+        .IMPORT     __nj_parameterkm_       ; KM_ gives its words
+        .IMPORT     __nj_scr_aspect_x_
+        .IMPORT     __nj_scr_aspect_y_
+        .IMPORT     __nj_screen_
+        .IMPORT     __nj_sq_base_           ; the open list's LIST_TOP bits
+        .IMPORT     __nj_vertex_buf_
+        .EXPORT     _draw_model_init
+        .EXPORT     _draw_model
+        .EXPORT     _draw_model_nested
+        .EXPORT     _draw_model_unculled
+        .EXPORT     _draw_set_light
+        .EXPORT     _draw_take_point_lights
+        .EXPORT     _draw_divide_light
+        .EXPORT     _draw_reset_light
+        .EXPORT     _draw_set_palette
+        .EXPORT     _draw_in_view
+        .EXPORT     _draw_models_begin
+        .EXPORT     _draw_models_end
+        .EXPORT     _draw_palettes
+        .EXPORT     _draw_unlit_offsets
+        .EXPORT     _draw_debug_counts
+
+        .SECTION    P,CODE,ALIGN=16
+
+; void draw_model_init(void)
+; point GBR at draw_work, and fill draw_work's words CX to SCALE_Y from
+; Ninja's screen, aspects and near clip. the models then shade from palette
+; 0, and OFFSETS starts at lit_offsets
+; @asm open: no inspect rule reads its push of PR around no call
+_draw_model_init:
+        STS.L       PR,@-R15
+        MOV.L       #_draw_work,R1
+        LDC         R1,GBR
+        MOV.L       #__nj_screen_+SC_CX,R2
+        MOV.L       #_draw_work,R1
+        FMOV.S      @R2,FR0
+        FMOV.S      FR0,@R1                 ; CX
+        ADD         #4,R1
+        MOV.L       #__nj_screen_+SC_CY,R2
+        FMOV.S      @R2,FR0
+        FMOV.S      FR0,@R1                 ; CY
+        ADD         #4,R1
+        MOV.L       #__nj_screen_,R0
+        FMOV.S      @R0,FR4
+        FMOV.S      FR4,@R1                 ; DIST
+        ADD         #4,R1
+        MOV.L       #__nj_scr_aspect_y_,R2
+        FMOV.S      @R2,FR0
+        FMOV.S      FR0,@R1                 ; ASPECT_Y
+        ADD         #4,R1
+        MOV.L       #__nj_near_clip_,R2
+        FMOV.S      @R2,FR0
+        FMOV.S      FR0,@R1                 ; NEAR
+        ADD         #4,R1
+        MOV.L       #__nj_scr_aspect_x_,R2
+        FMOV.S      @R2,FR0
+        FMUL        FR4,FR0
+        FMOV.S      FR0,@R1                 ; SCALE_X
+        ADD         #4,R1
+        MOV.L       #__nj_scr_aspect_y_,R2
+        FMOV.S      @R2,FR0
+        FMUL        FR4,FR0
+        FMOV.S      FR0,@R1                 ; SCALE_Y
+        ADD         #4,R1
+        MOV.L       #_draw_palettes,R0
+        MOV.L       R0,@(PALETTE,GBR)
+        MOV.L       #_lit_offsets,R0
+        MOV.L       R0,@(OFFSETS,GBR)
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; zero draw_unlit_offsets, then drop the point lights: LIGHTS and the
+; queue's count go to 0. clear_lighting_at zeroes R7 words from R3 instead
+; of draw_unlit_offsets. nothing calls either
+; @asm open: no inspect rule reads the R3 it leaves clear_lighting_at
+_clear_lighting:
+        MOV.L       #_draw_unlit_offsets,R3
+        MOV.W       #DRAW_UNLIT_OFFSETS,R7
+; @asm open: no inspect rule reads R3 at its entry
+_clear_lighting_at:
+        MOV         #0,R0
+?zero:
+        MOV.L       R0,@R3
+        DT          R7
+        BF/S        ?zero
+        ADD         #4,R3
+        MOV         #0,R0
+        MOV.L       R0,@(LIGHTS,GBR)
+        MOV.L       #_point_light_count,R3
+        MOV.L       R0,@R3
+        RTS
+        NOP
+
+; set the TSP word's shading back to MODULATE_ALPHA, which param_set_flags
+; may have cleared
+; @asm open: every instruction is one SHC writes for C
+_param_reset_shading:
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TSP,R1),R0
+        OR          #MODULATE_ALPHA,R0
+        RTS
+        MOV.L       R0,@(KM_TSP,R1)
+
+; void draw_model(NJS_MODEL *model)
+; draw the model in the current matrix, between its own njGetkmPointer and
+; njSetkmPointer. it draws on a frame's first step only, and draws nothing
+; when cull_model finds the model out of view or every point is near
+; @asm open: no inspect rule reads its STS.L PR,@-R0
+_draw_model:
+        MOV.L       #_frame_step,R0
+        MOV.L       @R0,R0
+        TST         R0,R0
+        BT          ?first_step
+        RTS
+        NOP
+?first_step:
+        STS         PR,R7
+        BSR         _cull_model
+        NOP
+        LDS         R7,PR
+        BF          ?in_view
+        RTS
+        NOP
+?in_view:
+        MOV.L       #_draw_work+SAVED_END,R0
+        STS.L       PR,@-R0
+        FMOV.S      FR15,@-R0
+        FMOV.S      FR14,@-R0
+        FMOV.S      FR13,@-R0
+        FMOV.S      FR12,@-R0
+        MOV.L       R14,@-R0
+        MOV.L       R13,@-R0
+        MOV.L       R12,@-R0
+        MOV.L       R11,@-R0
+        MOV.L       R10,@-R0
+        MOV.L       R9,@-R0
+        MOV.L       R8,@-R0
+        BSR         _project_points
+        MOV         #0,R13
+        ; every point near: nothing to draw
+        MOV.L       @(MD_NBPOINT,R4),R0
+        CMP/GE      R0,R13
+        BT          ?restore
+        BSR         _shade_points
+        NOP
+        MOV         R4,R14                  ; njGetkmPointer may change R4
+        MOV.L       #_njGetkmPointer,R0
+        JSR         @R0
+        NOP
+        MOV         R14,R4
+        BSR         _draw_meshes
+        NOP
+        BSR         _param_reset_shading
+        NOP
+        MOV.L       #_njSetkmPointer,R0
+        JSR         @R0
+        NOP
+?restore:
+        MOV.L       #_draw_work+SAVED,R0
+        MOV.L       @R0+,R8
+        MOV.L       @R0+,R9
+        MOV.L       @R0+,R10
+        MOV.L       @R0+,R11
+        MOV.L       @R0+,R12
+        MOV.L       @R0+,R13
+        MOV.L       @R0+,R14
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        FMOV.S      @R0+,FR14
+        FMOV.S      @R0+,FR15
+        LDS.L       @R0+,PR
+        RTS
+        NOP
+
+; void draw_model_nested(NJS_MODEL *model)
+; draw the model as draw_model does, between an njGetkmPointer and an
+; njSetkmPointer the caller makes
+; @asm open: no inspect rule reads its STS.L PR,@-R0
+_draw_model_nested:
+        MOV.L       #_frame_step,R0
+        MOV.L       @R0,R0
+        TST         R0,R0
+        BT          ?first_step
+        RTS
+        NOP
+?first_step:
+        STS         PR,R7
+        BSR         _cull_model
+        NOP
+        LDS         R7,PR
+        BF          ?in_view
+        RTS
+        NOP
+?in_view:
+        MOV.L       #_draw_work+SAVED_END,R0
+        STS.L       PR,@-R0
+        FMOV.S      FR15,@-R0
+        FMOV.S      FR14,@-R0
+        FMOV.S      FR13,@-R0
+        FMOV.S      FR12,@-R0
+        MOV.L       R14,@-R0
+        MOV.L       R13,@-R0
+        MOV.L       R12,@-R0
+        MOV.L       R11,@-R0
+        MOV.L       R10,@-R0
+        MOV.L       R9,@-R0
+        MOV.L       R8,@-R0
+        BSR         _project_points
+        MOV         #0,R13
+        MOV.L       @(MD_NBPOINT,R4),R0
+        CMP/GE      R0,R13
+        BT          ?restore
+        BSR         _shade_points
+        NOP
+        BSR         _draw_meshes
+        NOP
+?restore:
+        MOV.L       #_draw_work+SAVED,R0
+        MOV.L       @R0+,R8
+        MOV.L       @R0+,R9
+        MOV.L       @R0+,R10
+        MOV.L       @R0+,R11
+        MOV.L       @R0+,R12
+        MOV.L       @R0+,R13
+        MOV.L       @R0+,R14
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        FMOV.S      @R0+,FR14
+        FMOV.S      @R0+,FR15
+        LDS.L       @R0+,PR
+        BRA         _param_reset_shading
+        NOP
+
+; void draw_model_unculled(NJS_MODEL *model)
+; draw the model as draw_model does, on any step and whatever its bounding
+; sphere, in a run that draw_models_begin opens and draw_models_end closes
+; @asm operand: zero-displacement, MOV.W @(0,R2),R0 at 0x8c038150 loads through
+; a zero displacement
+_draw_model_unculled:
+        MOV.L       #_draw_work+SAVED_END,R0
+        STS.L       PR,@-R0
+        FMOV.S      FR15,@-R0
+        FMOV.S      FR14,@-R0
+        FMOV.S      FR13,@-R0
+        FMOV.S      FR12,@-R0
+        MOV.L       R14,@-R0
+        MOV.L       R13,@-R0
+        MOV.L       R12,@-R0
+        MOV.L       R11,@-R0
+        MOV.L       R10,@-R0
+        MOV.L       R9,@-R0
+        MOV.L       R8,@-R0
+        BSR         _project_points
+        MOV         #0,R13
+        MOV.L       @(MD_NBPOINT,R4),R0
+        CMP/GE      R0,R13
+        BT          ?restore
+        ; FIRST_MATERIAL and ATTRS, as cull_model sets them
+        MOV.L       @(MD_MESHSETS,R4),R2
+        MOV.L       @(MD_MATS,R4),R3
+        MOV.W       @(MS_TYPE_MATID,R2),R0
+        MOV.W       #MATERIAL_ID,R6
+        AND         R6,R0
+        MOV         #MT_SIZE,R5
+        MULU.W      R0,R5
+        STS         MACL,R5
+        ADD         R3,R5
+        MOV         R5,R0
+        MOV.L       R0,@(FIRST_MATERIAL,GBR)
+        MOV.L       @(MT_ATTRFLAGS,R5),R0
+        MOV.L       #_draw_work+CONSTANT_ATTR,R1
+        MOV.L       @R1+,R6
+        TST         R6,R6
+        BT          ?store_attrs
+        MOV.L       @R1+,R6
+        AND         R6,R0
+        MOV.L       @R1+,R6
+        OR          R6,R0
+?store_attrs:
+        MOV.L       R0,@(ATTRS,GBR)
+        BSR         _shade_points
+        NOP
+        BSR         _draw_meshes
+        NOP
+?restore:
+        MOV.L       #_draw_work+SAVED,R0
+        MOV.L       @R0+,R8
+        MOV.L       @R0+,R9
+        MOV.L       @R0+,R10
+        MOV.L       @R0+,R11
+        MOV.L       @R0+,R12
+        MOV.L       @R0+,R13
+        MOV.L       @R0+,R14
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        FMOV.S      @R0+,FR14
+        FMOV.S      @R0+,FR15
+        LDS.L       @R0+,PR
+        RTS
+        NOP
+
+; R4 = the model. set T when its bounding sphere is out of view, and clear
+; T otherwise. the sphere is out of view when it lies wholly nearer than
+; NEAR, wholly past _nj_far_clip_, or wholly beyond an edge of _nj_2d_clip_.
+; the edge tests project the sphere's sides at its far side's z, z + r.
+; for a model in view, it fills CONSTANT_ATTR to ALPHA_MODE from Ninja's 3D
+; control flags and constant attributes. FIRST_MATERIAL and ATTRS come from
+; the first meshset
+; @asm opcode: sett, SETT at 0x8c03822a, in its RTS's slot, sets T for a model
+; out of view
+_cull_model:
+        MOV         #MD_CENTER,R0
+        ADD         R4,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FMOV.S      @R0+,FR3                ; r
+        MOV.L       @(NEAR,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        FSUB        FR3,FR4
+        FCMP/GT     FR4,FR2
+        BF          ?out
+        MOV.L       #__nj_far_clip_,R1
+        FMOV.S      @R1,FR4
+        FADD        FR3,FR4
+        FCMP/GT     FR4,FR2
+        BT          ?out
+        ; the side tests' scale, DIST / (z + r)
+        FLDI1       FR5
+        FADD        FR3,FR2
+        FDIV        FR2,FR5
+        MOV.L       @(DIST,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        FMOV.S      FR4,FR6
+        MOV.L       #__nj_2d_clip_,R3
+        FMOV.S      @R3+,FR8
+        MOV.L       #__nj_screen_+SC_CX,R1
+        FMOV.S      @R1+,FR4
+        FMUL        FR5,FR6
+        FMOV.S      FR0,FR11
+        FADD        FR3,FR0
+        FMUL        FR6,FR0
+        FADD        FR4,FR0
+        FCMP/GT     FR8,FR0
+        BF          ?out
+        FMOV.S      @R3+,FR9
+        FMOV.S      @R3+,FR8
+        FSUB        FR3,FR11
+        FMUL        FR6,FR11
+        FADD        FR4,FR11
+        FCMP/GT     FR8,FR11
+        BT          ?out
+        ; @bug logic: the top edge's test doesn't project as project_points
+        ; does. it scales y by ASPECT_Y times _nj_screen_'s cx, where
+        ; project_points takes DIST (FMUL FR4,FR7 at 0x8c03820a)
+        MOV.L       @(ASPECT_Y,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR7
+        FMUL        FR4,FR7
+        FMOV.S      @R1+,FR4
+        FMUL        FR5,FR7
+        FMOV.S      FR1,FR11
+        FADD        FR3,FR1
+        FMUL        FR7,FR1
+        FADD        FR4,FR1
+        FCMP/GT     FR9,FR1
+        BF          ?out
+        ; @bug logic: the bottom edge's test loads the clip's bottom into
+        ; FR9 at 0x8c03821c, but compares y with FR8, the clip's right edge,
+        ; at 0x8c038224. it scales y by the side tests' DIST, not SCALE_Y's
+        ; DIST times ASPECT_Y (FMUL FR6,FR11 at 0x8c038220)
+        FMOV.S      @R3+,FR9
+        FSUB        FR3,FR11
+        FMUL        FR6,FR11
+        FADD        FR4,FR11
+        FCMP/GT     FR8,FR11
+        BF          ?in
+?out:
+        RTS
+        SETT
+?in:
+        MOV         #0,R0
+        MOV.L       #__nj_control_3d_flag_,R2
+        MOV.L       @R2,R6
+        MOV.L       #NJD_CONTROL_3D_CONSTANT_ATTR,R3
+        TST         R3,R6
+        BT          ?store_attr
+        MOV         #1,R0
+?store_attr:
+        MOV.L       R0,@(CONSTANT_ATTR,GBR)
+        MOV.L       #__nj_constant_attr_and_,R0
+        MOV.L       @R0,R0
+        MOV.L       R0,@(ATTR_AND,GBR)
+        MOV.L       #__nj_constant_attr_or_,R0
+        MOV.L       @R0,R0
+        MOV.L       R0,@(ATTR_OR,GBR)
+        MOV         #ALPHA_OWN,R0
+        MOV.L       #NJD_CONTROL_3D_OFFSET_MATERIAL,R3
+        TST         R3,R6
+        BT          ?constant
+        MOV         #ALPHA_OFFSET,R0
+?constant:
+        MOV.L       #NJD_CONTROL_3D_CONSTANT_MATERIAL,R3
+        TST         R3,R6
+        BT          ?store_alpha
+        MOV         #ALPHA_CONSTANT,R0
+?store_alpha:
+        MOV.L       R0,@(ALPHA_MODE,GBR)
+        MOV.L       @(MD_MESHSETS,R4),R2
+        MOV.L       @(MD_MATS,R4),R3
+        MOV.W       @(MS_TYPE_MATID,R2),R0
+        MOV.W       #MATERIAL_ID,R6
+        AND         R6,R0
+        MOV         #MT_SIZE,R5
+        MULU.W      R0,R5
+        STS         MACL,R5
+        ADD         R3,R5
+        MOV         R5,R0
+        MOV.L       R0,@(FIRST_MATERIAL,GBR)
+        MOV.L       @(MT_ATTRFLAGS,R5),R0
+        MOV.L       #_draw_work+CONSTANT_ATTR,R1
+        MOV.L       @R1+,R6
+        TST         R6,R6
+        BT          ?store_attrs
+        MOV.L       @R1+,R6
+        AND         R6,R0
+        MOV.L       @R1+,R6
+        OR          R6,R0
+?store_attrs:
+        MOV.L       R0,@(ATTRS,GBR)
+        RTS
+        CLRT
+
+; R4 = the model. transform each point by XMTRX, project it, and write it
+; through the store queues to _nj_vertex_buf_'s buffer. a projected point
+; holds x * DIST / z + CX, y * DIST * ASPECT_Y / z + CY and 1/z, and its
+; color word is left for shade_points. R13 counts the near points
+; @asm opcode: cache-line, OCBI @R6 at 0x8c038348 drops the line the queues
+; write over
+_project_points:
+        MOV.L       @(MD_POINTS,R4),R2
+        MOV.L       @(MD_NBPOINT,R4),R7
+        MOV.L       #_draw_work,R1
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMOV.S      @R1+,FR7
+        FMUL        FR6,FR7
+        FMOV.S      @R1+,FR14
+        MOV.L       #__nj_vertex_buf_,R3
+        MOV.L       @R3,R3
+        MOV         R3,R0
+        MOV.L       R0,@(POINTS,GBR)
+        MOV         R3,R6
+        ; point the store queues at the buffer's area
+        MOV         R3,R0
+        SHLR16      R0
+        SHLR8       R0
+        AND         #SQ_AREA,R0
+        MOV.L       #QACR0,R1
+        MOV.L       R0,@R1
+        MOV.L       #QACR1,R1
+        MOV.L       R0,@R1
+        MOV.L       #SQ_ADDRESS,R1
+        MOV.L       #SQ_BASE,R0
+        AND         R1,R3
+        OR          R0,R3
+        ; R3 steps to each point's PT_COLOR word, and the stores run down
+        ; from there
+        FMOV.S      @R2+,FR0
+        ADD         #-PT_SIZE,R3
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R2+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FLDI1       FR3
+        ; @bug memory: the loop projects the points in pairs, so for an
+        ; odd nbPoint its last pass projects the point after the last too, and
+        ; ADD #1,R13 at 0x8c03831c counts it when it is near. a draw then
+        ; skips a model with every point near but one (CMP/GE R0,R13 at
+        ; 0x8c03806a, 0x8c0380f6 and 0x8c038148), and sends one with no near
+        ; point through the clipping strip functions (TST R13,R13 at
+        ; 0x8c0387f6). each pass also loads the point after its pair, from
+        ; 0x8c03832c, so the loop reads 12 bytes past the points, or 24 for an
+        ; odd nbPoint
+?pair:
+        FCMP/GT     FR14,FR2
+        BT          ?project_a
+        ADD         #1,R13
+?project_a:
+        FDIV        FR2,FR3
+        FMOV.S      @R2+,FR8
+        ADD         #PT_SIZE+PT_COLOR,R3
+        FMUL        FR6,FR0
+        FMOV.S      @R2+,FR9
+        FMUL        FR7,FR1
+        FMOV.S      @R2+,FR10
+        FMUL        FR3,FR0
+        FLDI1       FR11
+        FMUL        FR3,FR1
+        FADD        FR4,FR0
+        FTRV        XMTRX,FV8
+        FLDI1       FR11
+        FADD        FR5,FR1
+        FCMP/GT     FR14,FR10
+        BT          ?project_b
+        ADD         #1,R13
+?project_b:
+        FDIV        FR10,FR11
+        FMOV.S      FR3,@-R3
+        FMUL        FR6,FR8
+        FMOV.S      FR1,@-R3
+        FMUL        FR7,FR9
+        FMOV.S      FR0,@-R3
+        FMUL        FR11,FR8
+        FMOV.S      @R2+,FR0
+        ADD         #PT_SIZE+PT_COLOR,R3
+        FMUL        FR11,FR9
+        FMOV.S      @R2+,FR1
+        FADD        FR4,FR8
+        FMOV.S      @R2+,FR2
+        FADD        FR5,FR9
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FMOV.S      FR11,@-R3
+        FLDI1       FR3
+        FMOV.S      FR9,@-R3
+        ADD         #-2,R7
+        FMOV.S      FR8,@-R3
+        ; the store queues write memory, not the cache: drop the cache's
+        ; copy of the line they write
+        OCBI        @R6
+        PREF        @R3
+        CMP/PL      R7
+        BT/S        ?pair
+        ADD         #2*PT_SIZE,R6
+        RTS
+        NOP
+
+; R4 = the model. shade each point from PALETTE: the dot of its normal with
+; light_dir, turned into the model's space, picks the entry. the entry's
+; base color goes in the point's color word, and its offset color in
+; lit_offsets. when the first meshset's material has a specular color and
+; ATTRS lacks NJD_FLAG_IGNORE_SPECULAR, the offset colors come from the next
+; palette's entries instead
+; @asm opcode: fschg, FSCHG at 0x8c038392 turns FMOV to pairs for xmtrx's
+; columns
+_shade_points:
+        MOV.L       @(FIRST_MATERIAL,GBR),R0
+        MOV         R0,R5
+        MOV.L       @(ATTRS,GBR),R0
+        MOV         R0,R10
+        MOV.L       @(MD_NORMALS,R4),R2
+        MOV.L       @(MD_NBPOINT,R4),R7
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R8
+        ADD         #PT_COLOR,R8
+        MOV.L       #_lit_offsets,R0
+        MOV.L       R0,@(LIT_OFFSETS,GBR)
+        MOV         R0,R9
+        MOV.L       #_light_dir,R1
+        FMOV.S      @R1+,FR12
+        FMOV.S      @R1+,FR13
+        FMOV.S      @R1+,FR14
+        FLDI0       FR15
+        ; light_dir into the model's space: its dot with each of XMTRX's
+        ; columns
+        FSCHG
+        FMOV        XD0,DR0
+        FMOV        XD2,DR2
+        FIPR        FV12,FV0
+        FMOV        XD4,DR4
+        FMOV        XD6,DR6
+        FIPR        FV12,FV4
+        FMOV        XD8,DR8
+        FMOV        XD10,DR10
+        FIPR        FV12,FV8
+        FSCHG
+        FMOV.S      FR3,FR12
+        FMOV.S      FR7,FR13
+        FMOV.S      FR11,FR14
+        FLDI0       FR15
+        ; a point's entry: the dot times 127.5, plus 127.5, held to 0 to 255
+        MOV.L       #_half_255,R0
+        FMOV.S      @R0,FR7
+        MOV.W       #DRAW_PALETTE_ENTRIES-1,R12
+        MOV.L       #NJD_FLAG_IGNORE_SPECULAR,R0
+        TST         R10,R0
+        BF          ?no_specular
+        MOV.L       @(MT_SPECULAR,R5),R0
+        TST         R0,R0
+        BT          ?no_specular
+        MOV.L       @(PALETTE,GBR),R0
+        MOV         R0,R5
+        MOV.W       #PALETTE_SIZE,R11       ; the next palette's offset colors
+        BRA         ?shade
+        MOV         #ENTRY_SHIFT,R10
+?no_specular:
+        MOV.L       @(PALETTE,GBR),R0
+        MOV         R0,R5
+        MOV         #0,R11
+        MOV         #ENTRY_SHIFT,R10
+?shade:
+        ADD         #-1,R7
+        FMOV.S      @R2+,FR8
+        FMOV.S      @R2+,FR9
+        FMOV.S      @R2+,FR10
+        FLDI1       FR11
+        ; @bug memory: the loop shades the points in pairs, and its
+        ; first pass runs untested. for an nbPoint of 1, it shades a second
+        ; point from the normal after the last, and writes that point's color
+        ; word and offset color at 0x8c038442 and 0x8c038446. each pass also
+        ; loads the normal after its pair, from 0x8c038440, so the loop reads
+        ; 12 bytes past the normals for an even nbPoint, or 24 for an nbPoint
+        ; of 1
+?pair:
+        FIPR        FV12,FV8
+        FMOV.S      @R2+,FR0
+        FMUL        FR7,FR11
+        FMOV.S      @R2+,FR1
+        FADD        FR7,FR11
+        FMOV.S      @R2+,FR2
+        FTRC        FR11,FPUL
+        STS         FPUL,R0
+        FLDI1       FR3
+        CMP/PZ      R0
+        FIPR        FV12,FV0
+        BT          ?a_low
+        MOV         #0,R0
+?a_low:
+        FMUL        FR7,FR3
+        CMP/GT      R12,R0
+        FADD        FR7,FR3
+        BF          ?a_high
+        MOV         R12,R0
+?a_high:
+        FTRC        FR3,FPUL
+        STS         FPUL,R14
+        SHLD        R10,R0
+        CMP/PZ      R14
+        ADD         R5,R0
+        BT          ?b_low
+        MOV         #0,R14
+?b_low:
+        MOV.L       @R0+,R3
+        CMP/GT      R12,R14
+        MOV.L       @(R0,R11),R0
+        BF          ?b_high
+        MOV         R12,R14
+?b_high:
+        MOV.L       R3,@R8
+        SHLD        R10,R14
+        MOV.L       R0,@R9
+        ADD         R5,R14
+        ADD         #PT_SIZE,R8
+        MOV.L       @R14+,R3
+        ADD         #4,R9
+        ADD         R11,R14
+        MOV.L       @R14,R14
+        FMOV.S      @R2+,FR8
+        MOV.L       R3,@R8
+        FMOV.S      @R2+,FR9
+        MOV.L       R14,@R9
+        FMOV.S      @R2+,FR10
+        ADD         #PT_SIZE,R8
+        FLDI1       FR11
+        ADD         #-2,R7
+        CMP/PL      R7
+        BT/S        ?pair
+        ADD         #4,R9
+        ; an odd point left over
+        TST         R7,R7
+        BF          ?done
+        FIPR        FV12,FV8
+        FMUL        FR7,FR11
+        FADD        FR7,FR11
+        FTRC        FR11,FPUL
+        STS         FPUL,R0
+        CMP/PZ      R0
+        BT          ?last_low
+        MOV         #0,R0
+?last_low:
+        CMP/GT      R12,R0
+        BF          ?last_high
+        MOV         R12,R0
+?last_high:
+        SHLD        R10,R0
+        ADD         R5,R0
+        MOV.L       @R0+,R3
+        MOV.L       @(R0,R11),R0
+        MOV.L       R3,@R8
+        MOV.L       R0,@R9
+?done:
+        RTS
+        NOP
+
+; open a polygon in the opaque or the translucent list, and return in R0
+; the store queue address of its first vertex. each makes the list the open
+; one in _nj_listtype_ and _nj_sq_base_, and points the store queues at the
+; list's write pointer. it writes the polygon header there from
+; _nj_parameterkm_: three words, or four with the texture word. an opaque
+; header's TSP word takes TSP_OPAQUE in place of its TSP_BLEND bits. each
+; changes R8, and the opaque ones R9
+; @asm operand: zero-displacement, MOV.L @(0,R1),R0 at 0x8c0384bc loads through
+; a zero displacement
+_begin_opaque:
+        MOV.L       #__nj_parameterkm_+KM_OPAQUE,R1
+        MOV.L       @R1,R8
+        MOV.L       #__nj_listtype_,R0
+        MOV.L       R1,@R0
+        MOV.L       #LIST_TOP,R0
+        AND         R8,R0
+        MOV.L       #__nj_sq_base_,R1
+        MOV.L       R0,@R1
+        MOV         R8,R0
+        SHLR16      R0
+        SHLR8       R0
+        AND         #SQ_AREA,R0
+        MOV.L       #QACR0,R1
+        MOV.L       R0,@R1
+        MOV.L       #QACR1,R1
+        MOV.L       R0,@R1
+        MOV.L       #SQ_ADDRESS,R1
+        MOV.L       #SQ_BASE,R0
+        AND         R1,R8
+        OR          R0,R8
+        ADD         #HEADER_END,R8
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TSP,R1),R0
+        MOV.L       #~TSP_BLEND,R9
+        AND         R9,R0
+        MOV.L       #TSP_OPAQUE,R9
+        OR          R9,R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_ISP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_GLOBAL,R1),R0
+        MOV.L       R0,@-R8
+        PREF        @R8
+        ADD         #HEADER_SIZE,R8
+        RTS
+        MOV         R8,R0
+
+; @asm operand: zero-displacement, MOV.L @(0,R1),R0 at 0x8c038528 loads through
+; a zero displacement
+_begin_trans:
+        MOV.L       #__nj_parameterkm_+KM_TRANS,R1
+        MOV.L       @R1,R8
+        MOV.L       #__nj_listtype_,R0
+        MOV.L       R1,@R0
+        MOV.L       #LIST_TOP,R0
+        AND         R8,R0
+        MOV.L       #__nj_sq_base_,R1
+        MOV.L       R0,@R1
+        MOV         R8,R0
+        SHLR16      R0
+        SHLR8       R0
+        AND         #SQ_AREA,R0
+        MOV.L       #QACR0,R1
+        MOV.L       R0,@R1
+        MOV.L       #QACR1,R1
+        MOV.L       R0,@R1
+        MOV.L       #SQ_ADDRESS,R1
+        MOV.L       #SQ_BASE,R0
+        AND         R1,R8
+        OR          R0,R8
+        ADD         #HEADER_END,R8
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TSP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_ISP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_GLOBAL,R1),R0
+        MOV.L       R0,@-R8
+        PREF        @R8
+        ADD         #HEADER_SIZE,R8
+        RTS
+        MOV         R8,R0
+
+; @asm operand: zero-displacement, MOV.L @(0,R1),R0 at 0x8c038598 loads through
+; a zero displacement
+_begin_opaque_tex:
+        MOV.L       #__nj_parameterkm_+KM_OPAQUE,R1
+        MOV.L       @R1,R8
+        MOV.L       #__nj_listtype_,R0
+        MOV.L       R1,@R0
+        MOV.L       #LIST_TOP,R0
+        AND         R8,R0
+        MOV.L       #__nj_sq_base_,R1
+        MOV.L       R0,@R1
+        MOV         R8,R0
+        SHLR16      R0
+        SHLR8       R0
+        AND         #SQ_AREA,R0
+        MOV.L       #QACR0,R1
+        MOV.L       R0,@R1
+        MOV.L       #QACR1,R1
+        MOV.L       R0,@R1
+        MOV.L       #SQ_ADDRESS,R1
+        MOV.L       #SQ_BASE,R0
+        AND         R1,R8
+        OR          R0,R8
+        ADD         #HEADER_TEX_END,R8
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TEXTURE,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_TSP,R1),R0
+        MOV.L       #~TSP_BLEND,R9
+        AND         R9,R0
+        MOV.L       #TSP_OPAQUE,R9
+        OR          R9,R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_ISP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_GLOBAL,R1),R0
+        MOV.L       R0,@-R8
+        PREF        @R8
+        ADD         #HEADER_SIZE,R8
+        RTS
+        MOV         R8,R0
+
+; @asm operand: zero-displacement, MOV.L @(0,R1),R0 at 0x8c038608 loads through
+; a zero displacement
+_begin_trans_tex:
+        MOV.L       #__nj_parameterkm_+KM_TRANS,R1
+        MOV.L       @R1,R8
+        MOV.L       #__nj_listtype_,R0
+        MOV.L       R1,@R0
+        MOV.L       #LIST_TOP,R0
+        AND         R8,R0
+        MOV.L       #__nj_sq_base_,R1
+        MOV.L       R0,@R1
+        MOV         R8,R0
+        SHLR16      R0
+        SHLR8       R0
+        AND         #SQ_AREA,R0
+        MOV.L       #QACR0,R1
+        MOV.L       R0,@R1
+        MOV.L       #QACR1,R1
+        MOV.L       R0,@R1
+        MOV.L       #SQ_ADDRESS,R1
+        MOV.L       #SQ_BASE,R0
+        AND         R1,R8
+        OR          R0,R8
+        ADD         #HEADER_TEX_END,R8
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TEXTURE,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_TSP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_ISP,R1),R0
+        MOV.L       R0,@-R8
+        MOV.L       @(KM_GLOBAL,R1),R0
+        MOV.L       R0,@-R8
+        PREF        @R8
+        ADD         #HEADER_SIZE,R8
+        RTS
+        MOV         R8,R0
+
+; R0 = a material's flags, which R0 keeps. their MATERIAL_TSP bits replace
+; the TSP word's: the blend factors, flip, clamp, filter, supersample and
+; mipmap D adjust
+; @asm abi: register-contract, R0 carries the material's attributes in and out:
+; this reads it before any write, at 0x8c038642, and returns it unwritten at its
+; RTS at 0x8c038646 to draw_meshes, its one caller, which sets it at 0x8c038708
+; or 0x8c038718 before its BSR, reads it back at 0x8c03871e and writes the R8
+; and R9 this changes before it reads them
+_param_set_attrs:
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_TSP,R1),R8
+        MOV.L       #~MATERIAL_TSP,R9
+        AND         R9,R8
+        MOV.L       #MATERIAL_TSP,R9
+        AND         R0,R9
+        OR          R9,R8
+        RTS
+        MOV.L       R8,@(KM_TSP,R1)
+
+; R0 = a texture's number in _nj_current_texlist. unless _nj_current_texture
+; holds its globalIndex already, the texture becomes current. its
+; TSP_UV_SIZE bits go into the TSP word, and its texture word replaces the
+; header's
+; @asm operand: zero-displacement, MOV.L @(0,R1),R1 at 0x8c03865c loads through
+; a zero displacement
+_param_set_texture:
+        MOV.L       #__nj_current_texlist,R1
+        MOV.L       @R1,R1
+        MOV.L       @(TL_TEXTURES,R1),R1
+        SHLL2       R0
+        MOV         R0,R8
+        SHLL        R8
+        ADD         R8,R0                   ; an NJS_TEXNAME's 12 bytes
+        ADD         R0,R1
+        MOV.L       @(TN_TEXADDR,R1),R1
+        MOV.L       @(TM_INDEX,R1),R0
+        MOV.L       #__nj_current_texture,R8
+        MOV.L       @R8,R9
+        CMP/EQ      R9,R0
+        BT          ?done
+        MOV.L       R0,@R8
+        MOV.L       #__nj_parameterkm_,R9
+        MOV.L       @(KM_TSP,R9),R8
+        MOV         #~TSP_UV_SIZE,R0
+        AND         R0,R8
+        MOV.L       @(TM_TSP,R1),R0
+        AND         #TSP_UV_SIZE,R0
+        OR          R0,R8
+        MOV.L       R8,@(KM_TSP,R9)
+        MOV.L       @(TM_TEXTURE,R1),R0
+        MOV.L       R0,@(KM_TEXTURE,R9)
+?done:
+        RTS
+        NOP
+
+; R0 = flags, such as FLAGS_TRANS_TEX. their FLAGS_GLOBAL bits, the list
+; and the vertex type, replace the global word's GLOBAL_TRANSLUCENT bit and
+; object control byte. their FLAGS_TSP bits, the alpha and the shading,
+; replace the TSP word's
+; @asm operand: zero-displacement, MOV.L @(0,R1),R8 at 0x8c03869e loads through
+; a zero displacement
+_param_set_flags:
+        MOV.L       #__nj_parameterkm_,R1
+        MOV.L       @(KM_GLOBAL,R1),R8
+        MOV.L       @(KM_TSP,R1),R9
+        MOV.L       #~(GLOBAL_TRANSLUCENT|GLOBAL_OBJECT_CONTROL),R10
+        AND         R10,R8
+        MOV.L       #~FLAGS_TSP,R10
+        AND         R10,R9
+        MOV.L       #FLAGS_GLOBAL,R10
+        AND         R0,R10
+        OR          R10,R8
+        MOV.L       #FLAGS_TSP,R11
+        AND         R0,R11
+        OR          R11,R9
+        MOV.L       R8,@(KM_GLOBAL,R1)
+        RTS
+        MOV.L       R9,@(KM_TSP,R1)
+
+; R14 = the store queue address past the polygons sent. with the list's
+; LIST_TOP bits from _nj_sq_base_, it becomes the open list's write pointer
+; @asm open: no inspect rule reads R14 at its entry
+_list_set_end:
+        MOV.L       #__nj_sq_base_,R1
+        MOV.L       #SQ_ADDRESS,R0
+        AND         R14,R0
+        MOV.L       @R1,R8
+        OR          R8,R0
+        MOV.L       #__nj_listtype_,R1
+        MOV.L       @R1,R1
+        RTS
+        MOV.L       R0,@R1
+
+; R4 = the model. draw each meshset: set the polygon header from its
+; material, open a polygon, and send the meshset's polygons through the
+; strip function for its texture. a model with near points takes the
+; clipping strip functions. NJD_FLAG_USE_ALPHA sends a meshset to the
+; translucent list, after set_point_alpha. a textured meshset whose
+; material has NJD_FLAG_IGNORE_LIGHT sends draw_unlit_offsets as its offset
+; colors, and shades as a decal when opaque. R2, R3 and R7 hold the
+; meshset, the materials and the meshsets left across every call, and R5
+; holds the material until the strips
+; @asm operand: zero-displacement, MOV.W @(0,R2),R0 at 0x8c0386fa loads through
+; a zero displacement
+_draw_meshes:
+        STS.L       PR,@-R15
+        MOV.L       @(MD_MESHSETS,R4),R2
+        MOV.L       @(MD_MATS,R4),R3
+        MOV.W       @(MD_NBMESHSET,R4),R0
+        MOV         R0,R7
+?mesh:
+        MOV.W       @(MS_TYPE_MATID,R2),R0
+        MOV.W       #MATERIAL_ID,R8
+        AND         R8,R0
+        MOV         #MT_SIZE,R5
+        MULU.W      R0,R5
+        STS         MACL,R5
+        ADD         R3,R5
+        MOV.L       @(MT_ATTRFLAGS,R5),R0
+        MOV.L       #_draw_work+CONSTANT_ATTR,R1
+        MOV.L       @R1+,R8
+        TST         R8,R8
+        BT          ?attrs
+        MOV.L       @R1+,R8
+        AND         R8,R0
+        MOV.L       @R1+,R8
+        OR          R8,R0
+?attrs:
+        BSR         _param_set_attrs
+        NOP
+        MOV.L       R0,@(ATTRS,GBR)
+        MOV.L       #NJD_FLAG_USE_TEXTURE,R8
+        TST         R8,R0
+        BT          ?untextured
+        MOV.L       @(MT_ATTR_TEXID,R5),R0
+        MOV.L       #MATERIAL_TEXTURE,R8
+        AND         R8,R0
+        BSR         _param_set_texture
+        NOP
+        MOV.L       @(ATTRS,GBR),R0
+        MOV.L       #NJD_FLAG_USE_ALPHA,R8
+        TST         R8,R0
+        BT          ?opaque_tex
+        BSR         _set_point_alpha
+        NOP
+        MOV.L       @(ATTRS,GBR),R0
+        MOV.L       #NJD_FLAG_IGNORE_LIGHT,R8
+        TST         R8,R0
+        BT          ?trans_tex_lit
+        MOV.L       #_draw_unlit_offsets,R0
+        MOV.L       R0,@(OFFSETS,GBR)
+        BRA         ?trans_tex_set
+        NOP
+?trans_tex_lit:
+        MOV.L       @(LIT_OFFSETS,GBR),R0
+        MOV.L       R0,@(OFFSETS,GBR)
+?trans_tex_set:
+        MOV.L       #FLAGS_TRANS_TEX,R0
+        BSR         _param_set_flags
+        NOP
+        BSR         _begin_trans_tex
+        FLDI1       FR0                     ; nothing reads it
+        BRA         ?strips
+        NOP
+?opaque_tex:
+        MOV.L       #NJD_FLAG_IGNORE_LIGHT,R8
+        TST         R8,R0
+        BT          ?opaque_tex_lit
+        MOV.L       #_draw_unlit_offsets,R0
+        MOV.L       R0,@(OFFSETS,GBR)
+        MOV.L       #FLAGS_DECAL,R0
+        BRA         ?opaque_tex_set
+        NOP
+?opaque_tex_lit:
+        MOV.L       @(LIT_OFFSETS,GBR),R0
+        MOV.L       R0,@(OFFSETS,GBR)
+        MOV.L       #FLAGS_OPAQUE_TEX,R0
+?opaque_tex_set:
+        BSR         _param_set_flags
+        NOP
+        BSR         _begin_opaque_tex
+        FLDI1       FR0                     ; nothing reads it
+        BRA         ?strips
+        NOP
+?untextured:
+        MOV.L       @(LIT_OFFSETS,GBR),R0
+        MOV.L       R0,@(OFFSETS,GBR)
+        MOV.L       @(ATTRS,GBR),R0
+        MOV.L       #NJD_FLAG_USE_ALPHA,R8
+        TST         R8,R0
+        BT          ?opaque
+        BSR         _set_point_alpha
+        NOP
+        MOV.L       #COLOR_MODE_TRANS,R0
+        BSR         _param_set_flags
+        NOP
+        BSR         _begin_trans
+        MOV         #0,R0                   ; nothing reads it
+        BRA         ?strips
+        NOP
+?opaque:
+        MOV.L       #COLOR_MODE_OPAQUE,R0
+        BSR         _param_set_flags
+        NOP
+        MOV.L       #__nj_parameterkm_+KM_OPAQUE,R12 ; nothing reads it
+        BSR         _begin_opaque
+        MOV         #0,R0                   ; nothing reads it
+?strips:
+        MOV         R0,R14
+        ; the meshset's NJD_MESHSET_ type, as a byte offset into poly_sizes
+        MOV.W       @(MS_TYPE_MATID,R2),R0
+        EXTU.W      R0,R9
+        MOV.W       #NJD_MESHSET_MASK,R8
+        AND         R8,R9
+        MOV         #-12,R8
+        SHLD        R8,R9
+        TST         R13,R13
+        BT          ?unclipped
+        BRA         ?clipped
+        NOP
+?unclipped:
+        MOV.L       @(MT_ATTRFLAGS,R5),R6   ; not ATTRS: the material's own
+        MOV.L       #NJD_FLAG_USE_TEXTURE,R8
+        TST         R8,R6
+        BT          ?untex
+        MOV.L       #_poly_sizes,R0
+        MOV.L       @(R0,R9),R0
+        MOV.L       #_strips_tex,R9
+        JSR         @R9
+        MOV.L       R0,@(POLY_SIZE,GBR)
+        BRA         ?next_mesh
+        MOV         R0,R14
+?untex:
+        MOV.L       #_poly_sizes,R0
+        MOV.L       @(R0,R9),R0
+        MOV.L       #_strips,R9
+        JSR         @R9
+        MOV.L       R0,@(POLY_SIZE,GBR)
+        BRA         ?next_mesh
+        MOV         R0,R14
+?clipped:
+        MOV.L       @(MT_ATTRFLAGS,R5),R6
+        MOV.L       #NJD_FLAG_USE_TEXTURE,R8
+        TST         R8,R6
+        BT          ?untex_clipped
+        MOV.L       #_poly_sizes,R0
+        MOV.L       @(R0,R9),R0
+        MOV.L       #_strips_tex_clip,R9
+        JSR         @R9
+        MOV.L       R0,@(POLY_SIZE,GBR)
+        BRA         ?next_mesh
+        MOV         R0,R14
+?untex_clipped:
+        MOV.L       #_poly_sizes,R0
+        MOV.L       @(R0,R9),R0
+        MOV.L       #_strips_clip,R9
+        JSR         @R9
+        MOV.L       R0,@(POLY_SIZE,GBR)
+        MOV         R0,R14
+?next_mesh:
+        BSR         _list_set_end
+        NOP
+        ADD         #MS_SIZE,R2
+        DT          R7
+        BT          ?done
+        BRA         ?mesh
+        NOP
+?done:
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; R5 = a material. set every projected point's alpha to the material's:
+; its diffuse alpha, _nj_constant_material_'s alpha under ALPHA_CONSTANT,
+; or the two added and held to 0 to 1 under ALPHA_OFFSET. an
+; NJD_FLAG_IGNORE_LIGHT material makes the points white as well. it writes
+; nothing when the first point already holds what it would write. it writes
+; four points a pass, so up to three past the last
+; @asm open: no inspect rule reads the R8 and R9 it changes unsaved
+_set_point_alpha:
+        MOV.L       @(ATTRS,GBR),R0
+        MOV.L       #NJD_FLAG_IGNORE_LIGHT,R8
+        TST         R8,R0
+        BF          ?unlit
+        MOV.B       @(MT_ALPHA,R5),R0
+        EXTU.B      R0,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        MOV.L       @(ALPHA_MODE,GBR),R0
+        TST         R0,R0
+        BT          ?alpha
+        CMP/PL      R0
+        BF          ?offset
+        MOV.L       #__nj_constant_material_,R8
+        FMOV.S      @R8,FR0
+?offset:
+        CMP/PZ      R0
+        BT          ?alpha
+        MOV.L       #__nj_constant_material_,R8
+        FMOV.S      @R8,FR1
+        FADD        FR1,FR0
+        FLDI1       FR1
+        FCMP/GT     FR1,FR0
+        BF          ?clamp_low
+        FMOV.S      FR1,FR0
+?clamp_low:
+        FLDI0       FR1
+        FCMP/GT     FR1,FR0
+        BT          ?alpha
+        FMOV.S      FR1,FR0
+?alpha:
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R1
+        MOV.L       #_float_255,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        MOV.L       @(MD_NBPOINT,R4),R9
+        ADD         #PT_ALPHA,R1
+        ; @bug logic: MOV.B @R1,R8 at 0x8c0388e2 sign-extends the first
+        ; point's alpha, and R0 holds the material's from 0 to 255. so CMP/EQ
+        ; at 0x8c0388e4 never finds an alpha of 128 or more already set, and
+        ; the loop writes it again
+        MOV.B       @R1,R8
+        CMP/EQ      R8,R0
+        BT          ?done
+?quad:
+        MOV.B       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.B       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.B       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.B       R0,@R1
+        ADD         #PT_SIZE,R1
+        ADD         #-4,R9
+        CMP/PL      R9
+        BT          ?quad
+?done:
+        RTS
+        NOP
+?unlit:
+        MOV.B       @(MT_ALPHA,R5),R0
+        EXTU.B      R0,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        MOV.L       @(ALPHA_MODE,GBR),R0
+        TST         R0,R0
+        BT          ?unlit_alpha
+        CMP/PL      R0
+        BF          ?unlit_offset
+        MOV.L       #__nj_constant_material_,R8
+        FMOV.S      @R8,FR0
+?unlit_offset:
+        CMP/PZ      R0
+        BT          ?unlit_alpha
+        MOV.L       #__nj_constant_material_,R8
+        FMOV.S      @R8,FR1
+        FADD        FR1,FR0
+        FLDI1       FR1
+        FCMP/GT     FR1,FR0
+        BF          ?unlit_low
+        FMOV.S      FR1,FR0
+?unlit_low:
+        FLDI0       FR1
+        FCMP/GT     FR1,FR0
+        BT          ?unlit_alpha
+        FMOV.S      FR1,FR0
+?unlit_alpha:
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R1
+        MOV.L       #_float_255,R0
+        FMOV.S      @R0,FR1
+        FMUL        FR1,FR0
+        FTRC        FR0,FPUL
+        STS         FPUL,R0
+        SHLL16      R0
+        SHLL8       R0
+        MOV.L       #H'00FFFFFF,R8
+        OR          R8,R0
+        MOV.L       @(MD_NBPOINT,R4),R9
+        ADD         #PT_COLOR,R1
+        MOV.L       @R1,R8
+        CMP/EQ      R8,R0
+        BT          ?unlit_done
+?unlit_quad:
+        MOV.L       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.L       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.L       R0,@R1
+        ADD         #PT_SIZE,R1
+        MOV.L       R0,@R1
+        ADD         #PT_SIZE,R1
+        ADD         #-4,R9
+        CMP/PL      R9
+        BT          ?unlit_quad
+?unlit_done:
+        RTS
+        NOP
+        .ALIGN      16
+
+; a polygon's point count, by meshset type: 3 for NJD_MESHSET_3, 4 for
+; NJD_MESHSET_4, and 0 for NJD_MESHSET_N and NJD_MESHSET_TRIMESH, whose
+; polygons each give their own
+_poly_sizes:
+        .DATA.L     H'00000003
+        .DATA.L     H'00000004
+        .DATA.L     H'00000000
+        .DATA.L     H'00000000
+
+; R2 = a meshset, R6 = its material's flags, R14 = the store queue
+; address. send the meshset's polygons, textured, each as a strip. a vertex
+; holds its control word, then its point's x, y and 1/z, then its u and v
+; over 255. its point's base color and its offset color from OFFSETS
+; follow. under NJD_FLAG_USE_ENV, u and v come from the point's normal
+; turned by XMTRX instead, as n * 0.5 + 0.5. R0 = the store queue address
+; past the strips
+; @asm open: no inspect rule reads R2 and R14 at its entry
+_strips_tex:
+        MOV.L       #NJD_FLAG_USE_ENV,R8
+        TST         R8,R6
+        BF          ?env
+        MOV.L       R3,@-R15
+        MOV.L       @(MS_MESHES,R2),R8
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R9
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       @(MS_VERTUV,R2),R1
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR11
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        ; a polygon's own point count, below a strip's NJD_TRIMESH_END
+        MOV.W       @R8+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        MOV.L       #PCW_VERTEX,R11
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        SHLL2       R0
+        ADD         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        ADD         #-1,R12
+?vertex:
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        SHLL2       R0
+        ADD         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        DT          R12
+        BF          ?vertex
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        MOV.L       #PCW_END,R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BF          ?poly
+        MOV.L       @R15+,R3
+        RTS
+        MOV         R14,R0
+?env:
+        MOV.L       R3,@-R15
+        MOV.L       @(MS_MESHES,R2),R8
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R9
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       @(MD_NORMALS,R4),R1
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?env_poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?env_own_size
+        BRA         ?env_start
+        MOV         R0,R12
+?env_own_size:
+        MOV.W       @R8+,R12
+        CMP/PZ      R12
+        BT          ?env_start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?env_start:
+        MOV.L       #PCW_VERTEX,R11
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        MOV         R0,R6
+        ADD         R0,R6
+        ADD         R0,R6
+        SHLL2       R0
+        ADD         R9,R0
+        ADD         R1,R6
+        FMOV.S      @R6+,FR0
+        FMOV.S      @R6+,FR1
+        FMOV.S      @R6+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R6
+        FMOV.S      @R6,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        ADD         #-1,R12
+?env_vertex:
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        MOV         R0,R6
+        ADD         R0,R6
+        ADD         R0,R6
+        SHLL2       R0
+        ADD         R9,R0
+        ADD         R1,R6
+        FMOV.S      @R6+,FR0
+        FMOV.S      @R6+,FR1
+        FMOV.S      @R6+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R6
+        FMOV.S      @R6,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        DT          R12
+        BF          ?env_vertex
+        MOV.L       #PCW_END,R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BF          ?env_poly
+        MOV.L       @R15+,R3
+        RTS
+        MOV         R14,R0
+
+; a copy of strips_tex's environment loop that adds to each u and v, over
+; 255, the two halfwords after the point's normal. nothing calls it. it takes
+; R1, R3, R8, R9 and POLYS_LEFT as strips_tex sets them for that loop, and
+; it pops at 0x8c038c4a an R3 that strips_tex pushes. so its RTS at
+; 0x8c038c4c returns with R15 4 bytes above its entry. it loads vertuv into
+; R2, and nothing reads it there
+; @asm open: no inspect rule reads R1, R8, R9 and R14 at its entry
+_strips_env_uv:
+        MOV.L       R2,@-R15
+        MOV.L       @(MS_VERTUV,R2),R2
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR11
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        MOV.W       @R8+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        MOV         R0,R6
+        ADD         R0,R6
+        ADD         R0,R6
+        SHLL2       R0
+        ADD         R9,R0
+        ADD         R1,R6
+        FMOV.S      @R6+,FR0
+        FMOV.S      @R6+,FR1
+        FMOV.S      @R6+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R11
+        FMOV.S      @R11,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        MOV.W       @R6+,R11
+        LDS         R11,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R6+,R11
+        FMUL        FR11,FR5
+        LDS         R11,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        FADD        FR0,FR5
+        FADD        FR1,FR6
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        ADD         #-1,R12
+?vertex:
+        MOV         #PCW_VERTEX>>24,R11
+        SHLL16      R11
+        SHLL8       R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        MOV         R0,R6
+        ADD         R0,R6
+        ADD         R0,R6
+        SHLL2       R0
+        ADD         R9,R0
+        ADD         R1,R6
+        FMOV.S      @R6+,FR0
+        FMOV.S      @R6+,FR1
+        FMOV.S      @R6+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R11
+        FMOV.S      @R11,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        MOV.W       @R6+,R11
+        LDS         R11,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R6+,R11
+        FMUL        FR11,FR5
+        LDS         R11,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        FADD        FR0,FR5
+        FADD        FR1,FR6
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        DT          R12
+        BF          ?vertex
+        MOV.L       #PCW_END,R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BF          ?poly
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R3
+        RTS
+        MOV         R14,R0
+
+; strips_tex for an untextured meshset. a vertex takes its control word,
+; its point's x, y and 1/z, and its point's base color, in words 0 to 3 and
+; 6. the stores run down from VX_OFFSET, word 7, and pass over words 5 and 4
+; @asm open: no inspect rule reads R2 and R14 at its entry
+_strips:
+        MOV.L       R3,@-R15
+        MOV.L       @(MS_MESHES,R2),R8
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R9
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        MOV.W       @R8+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        MOV.L       #PCW_VERTEX,R11
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        SHLL2       R0
+        ADD         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        ADD         #-1,R12
+?vertex:
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.W       @R8+,R0
+        SHLL2       R0
+        FMOV.S      @(R0,R3),FR4
+        SHLL2       R0
+        ADD         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        DT          R12
+        BF          ?vertex
+        MOV.L       #PCW_END,R11
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BF          ?poly
+        MOV.L       @R15+,R3
+        RTS
+        MOV         R14,R0
+
+; strips_tex for a model with near points. a polygon of n points goes as
+; n - 2 triangles, and R7 holds the flags of a triangle's points a, b and c.
+; a triangle with no point flagged goes on in the strip being sent. a
+; triangle with a point flagged ends that strip at b, and near_clip_tex
+; clips it. a triangle with all three flagged is dropped. R8 to R10 point to
+; a, b and c, and COLOR_A to COLOR_C hold their offset colors. R1 steps
+; through the polygon's u and v, and R6 counts the strip's vertices so far
+; @asm open: no inspect rule reads R2 and R14 at its entry
+_strips_tex_clip:
+        MOV.L       #NJD_FLAG_USE_ENV,R8
+        TST         R8,R6
+        BT          ?tex
+        BRA         _strips_env_clip
+        NOP
+?tex:
+        STS.L       PR,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       @(MS_MESHES,R2),R4
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R5
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       @(MS_VERTUV,R2),R1
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR11
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        MOV.W       @R4+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        ; a polygon of n points makes n - 2 triangles
+        ADD         #-2,R12
+        MOV.L       #PCW_VERTEX,R11
+        MOV         #0,R6
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R8
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        SHLL2       R8
+        ADD         R5,R8
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R9
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        SHLL2       R9
+        ADD         R5,R9
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R8),FR9            ; a's 1/z
+        FMOV.S      @(R0,R9),FR12           ; b's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         #0,R0
+        FCMP/GT     FR0,FR9
+        BT          ?a_nearer
+        OR          #BEHIND_A,R0
+?a_nearer:
+        FCMP/GT     FR1,FR9
+        BF          ?b_behind
+        OR          #NEARER_A,R0
+?b_behind:
+        FCMP/GT     FR0,FR12
+        BT          ?b_nearer
+        OR          #BEHIND_B,R0
+?b_nearer:
+        FCMP/GT     FR1,FR12
+        BF          ?ab_flags
+        OR          #NEARER_B,R0
+?ab_flags:
+        MOV         R0,R7
+?triangle:
+        ; each triangle's c
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R10
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_C,GBR)
+        SHLL2       R10
+        ADD         R5,R10
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R10),FR15          ; c's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         R7,R0
+        FCMP/GT     FR0,FR15
+        BT          ?c_nearer
+        OR          #BEHIND_C,R0
+?c_nearer:
+        FCMP/GT     FR1,FR15
+        BF          ?c_flags
+        OR          #NEARER_C,R0
+?c_flags:
+        MOV         R0,R7
+        TST         R7,R7
+        BF          ?flagged
+        ; no point flagged: the triangle goes on in the strip
+        TST         R6,R6
+        BF          ?send_b
+        MOV         R8,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_A,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        ADD         #1,R6
+?send_b:
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?shift
+        ADD         #1,R6
+?flagged:
+        ; a point flagged: end the strip at b, and clip the triangle unless
+        ; all three are flagged
+        TST         R6,R6
+        BT          ?no_strip
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        ADD         #-4,R1
+        MOV.L       #PCW_END,R6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R6,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?clip_test
+        MOV         #0,R6
+?no_strip:
+        ADD         #4,R1
+?clip_test:
+        MOV         R7,R0
+        TST         #FLAGS_A,R0
+        BT          ?clip
+        TST         #FLAGS_B,R0
+        BT          ?clip
+        TST         #FLAGS_C,R0
+        BF          ?shift
+?clip:
+        MOV         R1,R11
+        BSR         _near_clip_tex
+        ADD         #-4,R11
+        MOV.L       #PCW_VERTEX,R11
+?shift:
+        ; b and c become the next triangle's a and b, flags and all
+        MOV         R9,R8
+        MOV         R10,R9
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        SHLR        R7
+        MOV         #FLAGS_A|FLAGS_B,R0
+        AND         R0,R7
+        DT          R12
+        BT          ?poly_end
+        BRA         ?triangle
+        NOP
+?poly_end:
+        ; end the strip at the last point
+        TST         R6,R6
+        BT          ?no_strip_end
+        MOV         R10,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_C,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.W       @R1+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR5
+        MOV.W       @R1+,R0
+        FMUL        FR11,FR5
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR6
+        FMUL        FR11,FR6
+        MOV.L       #PCW_END,R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?next_poly
+        NOP
+?no_strip_end:
+        ADD         #8,R1
+?next_poly:
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BT          ?done
+        BRA         ?poly
+        NOP
+?done:
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R13
+        LDS.L       @R15+,PR
+        RTS
+        MOV         R14,R0
+
+; R8 to R10 = the triangle's points, R11 = their u and v. put them in
+; CLIP_IN, with each point's x, y and z back in view space. if a point lies
+; past z = 1, branch to near_clip_send, which returns in its place. otherwise
+; drop the triangle. it works on bank 0, and keeps the caller's R1 in R12
+; @asm open: no inspect rule reads R1, R8 and R11 at its entry
+_near_clip_tex:
+        MOV.L       R12,@-R15
+        MOV         R1,R12
+        ; clear SR.RB: onto bank 0
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        LDC         R0,SR
+        ; 1/SCALE_X and 1/SCALE_Y in FR9 and FR10, CX and CY in FR12 and
+        ; FR13, and SCALE_X and SCALE_Y in FR14 and FR15
+        MOV.L       #_draw_work+SCALE_X,R0
+        FLDI1       FR9
+        FLDI1       FR10
+        FMOV.S      @R0+,FR14
+        FDIV        FR14,FR9
+        FMOV.S      @R0+,FR15
+        FDIV        FR15,FR10
+        MOV.L       #_draw_work,R0
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        MOV.L       #_draw_work+CLIP_IN+CP_V,R1
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR3
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_A,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R8+,FR3
+        FMOV.S      @R8+,FR4
+        FMOV.S      @R8+,FR5
+        MOV.L       @R8+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR6
+        FDIV        FR5,FR6
+        FSUB        FR12,FR3
+        FMUL        FR6,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR6,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR6,@-R1
+        ADD         #-16,R8
+        ADD         #CP_SIZE+CP_V,R1
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR3
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R9+,FR3
+        FMOV.S      @R9+,FR4
+        FMOV.S      @R9+,FR5
+        MOV.L       @R9+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR7
+        FDIV        FR5,FR7
+        FSUB        FR12,FR3
+        FMUL        FR7,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR7,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR7,@-R1
+        ADD         #-16,R9
+        ADD         #CP_SIZE+CP_V,R1
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR3
+        MOV.W       @R11+,R0
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R10+,FR3
+        FMOV.S      @R10+,FR4
+        FMOV.S      @R10+,FR5
+        MOV.L       @R10+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR8
+        FDIV        FR5,FR8
+        FSUB        FR12,FR3
+        FMUL        FR8,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR8,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR8,@-R1
+        ADD         #-16,R10
+        FLDI1       FR0
+        FCMP/GT     FR0,FR6
+        BT          _near_clip_send
+        FCMP/GT     FR0,FR7
+        BT          _near_clip_send
+        FCMP/GT     FR0,FR8
+        BT          _near_clip_send
+        ; set SR.RB again: back to bank 1
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        NOT         R1,R1
+        OR          R1,R0
+        LDC         R0,SR
+        MOV         R12,R1
+        RTS
+        MOV.L       @R15+,R12
+
+; clip the triangle in CLIP_IN at z = 1 into CLIP_OUT, three points or
+; four, and send them as a strip. a cut point lies on z = 1, so FR12 to FR15
+; project it. near_clip_tex and near_clip_env branch here with their R12
+; pushed, and it returns for them, back on bank 1. its RTS's slot at
+; 0x8c0392b2 pops their R12, so its RTS at 0x8c0392b0 returns with R15 4
+; bytes above its own entry
+; @asm opcode: dmuls, DMULS.L R14,R13 at 0x8c039096 forms the signed 64-bit
+; product
+_near_clip_send:
+        MOV.L       R11,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R13,@-R15
+        MOV         #3,R7
+        MOV         #0,R6
+        MOV.L       #_draw_work+CLIP_IN,R1
+        MOV.L       #_draw_work+CLIP_IN+2*CP_SIZE,R2
+        MOV.L       #_draw_work+CLIP_OUT,R3
+?edge:
+        ; the edge from the point before to this one: a cut lies on it when
+        ; one end is nearer than z = 1 and the other isn't
+        FLDI1       FR0
+        FMOV.S      @R2,FR1
+        FCMP/GT     FR1,FR0
+        MOVT        R0
+        FMOV.S      @R1,FR2
+        FCMP/GT     FR2,FR0
+        MOVT        R4
+        XOR         R4,R0
+        TST         R0,R0
+        BF          ?cross
+        BRA         ?keep
+        NOP
+?cross:
+        FSUB        FR1,FR0
+        ADD         #4,R1
+        FSUB        FR1,FR2
+        ADD         #4,R2
+        FDIV        FR2,FR0
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR5
+        FSUB        FR1,FR5
+        FMUL        FR0,FR5
+        FADD        FR1,FR5
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR4
+        FSUB        FR1,FR4
+        FMUL        FR0,FR4
+        FADD        FR1,FR4
+        FMUL        FR14,FR4
+        FADD        FR12,FR4
+        ADD         #12,R1
+        FMUL        FR15,FR5
+        ADD         #12,R2
+        FADD        FR13,FR5
+        ; while the colors blend, R14 holds the cut's fraction t in 16.16
+        ; fixed point, and the store queue address waits in FR8
+        LDS         R14,FPUL
+        FSTS        FPUL,FR8
+        MOV.L       #_float_65536,R0
+        FMOV.S      @R0,FR9
+        FMUL        FR0,FR9
+        FTRC        FR9,FPUL
+        STS         FPUL,R14
+        ; each color channel: a + (b - a) * t, where a is the point before's
+        ; and b this one's
+        MOV         #-1,R0
+        EXTU.B      R0,R0
+        MOV.L       @R2+,R4
+        MOV.L       @R1+,R5
+        MOV         R4,R11
+        AND         R0,R11
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R11,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL8       R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        SHLL8       R12
+        OR          R12,R11
+        LDS         R11,FPUL
+        FSTS        FPUL,FR9
+        MOV.L       @R2+,R4
+        MOV.L       @R1+,R5
+        MOV         R4,R11
+        AND         R0,R11
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R11,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL8       R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        SHLL8       R12
+        OR          R12,R11
+        LDS         R11,FPUL
+        FSTS        FPUL,FR10
+        FLDS        FR8,FPUL
+        STS         FPUL,R14
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR7
+        FSUB        FR1,FR7
+        FMUL        FR0,FR7
+        FADD        FR1,FR7
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR8
+        FSUB        FR1,FR8
+        FMUL        FR0,FR8
+        FADD        FR1,FR8
+        ADD         #-40,R1
+        ADD         #-40,R2
+        MOV         R3,R0
+        ADD         #CP_V,R0
+        FMOV.S      FR8,@R0
+        FMOV.S      FR7,@-R0
+        FMOV.S      FR10,@-R0
+        FMOV.S      FR9,@-R0
+        FMOV.S      FR4,@-R0
+        FMOV.S      FR5,@-R0
+        FLDI1       FR6
+        FMOV.S      FR6,@-R0
+        ADD         #CP_SIZE,R3
+        ADD         #1,R6
+?keep:
+        ; this point stays if it lies past z = 1
+        FLDI1       FR0
+        FMOV.S      @R1,FR2
+        FCMP/GT     FR0,FR2
+        BF          ?next_edge
+        MOV         R1,R0
+        ADD         #CP_RHW,R0
+        FMOV.S      @R0+,FR6
+        FMOV.S      @R0+,FR5
+        FMOV.S      @R0+,FR4
+        FMOV.S      @R0+,FR9
+        FMOV.S      @R0+,FR10
+        FMOV.S      @R0+,FR7
+        FMOV.S      @R0+,FR8
+        MOV         R3,R0
+        ADD         #CP_V,R0
+        FMOV.S      FR8,@R0
+        FMOV.S      FR7,@-R0
+        FMOV.S      FR10,@-R0
+        FMOV.S      FR9,@-R0
+        FMOV.S      FR4,@-R0
+        FMOV.S      FR5,@-R0
+        FMOV.S      FR6,@-R0
+        ADD         #CP_SIZE,R3
+        ADD         #1,R6
+?next_edge:
+        MOV         R1,R2
+        DT          R7
+        BT          ?send
+        BRA         ?edge
+        ADD         #CP_SIZE,R1
+?send:
+        MOV.L       #PCW_VERTEX,R2
+        MOV.L       #_draw_work+CLIP_OUT+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMUL        FR11,FR5
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R2,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       #_draw_work+CLIP_OUT+CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMUL        FR11,FR5
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R2,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        ; a fourth point goes third: the strip runs 0, 1, 3, 2
+        MOV         R6,R0
+        CMP/EQ      #3,R0
+        BT          ?last
+        MOV.L       #_draw_work+CLIP_OUT+3*CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMUL        FR11,FR5
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R2,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+?last:
+        MOV.L       #PCW_END,R2
+        MOV.L       #_draw_work+CLIP_OUT+2*CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMUL        FR11,FR5
+        FMUL        FR11,FR6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R2,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R11
+        ; set SR.RB again: back to bank 1
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        NOT         R1,R1
+        OR          R1,R0
+        LDC         R0,SR
+        MOV         R12,R1
+        RTS
+        MOV.L       @R15+,R12
+
+; strips_tex_clip for an environment-mapped meshset, whose u and v come
+; from the normals as strips_tex's do. ENV_INDEX holds the byte offsets of
+; a, b and c's normals from R1, and R13 points to it for near_clip_env
+; @asm operand: zero-displacement, MOV.W R0,@(0,R13) at 0x8c039324 stores
+; through a zero displacement
+_strips_env_clip:
+        STS.L       PR,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R5
+        MOV.L       @(MD_NORMALS,R4),R1
+        MOV.L       @(MS_MESHES,R2),R4
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       #_draw_work+ENV_INDEX,R13
+        MOV.L       #_inv_255,R0
+        FMOV.S      @R0,FR11
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        MOV.W       @R4+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        ; a polygon of n points makes n - 2 triangles
+        ADD         #-2,R12
+        MOV.L       #PCW_VERTEX,R11
+        MOV         #0,R6
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R8
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        MOV         R8,R0
+        ADD         R8,R0
+        ADD         R8,R0
+        SHLL2       R8
+        ADD         R5,R8
+        MOV.W       R0,@(0,R13)
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R9
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        MOV         R9,R0
+        ADD         R9,R0
+        ADD         R9,R0
+        SHLL2       R9
+        ADD         R5,R9
+        MOV.W       R0,@(2,R13)
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R8),FR9            ; a's 1/z
+        FMOV.S      @(R0,R9),FR12           ; b's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         #0,R0
+        FCMP/GT     FR0,FR9
+        BT          ?a_nearer
+        OR          #BEHIND_A,R0
+?a_nearer:
+        FCMP/GT     FR1,FR9
+        BF          ?b_behind
+        OR          #NEARER_A,R0
+?b_behind:
+        FCMP/GT     FR0,FR12
+        BT          ?b_nearer
+        OR          #BEHIND_B,R0
+?b_nearer:
+        FCMP/GT     FR1,FR12
+        BF          ?ab_flags
+        OR          #NEARER_B,R0
+?ab_flags:
+        MOV         R0,R7
+?triangle:
+        ; each triangle's c
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R10
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_C,GBR)
+        MOV         R10,R0
+        ADD         R10,R0
+        ADD         R10,R0
+        SHLL2       R10
+        ADD         R5,R10
+        MOV.W       R0,@(4,R13)
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R10),FR15          ; c's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         R7,R0
+        FCMP/GT     FR0,FR15
+        BT          ?c_nearer
+        OR          #BEHIND_C,R0
+?c_nearer:
+        FCMP/GT     FR1,FR15
+        BF          ?c_flags
+        OR          #NEARER_C,R0
+?c_flags:
+        MOV         R0,R7
+        TST         R7,R7
+        BF          ?flagged
+        ; no point flagged: the triangle goes on in the strip
+        TST         R6,R6
+        BF          ?send_b
+        MOV.W       @(0,R13),R0
+        ADD         R1,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        MOV         R8,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_A,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        ADD         #1,R6
+?send_b:
+        MOV.W       @(2,R13),R0
+        ADD         R1,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?shift
+        ADD         #1,R6
+?flagged:
+        ; a point flagged: end the strip at b, and clip the triangle unless
+        ; all three are flagged
+        TST         R6,R6
+        BT          ?clip_test
+        MOV.W       @(2,R13),R0
+        ADD         R1,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.L       #PCW_END,R6
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R6,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?clip_test
+        MOV         #0,R6
+?clip_test:
+        MOV         R7,R0
+        TST         #FLAGS_A,R0
+        BT          ?clip
+        TST         #FLAGS_B,R0
+        BT          ?clip
+        TST         #FLAGS_C,R0
+        BF          ?shift
+?clip:
+        BSR         _near_clip_env
+        NOP
+        MOV.L       #PCW_VERTEX,R11
+?shift:
+        ; b and c become the next triangle's a and b, flags and all
+        MOV         R9,R8
+        MOV         R10,R9
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        MOV.W       @(2,R13),R0
+        MOV.W       R0,@(0,R13)
+        MOV.W       @(4,R13),R0
+        MOV.W       R0,@(2,R13)
+        SHLR        R7
+        MOV         #FLAGS_A|FLAGS_B,R0
+        AND         R0,R7
+        DT          R12
+        BT          ?poly_end
+        BRA         ?triangle
+        NOP
+?poly_end:
+        ; end the strip at the last point
+        TST         R6,R6
+        BT          ?next_poly
+        MOV.W       @(4,R13),R0
+        ADD         R1,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR5
+        FMOV.S      FR1,FR6
+        MOV         R10,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_C,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.L       #PCW_END,R11
+        ADD         #VERTEX_SIZE,R14
+        FMOV.S      FR4,@-R14
+        FMOV.S      FR3,@-R14
+        FMOV.S      FR6,@-R14
+        FMOV.S      FR5,@-R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?next_poly
+        NOP
+?next_poly:
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        ADD         #-1,R0
+        CMP/PL      R0
+        BF          ?done
+        BRA         ?poly
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+?done:
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R13
+        LDS.L       @R15+,PR
+        RTS
+        MOV         R14,R0
+
+; near_clip_tex for an environment-mapped triangle, R13 = the byte offsets
+; of its normals from R1. a point's u and v come from its normal turned by
+; XMTRX, as n * 127.5 + 127.5, which near_clip_send scales by 1/255
+; @asm operand: zero-displacement, MOV.W @(0,R13),R0 at 0x8c03955e loads
+; through a zero displacement
+_near_clip_env:
+        MOV.L       R12,@-R15
+        MOV         R1,R12
+        ; clear SR.RB: onto bank 0
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        LDC         R0,SR
+        ; 1/SCALE_X and 1/SCALE_Y in FR9 and FR10, CX and CY in FR12 and
+        ; FR13, and SCALE_X and SCALE_Y in FR14 and FR15
+        MOV.L       #_draw_work+SCALE_X,R0
+        FLDI1       FR9
+        FLDI1       FR10
+        FMOV.S      @R0+,FR14
+        FDIV        FR14,FR9
+        FMOV.S      @R0+,FR15
+        FDIV        FR15,FR10
+        MOV.L       #_draw_work,R0
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        MOV.L       #_draw_work+CLIP_IN+CP_V,R1
+        MOV.W       @(0,R13),R0
+        ADD         R12,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half_255,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR3
+        FMOV.S      FR1,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_A,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R8+,FR3
+        FMOV.S      @R8+,FR4
+        FMOV.S      @R8+,FR5
+        MOV.L       @R8+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR6
+        FDIV        FR5,FR6
+        FSUB        FR12,FR3
+        FMUL        FR6,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR6,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR6,@-R1
+        ADD         #-16,R8
+        ADD         #CP_SIZE+CP_V,R1
+        MOV.W       @(2,R13),R0
+        ADD         R12,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half_255,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR3
+        FMOV.S      FR1,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R9+,FR3
+        FMOV.S      @R9+,FR4
+        FMOV.S      @R9+,FR5
+        MOV.L       @R9+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR7
+        FDIV        FR5,FR7
+        FSUB        FR12,FR3
+        FMUL        FR7,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR7,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR7,@-R1
+        ADD         #-16,R9
+        ADD         #CP_SIZE+CP_V,R1
+        MOV.W       @(4,R13),R0
+        ADD         R12,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI0       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_half_255,R0
+        FMOV.S      @R0,FR3
+        FMUL        FR3,FR0
+        FADD        FR3,FR0
+        FMUL        FR3,FR1
+        FADD        FR3,FR1
+        FMOV.S      FR0,FR3
+        FMOV.S      FR1,FR4
+        FMOV.S      FR4,@R1
+        FMOV.S      FR3,@-R1
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@-R1
+        FMOV.S      @R10+,FR3
+        FMOV.S      @R10+,FR4
+        FMOV.S      @R10+,FR5
+        MOV.L       @R10+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR8
+        FDIV        FR5,FR8
+        FSUB        FR12,FR3
+        FMUL        FR8,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR8,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR8,@-R1
+        ADD         #-16,R10
+        FLDI1       FR0
+        FCMP/GT     FR0,FR6
+        BT          ?send
+        FCMP/GT     FR0,FR7
+        BT          ?send
+        FCMP/GT     FR0,FR8
+        BT          ?send
+        ; set SR.RB again: back to bank 1
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        NOT         R1,R1
+        OR          R1,R0
+        LDC         R0,SR
+        MOV         R12,R1
+        RTS
+        MOV.L       @R15+,R12
+?send:
+        BRA         _near_clip_send
+        NOP
+
+; strips_tex_clip for an untextured meshset, through near_clip. it sends
+; vertices as strips does
+; @asm open: no inspect rule reads R2 and R14 at its entry
+_strips_clip:
+        STS.L       PR,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       @(MS_MESHES,R2),R4
+        MOV.L       @(POINTS,GBR),R0
+        MOV         R0,R5
+        MOV.W       @(MS_NBMESH,R2),R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        MOV.L       @(OFFSETS,GBR),R0
+        MOV         R0,R3
+?poly:
+        MOV.L       @(POLY_SIZE,GBR),R0
+        TST         R0,R0
+        BT          ?own_size
+        BRA         ?start
+        MOV         R0,R12
+?own_size:
+        MOV.W       @R4+,R12
+        CMP/PZ      R12
+        BT          ?start
+        MOV.W       #STRIP_COUNT,R0
+        AND         R0,R12
+?start:
+        ; a polygon of n points makes n - 2 triangles
+        ADD         #-2,R12
+        MOV.L       #PCW_VERTEX,R11
+        MOV         #0,R6
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R8
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        SHLL2       R8
+        ADD         R5,R8
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R9
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        SHLL2       R9
+        ADD         R5,R9
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R8),FR9            ; a's 1/z
+        FMOV.S      @(R0,R9),FR12           ; b's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         #0,R0
+        FCMP/GT     FR0,FR9
+        BT          ?a_nearer
+        OR          #BEHIND_A,R0
+?a_nearer:
+        FCMP/GT     FR1,FR9
+        BF          ?b_behind
+        OR          #NEARER_A,R0
+?b_behind:
+        FCMP/GT     FR0,FR12
+        BT          ?b_nearer
+        OR          #BEHIND_B,R0
+?b_nearer:
+        FCMP/GT     FR1,FR12
+        BF          ?ab_flags
+        OR          #NEARER_B,R0
+?ab_flags:
+        MOV         R0,R7
+?triangle:
+        ; each triangle's c
+        MOV.W       @R4+,R0
+        SHLL2       R0
+        MOV         R0,R10
+        MOV.L       @(R0,R3),R0
+        MOV.L       R0,@(COLOR_C,GBR)
+        SHLL2       R10
+        ADD         R5,R10
+        MOV         #PT_RHW,R0
+        FMOV.S      @(R0,R10),FR15          ; c's 1/z
+        FLDI0       FR0
+        FLDI1       FR1
+        MOV         R7,R0
+        FCMP/GT     FR0,FR15
+        BT          ?c_nearer
+        OR          #BEHIND_C,R0
+?c_nearer:
+        FCMP/GT     FR1,FR15
+        BF          ?c_flags
+        OR          #NEARER_C,R0
+?c_flags:
+        MOV         R0,R7
+        TST         R7,R7
+        BF          ?flagged
+        ; no point flagged: the triangle goes on in the strip
+        TST         R6,R6
+        BF          ?send_b
+        MOV         R8,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_A,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        ADD         #1,R6
+?send_b:
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?shift
+        ADD         #1,R6
+?flagged:
+        ; a point flagged: end the strip at b, and clip the triangle unless
+        ; all three are flagged
+        TST         R6,R6
+        BT          ?clip_test
+        MOV         R9,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_B,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.L       #PCW_END,R6
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R6,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?clip_test
+        MOV         #0,R6
+?clip_test:
+        MOV         R7,R0
+        TST         #FLAGS_A,R0
+        BT          ?clip
+        TST         #FLAGS_B,R0
+        BT          ?clip
+        TST         #FLAGS_C,R0
+        BF          ?shift
+?clip:
+        BSR         _near_clip
+        NOP
+?shift:
+        ; b and c become the next triangle's a and b, flags and all
+        MOV         R9,R8
+        MOV         R10,R9
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@(COLOR_A,GBR)
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@(COLOR_B,GBR)
+        SHLR        R7
+        MOV         #FLAGS_A|FLAGS_B,R0
+        AND         R0,R7
+        ADD         #-1,R12
+        CMP/PL      R12
+        BT          ?triangle
+        ; end the strip at the last point
+        TST         R6,R6
+        BT          ?next_poly
+        MOV         R10,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FMOV.S      @R0+,FR3
+        MOV.L       @(COLOR_C,GBR),R0
+        LDS         R0,FPUL
+        FSTS        FPUL,FR4
+        MOV.L       #PCW_END,R11
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        BRA         ?next_poly
+        NOP
+?next_poly:
+        MOV.L       @(POLYS_LEFT,GBR),R0
+        DT          R0
+        MOV.L       R0,@(POLYS_LEFT,GBR)
+        BT          ?done
+        BRA         ?poly
+        NOP
+?done:
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R13
+        LDS.L       @R15+,PR
+        RTS
+        MOV         R14,R0
+
+; near_clip_tex and near_clip_send in one, for an untextured triangle. its
+; clip points have no u or v, so FR11, which holds 1/255 for them in
+; near_clip_send, keeps the store queue address. it keeps the caller's R1
+; on the stack
+; @asm opcode: dmuls, DMULS.L R14,R13 at 0x8c039982 forms the signed 64-bit
+; product
+_near_clip:
+        MOV.L       R1,@-R15
+        ; clear SR.RB: onto bank 0
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        LDC         R0,SR
+        ; 1/SCALE_X and 1/SCALE_Y in FR9 and FR10, CX and CY in FR12 and
+        ; FR13, and SCALE_X and SCALE_Y in FR14 and FR15
+        MOV.L       #_draw_work+SCALE_X,R0
+        FLDI1       FR9
+        FLDI1       FR10
+        FMOV.S      @R0+,FR14
+        FDIV        FR14,FR9
+        FMOV.S      @R0+,FR15
+        FDIV        FR15,FR10
+        MOV.L       #_draw_work,R0
+        FMOV.S      @R0+,FR12
+        FMOV.S      @R0+,FR13
+        MOV.L       #_draw_work+CLIP_IN+CP_OFFSET,R1
+        MOV.L       @(COLOR_A,GBR),R0
+        MOV.L       R0,@R1
+        FMOV.S      @R8+,FR3
+        FMOV.S      @R8+,FR4
+        FMOV.S      @R8+,FR5
+        MOV.L       @R8+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR6
+        FDIV        FR5,FR6
+        FSUB        FR12,FR3
+        FMUL        FR6,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR6,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR6,@-R1
+        ADD         #-16,R8
+        ADD         #CP_SIZE+CP_OFFSET,R1
+        MOV.L       @(COLOR_B,GBR),R0
+        MOV.L       R0,@R1
+        FMOV.S      @R9+,FR3
+        FMOV.S      @R9+,FR4
+        FMOV.S      @R9+,FR5
+        MOV.L       @R9+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR7
+        FDIV        FR5,FR7
+        FSUB        FR12,FR3
+        FMUL        FR7,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR7,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR7,@-R1
+        ADD         #-16,R9
+        ADD         #CP_SIZE+CP_OFFSET,R1
+        MOV.L       @(COLOR_C,GBR),R0
+        MOV.L       R0,@R1
+        FMOV.S      @R10+,FR3
+        FMOV.S      @R10+,FR4
+        FMOV.S      @R10+,FR5
+        MOV.L       @R10+,R0
+        MOV.L       R0,@-R1
+        FMOV.S      FR3,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR5,@-R1
+        FLDI1       FR8
+        FDIV        FR5,FR8
+        FSUB        FR12,FR3
+        FMUL        FR8,FR3
+        FMUL        FR9,FR3
+        FMOV.S      FR3,@-R1
+        FSUB        FR13,FR4
+        FMUL        FR8,FR4
+        FMUL        FR10,FR4
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR8,@-R1
+        ADD         #-16,R10
+        FLDI1       FR0
+        FCMP/GT     FR0,FR6
+        BT          ?clip
+        FCMP/GT     FR0,FR7
+        BT          ?clip
+        FCMP/GT     FR0,FR8
+        BT          ?clip
+        ; set SR.RB again: back to bank 1
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        NOT         R1,R1
+        OR          R1,R0
+        LDC         R0,SR
+        RTS
+        MOV.L       @R15+,R1
+?clip:
+        ; a point lies past z = 1: clip
+        MOV.L       R11,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R13,@-R15
+        MOV         #3,R7
+        MOV         #0,R6
+        MOV.L       #_draw_work+CLIP_IN,R1
+        MOV.L       #_draw_work+CLIP_IN+2*CP_SIZE,R2
+        MOV.L       #_draw_work+CLIP_OUT,R3
+?edge:
+        ; the edge from the point before to this one: a cut lies on it when
+        ; one end is nearer than z = 1 and the other isn't
+        FLDI1       FR0
+        FMOV.S      @R2,FR1
+        FCMP/GT     FR1,FR0
+        MOVT        R0
+        FMOV.S      @R1,FR2
+        FCMP/GT     FR2,FR0
+        MOVT        R4
+        XOR         R4,R0
+        TST         R0,R0
+        BF          ?cross
+        BRA         ?keep
+        NOP
+?cross:
+        FSUB        FR1,FR0
+        ADD         #4,R1
+        FSUB        FR1,FR2
+        ADD         #4,R2
+        FDIV        FR2,FR0
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR5
+        FSUB        FR1,FR5
+        FMUL        FR0,FR5
+        FADD        FR1,FR5
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      FR2,FR4
+        FSUB        FR1,FR4
+        FMUL        FR0,FR4
+        FADD        FR1,FR4
+        FMUL        FR14,FR4
+        FADD        FR12,FR4
+        ADD         #12,R1
+        FMUL        FR15,FR5
+        ADD         #12,R2
+        FADD        FR13,FR5
+        ; while the colors blend, R14 holds the cut's fraction t in 16.16
+        ; fixed point, and the store queue address waits in FR11
+        LDS         R14,FPUL
+        FSTS        FPUL,FR11
+        MOV.L       #_float_65536,R0
+        FMOV.S      @R0,FR9
+        FMUL        FR0,FR9
+        FTRC        FR9,FPUL
+        STS         FPUL,R14
+        ; each color channel: a + (b - a) * t, where a is the point before's
+        ; and b this one's
+        MOV         #-1,R0
+        EXTU.B      R0,R0
+        MOV.L       @R2+,R4
+        MOV.L       @R1+,R5
+        MOV         R4,R11
+        AND         R0,R11
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R11,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL8       R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        SHLL8       R12
+        OR          R12,R11
+        LDS         R11,FPUL
+        FSTS        FPUL,FR9
+        MOV.L       @R2+,R4
+        MOV.L       @R1+,R5
+        MOV         R4,R11
+        AND         R0,R11
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R11,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL8       R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        OR          R12,R11
+        SHLR8       R4
+        SHLR8       R5
+        MOV         R4,R12
+        AND         R0,R12
+        MOV         R5,R13
+        AND         R0,R13
+        SUB         R12,R13
+        DMULS.L     R14,R13
+        STS         MACL,R13
+        SWAP.W      R13,R13
+        EXTS.W      R13,R13
+        ADD         R13,R12
+        SHLL16      R12
+        SHLL8       R12
+        OR          R12,R11
+        LDS         R11,FPUL
+        FSTS        FPUL,FR10
+        FLDS        FR11,FPUL
+        STS         FPUL,R14
+        ADD         #-32,R1
+        ADD         #-32,R2
+        MOV         R3,R0
+        ADD         #CP_OFFSET,R0
+        FMOV.S      FR10,@R0
+        FMOV.S      FR9,@-R0
+        FMOV.S      FR4,@-R0
+        FMOV.S      FR5,@-R0
+        FLDI1       FR6
+        FMOV.S      FR6,@-R0
+        ADD         #CP_SIZE,R3
+        ADD         #1,R6
+?keep:
+        ; this point stays if it lies past z = 1
+        FLDI1       FR0
+        FMOV.S      @R1,FR2
+        FCMP/GT     FR0,FR2
+        BF          ?next_edge
+        MOV         R1,R0
+        ADD         #CP_RHW,R0
+        FMOV.S      @R0+,FR6
+        FMOV.S      @R0+,FR5
+        FMOV.S      @R0+,FR4
+        FMOV.S      @R0+,FR9
+        FMOV.S      @R0+,FR10
+        MOV         R3,R0
+        ADD         #CP_OFFSET,R0
+        FMOV.S      FR10,@R0
+        FMOV.S      FR9,@-R0
+        FMOV.S      FR4,@-R0
+        FMOV.S      FR5,@-R0
+        FMOV.S      FR6,@-R0
+        ADD         #CP_SIZE,R3
+        ADD         #1,R6
+?next_edge:
+        MOV         R1,R2
+        DT          R7
+        BT          ?send
+        BRA         ?edge
+        ADD         #CP_SIZE,R1
+?send:
+        MOV.L       #PCW_VERTEX,R11
+        MOV.L       #_draw_work+CLIP_OUT+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       #_draw_work+CLIP_OUT+CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        ; a fourth point goes third: the strip runs 0, 1, 3, 2
+        MOV         R6,R0
+        CMP/EQ      #3,R0
+        BT          ?last
+        MOV.L       #_draw_work+CLIP_OUT+3*CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R11,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+?last:
+        MOV.L       #_draw_work+CLIP_OUT+2*CP_SIZE+CP_RHW,R1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        MOV.L       #PCW_END,R6
+        ADD         #VX_OFFSET,R14
+        FMOV.S      FR3,@-R14
+        ADD         #-8,R14
+        FMOV.S      FR2,@-R14
+        FMOV.S      FR1,@-R14
+        FMOV.S      FR0,@-R14
+        MOV.L       R6,@-R14
+        PREF        @R14
+        ADD         #VERTEX_SIZE,R14
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R11
+        ; set SR.RB again: back to bank 1
+        MOV         #SR_RB>>24,R1
+        MOV         #24,R0
+        SHLD        R0,R1
+        NOT         R1,R1
+        STC         SR,R0
+        AND         R1,R0
+        NOT         R1,R1
+        OR          R1,R0
+        LDC         R0,SR
+        RTS
+        MOV.L       @R15+,R1
+
+; fill palette 0: entry n's base color is gray 255 - n, and its offset
+; color black, both opaque. nothing calls it
+; @asm open: no inspect rule reads its MOV.W of 0
+_init_palette:
+        MOV.L       #_draw_palettes,R1
+        MOV.W       #H'00FF,R2
+        MOV.W       #H'00FF,R3
+        MOV.W       #H'00FF,R4
+        MOV.W       #H'00FF,R5
+        MOV.W       #DRAW_PALETTE_ENTRIES,R7
+?base:
+        MOV         R2,R6
+        SHLL8       R6
+        OR          R3,R6
+        SHLL8       R6
+        OR          R4,R6
+        SHLL8       R6
+        OR          R5,R6
+        ADD         #-1,R3
+        ADD         #-1,R4
+        ADD         #-1,R5
+        MOV.L       R6,@R1
+        DT          R7
+        BF/S        ?base
+        ADD         #8,R1
+        MOV.L       #_draw_palettes+4,R1
+        MOV.W       #H'00FF,R2
+        MOV.W       #H'0000,R3
+        MOV.W       #H'0000,R4
+        MOV.W       #H'0000,R5
+        MOV.W       #DRAW_PALETTE_ENTRIES,R7
+?offset:
+        MOV         R2,R6
+        SHLL8       R6
+        OR          R3,R6
+        SHLL8       R6
+        OR          R4,R6
+        SHLL8       R6
+        OR          R5,R6
+        ADD         #-6,R3
+        ADD         #-6,R4
+        ADD         #-6,R5
+        CMP/PZ      R3
+        BT          ?green
+        MOV         #0,R3
+?green:
+        CMP/PZ      R4
+        BT          ?blue
+        MOV         #0,R4
+?blue:
+        CMP/PZ      R5
+        BT          ?store
+        MOV         #0,R5
+?store:
+        MOV.L       R6,@R1
+        DT          R7
+        BF/S        ?offset
+        ADD         #8,R1
+        RTS
+        NOP
+
+; void draw_set_light(Float x, Float y, Float z)
+; set light_dir, the light the models shade by, and light_base, its copy
+; for draw_divide_light and draw_reset_light
+; @asm open: every instruction is one SHC writes for C
+_draw_set_light:
+        MOV.L       #_light_dir+12,R1
+        MOV.L       #_light_base+12,R2
+        FMOV.S      FR6,@-R1
+        FMOV.S      FR5,@-R1
+        FMOV.S      FR4,@-R1
+        FMOV.S      FR6,@-R2
+        FMOV.S      FR5,@-R2
+        RTS
+        FMOV.S      FR4,@-R2
+
+; save_light copies light_dir and light_base to light_saved, and
+; restore_light copies them back. nothing calls either
+; @asm open: every instruction is one SHC writes for C
+_save_light:
+        MOV.L       #_light_dir,R1
+        MOV.L       #_light_saved+24,R2
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      FR5,@-R2
+        FMOV.S      FR4,@-R2
+        FMOV.S      FR3,@-R2
+        FMOV.S      FR2,@-R2
+        FMOV.S      FR1,@-R2
+        RTS
+        FMOV.S      FR0,@-R2
+
+; @asm open: every instruction is one SHC writes for C
+_restore_light:
+        MOV.L       #_light_saved,R1
+        MOV.L       #_light_dir+24,R2
+        FMOV.S      @R1+,FR0
+        FMOV.S      @R1+,FR1
+        FMOV.S      @R1+,FR2
+        FMOV.S      @R1+,FR3
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      FR5,@-R2
+        FMOV.S      FR4,@-R2
+        FMOV.S      FR3,@-R2
+        FMOV.S      FR2,@-R2
+        FMOV.S      FR1,@-R2
+        RTS
+        FMOV.S      FR0,@-R2
+
+; void draw_take_point_lights(void)
+; take the point lights queued since the last call into draw_lights,
+; MOST_LIGHTS at most. each light's position is turned by the current
+; matrix. LIGHTS takes the queue's count, and the queue empties. each light
+; after the first lands LT_SIZE bytes below the one before, while
+; apply_point_lights reads them upward. nothing calls add_point_light, so
+; the queue stays empty
+; @asm open: no inspect rule reads FV0 filled by three loads and FLDI1 FR3
+; before its FTRV
+_draw_take_point_lights:
+        MOV.L       #_point_lights,R2
+        MOV.L       #_point_light_count,R1
+        MOV.L       @R1,R0
+        MOV         #0,R7
+        MOV.L       R7,@R1
+        MOV.L       R0,@(LIGHTS,GBR)
+        MOV         R0,R7
+        TST         R7,R7
+        BT          ?done
+        MOV         #MOST_LIGHTS,R0
+        CMP/GT      R0,R7
+        BF          ?count
+        MOV         R0,R7
+?count:
+        MOV.L       #_draw_lights+LT_PALETTE+4,R3
+?light:
+        FMOV.S      @R2+,FR0
+        FMOV.S      @R2+,FR1
+        FMOV.S      @R2+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FMOV.S      @R2+,FR3
+        MOV.L       @R2+,R0
+        ADD         #4,R2
+        MOV.L       R0,@-R3
+        FMOV.S      FR3,@-R3
+        FMOV.S      FR2,@-R3
+        FMOV.S      FR1,@-R3
+        FMOV.S      FR0,@-R3
+        ADD         #-4,R3
+        DT          R7
+        BF          ?light
+?done:
+        RTS
+        NOP
+
+; R4 = a palette's index, FR4 to FR7 = a position and a range. queue a
+; point light, unless the queue holds MOST_LIGHTS. nothing calls it. its
+; MULU.W R0,R7 leaves the product in MACL unread, and R2 steps by the count
+; in R7. so the second light would start a byte past the first, where its
+; MOV.L stores raise an address error
+; @asm open: no inspect rule reads its MULU.W R0,R7
+_add_point_light:
+        MOV.L       #_point_lights+LT_PALETTE+4,R2
+        MOV.L       #_point_light_count,R1
+        MOV.L       @R1,R7
+        MOV         #LT_SIZE,R0
+        MULU.W      R0,R7
+        ADD         R7,R2
+        ADD         #1,R7
+        MOV         #MOST_LIGHTS,R0
+        CMP/GT      R0,R7
+        BT          ?full
+        MOV.L       R7,@R1
+        SHLL8       R4
+        SHLL        R4
+        SHLL2       R4
+        MOV.L       #_draw_palettes,R0
+        ADD         R0,R4
+        MOV.L       R4,@-R2
+        FMOV.S      FR7,@-R2
+        FMOV.S      FR6,@-R2
+        FMOV.S      FR5,@-R2
+        FMOV.S      FR4,@-R2
+?full:
+        RTS
+        NOP
+
+; void draw_divide_light(Float scale)
+; light_dir = light_base / scale. a model drawn under an njScale of scale
+; on every axis then shades as it would unscaled
+; @asm open: every instruction is one SHC writes for C
+_draw_divide_light:
+        MOV.L       #_light_dir+12,R1
+        MOV.L       #_light_base,R2
+        FMOV.S      @R2+,FR5
+        FMOV.S      @R2+,FR6
+        FMOV.S      @R2+,FR7
+        FLDI1       FR0
+        FDIV        FR4,FR0
+        FMUL        FR0,FR5
+        FMUL        FR0,FR6
+        FMUL        FR0,FR7
+        FMOV.S      FR7,@-R1
+        FMOV.S      FR6,@-R1
+        RTS
+        FMOV.S      FR5,@-R1
+
+; void draw_reset_light(void)
+; light_dir = light_base
+; @asm open: every instruction is one SHC writes for C
+_draw_reset_light:
+        MOV.L       #_light_dir+12,R1
+        MOV.L       #_light_base,R2
+        FMOV.S      @R2+,FR5
+        FMOV.S      @R2+,FR6
+        FMOV.S      @R2+,FR7
+        FMOV.S      FR7,@-R1
+        FMOV.S      FR6,@-R1
+        RTS
+        FMOV.S      FR5,@-R1
+
+; void draw_set_palette(int palette)
+; shade the models from draw_palettes[palette]
+; @asm open: every instruction is one SHC writes for C
+_draw_set_palette:
+        SHLL8       R4
+        SHLL        R4
+        SHLL2       R4
+        MOV.L       #_draw_palettes,R0
+        ADD         R4,R0
+        RTS
+        MOV.L       R0,@(PALETTE,GBR)
+
+; Bool draw_in_view(Float x, Float y, Float z, Float radius)
+; TRUE on a frame's first step when the current matrix places the sphere of
+; radius about (x, y, z) in view, by cull_model's tests. FALSE on any other
+; step, or when the sphere is out of view. its side tests scale by DIST
+; times _nj_scr_aspect_x_, where cull_model's take DIST alone
+; @asm operand: ftrv-registers, FTRV XMTRX,FV4 at 0x8c039d34
+_draw_in_view:
+        MOV.L       #_frame_step,R0
+        MOV.L       @R0,R0
+        TST         R0,R0
+        BT          ?first_step
+        RTS
+        MOV         #0,R0
+?first_step:
+        FMOV.S      FR7,FR0                 ; radius
+        FLDI1       FR7
+        FTRV        XMTRX,FV4               ; center
+        MOV.L       #__nj_near_clip_,R1
+        FMOV.S      @R1,FR7
+        FSUB        FR0,FR7
+        FCMP/GT     FR7,FR6
+        BF          ?out
+        MOV.L       #__nj_far_clip_,R1
+        FMOV.S      @R1,FR7
+        FADD        FR0,FR7
+        FCMP/GT     FR7,FR6
+        BT          ?out
+        FLDI1       FR1
+        FADD        FR0,FR6
+        FDIV        FR6,FR1
+        MOV.L       #__nj_screen_,R1
+        FMOV.S      @R1,FR7
+        MOV.L       #__nj_scr_aspect_x_,R2
+        FMOV.S      @R2,FR2
+        FMUL        FR7,FR2
+        MOV.L       #__nj_2d_clip_,R3
+        FMOV.S      @R3+,FR8
+        ADD         #SC_CX,R1
+        FMOV.S      @R1+,FR7
+        FMUL        FR1,FR2
+        FMOV.S      FR4,FR11
+        FADD        FR0,FR4
+        FMUL        FR2,FR4
+        FADD        FR7,FR4
+        FCMP/GT     FR8,FR4
+        BF          ?out
+        FMOV.S      @R3+,FR9
+        FMOV.S      @R3+,FR8
+        FSUB        FR0,FR11
+        FMUL        FR2,FR11
+        FADD        FR7,FR11
+        FCMP/GT     FR8,FR11
+        BT          ?out
+        ; @bug logic: the top edge's test scales y by _nj_screen_'s cx, not
+        ; its dist (FMUL FR7,FR3 at 0x8c039d82). cull_model's top test has
+        ; the same flaw
+        MOV.L       #__nj_scr_aspect_y_,R2
+        FMOV.S      @R2,FR3
+        FMUL        FR7,FR3
+        FMOV.S      @R1+,FR7
+        FMUL        FR1,FR3
+        FMOV.S      FR5,FR11
+        FADD        FR0,FR5
+        FMUL        FR3,FR5
+        FADD        FR7,FR5
+        FCMP/GT     FR9,FR5
+        BF          ?out
+        ; @bug logic: the bottom edge's test loads the clip's bottom into
+        ; FR9 at 0x8c039d94, but compares y with FR8, the clip's right edge,
+        ; at 0x8c039d9c. it scales y by the side tests' FR2, dist times
+        ; _nj_scr_aspect_x_, not by dist times _nj_scr_aspect_y_ (FMUL
+        ; FR2,FR11 at 0x8c039d98)
+        FMOV.S      @R3+,FR9
+        FSUB        FR0,FR11
+        FMUL        FR2,FR11
+        FADD        FR7,FR11
+        FCMP/GT     FR8,FR11
+        BT          ?out
+        RTS
+        MOV         #1,R0
+?out:
+        RTS
+        MOV         #0,R0
+
+; void draw_models_begin(void)
+; begin a run of draw_model_unculled: fill CONSTANT_ATTR to ALPHA_MODE as
+; cull_model would, then call njGetkmPointer
+; @asm open: no inspect rule reads its MOV.L of 4, H'20 and H'10 under SHC 5.0
+; R32
+_draw_models_begin:
+        STS.L       PR,@-R15
+        MOV         #0,R0
+        MOV.L       #__nj_control_3d_flag_,R2
+        MOV.L       @R2,R6
+        MOV.L       #NJD_CONTROL_3D_CONSTANT_ATTR,R3
+        TST         R3,R6
+        BT          ?store_attr
+        MOV         #1,R0
+?store_attr:
+        MOV.L       R0,@(CONSTANT_ATTR,GBR)
+        MOV.L       #__nj_constant_attr_and_,R0
+        MOV.L       @R0,R0
+        MOV.L       R0,@(ATTR_AND,GBR)
+        MOV.L       #__nj_constant_attr_or_,R0
+        MOV.L       @R0,R0
+        MOV.L       R0,@(ATTR_OR,GBR)
+        MOV         #ALPHA_OWN,R0
+        MOV.L       #NJD_CONTROL_3D_OFFSET_MATERIAL,R3
+        TST         R3,R6
+        BT          ?constant
+        MOV         #ALPHA_OFFSET,R0
+?constant:
+        MOV.L       #NJD_CONTROL_3D_CONSTANT_MATERIAL,R3
+        TST         R3,R6
+        BT          ?store_alpha
+        MOV         #ALPHA_CONSTANT,R0
+?store_alpha:
+        MOV.L       R0,@(ALPHA_MODE,GBR)
+        MOV.L       #_njGetkmPointer,R0
+        JSR         @R0
+        NOP
+        LDS.L       @R15+,PR
+        RTS
+        NOP
+
+; void draw_models_end(void)
+; end the run: set the shading back with param_reset_shading, then call
+; njSetkmPointer
+; @asm open: every instruction is one SHC writes for C
+_draw_models_end:
+        STS.L       PR,@-R15
+        MOV.L       #_param_reset_shading,R0
+        JSR         @R0
+        NOP
+        LDS.L       @R15+,PR
+        MOV.L       #_njSetkmPointer,R0
+        JMP         @R0
+        NOP
+        .ALIGN      16
+
+; R4 = the model. add the point lights in draw_lights that reach it to its
+; points' offset colors in LIT_OFFSETS. a light adds to each point within
+; its range the base color of its palette's entry 255 * d / range, d being
+; the point's distance. red, green and blue are each held at 254. nothing
+; calls it
+; @asm opcode: swap, SWAP.B R0,R0 at 0x8c039ef0 brings the next channel into the
+; low byte
+_apply_point_lights:
+        MOV.L       @(LIGHTS,GBR),R0
+        TST         R0,R0
+        BF          ?lights
+        RTS
+        NOP
+?lights:
+        MOV         R0,R7
+        MOV         #MD_CENTER,R0
+        ADD         R4,R0
+        FMOV.S      @R0+,FR0
+        FMOV.S      @R0+,FR1
+        FMOV.S      @R0+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        FMOV.S      @R0+,FR3                ; r
+        ; which lights reach the model's sphere
+        MOV.L       #_draw_lights,R1
+?reach:
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FMOV.S      @R1+,FR6
+        FMOV.S      @R1+,FR15
+        FLDI0       FR7
+        FSUB        FR0,FR4
+        FSUB        FR1,FR5
+        FSUB        FR2,FR6
+        FIPR        FV4,FV4
+        FADD        FR3,FR15
+        FMUL        FR15,FR15
+        FCMP/GT     FR15,FR7
+        MOV         #0,R0
+        BT          ?store_reach
+        MOV         #1,R0
+?store_reach:
+        MOV.L       R0,@(LT_REACH-LT_PALETTE,R1)
+        DT          R7
+        BF/S        ?reach
+        ADD         #8,R1
+        ; each point, against each light that reaches the model
+        MOV.L       @(MD_NBPOINT,R4),R7
+        MOV.L       @(MD_POINTS,R4),R8
+        MOV.L       @(LIT_OFFSETS,GBR),R0
+        MOV         R0,R9
+        MOV         #ENTRY_SHIFT,R10
+        MOV.L       #CHANNEL_LOW,R11
+        MOV.L       #CHANNEL_TOP,R12
+        MOV.L       #_float_255,R0
+        FMOV.S      @R0,FR13
+?point:
+        FMOV.S      @R8+,FR0
+        FMOV.S      @R8+,FR1
+        FMOV.S      @R8+,FR2
+        FLDI1       FR3
+        FTRV        XMTRX,FV0
+        MOV.L       #_draw_lights,R1
+        MOV.L       @(LIGHTS,GBR),R0
+        MOV         R0,R14
+?light:
+        MOV.L       @(LT_REACH,R1),R0
+        TST         R0,R0
+        BT          ?next_light
+        FMOV.S      @R1+,FR4
+        FMOV.S      @R1+,FR5
+        FSUB        FR0,FR4
+        FMOV.S      @R1+,FR6
+        FSUB        FR1,FR5
+        FMOV.S      @R1+,FR15
+        FSUB        FR2,FR6
+        FLDI0       FR7
+        FIPR        FV4,FV4
+        FMOV.S      FR15,FR14
+        ADD         #-16,R1
+        FMUL        FR15,FR15
+        FCMP/GT     FR15,FR7
+        BT          ?next_light
+        FSQRT       FR7
+        FDIV        FR14,FR7
+        FMUL        FR13,FR7
+        FTRC        FR7,FPUL
+        STS         FPUL,R0
+        MOV.L       @(LT_PALETTE,R1),R5
+        SHLD        R10,R0
+        ADD         R5,R0
+        MOV.L       @R0,R0                  ; the entry's base color
+        MOV.L       @R9,R5                  ; the point's offset color
+        ; half of each, added, a channel past 127 held there, then doubled
+        SHLR        R0
+        AND         R11,R0
+        SHLR        R5
+        AND         R11,R5
+        ADD         R5,R0
+        TST         R12,R0
+        BT          ?store
+        TST         #H'80,R0
+        BT          ?green
+        OR          #H'7F,R0
+?green:
+        SWAP.B      R0,R0
+        TST         #H'80,R0
+        BT          ?red
+        OR          #H'7F,R0
+?red:
+        SWAP.B      R0,R0
+        SWAP.W      R0,R0
+        TST         #H'80,R0
+        BT          ?mask
+        OR          #H'7F,R0
+?mask:
+        SWAP.W      R0,R0
+        AND         R11,R0
+?store:
+        SHLL        R0
+        MOV.L       R0,@R9
+?next_light:
+        ADD         #LT_SIZE,R1
+        DT          R14
+        BF          ?light
+        ADD         #4,R9
+        DT          R7
+        BF          ?point
+        RTS
+        NOP
+
+; float constants. the first word, 1/256, has no label, and nothing reads
+; it. inv_255, H'3B808083, is 2 units in the last place above H'3B808081,
+; the float nearest 1/255. the reason is unknown
+        .DATA.L     H'3B800000
+_inv_255:
+        .DATA.L     H'3B808083
+_half:
+        .FDATA.S    F'0.5
+_half_255:
+        .FDATA.S    F'127.5
+_float_255:
+        .FDATA.S    F'255.0
+_float_65536:
+        .FDATA.S    F'65536.0
+
+; light_dir is the light the models shade by, and light_base the light
+; draw_set_light gave. light_saved holds both, as save_light copied them
+_light_dir:
+        .RES.L      3
+_light_base:
+        .RES.L      3
+_light_saved:
+        .RES.L      6
+        .ALIGN      16
+
+; Uint32 draw_palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2]
+_draw_palettes:
+        .RES.L      DRAW_PALETTES*DRAW_PALETTE_ENTRIES*2
+
+; Uint32 draw_unlit_offsets[DRAW_UNLIT_OFFSETS]
+_draw_unlit_offsets:
+        .RES.L      DRAW_UNLIT_OFFSETS
+; the offset colors shade_points writes, one for each point
+_lit_offsets:
+        .RES.L      MOST_POINTS
+
+; int draw_debug_counts[DRAW_DEBUG_COUNTS]
+_draw_debug_counts:
+        .RES.L      DRAW_DEBUG_COUNTS
+
+; the point light queue: its count, then its lights
+_point_light_count:
+        .RES.L      1
+_point_lights:
+        .RES.L      MOST_LIGHTS*LT_SIZE/4
+        ; 291 more words, which nothing addresses
+        .RES.L      291
+
+        .END

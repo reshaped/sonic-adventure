@@ -1,0 +1,33 @@
+; the 64-bit products of two words, unsigned and signed
+
+        .EXPORT     _UTY_Dmulu
+        .EXPORT     _UTY_Dmuls
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void UTY_Dmulu(Uint32 a, Uint32 b, struct uty_uint64 *prod)
+; store the unsigned 64-bit product of a and b at prod: its high word in
+; prod->hi and its low word in prod->lo
+; @asm opcode: dmulu, DMULU.L R4,R5 at 0x8cedc8b8 forms the unsigned 64-bit
+; product
+_UTY_Dmulu:
+        DMULU.L     R4,R5
+        ADD         #8,R6
+        STS.L       MACL,@-R6
+        RTS
+        STS.L       MACH,@-R6
+        .ALIGN      4
+
+; void UTY_Dmuls(Sint32 a, Sint32 b, struct uty_sint64 *prod)
+; store the signed 64-bit product of a and b at prod: its high word in
+; prod->hi and its low word in prod->lo
+; @asm opcode: dmuls, DMULS.L R4,R5 at 0x8cedc8c4 forms the signed 64-bit
+; product
+_UTY_Dmuls:
+        DMULS.L     R4,R5
+        ADD         #8,R6
+        STS.L       MACL,@-R6
+        RTS
+        STS.L       MACH,@-R6
+
+        .END

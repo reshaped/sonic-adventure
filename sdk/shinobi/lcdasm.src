@@ -1,0 +1,145 @@
+; the VMU LCD's image copies. each packs the 48 by 32 pixels at src, a byte
+; each, into the LCD_SIZE bytes at dst, a bit each. a pixel's bit is set
+; where its byte has bit 3, PIXEL_MASK, set
+
+        .EXPORT     _pdVmsLcdBltAsmFlipH
+        .EXPORT     _pdVmsLcdBltAsmFlipV
+        .EXPORT     _pdVmsLcdBltAsmFlipHV
+        .EXPORT     _pdVmsLcdBltAsm
+
+; an LCD image's rows, each row's bytes, and the image's bytes
+ROWS:           .EQU    32
+ROW_BYTES:      .EQU    6
+LCD_SIZE:       .EQU    ROWS*ROW_BYTES
+; the mask of bit 3, the bit of a pixel's byte at src that sets the pixel's
+; bit at dst
+PIXEL_MASK:     .EQU    8
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void pdVmsLcdBltAsmFlipV(void *dst, void *src)
+; pack src into dst upside down, src's first row into dst's last. each byte's
+; first pixel takes bit 7
+; @asm name: lcdasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c65f794
+_pdVmsLcdBltAsmFlipV:
+        MOV.W       #LCD_SIZE-ROW_BYTES,R1
+        MOV         #ROWS,R2
+        ADD         R1,R4
+flipv_row:
+        MOV         #ROW_BYTES,R3
+flipv_byte:
+        MOV         #0,R6
+        MOV.W       #H'0080,R1
+        MOV         #8,R7
+flipv_pixel:
+        MOV.B       @R5+,R0
+        TST         #PIXEL_MASK,R0
+        BT          flipv_next
+        OR          R1,R6
+flipv_next:
+        SHLR        R1
+        DT          R7
+        BF          flipv_pixel
+        MOV.B       R6,@R4
+        ADD         #1,R4
+        DT          R3
+        BF          flipv_byte
+        DT          R2
+        BF/S        flipv_row
+        ADD         #-2*ROW_BYTES,R4        ; back to the row above's first byte
+        RTS
+        NOP
+
+; void pdVmsLcdBltAsmFlipH(void *dst, void *src)
+; pack src into dst mirrored, each row from its last byte back. each byte's
+; first pixel takes bit 0
+; @asm name: lcdasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c65f7c6
+_pdVmsLcdBltAsmFlipH:
+        MOV         #ROWS,R2
+        ADD         #ROW_BYTES-1,R4
+fliph_row:
+        MOV         #ROW_BYTES,R3
+fliph_byte:
+        MOV         #0,R6
+        MOV         #1,R1
+        MOV         #8,R7
+fliph_pixel:
+        MOV.B       @R5+,R0
+        TST         #PIXEL_MASK,R0
+        BT          fliph_next
+        OR          R1,R6
+fliph_next:
+        SHLL        R1
+        DT          R7
+        BF          fliph_pixel
+        MOV.B       R6,@R4
+        ADD         #-1,R4
+        DT          R3
+        BF          fliph_byte
+        DT          R2
+        BF/S        fliph_row
+        ADD         #2*ROW_BYTES,R4         ; on to the row below's last byte
+        RTS
+        NOP
+
+; void pdVmsLcdBltAsmFlipHV(void *dst, void *src)
+; pack src into dst turned half a turn, from dst's last byte back. each
+; byte's first pixel takes bit 0
+; @asm name: lcdasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c65f7f2
+_pdVmsLcdBltAsmFlipHV:
+        MOV.W       #LCD_SIZE,R1
+        MOV         #ROWS,R2
+        ADD         R1,R4
+fliphv_row:
+        MOV         #ROW_BYTES,R3
+fliphv_byte:
+        MOV         #0,R6
+        MOV         #1,R1
+        MOV         #8,R7
+fliphv_pixel:
+        MOV.B       @R5+,R0
+        TST         #PIXEL_MASK,R0
+        BT          fliphv_next
+        OR          R1,R6
+fliphv_next:
+        DT          R7
+        BF/S        fliphv_pixel
+        SHLL        R1
+        MOV.B       R6,@-R4
+        DT          R3
+        BF          fliphv_byte
+        DT          R2
+        BF          fliphv_row
+        RTS
+        NOP
+
+; void pdVmsLcdBltAsm(void *dst, void *src)
+; pack src into dst as it is, from dst's first byte on. each byte's first
+; pixel takes bit 7
+; @asm name: lcdasm_, the 1.20J shinobi.lib member that holds it; it starts at
+; 0x8c65f81e
+_pdVmsLcdBltAsm:
+        MOV.W       #LCD_SIZE,R3
+bltasm_byte:
+        MOV         #0,R6
+        MOV.W       #H'0080,R1
+        MOV         #8,R7
+bltasm_pixel:
+        MOV.B       @R5+,R0
+        TST         #PIXEL_MASK,R0
+        BT          bltasm_next
+        OR          R1,R6
+bltasm_next:
+        SHLR        R1
+        DT          R7
+        BF          bltasm_pixel
+        MOV.B       R6,@R4
+        DT          R3
+        BF/S        bltasm_byte
+        ADD         #1,R4
+        RTS
+        NOP
+        .END

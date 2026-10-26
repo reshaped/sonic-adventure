@@ -1,0 +1,12 @@
+/* the pvms the stage loads */
+#ifndef B_E101_PVMS_H
+#define B_E101_PVMS_H
+
+#include "system/texture.h"
+
+/* the pvms texture_load_stage loads for the stage. 1ST_READ.BIN's
+ * stage_pvms reaches the list by its address, 0x0c9000a0, not by its
+ * name */
+extern struct texture_pvm e101_pvms[];
+
+#endif

@@ -1,0 +1,37 @@
+# EV0031.PRS, Sonic arrives at Tails' crash site
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80cb0
+C          0x0cb80cb0  0x0cb80d60
+D          0x0cb80d60  0x0cb8f7e4
+B          0x0cb8f7e8  0x0cb8f824
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0031/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0031/script.c               P        0x0cb80008  0x0cb805a0
+events/ev0031/script.c               C        0x0cb80cb0  0x0cb80cd2
+events/ev0031/script.c               D        0x0cb80d60  0x0cb80d7c
+# follows script.c with no fill; as one file, the code runs 4 bytes shorter. 200 of its 1,592 bytes differ
+events/ev0031/prop.c                 P        0x0cb805a0  0x0cb80644
+events/shared/dust.c                  P        0x0cb80644  0x0cb80764
+events/shared/dust.c                  B        0x0cb8f7e8  0x0cb8f824
+events/shared/fade.c                  P        0x0cb80764  0x0cb808f0
+events/shared/fade.c                  D        0x0cb8f7b8  0x0cb8f7d8
+events/shared/sound.c                 P        0x0cb808f0  0x0cb80cb0
+events/shared/sound.c                 D        0x0cb8f7d8  0x0cb8f7e4
+# position keys of a node of ev0031_tails_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. of the code that links between script.c and fade.c, dust.c links in events without it. prop.c, which links only in events that have it, could hold it, though its code doesn't read it, or it is an object of data alone, or script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80da0, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0031/dat_0cb80d80.c          D        0x0cb80d80  0x0cb80da0
+# the names of the textures that the texture name table at 0x0cb8b238 in this object's data names: after the table at 0x0cb8b238, each item to a material at 0x0cb8b30c starts off 8, so they share its object. the names and the data from 0x0cb8b238 to 0x0cb8b320 in D are the least those joins make one object's, and this source holds no more. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 1 byte short of D on 8. they are script.c's, though its code doesn't read them, were the 6 bytes before them and the 4 bytes after its data, dat_0cb80d80.c's data and the data from there to the table its too; prop.c's, which has no constants or data row and can link between them, though its code doesn't read them; dat_0cb80d80.c's, which has no constants row and can link between them, were the data from its own data to the table its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. dust.c can't hold them: it links in events without them. fade.c can't hold them: it links in events without them. the 6 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the byte of 0xff after them is this object's padding or data, or the linker's fill. nothing points into the 6 bytes before them and the byte after them, to D, and the fill rule takes them as the linker's fill
+events/ev0031/dat_0cb8b238.c          C        0x0cb80cd8  0x0cb80d5f
+# its data, from 0x0cb8b238 to 0x0cb8b320: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. the generator had left pointer words at 0x0cb8b238 (a texture name table and its texlist). the source types them as consistent with the words they hold, and nothing reads the texlist at 0x0cb8b304: no word in this event or 1ST_READ.BIN points at it. it starts on 8 after the 4 bytes of 0xff after sonic_action_1.c's data, which ends 4 past 8: the linker's fill, as the fill rule takes them, or a last word of sonic_action_1.c's object, and nothing points into them. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data after it. dat_0cb8b30c, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev0031/dat_0cb8b238.c          D        0x0cb8b238  0x0cb8b320
+# ev0031_sonic_action_1 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to dat_0cb8b238.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. the motion meets its motion data, at 0x0cb8ad90, on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. they are dat_0cb80d80.c's, were the generated data between them its too; script.c's, whose code reads the action, were the 4 bytes after its data, dat_0cb80d80.c's data and the generated data from there to them its too; prop.c's, which has no data row and can link where they lie, though its code doesn't read them; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here, which may hold some of the generated data before them too. dust.c can't hold them: it links in events without them
+events/ev0031/sonic_action_1.c        D        0x0cb8b220  0x0cb8b234
+#
+# generated data ranges
+gen/ev0031/d_0cb80da0.c               D        0x0cb80da0  0x0cb8b220
+gen/ev0031/d_0cb8b320.c               D        0x0cb8b320  0x0cb8f7b8

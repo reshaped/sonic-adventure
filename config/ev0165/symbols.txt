@@ -1,0 +1,36 @@
+# EV0165.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0165_head
+0x0cb80008  ev0165_script
+0x0cb8036c  event_light_destroy
+0x0cb80372  event_light_draw
+0x0cb80376  event_light_step
+0x0cb803e8  event_light_create
+0x0cb804a0  event_sound_destroy
+0x0cb804b0  event_sound_step
+0x0cb80552  event_sound_hold
+0x0cb805b2  event_sound_move_volume
+0x0cb805d8  event_sound_move_pan
+0x0cb805fe  event_sound_move_pitch
+0x0cb80624  event_sound_init
+0x0cb8064c  event_sound_stop_all
+0x0cb806aa  event_sound_start
+0x0cb806ea  event_sound_stop
+0x0cb80764  event_sound_fade_volume
+0x0cb80790  event_sound_fade_pan
+0x0cb807bc  event_sound_fade_pitch
+0x0cb807e8  event_sound_play
+0x0cb808c0  ev0165_light_points
+0x0cb82640  ev0165_light_path
+0x0cb82648  ev0165_light
+0x0cb8264c  ev0165_textures
+0x0cb82658  dat_0cb82658
+0x0cb86094  ev0165_sonic_action_0
+0x0cb88bb8  ev0165_sonic_action_1
+0x0cb8a700  dat_0cb8a700
+0x0cb8ab90  ev0165_sonic_motion_2
+0x0cb8ab9c  ev0165_sonic_action_2
+0x0cb8aba8  event_sound_count
+0x0cb8abac  event_sounds
+0x0cb8abb0  event_sound_next

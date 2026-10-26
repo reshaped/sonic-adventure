@@ -1,0 +1,34 @@
+# EV0032.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0032_head
+0x0cb80008  ev0032_script
+0x0cb80dc4  event_sound_destroy
+0x0cb80dd4  event_sound_step
+0x0cb80e76  event_sound_hold
+0x0cb80ed6  event_sound_move_volume
+0x0cb80efc  event_sound_move_pan
+0x0cb80f22  event_sound_move_pitch
+0x0cb80f48  event_sound_init
+0x0cb80f70  event_sound_stop_all
+0x0cb80fce  event_sound_start
+0x0cb8100e  event_sound_stop
+0x0cb81088  event_sound_fade_volume
+0x0cb810b4  event_sound_fade_pan
+0x0cb810e0  event_sound_fade_pitch
+0x0cb8110c  event_sound_play
+0x0cb81440  ev0032_emerald
+0x0cb81444  ev0032_textures
+0x0cb81460  dat_0cb81460
+0x0cb8262c  ev0032_sonic_action
+0x0cb85520  ev0032_tails_action
+0x0cb85528  ev0032_emerald_textures
+0x0cb85534  ev0032_emerald_texlist
+0x0cb8553c  dat_0cb8553c
+0x0cb8631c  dat_0cb8631c
+0x0cb86890  dat_0cb86890
+0x0cb868e0  ev0032_emerald_motion
+0x0cb868ec  ev0032_emerald_action
+0x0cb868f8  event_sound_count
+0x0cb868fc  event_sounds
+0x0cb86900  event_sound_next

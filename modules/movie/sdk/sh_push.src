@@ -1,0 +1,55 @@
+; FR12 to FR15 and the second FPU bank, stored to memory and loaded back
+
+        .EXPORT     _UTY_PushFr
+        .EXPORT     _UTY_PopFr
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; void UTY_PushFr(void *save)
+; store FR12 to FR15 and the second bank, 80 bytes, in pairs down from save +
+; 87 rounded down to 8. FR12 and FR13 go highest, then FR14 and FR15, then XD0
+; to XD14. a 4-byte aligned save needs 84 bytes
+; @asm operand: fschg-pairs, FMOV DR12,@-R4 at 0x8cedc8d8 and FMOV DR14,@-R4 at
+; 0x8cedc8da store pairs in the run FSCHG at 0x8cedc8d0 opens
+_UTY_PushFr:
+        FSCHG                               ; FMOV moves pairs to the next FSCHG
+        ADD         #87,R4
+        MOV         #-8,R1
+        AND         R1,R4
+        FMOV        DR12,@-R4
+        FMOV        DR14,@-R4
+        FMOV        XD0,@-R4
+        FMOV        XD2,@-R4
+        FMOV        XD4,@-R4
+        FMOV        XD6,@-R4
+        FMOV        XD8,@-R4
+        FMOV        XD10,@-R4
+        FMOV        XD12,@-R4
+        FMOV        XD14,@-R4
+        RTS
+        FSCHG
+
+; void UTY_PopFr(void *save)
+; load back what UTY_PushFr stored at the same save: the 80 bytes up from
+; save + 7 rounded down to 8
+; @asm operand: fschg-pairs, FMOV @R4+,DR14 at 0x8cedc908 and FMOV @R4+,DR12 at
+; 0x8cedc90a load pairs in the run FSCHG at 0x8cedc8f0 opens
+_UTY_PopFr:
+        FSCHG                               ; FMOV moves pairs to the next FSCHG
+        ADD         #7,R4
+        MOV         #-8,R1
+        AND         R1,R4
+        FMOV        @R4+,XD14
+        FMOV        @R4+,XD12
+        FMOV        @R4+,XD10
+        FMOV        @R4+,XD8
+        FMOV        @R4+,XD6
+        FMOV        @R4+,XD4
+        FMOV        @R4+,XD2
+        FMOV        @R4+,XD0
+        FMOV        @R4+,DR14
+        FMOV        @R4+,DR12
+        RTS
+        FSCHG
+
+        .END

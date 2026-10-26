@@ -1,0 +1,49 @@
+# EV0060.PRS, the start of Amy's story: Amy misses her days of chasing Sonic in Station Square
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb84200
+C          0x0cb84200  0x0cb846f8
+D          0x0cb846f8  0x0cbea3c0
+B          0x0cbea3c0  0x0cbea3fc
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0060/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0060/script.c               P        0x0cb80008  0x0cb81d30
+events/ev0060/script.c               C        0x0cb84200  0x0cb84432
+events/ev0060/script.c               D        0x0cb846f8  0x0cb84f6c
+events/shared/sprite.c                P        0x0cb81d30  0x0cb8252c
+events/shared/sprite.c                C        0x0cb84678  0x0cb846f7
+events/shared/sprite.c                D        0x0cbe9f60  0x0cbea200
+events/shared/black.c                 P        0x0cb8252c  0x0cb82608
+events/shared/black.c                 D        0x0cbea200  0x0cbea254
+events/shared/picture.c               P        0x0cb82608  0x0cb82764
+events/shared/picture.c               D        0x0cbea258  0x0cbea28c
+events/shared/move.c                  P        0x0cb82764  0x0cb83288
+events/shared/move.c                  D        0x0cbea290  0x0cbea2b8
+events/shared/mover.c                 P        0x0cb83288  0x0cb83a20
+events/shared/dust.c                  P        0x0cb83a20  0x0cb83b40
+events/shared/dust.c                  B        0x0cbea3c0  0x0cbea3fc
+events/shared/fade.c                  P        0x0cb83b40  0x0cb83ccc
+events/shared/fade.c                  D        0x0cbea2b8  0x0cbea2d8
+events/shared/sound.c                 P        0x0cb83ccc  0x0cb8408c
+events/shared/sound.c                 D        0x0cbea2d8  0x0cbea2e4
+events/shared/floor.c                 P        0x0cb8408c  0x0cb841a4
+events/shared/floor.c                 D        0x0cbea2e8  0x0cbea3c0
+events/shared/shapes.c                P        0x0cb841a4  0x0cb841fc
+# the names its table points at, its object's constants: they start on 8, past where script.c's next string would start on 4
+events/ev0060/bag_textures.c          C        0x0cb84438  0x0cb84498
+# the names of the textures ev0060_bag_texlist lists. it meets an action at 0x0cb9e0b8 on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the action before it, were the table that object's too. ev0060_bag_texlist meets it on 8 with no fill at 0x0cb9e120: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/ev0060/bag_textures.c          D        0x0cb9e0c0  0x0cb9e120
+# position keys of a node of ev0060_amy_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and sprite.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb85170, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0060/dat_0cb84f70.c          D        0x0cb84f70  0x0cb85170
+#
+# generated data ranges
+# the names of the textures that the 7 texture name tables at 0x0cba7454, 0x0cbb02ec, 0x0cbbde5c, 0x0cbc6214, 0x0cbd3f30, 0x0cbe0330 and 0x0cbe7ac0 in the generated data name: the table at 0x0cba7454 starts off 8, straight after an action at 0x0cba744c, so it shares that item's object. after the table at 0x0cba7454, each item to words at 0x0cba74d4 starts off 8, so they share its object. the tables at 0x0cbb02ec and 0x0cbc6214 share names, so they are one file's, with the data between them. the names of the table at 0x0cbbde5c lie between those of the tables at 0x0cbb02ec and 0x0cbc6214, one file's, so they are that file's too. the table at 0x0cbb02ec starts off 8, straight after pointer words at 0x0cbb02e4, so it shares that item's object. after the table at 0x0cbb02ec, each item to a model's node at 0x0cbb0354 starts off 8, so they share its object. the table at 0x0cbbde5c starts off 8, straight after pointer words at 0x0cbbde54, so it shares that item's object. after the table at 0x0cbbde5c, each item to a model's node at 0x0cbbdeac starts off 8, so they share its object. the table at 0x0cbc6214 starts off 8, straight after pointer words at 0x0cbc620c, so it shares that item's object. after the table at 0x0cbc6214, each item to a model's node at 0x0cbc6264 starts off 8, so they share its object. after the table at 0x0cbd3f30, each item to a model's node at 0x0cbd3f8c starts off 8, so they share its object. after the table at 0x0cbe0330, each item to strips at 0x0cbe0384 starts off 8, so they share its object. after the table at 0x0cbe7ac0, each item to a motion at 0x0cbe9f4c starts off 8, so they share its object. nothing ties together the names of the 5 groups, those of the table at 0x0cba7454, those of the tables at 0x0cbb02ec, 0x0cbbde5c and 0x0cbc6214, those of the table at 0x0cbd3f30, those of the table at 0x0cbe0330 and those of the table at 0x0cbe7ac0, so they may be one object's or more. no source holds a group's names that doesn't hold the generated data its tables join, and this row is no evidence of any object's extent. script.c's code reads ev0060_picture_texlist and ev0060_metal_sonic_texlist, which name the tables at 0x0cbe0330 and 0x0cbe7ac0. they start on 8 straight after bag_textures.c's constants, and end straight before sprite.c's constants. each group's names are bag_textures.c's, were the generated data from its own data to their tables and any names before them in this row its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone. script.c, whose code reads ev0060_bag_action_9, ev0060_metal_sonic_texlist and 1 more in that data, can't hold them while bag_textures.c's constants, between its own and them, are bag_textures.c's. sprite.c can't hold them: it links in events without them. the 8 bytes between the groups' names are padding to 4, where one object's next string would start, or the linker's fill. nothing points into the 8 bytes between the groups' names, and the row builds them as the padding its strings take, one object's reading; were the groups several objects', they would be the linker's fill, which the rule takes only between sources
+gen/ev0060/d_0cb84498.c               C        0x0cb84498  0x0cb84678
+gen/ev0060/d_0cb85170.c               D        0x0cb85170  0x0cb9e0c0
+gen/ev0060/d_0cb9e120.c               D        0x0cb9e120  0x0cbc48a0
+gen/ev0060/d_0cbc48a0.c               D        0x0cbc48a0  0x0cbe9f60

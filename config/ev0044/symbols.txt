@@ -1,0 +1,34 @@
+# EV0044.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev0044_head
+0x0cb80008  ev0044_script
+0x0cb802ec  event_white_start
+0x0cb8034e  event_white_start_hold
+0x0cb803b4  event_white_kill
+0x0cb803d0  event_white_init
+0x0cb80434  event_white_step
+0x0cb804ba  event_white_draw
+0x0cb80548  event_white_destroy
+0x0cb80574  event_sound_destroy
+0x0cb80584  event_sound_step
+0x0cb80626  event_sound_hold
+0x0cb80686  event_sound_move_volume
+0x0cb806ac  event_sound_move_pan
+0x0cb806d2  event_sound_move_pitch
+0x0cb806f8  event_sound_init
+0x0cb80720  event_sound_stop_all
+0x0cb8077e  event_sound_start
+0x0cb807be  event_sound_stop
+0x0cb80838  event_sound_fade_volume
+0x0cb80864  event_sound_fade_pan
+0x0cb80890  event_sound_fade_pitch
+0x0cb808bc  event_sound_play
+0x0cb80988  ev0044_textures
+0x0cb82dd0  dat_0cb82dd0
+0x0cb83210  ev0044_tails_motion
+0x0cb8321c  ev0044_tails_action
+0x0cb83228  event_white
+0x0cb83230  event_sound_count
+0x0cb83234  event_sounds
+0x0cb83238  event_sound_next

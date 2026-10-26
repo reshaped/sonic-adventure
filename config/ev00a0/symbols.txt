@@ -1,0 +1,34 @@
+# EV00A0.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00a0_head
+0x0cb80008  ev00a0_script
+0x0cb80658  event_sound_destroy
+0x0cb80668  event_sound_step
+0x0cb8070a  event_sound_hold
+0x0cb8076a  event_sound_move_volume
+0x0cb80790  event_sound_move_pan
+0x0cb807b6  event_sound_move_pitch
+0x0cb807dc  event_sound_init
+0x0cb80804  event_sound_stop_all
+0x0cb80862  event_sound_start
+0x0cb808a2  event_sound_stop
+0x0cb8091c  event_sound_fade_volume
+0x0cb80948  event_sound_fade_pan
+0x0cb80974  event_sound_fade_pitch
+0x0cb809a0  event_sound_play
+0x0cb80a18  event_rays_create
+0x0cb80ab0  event_rays_kill
+0x0cb80acc  event_rays_init
+0x0cb80ada  event_rays_step
+0x0cb80b1e  event_rays_destroy
+0x0cb80be0  ev00a0_textures
+0x0cb83e0c  ev00a0_knuckles_action_0
+0x0cb860d0  ev00a0_knuckles_action_1
+0x0cb88658  dat_0cb88658
+0x0cb887d8  ev00a0_eggman_motion_0
+0x0cb887e4  ev00a0_eggman_action_0
+0x0cb887f0  event_sound_count
+0x0cb887f4  event_sounds
+0x0cb887f8  event_sound_next
+0x0cb88800  event_rays

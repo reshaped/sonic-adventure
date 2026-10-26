@@ -1,0 +1,45 @@
+# EV008A.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev008a_head
+0x0cb80008  ev008a_script
+0x0cb80f3c  find_slot
+0x0cb80f5c  event_move
+0x0cb8104e  event_move_turn_degrees
+0x0cb8120c  event_move_turn
+0x0cb8135a  event_follow
+0x0cb81416  event_follow_turn
+0x0cb8152c  event_follow_angles
+0x0cb815fa  event_follow_facing
+0x0cb81722  event_follow_weld0
+0x0cb817e8  event_follow_weld1
+0x0cb81892  event_move_stop
+0x0cb81976  event_move_stop_all
+0x0cb81a32  event_mover_init
+0x0cb81a60  event_mover_step
+0x0cb821b4  event_mover_draw
+0x0cb821b8  event_mover_destroy
+0x0cb821f8  event_shapes_set_firm
+0x0cb82224  event_shapes_clear_firm_players
+0x0cb82250  ev008a_punch_keys
+0x0cb822e4  ev008a_punch
+0x0cb82428  ev008a_emerald
+0x0cb8242c  ev008a_textures
+0x0cb82450  dat_0cb82450
+0x0cb8359c  ev008a_sonic_action_0
+0x0cb87064  ev008a_sonic_action_1
+0x0cb89018  ev008a_sonic_action_2
+0x0cb8bc3c  ev008a_sonic_action_3
+0x0cb91290  ev008a_sonic_action_4
+0x0cb94c58  ev008a_sonic_action_5
+0x0cb970bc  ev008a_knuckles_action_0
+0x0cb9a020  ev008a_knuckles_action_1
+0x0cb9c0c4  ev008a_knuckles_action_2
+0x0cb9e350  ev008a_emerald_textures
+0x0cb9e35c  ev008a_emerald_texlist
+0x0cb9e364  dat_0cb9e364
+0x0cb9f144  dat_0cb9f144
+0x0cb9f298  dat_0cb9f298
+0x0cb9f310  ev008a_emerald_motion
+0x0cb9f31c  ev008a_emerald_action
+0x0cb9f328  event_movers

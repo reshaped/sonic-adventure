@@ -1,0 +1,150 @@
+; SH-4 register, cache and matrix helpers
+
+        .IMPORT     __nj_current_matrix_ptr_
+        .EXPORT     __SetSR
+        .EXPORT     __SetSP
+        .EXPORT     __GetSP
+        .EXPORT     __CashOn
+        .EXPORT     _point_calc
+        .EXPORT     _matrix_load
+        .EXPORT     _point_calc_loaded
+
+; CCR, the cache control register, and the value that turns both caches on
+; with P1 in copy-back mode
+CCR:            .EQU    H'FF00001C
+CCR_ON:         .EQU    H'00000105      ; ICE, CB and OCE
+
+        .SECTION    P,CODE,ALIGN=32
+
+; void _SetSR(Uint32 sr)
+; set SR to sr
+; @asm open: every instruction is one SHC writes for C
+__SetSR:
+        LDC         R4,SR
+        RTS
+        NOP
+
+; void _SetSP(void *sp)
+; set the stack pointer to sp
+; @asm abi: stack-written, MOV R4,R15 at 0x8c010388 sets the stack pointer
+__SetSP:
+        RTS
+        MOV         R4,R15
+
+; void *_GetSP(void)
+; return the stack pointer
+; @asm open: every instruction is one SHC writes for C
+__GetSP:
+        RTS
+        MOV         R15,R0
+
+; void _CashOn(void)
+; set CCR to CCR_ON: both caches on, P1 in copy-back mode, and every other
+; bit clear
+; @asm open: no inspect rule reads its MOV.L of H'105, where C writes MOV.W
+__CashOn:
+        MOV.L       #CCR_ON,R0
+        MOV.L       #CCR,R1
+        RTS
+        MOV.L       R0,@R1
+
+; void point_calc(NJS_MATRIX *matrix, NJS_POINT3 *point, NJS_POINT3 *out)
+; transform point, with w 1, by matrix, or by Ninja's current matrix when
+; matrix is NULL, and write the result to out. the matrix stays in XMTRX
+; for point_calc_loaded. the loads after the FRCHG at 0x8c0103b2 fill XF0,
+; XF4, XF8, XF12, XF1 and on, so XMTRX takes the matrix by rows, the
+; transpose of Ninja's order. FTRV then computes the matrix times
+; (x, y, z, 1): unlike njCalcPoint, the w term adds the matrix's floats 3,
+; 7 and 11, not 12 to 14
+; @asm open: no inspect rule reads the transposed order of its loads after FRCHG
+_point_calc:
+        FMOV.S      @R5+,FR0
+        MOV.L       #?one,R0
+        FMOV.S      @R5+,FR1
+        FMOV.S      @R0,FR3
+        TST         R4,R4
+        BF/S        ?load
+        FMOV.S      @R5+,FR2
+        MOV.L       #__nj_current_matrix_ptr_,R4
+        MOV.L       @R4,R4
+?load:
+        FRCHG
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R4+,FR8
+        FMOV.S      @R4+,FR12
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR5
+        FMOV.S      @R4+,FR9
+        FMOV.S      @R4+,FR13
+        FMOV.S      @R4+,FR2
+        FMOV.S      @R4+,FR6
+        FMOV.S      @R4+,FR10
+        FMOV.S      @R4+,FR14
+        FMOV.S      @R4+,FR3
+        FMOV.S      @R4+,FR7
+        FMOV.S      @R4+,FR11
+        FMOV.S      @R4+,FR15
+        FRCHG
+        FTRV        XMTRX,FV0
+        ADD         #12,R6                  ; z, y and x, down from out's end
+        FMOV.S      FR2,@-R6
+        FMOV.S      FR1,@-R6
+        RTS
+        FMOV.S      FR0,@-R6
+?one:
+        .FDATA.S    F'1.0
+
+; void matrix_load(NJS_MATRIX *matrix)
+; load matrix into XMTRX, or Ninja's current matrix when matrix is NULL,
+; for point_calc_loaded. the loads after the FRCHG at 0x8c0103f8 fill XF0,
+; XF4, XF8, XF12, XF1 and on, so XMTRX takes the matrix by rows, the
+; transpose of Ninja's order, as in point_calc
+; @asm open: no inspect rule reads the transposed order of its loads after FRCHG
+_matrix_load:
+        TST         R4,R4
+        BF          ?load
+        MOV.L       #__nj_current_matrix_ptr_,R4
+        MOV.L       @R4,R4
+?load:
+        FRCHG
+        FMOV.S      @R4+,FR0
+        FMOV.S      @R4+,FR4
+        FMOV.S      @R4+,FR8
+        FMOV.S      @R4+,FR12
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R4+,FR5
+        FMOV.S      @R4+,FR9
+        FMOV.S      @R4+,FR13
+        FMOV.S      @R4+,FR2
+        FMOV.S      @R4+,FR6
+        FMOV.S      @R4+,FR10
+        FMOV.S      @R4+,FR14
+        FMOV.S      @R4+,FR3
+        FMOV.S      @R4+,FR7
+        FMOV.S      @R4+,FR11
+        FMOV.S      @R4+,FR15
+        RTS
+        FRCHG
+
+; void point_calc_loaded(NJS_POINT3 *point, NJS_POINT3 *out)
+; transform point, with w 1, by the matrix point_calc or matrix_load left
+; in XMTRX, and write the result to out
+; @asm open: no inspect rule reads FV0 filled by three loads and a pool 1.0
+; before its FTRV
+_point_calc_loaded:
+        FMOV.S      @R4+,FR0
+        MOV.L       #?one,R0
+        FMOV.S      @R4+,FR1
+        FMOV.S      @R0,FR3
+        FMOV.S      @R4+,FR2
+        FTRV        XMTRX,FV0
+        ADD         #12,R5
+        FMOV.S      FR2,@-R5
+        FMOV.S      FR1,@-R5
+        RTS
+        FMOV.S      FR0,@-R5
+?one:
+        .FDATA.S    F'1.0
+
+        .END

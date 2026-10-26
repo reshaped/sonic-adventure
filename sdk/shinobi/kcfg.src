@@ -1,0 +1,44 @@
+; the boot ROM's console settings services. each entry puts its service's
+; number in R7 and jumps through the vector at SYSCALL. R4 to R6 reach the
+; service as the caller left them
+
+        .EXPORT     _kbCfgIni
+        .EXPORT     _kbCfgGetIcon
+        .EXPORT     _kbCfgGetId
+
+; the word that holds the boot ROM's entry for these services
+SYSCALL:        .EQU    H'8C0000B0
+
+        .SECTION    P,CODE,ALIGN=4
+
+; void kbCfgIni(Sint32 which)
+; @asm operand: small-constant, MOV.L at 0x8c11b7d0 loads its service, 0, from
+; the pool
+_kbCfgIni:
+        MOV.L       #0,R7
+        MOV.L       #SYSCALL,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; Sint32 kbCfgGetIcon(Sint32 icon, void *dest)
+; copy icon, one of the boot ROM's icons, into dest
+; @asm operand: small-constant, MOV.L at 0x8c11b7e4 loads its service, 2, from
+; the pool
+_kbCfgGetIcon:
+        MOV.L       #2,R7
+        MOV.L       #SYSCALL,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+
+; void *kbCfgGetId(void)
+; @asm operand: small-constant, MOV.L at 0x8c11b7f8 loads its service, 3, from
+; the pool
+_kbCfgGetId:
+        MOV.L       #3,R7
+        MOV.L       #SYSCALL,R0
+        MOV.L       @R0,R0
+        JMP         @R0
+        NOP
+        .END

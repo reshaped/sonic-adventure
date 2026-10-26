@@ -1,0 +1,33 @@
+# EV0013.PRS, Amy takes Sonic to Twinkle Park
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82730
+C          0x0cb82730  0x0cb82b40
+D          0x0cb82b40  0x0cb94d84
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0013/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0013/script.c               P        0x0cb80008  0x0cb80f28
+events/ev0013/script.c               C        0x0cb82730  0x0cb82ab3
+events/ev0013/script.c               D        0x0cb82b40  0x0cb82b68
+events/shared/move.c                  P        0x0cb80f28  0x0cb81a4c
+events/shared/move.c                  D        0x0cb94d30  0x0cb94d58
+events/shared/mover.c                 P        0x0cb81a4c  0x0cb821e4
+events/shared/fade.c                  P        0x0cb821e4  0x0cb82370
+events/shared/fade.c                  D        0x0cb94d58  0x0cb94d78
+events/shared/sound.c                 P        0x0cb82370  0x0cb82730
+events/shared/sound.c                 D        0x0cb94d78  0x0cb94d84
+# ev0013_bird_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to move.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb947c0 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. the same two items, but for the words that point into the image, end the data before move.c's in EV0062 and EV0063, where each event's own source holds them: consistent with one object that each event links. script.c reads the action, and places its data elsewhere
+events/ev0013/bird_action.c           D        0x0cb94d18  0x0cb94d2c
+# the names of the textures that the texture name table at 0x0cb8e4b4 in this object's data names: the table at 0x0cb8e4b4 starts off 8, straight after an action at 0x0cb8e4ac, so it shares that item's object. after the table at 0x0cb8e4b4, each item to a material at 0x0cb8e54c starts off 8, so they share its object. the names and the data from 0x0cb8e4a0 to 0x0cb8e560 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev0013_bird_texlist, which names the table at 0x0cb8e4b4. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 6 bytes short of D on 8. they are script.c's, whose code reads ev0013_amy_action and ev0013_bird_texlist, were the 5 bytes before them and the data from its own data to the table its too; bird_action.c's, which has no constants row and can link between them, were the data from the table to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. the 5 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the 6 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 5 bytes before them and the 6 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/ev0013/amy_action.c            C        0x0cb82ab8  0x0cb82b3a
+# its data, from 0x0cb8e4a0 to 0x0cb8e560: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb8e54c, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV0063, EV0065, EV0072 and EV00BF hold the same bytes, but for the words that point into the image. equal bytes don't make one object linked twice, and nothing here shows more, so the build keeps it the event's own
+events/ev0013/amy_action.c            D        0x0cb8e4a0  0x0cb8e560
+#
+# generated data ranges
+gen/ev0013/d_0cb82b68.c               D        0x0cb82b68  0x0cb8e4a0
+gen/ev0013/d_0cb8e560.c               D        0x0cb8e560  0x0cb94d18

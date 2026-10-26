@@ -1,0 +1,31 @@
+# EV0070.PRS, Amy decides to look for the bird's family on the Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81ba8
+C          0x0cb81ba8  0x0cb81d40
+D          0x0cb81d40  0x0cb909d4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0070/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0070/script.c                P        0x0cb80008  0x0cb8052c
+events/ev0070/script.c                C        0x0cb81ba8  0x0cb81cb6
+events/ev0070/script.c                D        0x0cb81d40  0x0cb81d54
+events/shared/move.c                  P        0x0cb8052c  0x0cb81050
+events/shared/move.c                  D        0x0cb909a0  0x0cb909c8
+events/shared/mover.c                 P        0x0cb81050  0x0cb817e8
+events/shared/sound.c                 P        0x0cb817e8  0x0cb81ba8
+events/shared/sound.c                 D        0x0cb909c8  0x0cb909d4
+# the names its table points at, its object's constants: they start on 8 at 0x0cb81cb8, after script.c. the object is the same in the 3 events that link it, and in EV004D and EV006F other bytes come before its names, so its constants start here
+events/shared/bird_textures.c         C        0x0cb81cb8  0x0cb81d3a
+# the names of the textures the script's bird texlist lists. it meets an action at 0x0cb8a120 on 8 with no fill: one file or two build the same, so it is an object's of data alone, as built, or that of the object holding the action before it, were the table that object's too. its bytes are the same in EV004D and EV006F but for the words that point at its names. the table and the texlist after it match in those events, and the words before the table and after the texlist differ in EV004D, which is consistent with one object of the two. ev0070_bird_texlist meets it on 8 with no fill at 0x0cb8a1b8: one file or two build the same, and its pointer at the table is consistent with one object, not proof: the object holding the texlist could hold the table instead. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/bird_textures.c         D        0x0cb8a128  0x0cb8a1b8
+# position keys of a node of ev0070_amy_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and move.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb81f38, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev0070/dat_0cb81d58.c          D        0x0cb81d58  0x0cb81f38
+#
+# generated data ranges
+gen/ev0070/d_0cb81f38.c               D        0x0cb81f38  0x0cb8a128
+gen/ev0070/d_0cb8a1b8.c               D        0x0cb8a1b8  0x0cb909a0

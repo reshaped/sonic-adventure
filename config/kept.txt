@@ -1,0 +1,180 @@
+# The words the shift test finds keeping a value in their image's span that
+# take no name, and why. A row without an end gives one word. A reason says
+# how the image reads the word: as a datum, by its name and type in the C;
+# in code, as "two instructions", which no MOV.L, MOV.W or MOVA reads, or as
+# halfwords: "two 16-bit literals", which MOV.W reads, and "two offsets in a
+# switch's table", which MOV.W @(R0,Rn) reads before a BRAF
+#
+# image     start       end         reason
+1st_read  0x8c016338  two instructions
+1st_read  0x8c01725c  two instructions
+1st_read  0x8c017600  two instructions
+1st_read  0x8c020fdc  two instructions
+1st_read  0x8c029d40  two instructions
+1st_read  0x8c0410a8  two instructions
+1st_read  0x8c041100  two instructions
+1st_read  0x8c041158  two instructions
+1st_read  0x8c0411b0  two instructions
+1st_read  0x8c0419f8  two instructions
+1st_read  0x8c041a38  two instructions
+1st_read  0x8c0420cc  two instructions
+1st_read  0x8c043ab0  two instructions
+1st_read  0x8c043adc  two instructions
+1st_read  0x8c043b6c  two instructions
+1st_read  0x8c04d544  two instructions
+1st_read  0x8c04fad0  two offsets in a switch's table
+1st_read  0x8c04fad8  two offsets in a switch's table
+1st_read  0x8c06fd5c  two instructions
+1st_read  0x8c0730a0  two instructions
+1st_read  0x8c0763c0  two instructions
+1st_read  0x8c08655c  two instructions
+1st_read  0x8c08aaf0  0x8c08aef2  ?atan_table's angles, 16 bits each
+1st_read  0x8c08af80  0x8c08b382  asin_table's angles, 16 bits each
+1st_read  0x8c08e560  two 16-bit literals
+1st_read  0x8c0a6e30  two instructions
+1st_read  0x8c0a705c  two instructions
+1st_read  0x8c0a7cc8  two instructions
+1st_read  0x8c0a7d68  two instructions
+1st_read  0x8c0ab414  two instructions
+1st_read  0x8c0adaf4  two offsets in a switch's table
+1st_read  0x8c0bbd2c  two instructions
+1st_read  0x8c0bd454  two offsets in a switch's table
+1st_read  0x8c0c868c  two offsets in a switch's table
+1st_read  0x8c0d3b78  two instructions
+1st_read  0x8c0d49a8  two offsets in a switch's table
+1st_read  0x8c0db43c  two instructions
+1st_read  0x8c0e0090  two offsets in a switch's table
+1st_read  0x8c0e0fb0  two offsets in a switch's table
+1st_read  0x8c0e4da4  two instructions
+1st_read  0x8c0f9e44  two instructions
+1st_read  0x8c0fa0a8  two instructions
+1st_read  0x8c0fbab0  two instructions
+1st_read  0x8c0fe564  two instructions
+1st_read  0x8c106bf8  two instructions
+1st_read  0x8c111e34  two offsets in a switch's table
+1st_read  0x8c114a00  two instructions
+1st_read  0x8c1190ec  two instructions
+1st_read  0x8c11dce8  two instructions
+1st_read  0x8c11dd9c  two instructions
+1st_read  0x8c11de54  two instructions
+1st_read  0x8c11f178  two instructions
+1st_read  0x8c11f2dc  two instructions
+1st_read  0x8c120f68  two instructions
+1st_read  0x8c121588  two instructions
+1st_read  0x8c12737c  two instructions
+1st_read  0x8c128600  0x8c12861c  TEXT_13, Shift JIS text
+1st_read  0x8c12a1c8  0x8c166480  font_wide's glyphs, Uint32 bitmaps
+1st_read  0x8c166480  0x8c167f80  font_ascii's glyphs, Uint32 bitmaps
+1st_read  0x8c167f80  0x8c167fe0  font_widths, Sint8 widths
+1st_read  0x8c16f724  0x8c16f730  TEXT_7, Shift JIS text
+1st_read  0x8c1727d0  0x8c173b80  chao_pictures, Uint8 pixels
+1st_read  0x8c173b80  0x8c174780  screen_pictures, Uint8 pixels
+1st_read  0x8c175090  vib_roots, Uint8 ports
+1st_read  0x8c175590  fractions, unsigned char
+1st_read  0x8c177e98  stage_kinds, Sint8 kinds
+1st_read  0x8c1aa500  trick_a_points' angles, two Sint16
+1st_read  0x8c1aa808  trick_b_points' angles, two Sint16
+1st_read  0x8c1b2c14  mouth_script_14's keys, Sint8 steps and shapes
+1st_read  0x8c1d549c  e102_stages, Uint16 stages and acts
+1st_read  0x8c5868fc  frog_welds' count and nodes, a Sint16 and two Sint8s
+1st_read  0x8c612588  0x8c612b19  chao_page's text
+1st_read  0x8c612b19  0x8c61381f  player_page's text
+1st_read  0x8c615a78  two instructions
+1st_read  0x8c615ad0  two instructions
+1st_read  0x8c615b28  two instructions
+1st_read  0x8c615b80  two instructions
+1st_read  0x8c6164f0  two instructions
+1st_read  0x8c6165c4  two instructions
+1st_read  0x8c61d928  two instructions
+1st_read  0x8c61dbec  two instructions
+1st_read  0x8c62ac18  two instructions
+1st_read  0x8c62b2a8  two instructions
+1st_read  0x8c62b2dc  two instructions
+1st_read  0x8c62b314  two instructions
+1st_read  0x8c653fd4  two instructions
+1st_read  0x8c65401c  two instructions
+1st_read  0x8c655058  two instructions
+1st_read  0x8c6550dc  two instructions
+1st_read  0x8c656094  two instructions
+1st_read  0x8c6560f0  two instructions
+1st_read  0x8c65614c  two instructions
+1st_read  0x8c6561a8  two instructions
+1st_read  0x8c65aeb0  two instructions
+1st_read  0x8c65ce20  two instructions
+1st_read  0x8c65cfe8  two instructions
+1st_read  0x8c65d00c  two instructions
+1st_read  0x8c65d028  two instructions
+1st_read  0x8c65faa4  two instructions
+1st_read  0x8c65fbc4  two instructions
+1st_read  0x8c65fbc8  two instructions
+1st_read  0x8c65fc18  two instructions
+1st_read  0x8c662bd8  two instructions
+1st_read  0x8c662d80  two instructions
+1st_read  0x8c665e9c  two instructions
+1st_read  0x8c6675e4  two instructions
+1st_read  0x8c667908  two instructions
+1st_read  0x8c66e684  two instructions
+1st_read  0x8c676014  two instructions
+1st_read  0x8c676018  two instructions
+1st_read  0x8c676d7c  two instructions
+1st_read  0x8c678bd8  root_ports, Uint8 ports
+adv00     0x0cb34874  0x0cb348a5  TEXT_30, Shift JIS text
+adv0130   0x0c991cdc  0x0c992614  a model's UVs, pairs of Sint16
+ev0008    0x0cb81a6c  two 16-bit literals
+# EVENT_SOUND_ID's sound ids are addresses in the event's head, or for + 7 the
+# script's, just past it. sound_play_for and sound_play_at_for take them as
+# ids, and none refers to what lies there, so none takes a name. Spelled as the
+# head's name + n, SHC keeps that address and adds n for each id, and ev0065's
+# script.c grows 14 bytes
+ev000b    0x0cb80e14  EVENT_SOUND_ID, a sound id
+ev000b    0x0cb81014  EVENT_SOUND_ID + 1, a sound id
+ev000b    0x0cb81cc8  EVENT_SOUND_ID + 2, a sound id
+ev000c    0x0cb805b0  EVENT_SOUND_ID, a sound id
+ev0016    0x0cb80908  EVENT_SOUND_ID, a sound id
+ev001d    0x0cb80204  EVENT_SOUND_ID, a sound id
+ev001d    0x0cb80558  EVENT_SOUND_ID, a sound id
+ev002b    0x0cb80cd0  EVENT_SOUND_ID, a sound id
+ev002b    0x0cb80d04  EVENT_SOUND_ID + 1, a sound id
+ev002b    0x0cb80ec4  EVENT_SOUND_ID + 2, a sound id
+ev002b    0x0cb80ee8  EVENT_SOUND_ID + 3, a sound id
+ev002b    0x0cb820f4  EVENT_SOUND_ID + 4, a sound id
+ev0034    0x0cb81c74  two 16-bit literals
+ev0034    0x0cb81e50  two 16-bit literals
+ev0039    0x0cb80cac  EVENT_SOUND_ID, a sound id
+ev0039    0x0cb81000  EVENT_SOUND_ID + 1, a sound id
+ev0039    0x0cb81b2c  EVENT_SOUND_ID + 2, a sound id
+ev003a    0x0cb805b0  EVENT_SOUND_ID, a sound id
+ev0065    0x0cb811b0  EVENT_SOUND_ID, a sound id
+ev0065    0x0cb8130c  EVENT_SOUND_ID + 1, a sound id
+ev0065    0x0cb81330  EVENT_SOUND_ID + 2, a sound id
+ev0065    0x0cb814e4  EVENT_SOUND_ID + 3, a sound id
+ev0065    0x0cb81540  EVENT_SOUND_ID + 4, a sound id
+ev0065    0x0cb816c0  EVENT_SOUND_ID + 5, a sound id
+ev0065    0x0cb81718  EVENT_SOUND_ID + 6, a sound id
+ev0065    0x0cb81a4c  EVENT_SOUND_ID + 7, a sound id
+ev008b    0x0cb80e1c  EVENT_SOUND_ID, a sound id
+ev008b    0x0cb8101c  EVENT_SOUND_ID + 1, a sound id
+ev008b    0x0cb81cd0  EVENT_SOUND_ID + 2, a sound id
+ev008c    0x0cb805a8  EVENT_SOUND_ID, a sound id
+ev0099    0x0cb803a4  EVENT_SOUND_ID, a sound id
+ev00bf    0x0cb810b0  EVENT_SOUND_ID, a sound id
+ev00bf    0x0cb810bc  EVENT_SOUND_ID + 1, a sound id
+ev00bf    0x0cb81210  EVENT_SOUND_ID + 2, a sound id
+ev00bf    0x0cb81284  EVENT_SOUND_ID + 3, a sound id
+ev00bf    0x0cb81434  EVENT_SOUND_ID + 4, a sound id
+ev00bf    0x0cb81470  EVENT_SOUND_ID + 5, a sound id
+ev00bf    0x0cb8160c  EVENT_SOUND_ID + 6, a sound id
+ev00bf    0x0cb8180c  EVENT_SOUND_ID + 7, a sound id
+movie     0x8ced4954  two instructions
+shooting  0x0c903488  two instructions
+shooting  0x0c9034dc  two instructions
+stg05     0x0cadd504  0x0cadd541  TEXT_20, Shift JIS text
+stg06     0x0c98886c  0x0c988a1c  a model's UVs, pairs of Sint16
+stg06     0x0c9897d0  0x0c9898b8  a model's UVs, pairs of Sint16
+stg06     0x0c98a8ec  0x0c98ab5c  a model's UVs, pairs of Sint16
+stg06     0x0c98b83c  0x0c98b90c  a model's UVs, pairs of Sint16
+stg06     0x0cae9a94  0x0cae9adc  TEXT_18, Shift JIS text
+stg06     0x0cae9c00  0x0cae9c21  TEXT_26, Shift JIS text
+stg06     0x0cae9c60  0x0cae9c8a  TEXT_29, Shift JIS text
+stg08     0x0c90f1dc  TAILS_BOARD_AREA, where m_sbmot loads, over DFISH: 1ST_READ.BIN reads the board there
+stg08     0x0c9aae14  0x0c9ab374  a model's UVs, pairs of Sint16

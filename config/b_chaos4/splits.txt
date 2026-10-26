@@ -1,0 +1,83 @@
+# B_CHAOS4.PRS, Chaos 4
+#
+# section  start       end
+PHEAD      0x0c900000  0x0c900108
+CHEAD      0x0c900108  0x0c9001d0
+DHEAD      0x0c9001d0  0x0c9002a0
+P          0x0c9002a0  0x0c907dc0
+C          0x0c907dc0  0x0c908440
+D          0x0c908440  0x0c95e494
+B          0x0c95e498  0x0c95e558
+#
+# source                              section  start       end
+# the ribbon on Chaos 4's body, which boss.c starts by chaos4_ribbon: its nodes, constants that open C, the paths its strands run along, which open D, its strands and its record. each path starts straight after the one before, 8 of the 17 after the first off 8, the strands name every path, the strands follow the last path on 8 with no fill and the record follows them so. the bytes are consistent with one object, and one file or two build the same at each on-8 seam. the texture names start on 8, 4 bytes past the nodes, which end where this object's next constant would start on 4. that is consistent with their starting another object, whose textures meet the record on 8 with no fill
+modules/b_chaos4/ribbon.c              C        0x0c907dc0  0x0c907ef4
+modules/b_chaos4/ribbon.c              D        0x0c908440  0x0c9087a8
+# the common, sickle and object textures and the texlists the code and the pvm list name, and the first strips of the model after them, which meshsets past 0x0c908940 name. each list of textures and the texlist after it follow the one before off 8, and the strips follow the object texlist off 8, so all are one object's. boss.c's constants start on 8, 5 bytes past the last name, 4 past where this object's next string would start. the strips' model runs on past 0x0c908940, on 8, and the bytes don't say whether its other data share this object
+modules/b_chaos4/textures.c            C        0x0c907ef8  0x0c907feb
+modules/b_chaos4/textures.c            D        0x0c9087a8  0x0c908940
+modules/b_chaos4/boss.c                P        0x0c9002a0  0x0c901d40
+modules/b_chaos4/boss.c                C        0x0c907ff0  0x0c9080f8
+modules/b_chaos4/boss.c                B        0x0c95e498  0x0c95e4ac
+modules/b_chaos4/camera.c              P        0x0c901d40  0x0c9028e0
+modules/b_chaos4/camera.c              C        0x0c9080f8  0x0c908104
+modules/b_chaos4/camera.c              D        0x0c937a38  0x0c938974
+modules/b_chaos4/camera.c              B        0x0c95e4b0  0x0c95e4f0
+modules/b_chaos4/hit.c                 P        0x0c9028e0  0x0c903020
+modules/b_chaos4/sickle.c              P        0x0c903020  0x0c903a00
+modules/b_chaos4/sickle.c              C        0x0c908108  0x0c90811c
+modules/b_chaos4/sickle.c              D        0x0c938978  0x0c938a7c
+modules/b_chaos4/leap.c                P        0x0c903a00  0x0c903e80
+modules/b_chaos4/leap.c                B        0x0c95e4f0  0x0c95e4f4
+# chaos4_sweep_shapes starts on 32 at 0x0c904920 with no fill; split there, the code builds the same
+modules/b_chaos4/sweep.c               P        0x0c903e80  0x0c904b74
+modules/b_chaos4/sweep.c               C        0x0c908120  0x0c908144
+modules/b_chaos4/sweep.c               D        0x0c938a80  0x0c938a9c
+modules/b_chaos4/util.c                P        0x0c904b80  0x0c905020
+modules/b_chaos4/util.c                C        0x0c908148  0x0c90820b
+modules/b_chaos4/util.c                D        0x0c938aa0  0x0c938bd0
+modules/b_chaos4/util.c                B        0x0c95e4f8  0x0c95e538
+# follows util.c with no fill; as one file, 717 of 4,252 code bytes differ
+modules/b_chaos4/split.c               P        0x0c905020  0x0c905c20
+modules/b_chaos4/split.c               C        0x0c908210  0x0c908240
+modules/b_chaos4/split.c               D        0x0c938bd0  0x0c93e47c
+modules/b_chaos4/surface.c             P        0x0c905c20  0x0c905de0
+modules/b_chaos4/column.c              P        0x0c905de0  0x0c906560
+modules/b_chaos4/column.c              C        0x0c908240  0x0c9082b3
+modules/b_chaos4/column.c              D        0x0c93e480  0x0c93edc8
+# the swamp's root node, and its textures, texlist and next material, which swamp.c and the pvm list name. the textures follow the root node off 8, and the texlist and the material follow them off 8. the root node meets its model on 8 with no fill, and strips meet the material on 8 at 0x0c943560: the bytes don't say whether either shares this object. the names start on 8, 5 bytes past column.c's constants, 4 past where their next string would start
+modules/b_chaos4/numa_textures.c       C        0x0c9082b8  0x0c90835f
+modules/b_chaos4/numa_textures.c       D        0x0c943468  0x0c943560
+# follows column.c with no fill; as one file, 708 of 2,024 code bytes differ
+modules/b_chaos4/counts.c              P        0x0c906560  0x0c9065e0
+modules/b_chaos4/counts.c              B        0x0c95e538  0x0c95e53a
+modules/b_chaos4/pads.c                P        0x0c9065e0  0x0c906ec0
+modules/b_chaos4/pads.c                D        0x0c93edc8  0x0c94153c
+modules/b_chaos4/pads.c                B        0x0c95e540  0x0c95e541
+modules/b_chaos4/swamp.c               P        0x0c906ec0  0x0c907ce0
+modules/b_chaos4/swamp.c               D        0x0c941540  0x0c941548
+modules/b_chaos4/swamp.c               B        0x0c95e548  0x0c95e558
+modules/b_chaos4/chaos4.c              PHEAD    0x0c900000  0x0c900106
+modules/b_chaos4/chaos4.c              P        0x0c907ce0  0x0c907dc0
+modules/b_chaos4/chaos4.c              C        0x0c908430  0x0c908438
+# the list 1ST_READ.BIN's stage_pvms names. its names start CHEAD on 8, 2 bytes past the end of chaos4.c's PHEAD, and its list starts DHEAD
+modules/b_chaos4/pvms.c                CHEAD    0x0c900108  0x0c9001c0
+modules/b_chaos4/pvms.c                DHEAD    0x0c9001d0  0x0c900260
+# the land 1ST_READ.BIN's world_lands names, which nothing in the image reads. its name meets the pvm names on 8 with no fill, and its table meets their list on 8 with no fill: in both sections one file or two build the same.
+modules/b_chaos4/land.c                CHEAD    0x0c9001c0  0x0c9001cd
+modules/b_chaos4/land.c                DHEAD    0x0c900260  0x0c900284
+# the 13 textures, texlist, 72 entries and motion the table names, and the textures' names. the texlist follows the textures off 8, the entries follow it off 8, and the motion follows them off 8, so all are one object's. the textures start on 8 straight after the swamp's bottom's root node, and the names on 8 where the swamp's next string would start on 4 too. one file or two build the same at each, and the bytes leave them to the table's object, one of their own, or the swamp textures', with the models between. chaos4.c's constants start on 8, 4 bytes past the last name. the motion ends 4 past 8, and generated data starts on 8 4 bytes on, at 0x0c946638. the zero word between, which nothing here or in 1ST_READ.BIN points at, is the linker's fill or a last word of this object. that data opens with a model's materials, and its row declares start 8, so the splicer writes the word as the linker's fill: the likelier reading, not a proven one, as that row's note gives
+modules/b_chaos4/land.c                C        0x0c908360  0x0c90842c
+modules/b_chaos4/land.c                D        0x0c945b58  0x0c946634
+# the list 1ST_READ.BIN's object_lists names, on 8, 4 bytes past the land's end, where the land's object's next item would start on 4, and nothing points into the 4 bytes, which is consistent with a separate object. the placement manager reads its count and its kinds' address, 8 bytes. the 16 zero bytes after them, to P's start on 32 at 0x0c9002a0, which nothing points into, are fill, items of its object or an object's of their own, which the bytes leave open. with them in its object, the image builds the same. they are built as fill. its one kind and the kind's name, a named array with a body, follow. the name meets chaos4.c's constants on 8 with no fill, where their next string would start on 4 too, and ends C. the kind starts on 8 straight after the land motion's action and ends D. in B_EGM3 the list follows its kinds off 8, in their object, which is consistent with their sharing the list's here. one file or two build the same, and the bytes leave the kind and its name to the list's object, one of their own, or chaos4.c's, though its code doesn't read them
+modules/b_chaos4/object_list.c         DHEAD    0x0c900288  0x0c900290
+modules/b_chaos4/object_list.c         C        0x0c908438  0x0c908440
+modules/b_chaos4/object_list.c         D        0x0c95e480  0x0c95e494
+#
+# generated data ranges
+gen/b_chaos4/d_0c908940.c              D        0x0c908940  0x0c937a38
+# opens with a zero word nothing reads, on 8 where swamp.c's data ends, and materials 4 bytes on: an object can't start 4 past 8, so the materials' object holds the word, starting with it or before it, as swamp.c's object would, and the word is that object's data, not fill. the row starts with it, as a row can only start on 8
+gen/b_chaos4/d_0c941548.c              D        0x0c941548  0x0c943468
+gen/b_chaos4/d_0c943560.c              D        0x0c943560  0x0c945b58
+# opens with a model and its node, to 0x0c947680, that nothing names, here or in 1ST_READ.BIN. the model at 0x0c947624 names its materials, which start the row on 8: the row declares start 8 by the convention that a model's data opens with its materials, which the bytes don't prove, as an unread last word of land.c's object before them would build the same
+gen/b_chaos4/d_0c946638.c              D        0x0c946638  0x0c95e480  start 8

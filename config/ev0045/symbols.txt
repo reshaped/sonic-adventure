@@ -1,0 +1,39 @@
+# EV0045.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb019d8  tikal_texlist
+0x0cb099dc  tikal_object
+0x0cb80000  ev0045_head
+0x0cb80008  ev0045_script
+0x0cb80ae0  event_white_start
+0x0cb80b42  event_white_start_hold
+0x0cb80ba8  event_white_kill
+0x0cb80bc4  event_white_init
+0x0cb80c28  event_white_step
+0x0cb80cae  event_white_draw
+0x0cb80d3c  event_white_destroy
+0x0cb80d68  event_sound_destroy
+0x0cb80d78  event_sound_step
+0x0cb80e1a  event_sound_hold
+0x0cb80e7a  event_sound_move_volume
+0x0cb80ea0  event_sound_move_pan
+0x0cb80ec6  event_sound_move_pitch
+0x0cb80eec  event_sound_init
+0x0cb80f14  event_sound_stop_all
+0x0cb80f72  event_sound_start
+0x0cb80fb2  event_sound_stop
+0x0cb8102c  event_sound_fade_volume
+0x0cb81058  event_sound_fade_pan
+0x0cb81084  event_sound_fade_pitch
+0x0cb810b0  event_sound_play
+0x0cb813a0  ev0045_textures
+0x0cb876e0  ev0045_tikal_action_0
+0x0cb8c1d4  ev0045_tikal_action_1
+0x0cb93d08  ev0045_tikal_action_2
+0x0cb973d0  dat_0cb973d0
+0x0cb97a40  ev0045_tikal_motion_3
+0x0cb97a4c  ev0045_tikal_action_3
+0x0cb97a58  event_white
+0x0cb97a60  event_sound_count
+0x0cb97a64  event_sounds
+0x0cb97a68  event_sound_next

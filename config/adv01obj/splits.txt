@@ -1,0 +1,52 @@
+# ADV01OBJ.PRS, the code both Egg Carrier fields load
+#
+# section  start       end
+P          0x0c900000  0x0c9017f0
+D          0x0c9017f0  0x0c901c70
+#
+# source                                   section  start       end
+modules/adv01obj/puff.c                     P        0x0c900000  0x0c9001a0
+modules/adv01obj/puff.c                     D        0x0c9017f0  0x0c9018b4
+modules/adv01obj/pools.c                    D        0x0c9018b8  0x0c9018c4
+# follows puff.c with no fill; as one file, the code runs 12 bytes shorter. 189 of its 552 bytes differ
+modules/adv01obj/start.c                    P        0x0c9001a0  0x0c900240
+modules/adv01obj/start.c                    D        0x0c9018c8  0x0c901bb8
+# follows start.c with no fill; as one file, the code runs 28 bytes shorter. 409 of its 556 bytes differ
+modules/adv01obj/script_sonic_skydeck.c     P        0x0c900240  0x0c9003e8
+modules/adv01obj/script_sonic_skydeck.c     D        0x0c901bb8  0x0c901bcc
+modules/adv01obj/script_sonic_chaos6.c      P        0x0c900400  0x0c900640
+modules/adv01obj/script_sonic_chaos6.c      D        0x0c901bd0  0x0c901bd8
+# follows script_sonic_chaos6.c with no fill; as one file, the code runs 24 bytes shorter. 417 of its 968 bytes differ
+modules/adv01obj/script_tails_skydeck.c     P        0x0c900640  0x0c9007e0
+modules/adv01obj/script_tails_skydeck.c     D        0x0c901bd8  0x0c901bec
+# follows script_tails_skydeck.c with no fill; as one file, its data lands 4 bytes early. 94 of 832 code bytes differ
+modules/adv01obj/script_tails_escape.c      P        0x0c9007e0  0x0c900980
+modules/adv01obj/script_tails_escape.c      D        0x0c901bf0  0x0c901bf8
+# follows script_tails_escape.c with no fill; one file or two build the same
+modules/adv01obj/script_knuckles_skydeck.c  P        0x0c900980  0x0c900b60
+modules/adv01obj/script_knuckles_skydeck.c  D        0x0c901bf8  0x0c901c0c
+modules/adv01obj/script_knuckles_chaos6.c   P        0x0c900b60  0x0c900d20
+modules/adv01obj/script_knuckles_chaos6.c   D        0x0c901c10  0x0c901c18
+# follows script_knuckles_chaos6.c with no fill; as one file, 12 of 748 code bytes differ, all in the 24 bytes from 0x0c900d08. one file pads them with 00 09, where the image holds zeros
+modules/adv01obj/script_amy_mogura.c        P        0x0c900d20  0x0c900e60
+modules/adv01obj/script_amy_mogura.c        D        0x0c901c18  0x0c901c20
+# follows script_amy_mogura.c with no fill; as one file, the code runs 36 bytes shorter. 270 of its 612 bytes differ
+modules/adv01obj/script_amy_sink.c          P        0x0c900e60  0x0c900fa8
+modules/adv01obj/script_amy_sink.c          D        0x0c901c20  0x0c901c28
+modules/adv01obj/script_amy_zero.c          P        0x0c900fc0  0x0c901060
+modules/adv01obj/script_amy_zero.c          D        0x0c901c28  0x0c901c30
+# follows script_amy_zero.c with no fill; as one file, the code runs 46 bytes shorter. 118 of its 294 bytes differ
+modules/adv01obj/script_e102_mission.c      P        0x0c901060  0x0c901120
+modules/adv01obj/script_e102_mission.c      D        0x0c901c30  0x0c901c38
+# follows script_e102_mission.c with no fill; as one file, 137 of 836 code bytes differ
+modules/adv01obj/script_e102_amy.c          P        0x0c901120  0x0c9013c0
+modules/adv01obj/script_e102_amy.c          D        0x0c901c38  0x0c901c40
+# follows script_e102_amy.c with no fill; as one file, the code runs 60 bytes longer. 335 of its first 1,012 bytes differ
+modules/adv01obj/script_e102_e101r.c        P        0x0c9013c0  0x0c901520
+modules/adv01obj/script_e102_e101r.c        D        0x0c901c40  0x0c901c48
+# follows script_e102_e101r.c with no fill; as one file, the code runs 36 bytes shorter. 124 of its 520 bytes differ
+modules/adv01obj/script_big_hot_shelter.c   P        0x0c901520  0x0c901600
+modules/adv01obj/script_big_hot_shelter.c   D        0x0c901c48  0x0c901c50
+# follows script_big_hot_shelter.c with no fill; as one file, the code runs 86 bytes shorter. 439 of its 628 bytes differ
+modules/adv01obj/script_big_chaos6.c        P        0x0c901600  0x0c9017ea
+modules/adv01obj/script_big_chaos6.c        D        0x0c901c50  0x0c901c70

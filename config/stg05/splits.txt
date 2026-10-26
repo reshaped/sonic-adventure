@@ -1,0 +1,190 @@
+# STG05.PRS, Red Mountain
+#
+# section  start       end
+P          0x0c900000  0x0c914640
+D          0x0c914640  0x0cadb9e0
+C          0x0cadb9e0  0x0cadd62a
+B          0x0cadd630  0x0caddb24
+#
+# source                              section  start       end
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code reads, and its entries: the table meets them on 8 with no fill, where one file or two build the same, and its pointer to them is consistent with one object. they open D, which every object placed in D follows: dust_line.c, which links first and places no data, could hold them, though its code doesn't read them. the zero word after the table, at 0x0c919b9c, which nothing here or in 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 1's entries start on 8, or a last word of this object nothing reads. the texlist it names is land0_textures.c's, an object linked after act 2's land
+modules/stg05/land0.c                  D        0x0c914640  0x0c919b9c
+# act 1's land and its entries: the table meets them on 8 with no fill, where one file or two build the same. the entries start on 8 past the zero word after act 0's table. the zero word after the table, at 0x0c91b7e4, which nothing points at, is the linker's fill the rule verifies, as act 2's entries start on 8, or a last word of this object nothing reads. the bytes leave it to an object of its own, to act 0's land's, were the word between them an unread datum of its, or to dust_line.c's, which links first and places no data, though its code doesn't read them
+modules/stg05/land1.c                  D        0x0c919ba0  0x0c91b7e4
+# act 2's land and its entries: the table meets them on 8 with no fill, where one file or two build the same. the entries start on 8 past the zero word after act 1's table. the zero word after the table, at 0x0c91f244, which nothing points at, is the linker's fill the rule verifies, as act 0's texnames start on 8, or a last word of this object nothing reads. the bytes leave it to an object of its own, to act 1's land's, were the word between them an unread datum of its, to land0_textures.c's, were the word after it an unread datum of its, or to dust_line.c's, which links first and places no data, though its code doesn't read them
+modules/stg05/land2.c                  D        0x0c91b7e8  0x0c91f244
+# act 0's land, which 1ST_READ.BIN's world_lands names and no code reads, names the texlist, and 1ST_READ.BIN's mountain_act_pvms loads it. the names start C on 8, and acts 1 and 2 repeat names of this act's, which SHC keeps one copy of in one file, so each act's names are a file of their own. the texnames start on 8 right after the zero word after act 2's land, at 0x0c91f244, which land2.c's row describes. the texlist follows the texnames off 8, and the first model's material the texlist, so this object holds them. the strips after it start on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the act's data to this object or others. the lands before it in D precede every object placed in D: dust_line.c, which links first and places no data, could hold them from D's start, and this object with them, though its code doesn't read them
+modules/stg05/land0_textures.c         C        0x0cadb9e0  0x0cadbc0b
+modules/stg05/land0_textures.c         D        0x0c91f248  0x0c91f480
+# the last of the objects act 0's land's entries name, at 0x0c919b6c, which nothing else reads. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9aed8c, which nothing here or in 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 1's texnames start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land1_textures.c's, were the word an unread datum of its, to dust_line.c's, which links first and places no data, though its code doesn't read it, or to one of data alone
+modules/stg05/dat_0c9aed58.c           D        0x0c9aed58  0x0c9aed8c
+# act 1's land names the texlist, and mountain_act_pvms loads it. the names start on 8, 4 bytes past where act 0's object's next string would, and repeat names of act 0's and act 2's. the texnames start on 8 right after the zero word after the last object the land before's entries name, which that object's row describes. the texlist follows the texnames off 8, and the first model's materials the texlist, so this object holds them. the strips after them start on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the act's data to this object or others. dust_line.c, which links first and places no data, could hold them too, though its code doesn't read them
+modules/stg05/land1_textures.c         C        0x0cadbc10  0x0cadbe39
+modules/stg05/land1_textures.c         D        0x0c9aed90  0x0c9aefd8
+# the last of the objects act 1's land's entries name, at 0x0c91b7b4, which nothing else reads. it starts on 8 straight after the object before, which starts off 8, with no fill, so one file or two build the same there, and the bytes don't say whether the generated models' object holds it. the zero word after it, at 0x0c9fdc9c, which nothing here or in 1ST_READ.BIN points at, is the linker's fill the rule verifies, as act 2's texnames start on 8, or a last word of this object nothing reads. the bytes leave it to the generated models' object, to land2_textures.c's, were the word an unread datum of its, to dust_line.c's, which links first and places no data, though its code doesn't read it, or to one of data alone
+modules/stg05/dat_0c9fdc68.c           D        0x0c9fdc68  0x0c9fdc9c
+# act 2's land names the texlist, and mountain_act_pvms loads it. the names start on 8, 4 bytes past where act 1's object's next string would, and repeat names of act 0's and act 1's. the texnames start on 8 right after the zero word after the last object the land before's entries name, which that object's row describes. the texlist follows the texnames off 8, and the first model's material the texlist, so this object holds them. the strips after it start on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the act's data to this object or others. dust_line.c, which links first and places no data, could hold them too, though its code doesn't read them
+modules/stg05/land2_textures.c         C        0x0cadbe40  0x0cadbf91
+modules/stg05/land2_textures.c         D        0x0c9fdca0  0x0c9fde00
+modules/stg05/dust_line.c              P        0x0c900000  0x0c900120
+modules/stg05/puff.c                   P        0x0c900120  0x0c9004a0
+modules/stg05/puff.c                   D        0x0caaeea8  0x0caaf010
+modules/stg05/puff.c                   B        0x0cadd630  0x0cadd684
+modules/stg05/debris.c                 P        0x0c9004a0  0x0c900be0
+modules/stg05/debris.c                 D        0x0caaf010  0x0caaf030
+modules/stg05/e104.c                   P        0x0c900be0  0x0c902a00
+modules/stg05/e104.c                   D        0x0caaf030  0x0caaf1a0
+modules/stg05/e104.c                   C        0x0cadc598  0x0cadc5ac
+modules/stg05/e104.c                   B        0x0cadd688  0x0cadd68c
+# e104.c and missile.c read the texlist, and 1ST_READ.BIN's mountain_pvms names it. the names start on 8, 4 bytes past e104.c's constants, and end 3 bytes short of explosion.c's on 8, where one object's next item would start on 4: SHC writes an object's strings after its constants, so they are no strings of explosion.c's. the texnames start on 8, 4 bytes past camera_sweep.c's data. the texnames point at the names, so they are one file's, and e104.c's data lies before camera_sweep.c's in D, so they are no data of e104.c's. of the objects that link between e104.c and explosion.c in C, only camera_sweep.c can link before the texnames in D: its object could hold the names and texnames, were the word after its data, at 0x0caaf1ac, which nothing points at and the rule verifies as fill, an unread word of its, though its code doesn't read them. the texlist starts on 8 straight after its texnames and ends on 8, each with no fill, where one file or two build the same; the texlist's pointer to the texnames is consistent with one object. the first model's material starts on 8 after the texlist, and its strips follow it off 8, so it is the model's object's. the bytes leave the texlist to the texnames' object, to that of E-104's model after it, or to one of its own, and the names and texnames to an object of their own, to camera_sweep.c's, or, were the texlist that model's object's, to that object. STG02's E-103 holds the same kinds of data, but its texlist and first material follow the texnames off 8
+modules/stg05/e104_textures.c          C        0x0cadc5b0  0x0cadc7c5
+modules/stg05/e104_textures.c          D        0x0caaf1b0  0x0caaf3c8
+# e104.c's motion table names the actions. they follow the motion the first plays off 8, so this object holds it. the motion meets its keys' mdata on 8 with no fill, where one file or two build the same, and the bytes leave the rest of the motions to this object or others. e104.c's data lies before camera_sweep.c's, so they are no data of e104.c's. the last action ends 4 bytes short of hover_dust.c's data on 8: the word at 0x0cad58a4, which nothing points at, is the linker's fill the rule verifies, or a last word of this object nothing reads, or, were the actions hover_dust.c's, a word of its, though its code doesn't read them
+modules/stg05/e104_actions.c           D        0x0cad5850  0x0cad58a4
+modules/stg05/camera_sweep.c           P        0x0c902a00  0x0c902be0
+modules/stg05/camera_sweep.c           D        0x0caaf1a0  0x0caaf1ac
+modules/stg05/camera_sweep.c           B        0x0cadd690  0x0cadd6b0
+modules/stg05/hover_dust.c             P        0x0c902be0  0x0c902d60
+modules/stg05/hover_dust.c             D        0x0cad58a8  0x0cad58e4
+# follows hover_dust.c with no fill; one file or two build the same
+modules/stg05/walls.c                  P        0x0c902d60  0x0c903100
+modules/stg05/missile.c                P        0x0c903100  0x0c903900
+modules/stg05/missile.c                D        0x0cad58e8  0x0cad595c
+modules/stg05/explosion.c              P        0x0c903900  0x0c903fa0
+modules/stg05/explosion.c              D        0x0cad5960  0x0cad59b4
+modules/stg05/explosion.c              C        0x0cadc7c8  0x0cadc7d4
+# explosion.c reads the texlist, and 1ST_READ.BIN's mountain_pvms names it. STG02 links the same object: its names, texnames and texlist hold the same bytes there, their pointers allowed for. the names start on 8, 4 bytes past explosion.c's constants, and end a byte short of gear.c's on 8, where one object's next item would start on 4: SHC writes an object's strings after its constants, so they are no strings of gear.c's. the texnames start on 8, 4 bytes past explosion.c's data. the texlist starts on 8 straight after its texnames and ends on 8, each with no fill, where one file or two build the same; the texlist's pointer to the texnames is consistent with one object. the bytes leave the texlist to the texnames' object, to that of the explosion's models after it, or to one of its own. explosion.c, which reads the texlist, could hold them only were the word after its constants, at 0x0cadc7d4, and the word after its data, at 0x0cad59b4, unread words of its: nothing points at either, and the rule verifies both as fill. bat.c links between explosion.c and gear.c and places no constants or data, but it isn't in STG02, so it holds none of them
+modules/stg05/explosion_textures.c     C        0x0cadc7d8  0x0cadc837
+modules/stg05/explosion_textures.c     D        0x0cad59b8  0x0cad5a20
+modules/stg05/bat.c                    P        0x0c903fa0  0x0c9049c0
+modules/stg05/bat.c                    B        0x0cadd6b0  0x0cadd6b4
+modules/stg05/gear.c                   P        0x0c9049c0  0x0c904c40
+modules/stg05/gear.c                   D        0x0cad6308  0x0cad639c
+modules/stg05/gear.c                   C        0x0cadc838  0x0cadc844
+modules/stg05/cobweb.c                 P        0x0c904c40  0x0c904da0
+modules/stg05/monkey_bars.c            P        0x0c904da0  0x0c9051c0
+modules/stg05/monkey_bars.c            D        0x0cad63a0  0x0cad6480
+modules/stg05/flame_skull.c            P        0x0c9051c0  0x0c90574a
+modules/stg05/flame_skull.c            D        0x0cad6480  0x0cad6554
+modules/stg05/lava.c                   P        0x0c905760  0x0c905d60
+modules/stg05/lava.c                   D        0x0cad6558  0x0cad6660
+modules/stg05/raft.c                   P        0x0c905d60  0x0c9062e0
+modules/stg05/raft.c                   D        0x0cad6660  0x0cad66c8
+modules/stg05/fences.c                 P        0x0c9062e0  0x0c906480
+modules/stg05/fences.c                 D        0x0cad66c8  0x0cad6834
+# follows fences.c with no fill; as one file, its data lands 4 bytes early
+# bone_stick_step starts on 32 at 0x0c906620 with no fill; split there, the code builds the same
+modules/stg05/bones.c                  P        0x0c906480  0x0c906988
+modules/stg05/bones.c                  D        0x0cad6838  0x0cad690c
+modules/stg05/bones.c                  C        0x0cadc848  0x0cadc87d
+modules/stg05/machine.c                P        0x0c9069a0  0x0c906b80
+modules/stg05/machine.c                D        0x0cad6910  0x0cad6a14
+modules/stg05/grave.c                  P        0x0c906b80  0x0c9072e0
+modules/stg05/grave.c                  D        0x0cad6a18  0x0cad6ac4
+modules/stg05/grave.c                  C        0x0cadc880  0x0cadc8a8
+modules/stg05/hammer.c                 P        0x0c9072e0  0x0c907ca0
+modules/stg05/hammer.c                 D        0x0cad6ac8  0x0cad6afc
+modules/stg05/hammer.c                 C        0x0cadc8a8  0x0cadc91c
+modules/stg05/light.c                  P        0x0c907ca0  0x0c907f80
+modules/stg05/light.c                  D        0x0cad6b00  0x0cad6b68
+modules/stg05/pulley.c                 P        0x0c907f80  0x0c908d80
+modules/stg05/pulley.c                 D        0x0cad6b68  0x0cad6b9c
+modules/stg05/pulley.c                 C        0x0cadc920  0x0cadc968
+# follows pulley.c with no fill; as one file, the code runs 4 bytes shorter. 308 of its 3,816 bytes differ
+modules/stg05/pipes.c                  P        0x0c908d80  0x0c908e80
+modules/stg05/pipes.c                  D        0x0cad6ba0  0x0cad6c70
+modules/stg05/vent.c                   P        0x0c908e80  0x0c909024
+modules/stg05/vent.c                   D        0x0cad6c70  0x0cad6ca4
+modules/stg05/vent.c                   C        0x0cadc968  0x0cadc974
+modules/stg05/step_blocks.c            P        0x0c909040  0x0c9092ec
+modules/stg05/step_blocks.c            D        0x0cad6ca8  0x0cad6ff0
+modules/stg05/erupt.c                  P        0x0c909300  0x0c90af60
+modules/stg05/erupt.c                  D        0x0cad6ff0  0x0cad72e4
+modules/stg05/erupt.c                  C        0x0cadc978  0x0cadc984
+# 112 bytes on 8, 4 bytes past erupt.c's data, to rock_burst.c's, which nothing in the image or 1ST_READ.BIN points at: 52 bytes, then 60 laid out as a struct dust_params, as rock_burst_trail is. they are erupt.c's data, rock_burst.c's, as unread data ahead of rock_burst_trail, or an object's of data alone; nothing else links between, and the bytes leave it open. no reader gives them a type: they are placed as one of data alone, of unknown type, and the zero word before them is the linker's fill, as the fill rule takes it, or a word of erupt.c's object
+modules/stg05/dat_0cad72e8.c           D        0x0cad72e8  0x0cad7358
+# follows erupt.c with no fill; its constants start on 8 at 0x0cadc988, 4 bytes past erupt.c's
+modules/stg05/rock_burst.c             P        0x0c90af60  0x0c90c080
+# its data opens with rock_burst_trail, which its code names
+modules/stg05/rock_burst.c             D        0x0cad7358  0x0cad75b8
+modules/stg05/rock_burst.c             C        0x0cadc988  0x0cadc9c6
+modules/stg05/relay.c                  P        0x0c90c080  0x0c90c200
+modules/stg05/signboard.c              P        0x0c90c200  0x0c90c340
+modules/stg05/signboard.c              D        0x0cad75b8  0x0cad75ec
+modules/stg05/break_step.c             P        0x0c90c340  0x0c90d460
+modules/stg05/break_step.c             D        0x0cad75f0  0x0cad778c
+modules/stg05/break_step.c             C        0x0cadc9c8  0x0cadc9f4
+modules/stg05/break_step_2.c           P        0x0c90d460  0x0c90e580
+modules/stg05/break_step_2.c           D        0x0cad7790  0x0cad7964
+modules/stg05/break_step_2.c           C        0x0cadc9f8  0x0cadca2f
+modules/stg05/propeller.c              P        0x0c90e580  0x0c90eb20
+modules/stg05/propeller.c              D        0x0cad7968  0x0cad79d0
+modules/stg05/propeller.c              C        0x0cadca30  0x0cadca6d
+modules/stg05/spider.c                 P        0x0c90eb20  0x0c90f6c0
+modules/stg05/spider.c                 C        0x0cadca70  0x0cadca88
+# lid_destroy starts on 32 at 0x0c90f860 with no fill; split there, the code builds the same
+modules/stg05/lid.c                    P        0x0c90f6c0  0x0c90f940
+modules/stg05/lid.c                    D        0x0cad79d0  0x0cad7ac4
+modules/stg05/prisoner.c               P        0x0c90f940  0x0c90fca0
+modules/stg05/prisoner.c               D        0x0cad7ac8  0x0cad7c0c
+modules/stg05/prisoner.c               C        0x0cadca88  0x0cadcb14
+modules/stg05/lava_control.c           P        0x0c90fca0  0x0c90fec0
+modules/stg05/lava_control.c           D        0x0cad7c10  0x0cad7c44
+modules/stg05/lava_control.c           C        0x0cadcb18  0x0cadcb30
+modules/stg05/grass.c                  P        0x0c90fec0  0x0c9101a0
+modules/stg05/bridges.c                P        0x0c9101a0  0x0c910200
+modules/stg05/bridges.c                D        0x0cad7c48  0x0cad7dec
+# scaffold_run starts on 32 at 0x0c9103c0 with no fill; split there, the code builds the same
+modules/stg05/scaffold.c               P        0x0c910200  0x0c910560
+modules/stg05/rocker.c                 P        0x0c910560  0x0c9108a0
+modules/stg05/rocker.c                 D        0x0cad7df0  0x0cad7e58
+modules/stg05/rocker.c                 C        0x0cadcb30  0x0cadcb33
+# eight halfwords on 8, 5 bytes past rocker.c's constants, which no word in the image or in 1ST_READ.BIN names. rocker.c's constants are a string, and SHC writes an object's strings after its constants, so they are no constants of rocker.c's, and the 5 zero bytes before them are the linker's fill, as the fill rule takes them. they are rubble.c's, rock_pillar.c's, blow.c's or trees.c's, which link between and place no constants, or lamps.c's, whose constants meet them on 8 with no fill and open with a string, which SHC would write after them, though no code reads them, or an object's of their own, which the bytes leave open: they are placed as one of their own, of unknown type
+modules/stg05/dat_0cadcb38.c           C        0x0cadcb38  0x0cadcb48
+# follows rocker.c with no fill; as one file, the code runs 64 bytes longer. 3,022 of its first 3,892 bytes differ
+modules/stg05/rubble.c                 P        0x0c9108a0  0x0c9114a0
+modules/stg05/rubble.c                 D        0x0cad7e58  0x0cad7eb4
+modules/stg05/rock_pillar.c            P        0x0c9114a0  0x0c911ae0
+modules/stg05/blow.c                   P        0x0c911ae0  0x0c911d40
+modules/stg05/trees.c                  P        0x0c911d40  0x0c9121e0
+modules/stg05/trees.c                  D        0x0cad7eb8  0x0cad7f20
+modules/stg05/lamps.c                  P        0x0c9121e0  0x0c9125e0
+modules/stg05/lamps.c                  D        0x0cad7f20  0x0cad7f88
+modules/stg05/lamps.c                  C        0x0cadcb48  0x0cadcb9b
+modules/stg05/swatter.c                P        0x0c9125e0  0x0c912b80
+modules/stg05/swatter.c                D        0x0cad7f88  0x0cad8024
+modules/stg05/swatter.c                C        0x0cadcba0  0x0cadcbd5
+# the stage's eleven paths, which path_create_tasks runs, and the lists 1ST_READ.BIN's path_lists names for acts 0 and 1, at 0x0cadb094 and 0x0cadb0a0. the first points start on 8, 4 bytes past swatter.c's data, and mountain.c's data meets the last list on 8 with no fill. each path follows its points; the items from 0x0cad9388 to the points at 0x0cada22c, and from 0x0cada598 to act 0's list, follow each other off 8, so each run is one object's. where the items meet on 8 with no fill, one file or several build the same; the lists' pointers to the paths are consistent with one object. the bytes leave the paths and lists to one object or several, among them mountain.c's, though its code doesn't read them, and swatter.c's, were the word after its data, at 0x0cad8024, which nothing points at and the rule verifies as fill, an unread word of its, though its code doesn't read them either
+modules/stg05/paths.c                  D        0x0cad8028  0x0cadb0c8
+# follows swatter.c with no fill; as one file, 1,642 of 8,288 code bytes differ
+modules/stg05/mountain.c               P        0x0c912b80  0x0c914640
+modules/stg05/mountain.c               D        0x0cadb0c8  0x0cadb218
+modules/stg05/mountain.c               C        0x0cadcbd8  0x0cadcc08
+modules/stg05/mountain.c               B        0x0cadd818  0x0caddb24
+# the kinds the stage's object list names, which placement.c reads by a set entry's id, their names, which the kinds point at, and the list 1ST_READ.BIN's object_lists names for acts 0 to 2, at 0x0cadb9d4, which placement.c reads; no code here reads them. the list starts off 8 straight after the kinds, so they share an object, and a literal is its own file's, so the names are its too. the kinds meet mountain.c's data on 8 with no fill, and the names start in C on 8 straight after mountain.c's constants with no fill: as one file with mountain.c, both start where the image has them, so one file or two build the same at each. the zero word after the list, at 0x0cadb9dc, ends D: nothing here or in 1ST_READ.BIN points at it, and it is the linker's fill, which the rule verifies as act 0's land textures' names start C on 8, or a last word of this object nothing reads. the names end 4 bytes short of the scripts' constants on 8, which the rule verifies: as one file, in either order, those constants come ahead of the names, so they are no object of the scripts'. the bytes leave them to an object of their own or to mountain.c's, though its code doesn't read them
+modules/stg05/object_list.c            D        0x0cadb218  0x0cadb9dc
+modules/stg05/object_list.c            C        0x0cadcc08  0x0cadcfe4
+# the table 1ST_READ.BIN's stage_scripts names at 0x0cadd260, which script_pick reads for the stage, and the scripts, pages and texts its rows name; no code here reads them. a literal is its own file's, so the texts are the pages' object's, and the table's pointers are consistent with one object. it starts on 8, 4 bytes past where the kinds' last name ends on 4, which the fill rule verifies: as one file, in either order, its constants come ahead of the names, so they are no object of the kinds'. its last text ends C and the file. mountain.c's object could hold them only with the names between, which nothing else links before: the bytes leave them to an object of their own
+modules/stg05/scripts.c                C        0x0cadcfe8  0x0cadd62a
+#
+# generated data ranges
+# act 0's models, past land0_textures.c's material
+gen/stg05/d_0c91f480.c                 D        0x0c91f480  0x0c954940
+gen/stg05/d_0c954940.c                 D        0x0c954940  0x0c994db8
+# act 0's last models, to the object before dat_0c9aed58.c's, which meets them on 8 with no fill
+gen/stg05/d_0c994db8.c                 D        0x0c994db8  0x0c9aed58
+# act 1's models, past land1_textures.c's materials
+gen/stg05/d_0c9aefd8.c                 D        0x0c9aefd8  0x0c9d4f70
+# act 1's last models, to the object before dat_0c9fdc68.c's, which meets them on 8 with no fill
+gen/stg05/d_0c9d4f70.c                 D        0x0c9d4f70  0x0c9fdc68
+# act 2's models, past land2_textures.c's material
+gen/stg05/d_0c9fde00.c                 D        0x0c9fde00  0x0ca15678
+gen/stg05/d_0ca15678.c                 D        0x0ca15678  0x0ca55728
+gen/stg05/d_0ca55728.c                 D        0x0ca55728  0x0ca957f8
+gen/stg05/d_0ca957f8.c                 D        0x0ca957f8  0x0caaeea8
+# E-104's model and motions, from its first model's material to the motion e104_actions.c holds
+gen/stg05/d_0caaf3c8.c                 D        0x0caaf3c8  0x0cad5850
+# the explosion's models, past explosion_textures.c's texlist, to the end of explosion_sphere_object, which explosion.c draws as an NJS_OBJECT: the zero word at 0x0cad6304 is its sibling. STG02 links the same object: the models hold the same bytes there, their pointers allowed for, and debris.c's data follows them in place of gear.c's, so they are no data of gear.c's, nor of bat.c's, which links between and isn't in STG02. gear.c's data meets them on 8 with no fill, where one file or two build the same, and the bytes leave them to the textures' object or to one of their own
+gen/stg05/d_0cad5a20.c                 D        0x0cad5a20  0x0cad6308
+# the names the texnames at 0x0ca39fc0, 0x0ca9cadc and 0x0caaeda4 point at, in order: those of OBJ_MOUNTAIN's, YOUGAN_ANIM's and MOUNTAIN_CARRIER's textures, whose texlists 1ST_READ.BIN's mountain_pvms names. a table and the strings it points at are one file, and the second's and third's first names start off 8 straight after the name before, so they are one object's strings, and its D runs unbroken from no later than 0x0ca39fc0 to no earlier than 0x0caaeea0: hundreds of models, which a source would hold to hold the names. they start on 8 four bytes past where act 2's land's next name would, at 0x0cadbf94, which nothing points at. the 7 bytes before them are the linker's fill, and no item of act 2's land texture object, whose names end its C, as SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the row declares start 8, and the splicer writes them as the linker's fill. e104.c's constants start on 8 where their next string would, and e104.c's data lies after puff.c's and debris.c's in D, past the tables that name them, so they are no strings of e104.c's. the 2 bytes before them are the linker's fill. the row declares end, and the splicer writes them. puff.c's data meets the object's D on 8 with no fill at 0x0caaeea8, and puff.c places no constants, so its object could hold them, though its code doesn't read them. so could dust_line.c's, which links first and places no data, though its code doesn't read them, or one of data alone. debris.c, which places no constants, links between in C too, but its data follows puff.c's, so it can't
+gen/stg05/d_0cadbf98.c                 C        0x0cadbf98  0x0cadc596  start 8  end

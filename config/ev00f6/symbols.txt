@@ -1,0 +1,37 @@
+# EV00F6.PRS: every name its sources use, by address, but 1ST_READ.BIN's.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb80000  ev00f6_head
+0x0cb80008  ev00f6_script
+0x0cb803b4  event_fade_draw
+0x0cb8045e  event_fade_step
+0x0cb80480  event_fade_destroy
+0x0cb80484  event_fade_init
+0x0cb80492  event_fade_create
+0x0cb804ec  event_fade_set_speed
+0x0cb804f4  event_fade_set_alpha
+0x0cb80528  event_fade_set_color
+0x0cb80538  event_fade_set_depth
+0x0cb80540  event_sound_destroy
+0x0cb80550  event_sound_step
+0x0cb805f2  event_sound_hold
+0x0cb80652  event_sound_move_volume
+0x0cb80678  event_sound_move_pan
+0x0cb8069e  event_sound_move_pitch
+0x0cb806c4  event_sound_init
+0x0cb806ec  event_sound_stop_all
+0x0cb8074a  event_sound_start
+0x0cb8078a  event_sound_stop
+0x0cb80804  event_sound_fade_volume
+0x0cb80830  event_sound_fade_pan
+0x0cb8085c  event_sound_fade_pitch
+0x0cb80888  event_sound_play
+0x0cb80958  ev00f6_white
+0x0cb8095c  ev00f6_textures
+0x0cb80968  dat_0cb80968
+0x0cb82924  ev00f6_sonic_action_0
+0x0cb84898  ev00f6_sonic_action_1
+0x0cb848a0  event_fade_corners
+0x0cb848c0  event_sound_count
+0x0cb848c4  event_sounds
+0x0cb848c8  event_sound_next

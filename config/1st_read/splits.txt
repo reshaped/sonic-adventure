@@ -1,0 +1,1611 @@
+# 1ST_READ.BIN, the main program
+#
+# source                                       section  start       end
+# built whole, its 64 bytes end where gdfs's begin
+sdk/shinobi/strt1.src                          DSGLH    0x8c010000  0x8c010040
+sdk/shinobi/gdfs.c                             DSGLH    0x8c010040  0x8c010060
+sdk/shinobi/ov_main.c                          DSGLH    0x8c010060  0x8c010080
+sdk/shinobi/strt1.src                          DSGLE    0x8c010080  0x8c0100a0
+# built whole, its 12 bytes end where strt2's begin
+sdk/shinobi/strt1.src                          P        0x8c0100a0  0x8c0100ac
+sdk/shinobi/strt2.c                            P        0x8c0100ac  0x8c010188
+src/system/sbinit.c                            P        0x8c0101a0  0x8c010380
+src/system/crt0.src                            P        0x8c010380  0x8c010444
+src/debug/host.c                               P        0x8c010460  0x8c010b60
+src/save/card.c                                P        0x8c010b60  0x8c014d60
+src/hud/overlay.c                              P        0x8c014d60  0x8c0161c0
+src/animal/kinds.c                             P        0x8c0161c0  0x8c0162c0
+src/animal/animal.c                            P        0x8c0162c0  0x8c018980
+src/animal/sparks.c                            P        0x8c018980  0x8c018f60
+src/draw/motion.c                              P        0x8c018f60  0x8c01a1a0
+src/camera/camera.c                            P        0x8c01a1a0  0x8c01ce40
+src/camera/editor.c                            P        0x8c01ce40  0x8c01e8e0
+# camera_step_board starts on 32 at 0x8c0200a0 with no fill; the tricks' points follow manual_distance in D at 0x8c1aa17c, 4 mod 8
+# camera_boss_move starts on 32 at 0x8c020fa0 with no fill; camera_step_chaos calls camera_boss_place_from_player with BSR at 0x8c02128c
+# camera_step_path starts on 32 at 0x8c022500 with no fill, and calls path_nearest_index with BSR at 0x8c022682
+# camera_step_pose starts on 32 at 0x8c022f00 with no fill; survey_eye_offsets follows camera_step_path's statics in D at 0x8c1aacbc, 4 mod 8
+# cart_ease_both starts on 32 at 0x8c023880 with no fill; camera_step_cart calls it with BSR at 0x8c02364a
+# sonic_slide starts on 32 at 0x8c0248e0 with no fill; sonic_shared_step calls it with BSR at 0x8c0246a4
+# adjust_ease_aim starts on 32 at 0x8c025d60 with no fill; camera_adjust_ease calls it with BSR at 0x8c025b4e
+src/camera/modes.c                             P        0x8c01e8e0  0x8c026160
+src/chao/chao.c                                P        0x8c026160  0x8c027de0
+src/collision/polygon.c                        P        0x8c027de0  0x8c02d88a
+src/collision/mesh.src                         P        0x8c02d8a0  0x8c02e390
+src/collision/invisible.c                      P        0x8c02e3a0  0x8c02f1c0
+src/system/cache.src                           P        0x8c02f1c0  0x8c02f2b0
+src/collision/collision.c                      P        0x8c02f2c0  0x8c035a40
+src/stage/scene_changer.c                      P        0x8c035a40  0x8c035d80
+src/debug/print.c                              P        0x8c035d80  0x8c035de0
+# debug_print_stage_name starts on 32 at 0x8c035f40 with no fill; split there, the code builds the same
+src/debug/debug.c                              P        0x8c035de0  0x8c035fc0
+src/progress/recorder.c                        P        0x8c035fc0  0x8c0361d0
+src/object/download.c                          P        0x8c0361e0  0x8c037be8
+src/draw/tree.c                                P        0x8c037c00  0x8c037f80
+src/draw/model.src                             P        0x8c037f80  0x8c040de0
+src/draw/action.c                              P        0x8c040de0  0x8c0419c4
+# its code section starts on 32, the ALIGN config/compilers.mk gives its object, after 28 bytes of the linker's fill from action.c's end
+src/draw/action_link.c                         P        0x8c0419e0  0x8c042d24
+src/draw/text.c                                P        0x8c042d40  0x8c043c80
+src/debug/editor.c                             P        0x8c043c80  0x8c045940
+src/draw/fade.c                                P        0x8c045940  0x8c0466c0
+src/draw/draw.c                                P        0x8c0466c0  0x8c0468c0
+# follows draw.c with no fill; as one file, 339 of 3,060 code bytes differ
+src/effect/effect.c                            P        0x8c0468c0  0x8c0472c0
+src/effect/bomb.c                              P        0x8c0472c0  0x8c0473c0
+src/effect/crash_stars.c                       P        0x8c0473c0  0x8c0477a0
+src/effect/beam.c                              P        0x8c0477a0  0x8c048040
+# follows beam.c with no fill; as one file, the code runs 84 bytes longer. 219 of its first 2,736 bytes differ
+src/effect/flame.c                             P        0x8c048040  0x8c048260
+src/effect/explosion.c                         P        0x8c048260  0x8c048540
+src/effect/glare.c                             P        0x8c048540  0x8c048760
+src/effect/panlight.c                          P        0x8c048760  0x8c0488c0
+src/effect/sparkle.c                           P        0x8c0488c0  0x8c048ba0
+# lens_draw_facing starts on 32 at 0x8c048f00 with no fill; split there, the code builds the same
+src/effect/lens.c                              P        0x8c048ba0  0x8c0491e0
+src/effect/dust.c                              P        0x8c0491e0  0x8c049560
+src/effect/spark.c                             P        0x8c049560  0x8c0496e0
+# ripple_create starts on 32 at 0x8c0498e0 with no fill; split there, the code builds the same
+src/effect/splash.c                            P        0x8c0496e0  0x8c049ae4
+src/effect/wind.c                              P        0x8c049b00  0x8c049dc0
+# enemy_on_screen starts on 32 at 0x8c04af60 with no fill; split there, the code builds the same
+src/enemy/enemy.c                              P        0x8c049dc0  0x8c04b9c0
+src/camera/battle.c                            P        0x8c04b9c0  0x8c04c080
+src/event/play.c                               P        0x8c04c080  0x8c04e440
+src/event/event.c                              P        0x8c04e440  0x8c04ef20
+src/player/weld.c                              P        0x8c04ef20  0x8c04f5e0
+src/system/prs.src                             P        0x8c04f5e0  0x8c04f678
+src/stage/stage.c                              P        0x8c04f680  0x8c053100
+src/effect/sprite_pool.c                       P        0x8c053100  0x8c053500
+src/effect/sprite.c                            P        0x8c053500  0x8c053be0
+src/system/pad.c                               P        0x8c053be0  0x8c0549e0
+src/system/frame.c                             P        0x8c0549e0  0x8c054c40
+src/collision/world.c                          P        0x8c054c40  0x8c0562e0
+src/draw/light.c                               P        0x8c0562e0  0x8c0566a0
+# its code ends at 0x8c05689a, and H'0009 fills to 0x8c0568a0, as only asmsh's .ALIGN does: SHC fills with H'0900, the link with zeros. it reserves the zeros from there to 0x8c056ca4: of the words in the disc's programs, only its pool words point into 0x8c0568a0-0x8c056cc0, 0x8c05685c at 0x8c0568a0, and 0x8c0566a8 and 0x8c0566b4 at 0x8c056ca0, the last word its code names. main.c starts on 32 at 0x8c056cc0
+src/draw/palette.src                           P        0x8c0566a0  0x8c056ca4
+src/main.c                                     P        0x8c056cc0  0x8c057b00
+# angle_approach starts on 32 at 0x8c058ca0 with no fill; split there, the code builds the same
+src/system/util.c                              P        0x8c057b00  0x8c05a480
+src/draw/helpers.c                             P        0x8c05a480  0x8c05ab00
+src/system/vector.src                          P        0x8c05ab00  0x8c05ab60
+# follows vector.src's three functions with no fill. asmsh pools the body's first two literals after its early RTS, at 0x8c05ab70, and the third after SHC's RTS, at 0x8c05abcc
+src/system/matrix_push.c                       P        0x8c05ab60  0x8c05abd0
+src/draw/pose.c                                P        0x8c05abe0  0x8c05b500
+# carry_set_kind starts on 32 at 0x8c05b700 with no fill; split there, the code builds the same
+src/object/common.c                            P        0x8c05b500  0x8c05cb60
+src/object/dash_panel.c                        P        0x8c05cb60  0x8c05cf40
+src/object/balloon.c                           P        0x8c05cf40  0x8c05d480
+src/object/dash_ring.c                         P        0x8c05d480  0x8c05da80
+src/object/kusa.c                              P        0x8c05da80  0x8c05e040
+src/object/target.c                            P        0x8c05e040  0x8c05e3c0
+# blink_draw starts on 32 at 0x8c05ec00 with no fill; split there, the code builds the same
+src/object/piece.c                             P        0x8c05e3c0  0x8c05ede0
+src/object/iron_ball.c                         P        0x8c05ede0  0x8c0602c0
+src/object/item_box.c                          P        0x8c0602c0  0x8c060c20
+src/object/item_box_air.c                      P        0x8c060c20  0x8c061940
+src/object/panel.c                             P        0x8c061940  0x8c0623a0
+src/event/script.c                             P        0x8c0623a0  0x8c062fe0
+src/object/tikal_light.c                       P        0x8c062fe0  0x8c0637c0
+src/object/tikal.c                             P        0x8c0637c0  0x8c064120
+src/object/hint.c                              P        0x8c064120  0x8c064e20
+src/object/knuckles_hint.c                     P        0x8c064e20  0x8c065180
+src/object/line_ring.c                         P        0x8c065180  0x8c065540
+src/object/line_ring_v.c                       P        0x8c065540  0x8c065ba0
+src/object/capsule.c                           P        0x8c065ba0  0x8c066780
+src/object/rocket.c                            P        0x8c066780  0x8c068040
+src/object/sample.c                            P        0x8c068040  0x8c0685a0
+src/object/savepoint.c                         P        0x8c0685a0  0x8c068f60
+src/object/spring.c                            P        0x8c068f60  0x8c069aa0
+# object_add_world_model starts on 32 at 0x8c06a780 with no fill; split there, the code builds the same
+src/object/helpers.c                           P        0x8c069aa0  0x8c06ac80
+src/object/switch.c                            P        0x8c06ac80  0x8c06b640
+# spring_h_step starts on 32 at 0x8c06b720 with no fill; split there, the code builds the same
+src/object/spring_h.c                          P        0x8c06b640  0x8c06bac0
+# bubble_init starts on 32 at 0x8c06bf00 with no fill; split there, the code builds the same
+src/object/toge_bubble.c                       P        0x8c06bac0  0x8c06d18e
+src/object/level_item.c                        P        0x8c06d1a0  0x8c06e880
+src/path/steps.c                               P        0x8c06e880  0x8c06fada
+src/system/timer.c                             P        0x8c06fae0  0x8c06fd40
+src/player/player.c                            P        0x8c06fd40  0x8c0820e0
+# follows player.c with no fill; as one file, the code runs 32 bytes longer. 70,940 of its first 76,556 bytes differ
+src/player/target.c                            P        0x8c0820e0  0x8c08284c
+src/draw/screen.c                              P        0x8c082860  0x8c084000
+src/player/race.c                              P        0x8c084000  0x8c086600
+src/player/npc.c                               P        0x8c086600  0x8c087900
+src/player/rival.c                             P        0x8c087900  0x8c089020
+src/player/rival_knuckles.c                    P        0x8c089020  0x8c089920
+src/player/rival_e102.c                        P        0x8c089920  0x8c08a880
+src/system/math.src                            P        0x8c08a880  0x8c08b9b0
+src/object/ring.c                              P        0x8c08b9c0  0x8c08cb60
+src/object/ring_group.c                        P        0x8c08cb60  0x8c08d120
+src/save/save.c                                P        0x8c08d120  0x8c08e0e0
+src/path/path.c                                P        0x8c08e0e0  0x8c08eec0
+src/hud/hud.c                                  P        0x8c08eec0  0x8c094420
+src/progress/demo.c                            P        0x8c094420  0x8c094a00
+src/progress/select.c                          P        0x8c094a00  0x8c095000
+src/progress/progress.c                        P        0x8c095000  0x8c096040
+# follows progress.c with no fill; as one file, 57 of 4,380 code bytes differ
+src/progress/story.c                           P        0x8c096040  0x8c09611c
+src/object/placement.c                         P        0x8c096120  0x8c096e3e
+src/collision/ground.c                         P        0x8c096e40  0x8c098220
+src/sound/sound.c                              P        0x8c098220  0x8c09aec0
+src/path/curve.c                               P        0x8c09aec0  0x8c09d9e2
+src/draw/inset.c                               P        0x8c09da00  0x8c09dea0
+src/system/task.c                              P        0x8c09dea0  0x8c09e9a0
+src/system/texture.c                           P        0x8c09e9a0  0x8c09f200
+src/system/thread.c                            P        0x8c09f200  0x8c09f590
+src/progress/title.c                           P        0x8c09f5a0  0x8c0a12e0
+src/object/bridge.c                            P        0x8c0a12e0  0x8c0a2720
+src/system/loader.c                            P        0x8c0a2720  0x8c0a3840
+src/effect/particle.c                          P        0x8c0a3840  0x8c0a3d40
+# follows particle.c with no fill; as one file, the code runs 4 bytes shorter. 181 of its 1,424 bytes differ
+src/effect/pools.c                             P        0x8c0a3d40  0x8c0a3de0
+# snow_create_from starts on 32 at 0x8c0a3f80 with no fill; split there, the code builds the same
+src/effect/snow.c                              P        0x8c0a3de0  0x8c0a4020
+# lightning_step starts on 32 at 0x8c0a41e0 with no fill; split there, the code builds the same
+src/effect/hit.c                               P        0x8c0a4020  0x8c0a4280
+src/draw/sprite.src                            P        0x8c0a4280  0x8c0a4b8c
+src/effect/blast_dome.c                        P        0x8c0a4ba0  0x8c0a4f20
+src/system/binary.c                            P        0x8c0a4f20  0x8c0a58aa
+src/system/task_desc.c                         P        0x8c0a58c0  0x8c0a59c0
+src/object/simple.c                            P        0x8c0a59c0  0x8c0a5f20
+# follows simple.c with no fill; as one file, the code runs 32 bytes longer. 248 of its first 1,844 bytes differ
+src/draw/state.c                               P        0x8c0a5f20  0x8c0a6100
+src/collision/draw.c                           P        0x8c0a6100  0x8c0a6bc0
+src/effect/flare.c                             P        0x8c0a6bc0  0x8c0a6c40
+src/sound/cue.c                                P        0x8c0a6c40  0x8c0a6f80
+src/stage/act.c                                P        0x8c0a6f80  0x8c0a7000
+src/system/shuffle.c                           P        0x8c0a7000  0x8c0a70c0
+src/player/reset.c                             P        0x8c0a70c0  0x8c0a7120
+src/hud/board.c                                P        0x8c0a7120  0x8c0a7300
+src/debug/menu.c                               P        0x8c0a7300  0x8c0a76e0
+src/debug/info.c                               P        0x8c0a76e0  0x8c0a7840
+src/draw/quad.c                                P        0x8c0a7840  0x8c0a7b20
+src/save/minigame.c                            P        0x8c0a7b20  0x8c0a8060
+src/object/zero_trigger.c                      P        0x8c0a8060  0x8c0a87e0
+src/object/knuckles_trigger.c                  P        0x8c0a87e0  0x8c0a8ae0
+src/object/clear_trigger.c                     P        0x8c0a8ae0  0x8c0a8d00
+src/debug/fog_editor.c                         P        0x8c0a8d00  0x8c0aa200
+# follows fog_editor.c with no fill; as one file, the code runs 32 bytes longer. 5,777 of its first 11,320 bytes differ, and the two keep one copy of ">"
+src/debug/seq_editor.c                         P        0x8c0aa200  0x8c0ab940
+# menu_set_cursor starts on 32 at 0x8c0abb20 with no fill; split there, the code builds the same
+src/hud/menu.c                                 P        0x8c0ab940  0x8c0ac9c0
+src/progress/emblem.c                          P        0x8c0ac9c0  0x8c0ad700
+src/progress/playable.c                        P        0x8c0ad700  0x8c0ad8e0
+# sonic_blend_toes starts on 32 at 0x8c0b8fa0 with no fill; split there, the code builds the same
+src/player/sonic.c                             P        0x8c0ad8e0  0x8c0ba2e0
+# ball_jitter_start starts on 32 at 0x8c0bafc0 with no fill; split there, the code builds the same
+src/player/effects.c                           P        0x8c0ba2e0  0x8c0bd260
+src/player/tails.c                             P        0x8c0bd260  0x8c0c7d40
+src/player/tails_trail.c                       P        0x8c0c7d40  0x8c0c8580
+src/player/knuckles.c                          P        0x8c0c8580  0x8c0d2b00
+src/player/knuckles_effects.c                  P        0x8c0d2b00  0x8c0d47a0
+src/player/e102.c                              P        0x8c0d47a0  0x8c0db600
+src/player/e102_mode.c                         P        0x8c0db600  0x8c0db6e0
+# e102_landing_dust starts on 32 at 0x8c0dbf40 with no fill; split there, the code builds the same
+src/player/e102_effects.c                      P        0x8c0db6e0  0x8c0dc320
+src/player/e102_aim.c                          P        0x8c0dc320  0x8c0dcd20
+src/player/e102_shot.c                         P        0x8c0dcd20  0x8c0ddda0
+# strip_make starts on 32 at 0x8c0de7c0 with no fill; split there, the code builds the same
+src/player/e102_bonus.c                        P        0x8c0ddda0  0x8c0de920
+src/player/lockon.c                            P        0x8c0de920  0x8c0df240
+src/player/e102_getsec.c                       P        0x8c0df240  0x8c0df480
+src/player/e102_countdown.c                    P        0x8c0df480  0x8c0df68c
+src/player/e102_sphere.c                       P        0x8c0df6a0  0x8c0dfbc0
+src/player/e102_smoke.c                        P        0x8c0dfbc0  0x8c0dfd80
+src/player/e102_hit.c                          P        0x8c0dfd80  0x8c0dff60
+# amy_spin_stick and amy_look_create start on 32 at 0x8c0e6b80 and 0x8c0e7600 with no fill; split at each, the code builds the same
+src/player/amy.c                               P        0x8c0dff60  0x8c0e8700
+src/player/amy_bird.c                          P        0x8c0e8700  0x8c0e8caa
+src/player/amy_drum.c                          P        0x8c0e8cc0  0x8c0e8f80
+# chicks_draw starts on 32 at 0x8c0e9620 with no fill; split there, the code builds the same
+src/player/amy_effects.c                       P        0x8c0e8f80  0x8c0e9d00
+src/player/amy_handle.c                        P        0x8c0e9d00  0x8c0e9e40
+src/player/big.c                               P        0x8c0e9e40  0x8c0f0c40
+src/player/fishing.c                           P        0x8c0f0c40  0x8c0f6a60
+src/player/fishing_line.c                      P        0x8c0f6a60  0x8c0f7380
+src/player/fish.c                              P        0x8c0f7380  0x8c0f8640
+src/player/eggman.c                            P        0x8c0f8640  0x8c0f9a00
+src/chaos/ribbon.c                             P        0x8c0f9a00  0x8c0fa3c0
+src/chaos/steer.c                              P        0x8c0fa3c0  0x8c0fa500
+# follows steer.c with no fill; as one file, the code runs 64 bytes longer. 1,252 of its first 1,592 bytes differ
+src/chaos/puddle.c                             P        0x8c0fa500  0x8c0faa00
+src/chaos/effect.c                             P        0x8c0faa00  0x8c0fbc20
+src/chaos/start.c                              P        0x8c0fbc20  0x8c0fbc60
+# chaos_animate_surface starts on 32 at 0x8c0fc6c0 with no fill; split there, the code builds the same
+src/chaos/chaos.c                              P        0x8c0fbc60  0x8c0fc9c0
+src/chaos/deform.c                             P        0x8c0fc9c0  0x8c0fcec0
+src/hud/boss_name.c                            P        0x8c0fcec0  0x8c0fd340
+src/hud/life_gauge.c                           P        0x8c0fd340  0x8c0fd700
+# follows life_gauge.c with no fill; as one file, the code runs 32 bytes longer
+src/chaos/emeralds.c                           P        0x8c0fd700  0x8c0fdc20
+src/effect/brain.c                             P        0x8c0fdc20  0x8c0fdea0
+src/enemy/sai.c                                P        0x8c0fdea0  0x8c0ff480
+src/enemy/snake.c                              P        0x8c0ff480  0x8c1003c0
+src/enemy/amenbo.c                             P        0x8c1003c0  0x8c1011a0
+src/enemy/charger.c                            P        0x8c1011a0  0x8c101c00
+src/enemy/hiyoko.c                             P        0x8c101c00  0x8c103a40
+src/enemy/leon.c                               P        0x8c103a40  0x8c105b80
+# robo_lift and robo_draw_edit start on 32 at 0x8c107180 and 0x8c107740 with no fill; split at each, the code builds the same
+src/enemy/robo.c                               P        0x8c105b80  0x8c109060
+src/enemy/saru.c                               P        0x8c109060  0x8c10c4c0
+src/enemy/uni.c                                P        0x8c10c4c0  0x8c10f740
+src/enemy/spina.c                              P        0x8c10f740  0x8c1116c0
+src/enemy/zero.c                               P        0x8c1116c0  0x8c1164a0
+src/enemy/zero_handle.c                        P        0x8c1164a0  0x8c116600
+src/sound/stream.c                             P        0x8c116600  0x8c116be0
+src/system/history.c                           P        0x8c116be0  0x8c116e20
+# range_snap_float starts on 32 at 0x8c116e40 with no fill; split there, the code builds the same
+src/system/range.c                             P        0x8c116e20  0x8c116ea0
+src/vmu/draw.c                                 P        0x8c116ea0  0x8c117800
+src/vmu/screen.c                               P        0x8c117800  0x8c118ea0
+src/vmu/vibration.c                            P        0x8c118ea0  0x8c119160
+src/player/talk.c                              P        0x8c119160  0x8c119580
+src/save/mail.c                                P        0x8c119580  0x8c11a4c0
+src/progress/movie.c                           P        0x8c11a4c0  0x8c11a580
+sdk/runtime/rand.c                             P        0x8c11a580  0x8c11a5ac
+sdk/runtime/atan2f.c                           P        0x8c11a5ac  0x8c11a5fc
+sdk/runtime/asinf.c                            P        0x8c11a5fc  0x8c11a64c
+sdk/runtime/powf.c                             P        0x8c11a64c  0x8c11a69c
+sdk/shinobi/syhw.c                             P        0x8c11a69c  0x8c11a784
+sdk/shinobi/vmsapi.c                           P        0x8c11a784  0x8c11b3f8
+sdk/shinobi/vmsutil.c                          P        0x8c11b3f8  0x8c11b7ce
+sdk/shinobi/kcfg.src                           P        0x8c11b7d0  0x8c11b80c
+sdk/shinobi/sybtcfg.c                          P        0x8c11b80c  0x8c11b90c
+sdk/shinobi/pdvibmx.c                          P        0x8c11b90c  0x8c11b9e0
+sdk/runtime/r_divls.src                        P        0x8c11b9e0  0x8c11ba94
+sdk/runtime/r_divlu.src                        P        0x8c11ba94  0x8c11bb3c
+sdk/runtime/r_modls.src                        P        0x8c11bb3c  0x8c11bc04
+sdk/runtime/r_modlu.src                        P        0x8c11bc04  0x8c11bcbc
+sdk/runtime/r_q_fmvn.src                       P        0x8c11bcbc  0x8c11bd60
+sdk/runtime/r_q_mvn.src                        P        0x8c11bd60  0x8c11be20
+sdk/runtime/_i_asins.c                         P        0x8c11be20  0x8c11bf14
+sdk/runtime/_i_atn2s.c                         P        0x8c11bf14  0x8c11bf6c
+sdk/runtime/_in_pows.c                         P        0x8c11bf6c  0x8c11c0e8
+sdk/runtime/acosf.c                            P        0x8c11c0e8  0x8c11c138
+sdk/runtime/atan2.c                            P        0x8c11c138  0x8c11c188
+sdk/runtime/ceilf.c                            P        0x8c11c188  0x8c11c1d8
+sdk/runtime/floorf.c                           P        0x8c11c1d8  0x8c11c228
+sdk/runtime/frexp.c                            P        0x8c11c228  0x8c11c29c
+sdk/runtime/memcpy.c                           P        0x8c11c29c  0x8c11c2e0
+sdk/runtime/memset.c                           P        0x8c11c2e0  0x8c11c2f8
+sdk/runtime/sprintf.c                          P        0x8c11c2f8  0x8c11c334
+sdk/runtime/srand.c                            P        0x8c11c334  0x8c11c340
+sdk/runtime/strcat.c                           P        0x8c11c340  0x8c11c35e
+sdk/runtime/strcmp.c                           P        0x8c11c360  0x8c11c374
+sdk/runtime/strcpy.c                           P        0x8c11c374  0x8c11c388
+sdk/runtime/strlen.c                           P        0x8c11c388  0x8c11c398
+sdk/runtime/vsprintf.c                         P        0x8c11c398  0x8c11c3c0
+sdk/shinobi/sy_g2_dma_get_end_counter.c        P        0x8c11c3c0  0x8c11c3dc
+sdk/shinobi/sy_g2_dma_get_triger_counter.c     P        0x8c11c3dc  0x8c11c3f8
+sdk/shinobi/sy_g2_read.c                       P        0x8c11c3f8  0x8c11c534
+sdk/shinobi/sy_g2_sys_init.c                   P        0x8c11c534  0x8c11c688
+sdk/shinobi/sy_g2_write.c                      P        0x8c11c688  0x8c11c820
+sdk/shinobi/kdapi.c                            P        0x8c11c820  0x8c11d8b8
+sdk/shinobi/rfiber.c                           P        0x8c11d8b8  0x8c11dcc4
+sdk/shinobi/vms_rw.c                           P        0x8c11dcc4  0x8c11df00
+sdk/shinobi/vmscmd.c                           P        0x8c11df00  0x8c11e4e8
+sdk/shinobi/vmsphys.c                          P        0x8c11e4e8  0x8c122614
+sdk/shinobi/gdc_lib.src                        P        0x8c122614  0x8c122718
+sdk/shinobi/sybtfl.src                         P        0x8c122718  0x8c122768
+sdk/shinobi/pdvib.c                            P        0x8c122768  0x8c122b9c
+sdk/runtime/r_s_scpy.src                       P        0x8c122b9c  0x8c122bec
+sdk/runtime/r_strcmp.src                       P        0x8c122bec  0x8c122c94
+sdk/runtime/_fmtout.c                          P        0x8c122c94  0x8c123658
+sdk/runtime/_i_acoss.c                         P        0x8c123658  0x8c123674
+sdk/runtime/_i_atans.c                         P        0x8c123674  0x8c123854
+sdk/runtime/_i_ceils.c                         P        0x8c123854  0x8c1238b4
+sdk/runtime/_i_flors.c                         P        0x8c1238b4  0x8c123914
+sdk/runtime/_i_ldes.c                          P        0x8c123914  0x8c1239d4
+sdk/runtime/_in_exps.c                         P        0x8c1239d4  0x8c123b4c
+sdk/runtime/_in_logs.c                         P        0x8c123b4c  0x8c123c78
+sdk/runtime/memcmp.c                           P        0x8c123c78  0x8c123cac
+sdk/runtime/modff.c                            P        0x8c123cac  0x8c123d08
+sdk/shinobi/sy_g2_aica_fifo_wait_empty.c       P        0x8c123d08  0x8c123d44
+sdk/shinobi/sy_g2_dma_end_interrupt_handler.c  P        0x8c123d44  0x8c123d9c
+sdk/shinobi/sy_g2_dma_open.c                   P        0x8c123d9c  0x8c123ec8
+sdk/shinobi/sy_g2_dma_reset.c                  P        0x8c123ec8  0x8c123fac
+sdk/shinobi/sy_g2_dma_resume_all.c             P        0x8c123fac  0x8c123ff4
+sdk/shinobi/sy_g2_dma_set_protect.c            P        0x8c123ff4  0x8c12402c
+sdk/shinobi/sy_g2_dma_suspend_all.c            P        0x8c12402c  0x8c124074
+sdk/shinobi/sy_g2_fifo_wait_empty.c            P        0x8c124074  0x8c1240b0
+sdk/shinobi/mpapi.c                            P        0x8c1240b0  0x8c1249f0
+sdk/shinobi/mpdrv.c                            P        0x8c1249f0  0x8c125d24
+sdk/shinobi/vmsfib.c                           P        0x8c125d24  0x8c125d84
+sdk/shinobi/vmsio.c                            P        0x8c125d84  0x8c126344
+sdk/runtime/r_q_scpy.src                       P        0x8c126344  0x8c1263ac
+sdk/runtime/r_s_mvn.src                        P        0x8c1263ac  0x8c1263e4
+sdk/runtime/_a_atans.c                         P        0x8c1263e4  0x8c126408
+sdk/runtime/_i_fmds.c                          P        0x8c126408  0x8c12650c
+sdk/runtime/_i_modfs.c                         P        0x8c12650c  0x8c12654c
+sdk/runtime/_xtostr.c                          P        0x8c12654c  0x8c126cb4
+sdk/runtime/cos.c                              P        0x8c126cb4  0x8c126d04
+sdk/runtime/longjmp.src                        P        0x8c126d04  0x8c126d78
+sdk/runtime/setjmp.src                         P        0x8c126d78  0x8c126dde
+sdk/runtime/strncpy.c                          P        0x8c126de0  0x8c126e0e
+sdk/runtime/toupper.c                          P        0x8c126e10  0x8c126e2c
+sdk/shinobi/sy_g2_aica_fifo_is_empty.c         P        0x8c126e2c  0x8c126e40
+sdk/shinobi/sy_g2_dma_resume.c                 P        0x8c126e40  0x8c126e78
+sdk/shinobi/sy_g2_dma_set_prm.c                P        0x8c126e78  0x8c126ee4
+# follows the member before it with no fill; built whole, its 64 bytes end where sy_g2_dma_trigger's begin
+sdk/shinobi/sy_g2_dma_suspend.c                P        0x8c126ee4  0x8c126f24
+sdk/shinobi/sy_g2_dma_trigger.c                P        0x8c126f24  0x8c126fcc
+sdk/shinobi/sy_g2_fifo_is_empty.c              P        0x8c126fcc  0x8c126fe0
+sdk/runtime/_in_coss.c                         P        0x8c126fe0  0x8c1270d0
+sdk/runtime/_its.c                             P        0x8c1270d0  0x8c127200
+sdk/runtime/_xti.c                             P        0x8c127200  0x8c127510
+sdk/shinobi/sy_g2_dma_is_busy.c                P        0x8c127510  0x8c12753c
+sdk/runtime/_a_coss.c                          P        0x8c12753c  0x8c12755c
+sdk/runtime/_a_sins.c                          P        0x8c12755c  0x8c127580
+sdk/runtime/_allzero.c                         P        0x8c127580  0x8c12759e
+sdk/runtime/_calcnpw.c                         P        0x8c1275a0  0x8c1276a0
+sdk/runtime/_log10.c                           P        0x8c1276a0  0x8c127984
+sdk/runtime/_lsfts.c                           P        0x8c127984  0x8c1279d2
+sdk/runtime/_pow5.c                            P        0x8c1279d4  0x8c1279f8
+sdk/runtime/_rsfts.c                           P        0x8c1279f8  0x8c127a4e
+sdk/runtime/_sub.c                             P        0x8c127a50  0x8c127aca
+sdk/runtime/_umemcmp.c                         P        0x8c127acc  0x8c127b00
+sdk/runtime/_unpack.c                          P        0x8c127b00  0x8c127c08
+sdk/runtime/r_divws.src                        P        0x8c127c08  0x8c127c58
+sdk/runtime/_div64.c                           P        0x8c127c58  0x8c127dec
+sdk/runtime/_duchek.c                          P        0x8c127dec  0x8c127e30
+sdk/runtime/_lsft.c                            P        0x8c127e30  0x8c127e7e
+sdk/runtime/_mult64.c                          P        0x8c127e80  0x8c127ef0
+sdk/runtime/_mvito4b.c                         P        0x8c127ef0  0x8c127f10
+sdk/runtime/_power.c                           P        0x8c127f10  0x8c128064
+sdk/runtime/_rnd.c                             P        0x8c128064  0x8c12813c
+sdk/runtime/_setsbit.c                         P        0x8c12813c  0x8c1281b8
+sdk/runtime/_add.c                             P        0x8c1281b8  0x8c1281fc
+sdk/runtime/_mult.c                            P        0x8c1281fc  0x8c1282c8
+sdk/runtime/_pow10.c                           P        0x8c1282c8  0x8c128360
+sdk/runtime/_rsft.c                            P        0x8c128360  0x8c1283a6
+sdk/runtime/_mvsto2b.c                         P        0x8c1283a8  0x8c1283ca
+# built whole, its 40 bytes end where strt2's begin
+sdk/shinobi/strt1.src                          C        0x8c1283cc  0x8c1283f4
+sdk/shinobi/strt2.c                            C        0x8c1283f4  0x8c128422
+src/system/sbinit.c                            C        0x8c128428  0x8c128431
+src/save/card.c                                C        0x8c128438  0x8c1287ff
+src/hud/overlay.c                              C        0x8c128800  0x8c128bbf
+src/animal/animal.c                            C        0x8c128bc0  0x8c128dbc
+# the names of the seal's textures, then of the other kinds' and the barrier's, which the texture name tables in this object's data name. they start on 8, 4 bytes past where animal.c's next string would start on 4, as another object's would, and each kind's start where the names before would put the next string. the last ends 2 bytes short of sparks.c's constants on 8. the penguin's first material starts 4 past 8, straight after the seal's texlist, so the seal's textures' object holds it. the names past the seal's are this object's, as they build, unless an object of data alone starts on 8 in its data between that material and the penguin's table. sparks.c, which links between this object and camera.c with no data row, can't hold them: compiled as one file, in either order, SHC writes its constants ahead of a table's strings, and its constants follow these. animal.c, whose code reads the tables' texlists, can't hold them while the seal's names, between, are this object's. motion.c and camera.c, which link after sparks.c, can't while sparks.c's constants lie between theirs and the names. the 2 zero bytes after the seal's names are this object's padding, as it builds, or the linker's fill, were the names after them another object's. nothing points into the 2 from their last name's null to sparks.c's constants, which the rule takes as the linker's fill, and they can be no item of the names' object, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there
+src/animal/models.c                            C        0x8c128dc0  0x8c12908e
+src/animal/sparks.c                            C        0x8c129090  0x8c129168
+src/camera/camera.c                            C        0x8c129168  0x8c129191
+src/camera/editor.c                            C        0x8c129198  0x8c1293bb
+src/camera/modes.c                             C        0x8c1293c0  0x8c1294d4
+src/chao/chao.c                                C        0x8c1294d8  0x8c12958a
+src/collision/polygon.c                        C        0x8c129590  0x8c129658
+src/collision/invisible.c                      C        0x8c129658  0x8c1296cc
+src/collision/collision.c                      C        0x8c1296d0  0x8c1297f6
+src/stage/scene_changer.c                      C        0x8c1297f8  0x8c129847
+src/debug/debug.c                              C        0x8c129848  0x8c129c77
+src/progress/recorder.c                        C        0x8c129c78  0x8c129cc2
+src/object/download.c                          C        0x8c129cc8  0x8c129f59
+src/draw/text.c                                C        0x8c129f60  0x8c129f66
+src/debug/editor.c                             C        0x8c129f68  0x8c12a05b
+src/draw/fade.c                                C        0x8c12a060  0x8c12a075
+# the names of the four textures dat_8c1b2240 lists, in the object its D row places: literals of that table's own file. they start on 8 where fade.c's next string would start on 4, 3 bytes past its constants, and end 2 bytes short of sparkle.c's on 8; the objects linked between have no constants
+src/effect/dat_8c1b2240.c                      C        0x8c12a078  0x8c12a096
+src/effect/sparkle.c                           C        0x8c12a098  0x8c12a0b4
+src/enemy/enemy.c                              C        0x8c12a0b8  0x8c12a0f4
+src/event/play.c                               C        0x8c12a0f8  0x8c12a106
+src/event/event.c                              C        0x8c12a108  0x8c12a120
+src/stage/stage.c                              C        0x8c12a120  0x8c12a18c
+src/main.c                                     C        0x8c12a190  0x8c12a1c4
+src/system/util.c                              C        0x8c12a1c8  0x8c167ff0
+# the names of the textures that the generated data's texture name tables from 0x8c1b5a18 to 0x8c1c900c name, one name from the first and the last, as one file's strings are. no source holds them that doesn't hold the generated data from 0x8c1b5a18 to 0x8c1c9080, where the data after the last table, each datum 4 past 8, ends on 8. that data holds 12 trees of objects whose roots no word in this image or another names, and the tables and texlists before them, which no reader types, so no source holds the tables, and the names stay a generated row. they start on 8 straight after util.c's constants and end 2 bytes short of common.c's constants, which begin on 8 where the names' object's next string would. the tables start on 8 where pose.c's data ends, and the generated row ends where common.c's data begins. they are pose.c's, which links between util.c and common.c with no constants row, though its code doesn't read them; or an object's of data alone. common.c can't hold them: compiled as one file, in either order, SHC writes its code string ahead of a table's strings, and its constants follow these. util.c, and helpers.c, vector.src and matrix_push.c, which link between util.c and pose.c with no constants row, can't hold the tables: pose.c's data lies between theirs and the tables, while it is pose.c's. item_box_air.c and kusa.c, whose code reads obj_regular_texlist, which names the first table, link after common.c, whose constants and data lie between. the 2 zero bytes after their last name's null, before common.c's constants on 8, nothing points into. they can be only the linker's fill, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. so the row declares end, and the splicer writes them as the linker's fill
+gen/1st_read/d_8c167ff0.c                      C        0x8c167ff0  0x8c16841e  end
+src/object/common.c                            C        0x8c168420  0x8c1684b7
+# its first string starts on 8, a byte past common.c's last, which follows another on 8 at 0x8c168490: one object would place it there as well. only this object's pool word at 0x8c05cd20 names it, and only common.c's npc_names those two. the bytes leave the seam open
+src/object/dash_panel.c                        C        0x8c1684b8  0x8c168514
+src/object/dash_ring.c                         C        0x8c168518  0x8c168528
+# target_shape_count starts on 8 straight after dash_ring.c's only string, on 8 too: only this object's pool word at 0x8c05e328 names it, and only dash_ring.c's at 0x8c05d5c4 the string. kusa.c, between dash_ring.c and target.c in link order, has no constants row. the bytes leave the seam open
+src/object/target.c                            C        0x8c168528  0x8c168532
+src/object/piece.c                             C        0x8c168538  0x8c168576
+# a word on 8, 2 bytes past piece.c's constants, and 4 zero bytes to iron_ball.c's on 8, which no word in this image or another points into. SHC writes a string only where something names it, so the word is a constant. piece.c, whose constants are only the texture names its data names, can't hold it: compiled as one file with a constant appended, SHC writes the constant ahead of the names. it is iron_ball.c's, were its constants to start 8 bytes early with it, or an object's of data alone, linked between, which the bytes leave open. no reader types it. it is placed as one of data alone, of unknown type, and the fill rule takes the 2 zero bytes before it and the 4 after it as the linker's fill. the 4 are iron_ball.c's, were the word its
+src/object/dat_8c168578.c                      C        0x8c168578  0x8c16857c
+src/object/iron_ball.c                         C        0x8c168580  0x8c168670
+# item_box_up starts on 8 straight after iron_ball.c's last two constants, 12 bytes each, the first on 8 at 0x8c168658: only this object's pool word at 0x8c060988 names it, and only iron_ball.c's pool words those. the bytes leave the seam open
+src/object/item_box.c                          C        0x8c168670  0x8c168688
+# item_box_air_puff_speed starts on 8 straight after item_box.c's item_box_up, on 8 too, and random_ring_counts: only this object's pool word at 0x8c061390 names it, and only item_box.c's pool words those two. the bytes leave the seam open
+src/object/item_box_air.c                      C        0x8c168688  0x8c1686fa
+src/object/panel.c                             C        0x8c168700  0x8c168740
+# its first texture name starts on 8 straight after panel.c's last string, on 8 too: only this object's hint_textures names it, and only panel.c's pool word at 0x8c0621ac that string. event/script.c, between panel.c and tikal_light.c in link order, has no constants row. the bytes leave the seam open
+src/object/tikal_light.c                       C        0x8c168740  0x8c168788
+# tikal_modes starts on 8 straight after tikal_light.c's last texture name, on 8 too: only this object's pool word at 0x8c063f38 names it, and only tikal_light.c's hint_textures that name. the bytes leave the seam open
+src/object/tikal.c                             C        0x8c168788  0x8c1687c4
+src/object/hint.c                              C        0x8c1687c8  0x8c168819
+src/object/knuckles_hint.c                     C        0x8c168820  0x8c168854
+src/object/line_ring.c                         C        0x8c168858  0x8c1688a0
+# its first string starts on 8 straight after line_ring.c's last constant, 12 bytes, which follows a string on 8 at 0x8c168880: only this object's pool word at 0x8c065634 names it, and only line_ring.c's pool words those two. the bytes leave the seam open
+src/object/line_ring_v.c                       C        0x8c1688a0  0x8c1688f4
+src/object/capsule.c                           C        0x8c1688f8  0x8c168914
+src/object/rocket.c                            C        0x8c168918  0x8c168a89
+src/object/spring.c                            C        0x8c168a90  0x8c168ab4
+src/object/switch.c                            C        0x8c168ab8  0x8c168b46
+# its first string starts on 8, two bytes past switch.c's last, which starts on 8 too: one object would place it there as well. only this object's pool word at 0x8c06b88c names it, and only switch.c's switch_kind_names that string. the bytes leave the seam open
+src/object/spring_h.c                          C        0x8c168b48  0x8c168b6c
+src/object/toge_bubble.c                       C        0x8c168b70  0x8c168c20
+# level_item_flags starts on 8 straight after toge_bubble.c's last string, on 8 too: only this object's pool words name it, and only toge_bubble.c's pool word at 0x8c06c6d0 that string. the bytes leave the seam open
+src/object/level_item.c                        C        0x8c168c20  0x8c169162
+src/draw/screen.c                              C        0x8c169168  0x8c169212
+src/player/race.c                              C        0x8c169218  0x8c16c911
+src/player/npc.c                               C        0x8c16c918  0x8c16cb03
+src/player/rival.c                             C        0x8c16cb08  0x8c16cb5c
+src/object/ring_group.c                        C        0x8c16cb60  0x8c16cbc8
+# act1 starts on 8 straight after ring_group.c's last two constants, 12 zero bytes each, the first on 8 at 0x8c16cbb0: only this object's pool word at 0x8c08d1a8 names it, and only ring_group.c's pool words those. the bytes leave the seam open
+src/save/save.c                                C        0x8c16cbc8  0x8c16cc22
+src/hud/hud.c                                  C        0x8c16cc28  0x8c16cc8b
+src/progress/demo.c                            C        0x8c16cc90  0x8c16cd3d
+src/progress/select.c                          C        0x8c16cd40  0x8c16cdd6
+src/progress/progress.c                        C        0x8c16cdd8  0x8c16cfa1
+src/sound/sound.c                              C        0x8c16cfa8  0x8c16d397
+src/system/texture.c                           C        0x8c16d398  0x8c16d91b
+src/system/texlists.c                          C        0x8c16d920  0x8c16e27e
+src/progress/title.c                           C        0x8c16e280  0x8c16e914
+src/object/bridge.c                            C        0x8c16e918  0x8c16e93c
+src/system/loader.c                            C        0x8c16e940  0x8c16eefe
+src/effect/particle.c                          C        0x8c16ef00  0x8c16ef2a
+src/object/simple.c                            C        0x8c16ef30  0x8c16ef48
+# sprite_anim_desc, which nothing names, starts on 8 straight after simple.c's object_no_speed, on 8 too, and object_no_accel; only this object's pool word at 0x8c0a6060 names draw_state_no_material, on 8 after it, and only simple.c's pool words those two. the bytes leave the seam open
+src/draw/state.c                               C        0x8c16ef48  0x8c16ef70
+src/collision/draw.c                           C        0x8c16ef70  0x8c16efc0
+src/effect/flare.c                             C        0x8c16efc0  0x8c16efd8
+src/sound/cue.c                                C        0x8c16efd8  0x8c16effc
+src/hud/board.c                                C        0x8c16f000  0x8c16f09e
+src/debug/menu.c                               C        0x8c16f0a0  0x8c16f0de
+src/debug/info.c                               C        0x8c16f0e0  0x8c16f128
+src/save/minigame.c                            C        0x8c16f128  0x8c16f14f
+# zero_trigger_colors starts on 8, a byte past minigame.c's defaults, on 8 too: one object would place it there as well. only this object's pool word at 0x8c0a81c8 names it, and only minigame.c's at 0x8c0a7c84 the defaults. the bytes leave the seam open
+src/object/zero_trigger.c                      C        0x8c16f150  0x8c16f2ec
+src/object/knuckles_trigger.c                  C        0x8c16f2f0  0x8c16f3db
+src/object/clear_trigger.c                     C        0x8c16f3e0  0x8c16f3e9
+src/debug/fog_editor.c                         C        0x8c16f3f0  0x8c16f483
+src/debug/seq_editor.c                         C        0x8c16f488  0x8c16f538
+src/hud/menu.c                                 C        0x8c16f538  0x8c16f674
+src/progress/emblem.c                          C        0x8c16f678  0x8c16f71a
+src/progress/playable.c                        C        0x8c16f720  0x8c16f79f
+# its only string starts on 8, a byte past playable.c's last, which starts on 8 too: one object would place it there as well. only this object's data, at 0x8c1dc62c, names it, and only playable_names the one before. the bytes leave the seam open
+src/player/sonic.c                             C        0x8c16f7a0  0x8c16f7a9
+src/player/effects.c                           C        0x8c16f7b0  0x8c16f912
+src/player/sonic_textures.c                    C        0x8c16f918  0x8c16fa97
+# the names of the three textures that the four texture tables in this object's data name, each followed by a texlist and a model. they start on 8 where sonic_textures.c's next string would, and end 7 bytes short of tails_trail.c's constants on 8. this object's data starts on 8 in the generated data that starts where sonic_textures.c's data ends, and ends on 8 with its last table's texlist, before sonic_ice_piece.c's data, after which tails.c's data starts on 8. they are an object's of data alone, as they build; sonic_textures.c's, were the generated data from its data to this object's its; or tails.c's, which links between sonic_textures.c and tails_trail.c with no constants row, were sonic_ice_piece.c's data after this object's its too, though its code doesn't read them. tails_trail.c, whose constants start on 8, 7 bytes past their last name's null, can't: tails.c's data lies between this object's and tails_trail.c's, while it is tails.c's. effects.c, whose code reads sonic_ice_texlist, and sonic.c, whose data names sonic_fidget_action, can't either while sonic_textures.c's constants and data, between, are sonic_textures.c's. nothing points into the zero byte before them, after sonic_textures.c's constants, or the 7 zero bytes from their last name's null to tails_trail.c's constants, and the rule takes both as the linker's fill. the byte would be sonic_textures.c's padding were the names sonic_textures.c's, and the 7 can be no item of the names' object, whoever holds them, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there
+src/player/sonic_effect_models.c               C        0x8c16fa98  0x8c16fab9
+src/player/tails_trail.c                       C        0x8c16fac0  0x8c16faf9
+src/player/tails_textures.c                    C        0x8c16fb00  0x8c16fc36
+# knuckles_dig_chances_anywhere starts on 8, two bytes past tails_textures.c's last texture name: one object would place it there as well. only this object's pool words name it, and only tails_textures.c's tails_textures the names from 0x8c16fc20, on 8. the bytes leave the seam open
+src/player/knuckles.c                          C        0x8c16fc38  0x8c16fdd3
+src/player/knuckles_textures.c                 C        0x8c16fdd8  0x8c16ffcb
+src/player/e102.c                              C        0x8c16ffd0  0x8c16ffdc
+src/player/e102_shot.c                         C        0x8c16ffe0  0x8c16ffec
+src/player/e102_bonus.c                        C        0x8c16fff0  0x8c170074
+src/player/e102_textures.c                     C        0x8c170078  0x8c1702ec
+src/player/e102_hit.c                          C        0x8c1702f0  0x8c170785
+# amy_zero_triggers starts on 8, three bytes past e102_hit.c's empty string: one object would place it there as well. only this object's pool word at 0x8c0e7e88 names it, and only e102_hit.c's words that string and hit_spark_frames, on 8 at 0x8c1706a8. the bytes leave the seam open
+src/player/amy.c                               C        0x8c170788  0x8c17081c
+src/player/amy_bird.c                          C        0x8c170820  0x8c17082c
+src/player/amy_textures.c                      C        0x8c170830  0x8c170ad9
+src/player/big.c                               C        0x8c170ae0  0x8c170b10
+# its first texture name starts on 8 straight after big.c's last two constants, 12 zero bytes each, the first on 8 at 0x8c170af8: only this object's big_textures names it, and only big.c's pool words those. the bytes leave the seam open
+src/player/big_textures.c                      C        0x8c170b10  0x8c170f81
+# fishing.c's constants start on 8, 4 bytes past where big_textures.c's next string would start on 4 after its last fishing texture name, as another object's would. nothing points into the 7 zero bytes, which are the linker's fill, as the rule takes them, and no item of big_textures.c's, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there
+src/player/fishing.c                           C        0x8c170f88  0x8c170fd0
+# the names of the 8 textures that big_kaeru_textures, this object's data, names; big_kaeru_texlist, which fish.c's code reads, names that table. they start on 8 straight after fishing.c's constants, and end on 8 where the next row's names start. the table starts on 8, 4 bytes past fishing.c's data, and fish.c's data starts on 8 where the generated data after the texlist ends. they are an object's of data alone, as they build; fishing.c's, were the zero word at 0x8c57cb14 after its data its too; fishing_line.c's, which links between fishing.c and fish.c with no constants or data row, though its code doesn't read them; or fish.c's, were the generated data from the texlist to its own data its. the next row's names meet them on 8 with no gap, but the table that names those follows eggman.c's data. fish.c's and eggman.c's data lie between the two tables, so while that data is theirs the two rows are two files' strings, and eggman.c, ribbon.c and steer.c, which link after fish.c with no constants row, can't hold these
+src/player/big_kaeru_textures.c                C        0x8c170fd0  0x8c171010
+# the names of the 19 textures that eggman_textures, this object's data, names; eggman_texlist, which eggman.c's code reads, names that table. the table starts on 8 where eggman.c's data ends, and ribbon.c's data starts on 8 where the generated data after this object's ends. they are an object's of data alone, as they build; eggman.c's, which links between fish.c and ribbon.c with no constants row; or ribbon.c's, which has no constants row either, were the generated data from this object's to its own data its, though its code doesn't read them. fish.c and fishing_line.c can't: eggman.c's data lies between theirs and the table, while it is eggman.c's. they end a byte short of puddle.c's constants, but neither puddle.c nor steer.c, which links before it with no constants row, can hold them while ribbon.c's data lies between theirs and the table. the zero byte after their last name's null nothing points into. it is the linker's fill, as the rule takes it. it is not padding, since the object's next item on 4 would start where puddle.c's constants do, and puddle.c can't hold the names, and no other item of the names' object, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there
+src/player/eggman_textures.c                   C        0x8c171010  0x8c1710cf
+src/chaos/puddle.c                             C        0x8c1710d0  0x8c1710df
+src/chaos/effect.c                             C        0x8c1710e0  0x8c17119f
+src/chaos/chaos.c                              C        0x8c1711a0  0x8c1711ac
+src/chaos/deform.c                             C        0x8c1711b0  0x8c1711bc
+src/hud/boss_name.c                            C        0x8c1711c0  0x8c1711cd
+src/hud/life_gauge.c                           C        0x8c1711d0  0x8c1711ee
+# the names of the textures that the four texture name tables in this object's data name. the first three tables name one name, as one file's strings are, and the fourth the next, 4 past 8, so they are one object's. they start on 8 where life_gauge.c's next string would. they are an object's of data alone, as they build; or life_gauge.c's, though its code doesn't read them, were the zero word after its data its too. one file puts a table's strings after life_gauge.c's constant and its own strings, as here. barrier.c's names and data, after these and models.c's last texlist in D, can be this object's too, as barrier.c's rows say. nothing links between life_gauge.c and emeralds.c. puddle.c and chaos.c, whose code reads the puddle and the blob, can't: their constants and data lie before life_gauge.c's. nothing points into the 2 zero bytes before them, after life_gauge.c's constants, which the rule takes as the linker's fill, and they would be life_gauge.c's padding were the names life_gauge.c's
+src/chaos/models.c                             C        0x8c1711f0  0x8c171207
+# the names of the textures that the effects', the emeralds' and the surface's tables in this object's data name, each kind's starting on 8 where the names before would put the next string. the effects' and the emeralds' tables are one object's in D, joined off 8 through the effects' texlist, so their names are one file's. the surface's names and table meet the emeralds' on 8 with no fill in both sections, so the bytes leave that seam open, and they can be another object's of data alone. they start on 8 where models.c's next string would, and end a byte short of emeralds.c's constants on 8. nothing points into the zero byte before them, which the rule takes as the linker's fill, and it would be models.c's padding were these names models.c's. they are an object's of data alone, as they build; models.c's, were its object to run on past its last texlist; or life_gauge.c's, were models.c's constants and data, and the zero word after its own data, its too, though its code doesn't read them. emeralds.c, whose code reads chaos_emerald_texlist, can't: compiled as one file, in either order, SHC writes its constant ahead of a table's strings, and its constants follow these. chaos/effect.c and ribbon.c, whose code reads chaos_effect_texlist, can't either: their constants and data lie before life_gauge.c's. the zero byte after their last name's null, before emeralds.c's constants, nothing points into. it is the linker's fill, as the rule takes it, and no item of the names' object, since one file writes its constants ahead of its data's strings and nothing names a string there
+src/chaos/barrier.c                            C        0x8c171208  0x8c17154f
+src/chaos/emeralds.c                           C        0x8c171550  0x8c171554
+src/effect/brain.c                             C        0x8c171558  0x8c17161b
+src/enemy/sai.c                                C        0x8c171620  0x8c171629
+# the names of the sai's 26 textures, which e_sai_textures in this object's data names. they start on 8, 4 bytes past where sai.c's next string would start, as another object's constants would, and end 5 bytes short of snake.c's constants on 8, 4 bytes past where their own next string would start. neither neighbour can hold them. compiled as one file, in either order, SHC puts a table's strings straight after sai.c's constant and code string, 4 bytes short of where they lie, and those 4 bytes could be neither a constant, which SHC writes ahead of the code string, nor a string nothing names. and a table whose names end where these do, defined ahead of snake.c's own table, puts snake.c's first name 4 bytes short of where it lies. nothing points into the 7 zero bytes before them or the 5 after them, and the fill rule takes both as the linker's fill, which is all they can be: sai.c's constants end where its row does, and no item of the names' object or of snake.c's can lie in the 5, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there. the data row gives their owners
+src/enemy/sai_textures.c                       C        0x8c171630  0x8c17172b
+src/enemy/snake.c                              C        0x8c171730  0x8c171789
+src/enemy/amenbo.c                             C        0x8c171790  0x8c1718c5
+# its first constant, 12 zero bytes, starts on 8, three bytes past amenbo.c's last texture name, which starts on 8 too: one object would place it there as well. only this object's pool word at 0x8c104388 names it, and only amenbo.c's e_amenbo_textures that name. charger.c and hiyoko.c, between amenbo.c and leon.c in link order, have no constants row. the bytes leave the seam open
+src/enemy/leon.c                               C        0x8c1718c8  0x8c171a1e
+# its first constant starts on 8, two bytes past leon.c's last texture name, which follows another on 8 at 0x8c171a08: one object would place it there as well. only this object's pool word at 0x8c106204 names it, and only leon.c's e_leon_textures those two names. the bytes leave the seam open
+src/enemy/robo.c                               C        0x8c171a20  0x8c171ba3
+src/enemy/saru.c                               C        0x8c171ba8  0x8c171d0d
+# its first constant starts on 8, three bytes past saru.c's last texture name, which starts on 8 too: one object would place it there as well. only this object's pool word at 0x8c10c918 names it, and only saru.c's togeball_textures that name. the bytes leave the seam open
+src/enemy/uni.c                                C        0x8c171d10  0x8c171df3
+src/enemy/spina.c                              C        0x8c171df8  0x8c171fe8
+# its only string starts on 8 straight after spina.c's last texture name, on 8 too: only this object's pool word at 0x8c115e38 names it, and only spina.c's supi_supi_textures that name. the bytes leave the seam open
+src/enemy/zero.c                               C        0x8c171fe8  0x8c171fef
+# the names of the 29 textures that zero_textures, this object's data, names; zero_texlist, which zero.c's and zero_handle.c's code read, names that table. they start on 8 where zero.c's next string would, and end 5 bytes short of zero_handle.c's constants on 8. the table starts on 8 in the generated data that starts where zero.c's data ends, and the generated data after this object's runs to zero_handle.c's data. they are an object's of data alone, as they build; or zero.c's, were the generated data from its data to the table its. compiled as one file, in either order, SHC puts a table's strings straight after zero.c's code string, as they lie. zero_handle.c, whose code reads zero_texlist, can't: compiled as one file, in either order, SHC writes its code string ahead of a table's strings, and its string follows these. nothing links between zero.c and zero_handle.c. the zero byte before them, after zero.c's constants, and the 5 zero bytes from their last name's null to zero_handle.c's constants, nothing points into: the rule takes them as the linker's fill. the byte would be zero.c's padding were the names zero.c's. the 5 can be no item of the names' object, since SHC writes an object's constants and code strings ahead of its data's strings, and nothing names a string there
+src/enemy/zero_textures.c                      C        0x8c171ff0  0x8c172153
+src/enemy/zero_handle.c                        C        0x8c172158  0x8c17215f
+# its first string starts on 8, a byte past zero_handle.c's only one, which starts on 8 too: one object would place it there as well. only this object's pool word at 0x8c1166bc names it, and only zero_handle.c's at 0x8c116538 that one. the bytes leave the seam open
+src/sound/stream.c                             C        0x8c172160  0x8c1727cc
+src/vmu/screen.c                               C        0x8c1727d0  0x8c174bc4
+src/vmu/vibration.c                            C        0x8c174bc8  0x8c174be8
+src/save/mail.c                                C        0x8c174be8  0x8c174c28
+src/progress/movie.c                           C        0x8c174c28  0x8c174c32
+sdk/shinobi/syhw.c                             C        0x8c174c34  0x8c174f40
+sdk/shinobi/vmsapi.c                           C        0x8c174f40  0x8c174fa4
+sdk/shinobi/sybtcfg.c                          C        0x8c174fa4  0x8c174fd2
+sdk/shinobi/pdvibmx.c                          C        0x8c174fd4  0x8c174fdc
+sdk/shinobi/kdapi.c                            C        0x8c174fdc  0x8c17503d
+sdk/shinobi/vmsphys.c                          C        0x8c175040  0x8c175058
+sdk/shinobi/pdvib.c                            C        0x8c175058  0x8c1750ac
+sdk/runtime/_i_atans.c                         C        0x8c1750b0  0x8c1750c8
+sdk/runtime/_in_exps.c                         C        0x8c1750c8  0x8c175104
+sdk/runtime/_in_logs.c                         C        0x8c175108  0x8c175130
+sdk/runtime/consts.c                           C        0x8c175130  0x8c175194
+sdk/shinobi/sy_g2_variable.c                   C        0x8c175194  0x8c1751c6
+sdk/shinobi/mpapi.c                            C        0x8c1751c8  0x8c1751fe
+sdk/shinobi/mpdrv.c                            C        0x8c175200  0x8c17522a
+# SDK 1.20J shinobi.lib's module mpgbl_ has these 48 bytes of C, aligned on 4, and the 4,356 bytes of B from mpapi.c's to vmsfib.c's
+sdk/shinobi/mpgbl.c                            C        0x8c17522c  0x8c17525c
+sdk/shinobi/vmsio.c                            C        0x8c17525c  0x8c175280
+sdk/runtime/_a_atans.c                         C        0x8c175280  0x8c175298
+sdk/runtime/_ctype.c                           C        0x8c175298  0x8c175398
+sdk/runtime/_its.c                             C        0x8c175398  0x8c175420
+sdk/runtime/_a_coss.c                          C        0x8c175420  0x8c17543c
+sdk/runtime/_a_sins.c                          C        0x8c175440  0x8c17545c
+sdk/runtime/_pow5.c                            C        0x8c175460  0x8c175540
+sdk/runtime/_power.c                           C        0x8c175540  0x8c1755e0
+# sygStartBuild, the member's only data; it holds 0x8c1283f4, the start of this member's C
+sdk/shinobi/strt2.c                            D        0x8c1755e0  0x8c1755e4
+# 8 zero bytes on 8, 4 bytes past strt2.c's data, to card.c's, which no word points into. card.c starts 8 bytes past where the linker would start it after strt2.c's data, so another object's data starts on 8 here, or on 4 at 0x8c1755e4, and ends within 8 bytes of card.c's start. it is card.c's, were its data to start early; sbinit.c's, crt0.src's or host.c's, which link between strt2.c and card.c with no data row, though their code doesn't read it; or an object's of data alone, which the bytes leave open. no reader types them. they are placed as one of data alone, of unknown type, and the 4 zero bytes before them are the linker's fill, as the fill rule takes them, or that object's, were it to start on 4
+src/system/dat_8c1755e8.c                      D        0x8c1755e8  0x8c1755f0
+src/save/card.c                                D        0x8c1755f0  0x8c177a44
+src/hud/overlay.c                              D        0x8c177a48  0x8c177e34
+src/animal/kinds.c                             D        0x8c177e38  0x8c177eb5
+# the seal's models start this object on 8, 3 bytes past kinds.c's data, and its data runs on through each kind's models, motion, action, texture names and texlist to the barrier's model, which ends where camera.c's data starts on 8. nothing points into the 3 zero bytes, which the rule takes as the linker's fill; were the seal's models kinds.c's data, they would be its padding. the seal's textures meet its action on 8 with no fill, so the bytes leave that seam open. the seal's models, motion and action can be kinds.c's, an object's of their own, or animal.c's, sparks.c's or motion.c's, which link between kinds.c and camera.c with no data row, though only animal.c's code reads the action. the constants row gives the owners of the data from the penguin's on
+src/animal/models.c                            D        0x8c177eb8  0x8c1a1290
+src/camera/camera.c                            D        0x8c1a1290  0x8c1a1324
+src/camera/editor.c                            D        0x8c1a1328  0x8c1a21b0
+# meets editor.c's data on 8 with no gap, and modes.c's meets it so; one file or two build the same at each seam. it is editor.c's, whose CAMERA_COLLISIONS_MAX is the collisions' extent, modes.c's, though its code reads neither datum, or an object of data alone: the bytes leave it open. camera_advertise_layout, which camera.c reads, starts on 8 at 0x8c1aa170 straight after the collisions it names, so that seam is open too
+src/camera/advertise.c                         D        0x8c1a21b0  0x8c1aa178
+src/camera/modes.c                             D        0x8c1aa178  0x8c1ab1a0
+# meets modes.c's data on 8 with no gap; one file or two build the same. camera.c reads camera_mode_table, and through it the adjust list, but camera.c's data lies before editor.c's. modes.c's code reads neither, though the list names modes.c's adjust steps and the table camera_mode_list. it is modes.c's or an object of data alone, or, were the zero word after it and camera_layouts in its object too, chao.c's, whose data meets camera_layouts on 8, though chao.c's code reads neither. the table ends 4 past 8, and the zero word after it, which no word in the image points at, is fill before camera_layouts or a word of this object. both build the same, and it is built as fill
+src/camera/mode_table.c                        D        0x8c1ab1a0  0x8c1ab284
+# starts on 8 past that zero word, 4 bytes past where mode_table.c's next datum would start; as one file with mode_table.c, camera_layouts starts 4 bytes early. chao.c's data meets it on 8 with no gap, and one file or two build the same. camera.c reads it, but camera.c's data lies before editor.c's. it is an object of data alone, chao.c's, though chao.c's code doesn't read it, mode_table.c's object's, were the zero word its, or so modes.c's, were mode_table.c's data and the zero word modes.c's too, though modes.c's code doesn't read it
+src/camera/layouts.c                           D        0x8c1ab288  0x8c1ab7e8
+src/chao/chao.c                                D        0x8c1ab7e8  0x8c1ab9f8
+src/collision/polygon.c                        D        0x8c1ab9f8  0x8c1aba18
+src/collision/invisible.c                      D        0x8c1aba18  0x8c1abb88
+# meets invisible.c's data on 8 with no gap; one file or two build the same. modes.c's camera_step_pathcam reads pathcam_routes, but modes.c's data ends at 0x8c1ab1a0. it is invisible.c's, though invisible.c's code doesn't read it; cache.src's, which links between invisible.c and collision.c with no data row, though its code doesn't read it; collision.c's, were the zero word after it collision.c's too, though collision.c's code doesn't read it; or an object of data alone. inside it the second path's keys at 0x8c1acf30, the second path at 0x8c1ae2b8 and the second route's list at 0x8c1ae2c8 start on 8 straight after the datum before, so those seams are open. each other datum starts 4 past 8 and joins the one before. pathcam_routes ends 4 past 8, and the zero word after it, which no word in the image points at, is fill before collision.c's data or a word of this object. as one file with collision.c, collision.c's data starts 4 bytes early without the word and at 0x8c1ae2e8, where the image has it, with it. both readings build the same, and it is built as fill
+src/camera/pathcam.c                           D        0x8c1abb88  0x8c1ae2e4
+src/collision/collision.c                      D        0x8c1ae2e8  0x8c1b010e
+src/stage/scene_changer.c                      D        0x8c1b0110  0x8c1b0144
+src/debug/debug.c                              D        0x8c1b0148  0x8c1b0834
+src/progress/recorder.c                        D        0x8c1b0838  0x8c1b084c
+src/object/download.c                          D        0x8c1b0850  0x8c1b0c2c
+# action_motion_steps and action_shape_steps, the object's only data, at the addresses its pools hold
+src/draw/action.c                              D        0x8c1b0c2c  0x8c1b0c50
+# action_link_motion_steps and action_link_shape_steps, the object's only data, at the addresses its pools hold
+src/draw/action_link.c                         D        0x8c1b0c50  0x8c1b0c74
+src/draw/text.c                                D        0x8c1b0c78  0x8c1b0c88
+gen/1st_read/d_8c1b0c88.c                      D        0x8c1b0c88  0x8c1b1840
+src/debug/editor.c                             D        0x8c1b1840  0x8c1b1d54
+src/draw/fade.c                                D        0x8c1b1d58  0x8c1b1f2c
+src/effect/effect.c                            D        0x8c1b1f30  0x8c1b2098
+src/effect/bomb.c                              D        0x8c1b2098  0x8c1b2240
+# a table of four textures, the list that names it and a frame on each, laid out as bomb.c's and flame.c's effects lay out theirs; no word in this image or another points at the list or the frames. it meets bomb.c's data on 8 with no gap, and flame.c's meets it so: one file or two build the same at each seam. it is bomb.c's or flame.c's, though no code of theirs reads it, crash_stars.c's or beam.c's, which link between them and have no data of their own, or an object's of data alone, as it is placed
+src/effect/dat_8c1b2240.c                      D        0x8c1b2240  0x8c1b22c8
+src/effect/flame.c                             D        0x8c1b22c8  0x8c1b23f8
+src/effect/explosion.c                         D        0x8c1b23f8  0x8c1b24c4
+src/effect/glare.c                             D        0x8c1b24c8  0x8c1b2504
+src/effect/panlight.c                          D        0x8c1b2508  0x8c1b2548
+src/effect/sparkle.c                           D        0x8c1b2548  0x8c1b25c4
+src/effect/lens.c                              D        0x8c1b25c8  0x8c1b2798
+src/effect/dust.c                              D        0x8c1b2798  0x8c1b28ec
+src/effect/spark.c                             D        0x8c1b28f0  0x8c1b2908
+src/effect/splash.c                            D        0x8c1b2908  0x8c1b2a10
+src/effect/wind.c                              D        0x8c1b2a10  0x8c1b2a14
+src/enemy/enemy.c                              D        0x8c1b2a18  0x8c1b2a48
+# battle_distance, its only data, starts on 8 straight after enemy.c's enemy_player_spots, on 8 too: only this object's pool words name it, and only enemy.c's at 0x8c04b120 the spots. the bytes leave the seam open
+src/camera/battle.c                            D        0x8c1b2a48  0x8c1b2a4c
+src/event/play.c                               D        0x8c1b2a50  0x8c1b2b24
+src/event/event.c                              D        0x8c1b2b28  0x8c1b2b5c
+# each letter's mouth script and event_mouth_scripts, which event.c's and player.c's code read; player.c's data lies at 0x8c1d4888, past stage.c's, so player.c can't hold them. it starts on 8 past a zero word no word points into, 4 bytes past where event.c's next datum would start. as one file with event.c, it starts 4 bytes early, and the fill rule takes the word as fill. stage.c's data meets it on 8 with no gap, and one file or two build the same. it is an object's of data alone; stage.c's, though stage.c's code doesn't read it; weld.c's or prs.src's, which link between event.c and stage.c with no data row, though their code doesn't read it; or event.c's, were the zero word event.c's too
+src/event/mouth_scripts.c                      D        0x8c1b2b60  0x8c1b2d10
+src/stage/stage.c                              D        0x8c1b2d10  0x8c1b4cf0
+src/system/pad.c                               D        0x8c1b4cf0  0x8c1b4d48
+src/system/frame.c                             D        0x8c1b4d48  0x8c1b52c8
+src/collision/world.c                          D        0x8c1b52c8  0x8c1b58c0
+src/main.c                                     D        0x8c1b58c0  0x8c1b58c4
+src/draw/helpers.c                             D        0x8c1b58c8  0x8c1b59a4
+src/draw/pose.c                                D        0x8c1b59a8  0x8c1b5a18
+gen/1st_read/d_8c1b5a18.c                      D        0x8c1b5a18  0x8c1cffc0
+# npc_choice starts on 8 straight after the generated data's dat_8c1cffbc, which nothing names, and hint_object before it, on 8, which only hint.c's pool word at 0x8c064464 names: only this object's pool word at 0x8c05b5c0 names npc_choice. the bytes leave the seam open
+src/object/common.c                            D        0x8c1cffc0  0x8c1cffe0
+# dash_panel_shape, its only data, starts on 8 straight after common.c's npc_choice, on 8 too, and npc_names: only this object's pool word at 0x8c05cdec names it, and only common.c's pool words those two. the bytes leave the seam open
+src/object/dash_panel.c                        D        0x8c1cffe0  0x8c1d0014
+src/object/balloon.c                           D        0x8c1d0018  0x8c1d00b4
+src/object/kusa.c                              D        0x8c1d00b8  0x8c1d023c
+src/object/target.c                            D        0x8c1d0240  0x8c1d0274
+src/object/piece.c                             D        0x8c1d0278  0x8c1d03d4
+src/object/iron_ball.c                         D        0x8c1d03d8  0x8c1d0440
+# item_box_shapes starts on 8 straight after iron_ball.c's iron_ball_shape, on 8 too, and iron_ball_link_shape: only this object's pool words name it, and only iron_ball.c's those two. the bytes leave the seam open
+src/object/item_box.c                          D        0x8c1d0440  0x8c1d0588
+# item_box_air_shape starts on 8 straight after item_box.c's item_1up_textures, on 8 too: only this object's pool word at 0x8c060e38 names it, and item_box.c's pool word at 0x8c060928 and this object's at 0x8c061194 and 0x8c06174c item_1up_textures. the bytes leave the seam open
+src/object/item_box_air.c                      D        0x8c1d0588  0x8c1d0630
+# panel_shapes starts on 8 straight after item_box_air.c's shown_rings, on 8 too, and item_names: only this object's pool word at 0x8c061f68 names it, and only item_box_air.c's pool words those two. the bytes leave the seam open
+src/object/panel.c                             D        0x8c1d0630  0x8c1d07fc
+src/event/script.c                             D        0x8c1d0800  0x8c1d08c0
+# tikal_light_pace starts on 8 straight after event/script.c's message_window_open, on 8 too, and message_cut_short: only this object's pool words name it, and only script.c's those two. the bytes leave the seam open
+src/object/tikal_light.c                       D        0x8c1d08c0  0x8c1d0a3c
+src/object/tikal.c                             D        0x8c1d0a40  0x8c1d0a44
+src/object/hint.c                              D        0x8c1d0a48  0x8c1d0a7c
+src/object/capsule.c                           D        0x8c1d0a80  0x8c1d0bc0
+# rocket_jet_texlist starts on 8 straight after capsule.c's capsule_active, on 8 too, and capsule_task: only this object's rocket_jet_sprite names it, and only capsule.c's pool words those two. the bytes leave the seam open
+src/object/rocket.c                            D        0x8c1d0bc0  0x8c1d0d2c
+src/object/sample.c                            D        0x8c1d0d30  0x8c1d0ed0
+# savepoint_shape starts on 8 straight after sample.c's sample_shake_shapes, on 8 too: only this object's pool word at 0x8c068814 names it, and only sample.c's at 0x8c068488 the shapes. the bytes leave the seam open
+src/object/savepoint.c                         D        0x8c1d0ed0  0x8c1d0f4c
+src/object/spring.c                            D        0x8c1d0f50  0x8c1d0fb8
+# arrow_materials starts on 8 straight after spring.c's spring_shape, on 8 too, and spring_b_shape: only this object's arrow_model names it, and only spring.c's pool words those two. the bytes leave the seam open
+src/object/helpers.c                           D        0x8c1d0fb8  0x8c1d1318
+# switch_kind_names starts on 8 straight after helpers.c's quad_order, on 8 too: only this object's pool word at 0x8c06ada0 names it, and only helpers.c's at 0x8c06a604 quad_order. the bytes leave the seam open
+src/object/switch.c                            D        0x8c1d1318  0x8c1d1360
+# spring_h_shape, its only data, starts on 8 straight after switch.c's switch_kind_names, on 8 too, and switch_shape: only this object's pool word at 0x8c06b704 names it, and only switch.c's pool words those two. the bytes leave the seam open
+src/object/spring_h.c                          D        0x8c1d1360  0x8c1d1394
+src/object/toge_bubble.c                       D        0x8c1d1398  0x8c1d14a0
+# level_item_shape starts on 8 straight after toge_bubble.c's bubble_ripple_green, on 8 too, and bubble_ripple_blue: only this object's pool word at 0x8c06d484 names it, and only toge_bubble.c's pool words those two. the bytes leave the seam open
+src/object/level_item.c                        D        0x8c1d14a0  0x8c1d16e0
+# path_draw_points starts on 8 straight after level_item.c's level_item_spark_z, on 8 too, and level_item_spark_look, which nothing names: only this object's pool word at 0x8c06ea94 and its path_draw_lines name it, and only level_item.c's pool word at 0x8c06e530 level_item_spark_z. the bytes leave the seam open
+src/path/steps.c                               D        0x8c1d16e0  0x8c1d1d88
+gen/1st_read/d_8c1d1d88.c                      D        0x8c1d1d88  0x8c1d4878
+src/system/timer.c                             D        0x8c1d4878  0x8c1d4888
+# character_constants starts on 8 straight after timer.c's draw_off, on 8 too, and dat_8c1d4884, which nothing names: only this object's pool words name it, and none of them draw_off. the bytes leave the seam open
+src/player/player.c                            D        0x8c1d4888  0x8c1d4df4
+src/draw/screen.c                              D        0x8c1d4df8  0x8c1d4e38
+# race_textures starts on 8 straight after screen.c's screen_box_texlist, on 8 too: only this object's milesrace_texlist names it, and only screen.c's, ADVERTISE's and SUMMARY's words the texlist. the bytes leave the seam open
+src/player/race.c                              D        0x8c1d4e38  0x8c1d50f0
+# sonic_names starts on 8 straight after race.c's race_eggman_shape, on 8 too, and race_mission_a: only this object's story_lists names it, and only race.c's pool words those two. the bytes leave the seam open
+src/player/npc.c                               D        0x8c1d50f0  0x8c1d52c0
+# sonic_knuckles_attacks starts on 8 straight after npc.c's title_card_texture, on 8 at 0x8c1d52a0, its texlist, story_list_of and dat_8c1d52bc, which nothing names: only this object's pool words name its two attack tables, and only npc.c's words the other three. the bytes leave the seam open
+src/player/rival.c                             D        0x8c1d52c0  0x8c1d532c
+src/player/rival_knuckles.c                    D        0x8c1d5330  0x8c1d5333
+src/player/rival_e102.c                        D        0x8c1d5338  0x8c1d5374
+src/object/ring.c                              D        0x8c1d5378  0x8c1d5460
+# a nonzero word on 8 where ring.c's data ends, and a zero word to save.c's on 8, which no word in this image or another points into. they are ring.c's, whose next datum would start there on 4; ring_group.c's, which links between ring.c and save.c with no data row, though its code doesn't read them; save.c's, were its data to start 8 bytes early; or an object's of data alone, linked between, which the bytes leave open. no reader types the nonzero word. it is placed as one of data alone, of unknown type, and the zero word is the linker's fill, as the fill rule takes it, or a last word of that object
+src/object/dat_8c1d5460.c                      D        0x8c1d5460  0x8c1d5464
+src/save/save.c                                D        0x8c1d5468  0x8c1d54f8
+# path_draw_step's address, on 8 where save.c's data ends, and a zero word to hud.c's on 8, which no word in this image or another points into. they are save.c's, a seventh pair after the 6 of save_stage_lists its code reads; path.c's, which links between save.c and hud.c with no data row, though its code doesn't read them, and path_draw_step, which the address names, is a path step, steps.c's; hud.c's, were its data to start 8 bytes early; or an object's of data alone, linked between, which the bytes leave open. no reader types the address. it is placed as one of data alone, a pointer to the step, and the zero word is the linker's fill, as the fill rule takes it, or a last word of that object
+src/path/dat_8c1d54f8.c                        D        0x8c1d54f8  0x8c1d54fc
+src/hud/hud.c                                  D        0x8c1d5500  0x8c1d608c
+src/progress/demo.c                            D        0x8c1d6090  0x8c1d61d8
+src/progress/select.c                          D        0x8c1d61d8  0x8c1d6364
+src/progress/progress.c                        D        0x8c1d6368  0x8c1d6728
+src/progress/story.c                           D        0x8c1d6728  0x8c1d7220
+# act_ready starts on 8 straight after story.c's last_story_sections, on 8 too: only this object's pool words name it, and only story.c's at 0x8c0960c4 the sections. the bytes leave the seam open
+src/object/placement.c                         D        0x8c1d7220  0x8c1d7cf0
+# sound_test_bank starts on 8 straight after placement.c's object_lists, on 8 too: only this object's pool word at 0x8c09a654 names it, and only placement.c's pool words the lists. collision/ground.c, between placement.c and sound.c in link order, has no data row. the bytes leave the seam open
+src/sound/sound.c                              D        0x8c1d7cf0  0x8c1d8066
+src/draw/inset.c                               D        0x8c1d8068  0x8c1d8094
+src/system/task.c                              D        0x8c1d8098  0x8c1d809c
+src/system/texture.c                           D        0x8c1d80a0  0x8c1d8d40
+src/system/texlists.c                          D        0x8c1d8d40  0x8c1d9978
+src/progress/title.c                           D        0x8c1d9978  0x8c1da3bc
+src/object/bridge.c                            D        0x8c1da3c0  0x8c1da3e8
+# loader_suffixes starts on 8 straight after bridge_default_params, bridge.c's only data, on 8 too: only this object's pool word at 0x8c0a2924 names it, and only bridge.c's at 0x8c0a1e00 the params. the bytes leave the seam open
+src/system/loader.c                            D        0x8c1da3e8  0x8c1da40c
+src/effect/particle.c                          D        0x8c1da410  0x8c1da420
+src/effect/pools.c                             D        0x8c1da420  0x8c1da548
+src/effect/snow.c                              D        0x8c1da548  0x8c1da650
+src/effect/hit.c                               D        0x8c1da650  0x8c1da824
+src/effect/blast_dome.c                        D        0x8c1da828  0x8c1da888
+src/draw/state.c                               D        0x8c1da888  0x8c1da898
+src/sound/cue.c                                D        0x8c1da898  0x8c1da89c
+src/hud/board.c                                D        0x8c1da8a0  0x8c1da8ec
+src/debug/info.c                               D        0x8c1da8f0  0x8c1da8f1
+src/save/minigame.c                            D        0x8c1da8f8  0x8c1daaba
+src/object/zero_trigger.c                      D        0x8c1daac0  0x8c1daaf8
+# knuckles_trigger_names starts on 8 straight after zero_trigger.c's zero_trigger_line, on 8 too: only this object's pool word at 0x8c0a8988 names it, and only zero_trigger.c's at 0x8c0a8208 the line. the bytes leave the seam open
+src/object/knuckles_trigger.c                  D        0x8c1daaf8  0x8c1dab0c
+src/debug/fog_editor.c                         D        0x8c1dab10  0x8c1dab74
+src/debug/seq_editor.c                         D        0x8c1dab78  0x8c1dad5c
+src/hud/menu.c                                 D        0x8c1dad60  0x8c1dadf4
+src/progress/emblem.c                          D        0x8c1dadf8  0x8c1db82c
+src/progress/playable.c                        D        0x8c1db830  0x8c1db888
+# sonic_actions starts on 8 straight after playable.c's notice_running, on 8 too, and playable_names: only this object's pool word at 0x8c0adc54 names it, and only playable.c's those two. the bytes leave the seam open
+src/player/sonic.c                             D        0x8c1db888  0x8c1dc65c
+src/player/effects.c                           D        0x8c1dc660  0x8c1dce00
+# sonic_textures starts on 8 straight after effects.c's charge_texanim, on 8 at 0x8c1dcd78, charge_sprites and charge_shape. sonic_texlist, on 8 too, ends the row where the generated data starts on 8 with an NJS_OBJECT. only sonic_texlist names sonic_textures, words in this image and 84 others sonic_texlist, only effects.c's words those three, and only the generated data the NJS_OBJECT. the bytes leave both seams open
+src/player/sonic_textures.c                    D        0x8c1dce00  0x8c1dcf58
+gen/1st_read/d_8c1dcf58.c                      D        0x8c1dcf58  0x8c26bbd8
+# sonic_fidget_motion starts this object on 8 straight after dat_8c26b748, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the object's data runs on to its last texture table, which names the ice's texture again, as the ice's table does, and ends on 8 with a texlist of that table, as each of its other tables is followed by its texlist. nothing reads the dash's and the ball's texlists (0x8c26bbf8, 0x8c26be0c), the tables they name (0x8c26bbec, 0x8c26be00), the last table (0x8c26ce6c) or its texlist (0x8c26ce78), and no word in this image, LOADER.BIN or any program names the last texlist. the joins keep the rest in this object, and the source types them as consistent with the words they hold. the last texlist starts on 8 where its table ends, and the pieces' material starts on 8 where it ends, so the bytes leave both its seams open. a texlist's word naming its table doesn't join them. the last texlist is placed here by that order, and can be the pieces' object's first datum, an object's of data alone, or tails.c's, were this object's data its too, though its code doesn't read it. nothing links between sonic_effect_models.c and tails.c with no data row. the constants row gives the names' owners
+src/player/sonic_effect_models.c               D        0x8c26bbd8  0x8c26ce80
+# the model of the ice's pieces, which only effects.c's pool word at 0x8c0bd100 names. its material starts on 8 where sonic_effect_models.c's last texlist ends, and every datum after it 4 past 8 straight after the one before, so they are one object's, and it ends where tails.c's data starts on 8. it is an object's of data alone, as it builds; sonic_effect_models.c's, were its object to run on past its last texlist, as each of its other texlists is followed by a model; or tails.c's, were this its first data, though its code doesn't read it. effects.c can't hold it: its data lies before sonic_textures.c's
+src/player/sonic_ice_piece.c                   D        0x8c26ce80  0x8c26d028
+# tails_mode_names, which nothing names, starts on 8 straight after sonic_ice_piece.c's sonic_ice_piece_object, which only effects.c's pool word at 0x8c0bd100 names; only this object's words name tails_actions, on 8 after it. the bytes leave the seam open
+src/player/tails.c                             D        0x8c26d028  0x8c26de3c
+src/player/tails_trail.c                       D        0x8c26de40  0x8c26df64
+# tails_texlist, on 8, which words in this image and 63 others name, ends the row where the generated data starts on 8 with an NJS_OBJECT, which only that data names. the bytes leave the seam open
+src/player/tails_textures.c                    D        0x8c26df68  0x8c26e090
+gen/1st_read/d_8c26e090.c                      D        0x8c26e090  0x8c368d00
+# knuckles_mode_names, which nothing names, starts on 8 straight after the generated data's tails_fidget_action, on 8 too, which only tails.c's tails_actions names; only this object's words name knuckles_actions, on 8 after it. the bytes leave the seam open
+src/player/knuckles.c                          D        0x8c368d00  0x8c369a28
+# flash_texanims starts on 8 straight after knuckles.c's knuckles_time_layout, on 8 too: only this object's flash_sprite names it, and only knuckles.c's pool word at 0x8c0d2ae8 the layout. the bytes leave the seam open
+src/player/knuckles_effects.c                  D        0x8c369a28  0x8c369cb4
+# knu_eff_texlist, on 8, which only knuckles_effects.c's pool words and sprites and texture.c's data name, ends the row where the generated data starts on 8 with an NJS_MATERIAL array, which only that data names. the bytes leave the seam open
+src/player/knuckles_textures.c                 D        0x8c369cb8  0x8c369ec0
+gen/1st_read/d_8c369ec0.c                      D        0x8c369ec0  0x8c438bb0
+# e102_mode_names, which nothing names, starts on 8 straight after the generated data's dat_8c438ba8, on 8 too, which nothing names either; only this object's words name e102_actions, on 8 after it. the bytes leave the seam open
+src/player/e102.c                              D        0x8c438bb0  0x8c43942c
+src/player/e102_effects.c                      D        0x8c439430  0x8c4394a8
+# beam_brightness, its only data, starts on 8 straight after e102_effects.c's, whose items after e102_dust, on 8 at 0x8c439430, start off 8: only this object's pool word at 0x8c0dcc78 names it, and only e102_effects.c's words those. the bytes leave the seam open
+src/player/e102_aim.c                          D        0x8c4394a8  0x8c4394ae
+# shot_texanims starts on 8, two bytes past beam_brightness, e102_aim.c's only data: one object would place it there as well. only this object's data names it, and only e102_aim.c's pool word at 0x8c0dcc78 beam_brightness. the bytes leave the seam open
+src/player/e102_shot.c                         D        0x8c4394b0  0x8c4395cc
+src/player/e102_bonus.c                        D        0x8c4395d0  0x8c4398d0
+# lockon_texanims starts on 8 straight after e102_bonus.c's outer_cube, on 8 too: only this object's sprites name it, and only e102_bonus.c's pool word at 0x8c0de910 the cube. the bytes leave the seam open
+src/player/lockon.c                            D        0x8c4398d0  0x8c439a14
+src/player/e102_getsec.c                       D        0x8c439a18  0x8c439a28
+# e102_textures starts on 8 straight after getsec_material, e102_getsec.c's only data, on 8 too: only this object's e102_texlist names it, and only e102_getsec.c's pool word at 0x8c0df3b0 the material. the bytes leave the seam open
+src/player/e102_textures.c                     D        0x8c439a28  0x8c439d30
+# the strips that open the generated data, which only a meshset of the model that names dat_8c439d1c names, start on 8 where that material ends, with no fill: the bytes leave the seam open, and this data can be e102_textures.c's object's. the row names e102_textures.c's static dat_8c439d1c through symbols.txt; in C it could stay static only if this data is e102_textures.c's
+gen/1st_read/d_8c439d30.c                      D        0x8c439d30  0x8c4d1790
+# the motion of e102_stand_downhill_action starts this object on 8 straight after dat_8c4d12c0, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the action, which only e102.c's data names, starts 4 past 8 straight after the motion, so they are one object's. they are an object's of data alone, as they build; e102_textures.c's, were the generated data from its data to here its; e102_countdown.c's, which links between the generated data and e102_sphere.c with no data row, though its code doesn't read them; or e102_sphere.c's, were the 4 zero bytes after them a datum of its that nothing reads, though its code doesn't read them
+src/player/e102_stand_downhill.c               D        0x8c4d1790  0x8c4d17a4
+# nothing points into the 4 zero bytes from e102_stand_downhill.c's data to this row: they are the linker's fill, as the rule takes them, or a last word of the action's object that nothing reads
+src/player/e102_sphere.c                       D        0x8c4d17a8  0x8c4d1840
+# smoke_frames starts on 8 straight after e102_sphere.c's e102_sphere_built, on 8 too, and e102_sphere_shape: only this object's smoke_anim names it, and only e102_sphere.c's pool words those two. the bytes leave the seam open
+src/player/e102_smoke.c                        D        0x8c4d1840  0x8c4d1940
+# e102hit_texlist starts on 8 straight after e102_smoke.c's smoke_pool, on 8 too: only this object's pool word at 0x8c0dff28 and texture.c's data name it, and only e102_smoke.c's pool words the pool. the bytes leave the seam open
+src/player/e102_hit.c                          D        0x8c4d1940  0x8c4d194c
+src/player/amy.c                               D        0x8c4d1950  0x8c4d2374
+src/player/amy_bird.c                          D        0x8c4d2378  0x8c4d58ac
+src/player/amy_drum.c                          D        0x8c4d58b0  0x8c4d595c
+src/player/amy_effects.c                       D        0x8c4d5960  0x8c4d5a2c
+src/player/amy_textures.c                      D        0x8c4d5a30  0x8c4d5ea0
+# the strips that open the generated data, which only a meshset of the model that names dat_8c4d5cec names, start on 8 where the strips before them end, with no fill: the bytes leave the seam open, and this data can be amy_textures.c's object's. the row names amy_textures.c's statics dat_8c4d5cec, dat_8c4d5db4, dat_8c4d5de4 and dat_8c4d5e74 through symbols.txt; in C they could stay static only if this data is amy_textures.c's
+gen/1st_read/d_8c4d5ea0.c                      D        0x8c4d5ea0  0x8c53be50
+# the motion of amy_push_action starts this object on 8 straight after dat_8c53b970, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the action, which only amy.c's data names, starts 4 past 8 straight after the motion, so they are one object's. they are an object's of data alone, as they build; amy_textures.c's, were the generated data from its data to here its; amy_handle.c's, which links between the generated data and big.c with no data row, though its code doesn't read them; or big.c's, were the 4 zero bytes after them a datum of its that nothing reads, though its code doesn't read them
+src/player/amy_push.c                          D        0x8c53be50  0x8c53be64
+# nothing points into the 4 zero bytes from amy_push.c's data to this row: they are the linker's fill, as the rule takes them, or a last word of the action's object that nothing reads
+src/player/big.c                               D        0x8c53be68  0x8c53c704
+# big_textures, which names this object's first 36 texture names, starts it on 8, 4 bytes past big.c's data, and big_texlist follows it. Big's models, motions and actions run on from the material on 8 after the texlist to fishing_textures, which names the fishing texture names in this object's constants; fishing_texlist and dat_8c56345c, an NJS_MATERIAL, each start 4 past 8 after it. the fishing names start 4 past 8 straight after Big's, so they and the table that names them are this object's, and so is every datum between
+src/player/big_textures.c                      D        0x8c53c708  0x8c563470
+# the strips that open the generated data, which only a meshset of the model that names dat_8c56345c names, start on 8 where that material ends, with no fill: the bytes leave the seam open, and this data can be big_textures.c's object's. the row names big_textures.c's static dat_8c56345c through symbols.txt; in C it could stay static only if this data is big_textures.c's
+gen/1st_read/d_8c563470.c                      D        0x8c563470  0x8c57c860
+# the motion of big_stand_downhill_action starts this object on 8 straight after dat_8c57c3d0, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the action, which only big.c's data names, starts 4 past 8 straight after the motion, so they are one object's. they are an object's of data alone, as they build; big_textures.c's, were the generated data from its data to here its; or fishing.c's, were the 4 zero bytes after them a datum of its that nothing reads, though its code doesn't read them
+src/player/big_stand_downhill.c                D        0x8c57c860  0x8c57c874
+# nothing points into the 4 zero bytes from big_stand_downhill.c's data to this row: they are the linker's fill, as the rule takes them, or a last word of the action's object that nothing reads
+src/player/fishing.c                           D        0x8c57c878  0x8c57cb14
+# big_kaeru_textures, which names this object's 8 texture names, and big_kaeru_texlist, which fish.c's code reads, on 8 straight after it. the table starts on 8, 4 bytes past fishing.c's data: those 4 zero bytes, which nothing points into, are the linker's fill, as the rule takes them, or a last word of fishing.c's data that nothing reads, whether or not the textures are fishing.c's. the constants row gives their owners
+src/player/big_kaeru_textures.c                D        0x8c57cb18  0x8c57cb80
+# the material that opens the generated data, which only a model in it names, starts on 8 where big_kaeru_texlist ends, with no fill: the bytes leave the seam open, and this data can be big_kaeru_textures.c's object's
+gen/1st_read/d_8c57cb80.c                      D        0x8c57cb80  0x8c5868b8
+# frog_shapes, which nothing names, starts on 8 straight after the generated data's frog_kick_action, on 8 too, which only this object's and B_CHAOS6's pool words name; its items after frog_shapes start off 8. the bytes leave the seam open
+src/player/fish.c                              D        0x8c5868b8  0x8c58690c
+# eggman_welds, on 8, which only this object's pool word at 0x8c0f877c names, ends the row where eggman_textures.c's eggman_textures starts on 8, which only eggman_texlist, after it, names. the bytes leave the seam open
+src/player/eggman.c                            D        0x8c586910  0x8c586d38
+# eggman_textures, which names this object's 19 texture names, starts on 8 straight after eggman.c's data. eggman_texlist and dat_8c586e24, an NJS_MATERIAL that only a model in the generated data after them names, each start 4 past 8 straight after the datum before, so they are one object's. the constants row gives their owners
+src/player/eggman_textures.c                   D        0x8c586d38  0x8c586e38
+# the materials that open the generated data, which only a model in it names, start on 8 where dat_8c586e24 ends, with no fill: the bytes leave the seam open, and this data can be eggman_textures.c's object's. the row names eggman_textures.c's static dat_8c586e24 through symbols.txt; in C it could stay static only if this data is eggman_textures.c's
+gen/1st_read/d_8c586e38.c                      D        0x8c586e38  0x8c5a6440
+# the motion of dat_8c5a644c, an action of Eggman's that only words in events name, starts this object on 8 straight after dat_8c5a62c0, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the action starts 4 past 8 straight after the motion, so they are one object's. they are an object's of data alone, as they build; eggman_textures.c's, were the generated data from its data to here its; or ribbon.c's, were the 4 zero bytes after them a datum of its that nothing reads, though its code doesn't read them
+src/player/dat_8c5a644c.c                      D        0x8c5a6440  0x8c5a6454
+# nothing points into the 4 zero bytes from dat_8c5a644c.c's data to this row: they are the linker's fill, as the rule takes them, or a last word of the action's object that nothing reads
+src/chaos/ribbon.c                             D        0x8c5a6458  0x8c5a64bc
+src/chaos/steer.c                              D        0x8c5a64c0  0x8c5a6700
+src/chaos/puddle.c                             D        0x8c5a6700  0x8c5a6714
+src/chaos/effect.c                             D        0x8c5a6718  0x8c5a6a4c
+src/chaos/chaos.c                              D        0x8c5a6a50  0x8c5a6ae0
+src/hud/boss_name.c                            D        0x8c5a6ae0  0x8c5a6b24
+# its data ends with 92 bytes after the sprite, which no word in this image or SHOOTING names. SHOOTING's gauge.c, which copies this source, ends its data, and SHOOTING.BIN, with the same 92 bytes. they are this object's, as the source keeps them, or an object's linked after it in both, here models.c's object's, were they its first data, which the bytes leave open. no reader types them, so the source holds them as bytes
+src/hud/life_gauge.c                           D        0x8c5a6b28  0x8c5a6c3c
+# this object starts on 8, 4 bytes past life_gauge.c's data, with the puddle's texture name table. nothing points into the zero word between, which the fill rule takes as the linker's fill. it is that, as SHOOTING's copy of life_gauge.c, whose file ends with the same 92 bytes, suggests, or a last word of life_gauge.c's object. the data runs on to the fourth table and ends on 8 with a texlist of it, as each of the other tables is followed by its texlist. nothing reads the four texlists (0x8c5a6c4c, 0x8c5ab2d4, 0x8c5ac318, 0x8c5aec10) or the four tables (0x8c5a6c40, 0x8c5ab2c8, 0x8c5ac30c, 0x8c5aec04), and no word in this image, LOADER.BIN or any program names the last texlist. the joins keep the rest in this object, and the source types them as consistent with the words they hold. the last texlist starts on 8 where its table ends, and the child's material starts on 8 where it ends, so the bytes leave both its seams open. a texlist's word naming its table doesn't join them. the last texlist is placed here by that order, and can be the barrier's object's first datum, an object's of data alone, or life_gauge.c's, were models.c's data, and the zero word after life_gauge.c's own, its too, though its code doesn't read it. nothing links between life_gauge.c and emeralds.c with no data row. the constants row gives its owners
+src/chaos/models.c                             D        0x8c5a6c40  0x8c5aec18
+# the models of Chaos 2's barrier and its child, which only B_CHAOS2's boss.c names, start on 8 where models.c's last texlist ends, and the data runs on to the surface's texlist, which ends where emeralds.c's data starts on 8. the effects' table starts on 8 where the barrier's object ends, so the bytes leave that seam open too. inside the models, the child's colors, meshsets, points, model and object, and the barrier's strips and normals, start on 8 with no fill, and only the models' pointers tie them: consistent with one object. in the textures, the effects' texlist and the emeralds' table each start 4 past 8 straight after the datum before, so the two tables are one object's. but the emeralds' texlist (0x8c5af820), the surface's table (0x8c5af828) and the surface's texlist (0x8c5af870) each start on 8 where the datum before ends, and the bytes leave those seams open. from each on, the data can be an object's of data alone, and the surface's texlist, which names no string, can be emeralds.c's, were it emeralds.c's first datum, though its code doesn't read it. emeralds.c's bodies name chaos_emerald_texlist alone, which emeralds.c can't hold, since the surface's table, whose names it can't hold, lies between. the models are this object's, with the textures, as they build; an object's of data alone, apart from the textures; models.c's, were its object to run on past its last texlist; or life_gauge.c's, were models.c's data, and the zero word after its own, its too, though its code doesn't read them. emeralds.c can hold them only with the textures after them, which it can't, and nothing links between life_gauge.c and emeralds.c with no data row. the constants row gives the textures' owners
+src/chaos/barrier.c                            D        0x8c5aec18  0x8c5af878
+src/chaos/emeralds.c                           D        0x8c5af878  0x8c5afa4c
+src/effect/brain.c                             D        0x8c5afa50  0x8c5afb80
+# sai_bf_texlist starts on 8 straight after brain.c's brain_sprite, on 8 too: only this object's pool words name it, and only brain.c's the sprite. the bytes leave the seam open
+src/enemy/sai.c                                D        0x8c5afb80  0x8c5afc84
+# e_sai_textures, which sai_bf_texlist, sai.c's data, names from its fourth texture, and e_sai_texlist, which sai.c's code reads. the table starts on 8 past the word after sai.c's data, which nothing points into: it is the linker's fill, as the rule takes it, or a last word of sai.c's data that nothing reads. the texlist ends on 8 where the generated data starts with the sai's models. the names and the table are one object's, of data alone, as they build: neither sai.c nor snake.c can hold the names, as the constants row says, so neither holds the table, and nothing links between them
+src/enemy/sai_textures.c                       D        0x8c5afc88  0x8c5afdc8
+# the sai's models, which sai.c's code reads, start on 8 where e_sai_texlist ends, with no fill: the bytes leave the seam open, and this data can be sai_textures.c's object's
+gen/1st_read/d_8c5afdc8.c                      D        0x8c5afdc8  0x8c5b3bb0
+# snake_head_shapes starts on 8 straight after the generated data's sai_jet_object, which only sai.c's pool words name, and its model's parts back to sai_jet_materials, on 8 at 0x8c5b3858, which only the model and sai.c's pool words name: only this object's pool word at 0x8c0ff610 names snake_head_shapes. the bytes leave the seam open
+src/enemy/snake.c                              D        0x8c5b3bb0  0x8c5b60d0
+# e_amenbo_textures starts on 8 straight after snake.c's snake_tail_object, which follows snake_tail_normals, on 8 at 0x8c5b6008, and snake_tail_model: only this object's e_amenbo_texlist names it, and only snake.c's data those three. the bytes leave the seam open
+src/enemy/amenbo.c                             D        0x8c5b60d0  0x8c5c1804
+src/enemy/charger.c                            D        0x8c5c1808  0x8c5c1874
+src/enemy/hiyoko.c                             D        0x8c5c1878  0x8c5c1948
+# leon_tail_crest_materials starts on 8 straight after hiyoko.c's hiyoko_bomb_shapes, on 8 too: only this object's leon_tail_crest_model names it, and only hiyoko.c's pool word at 0x8c102f48 the shapes. the bytes leave the seam open
+src/enemy/leon.c                               D        0x8c5c1948  0x8c5ca930
+# e_robo_textures starts on 8 straight after leon.c's leon_shapes, which follows leon_walk_motion, on 8 at 0x8c5ca7a0, leon_walk_action, e_leon_textures and e_leon_texlist: only this object's e_robo_texlist and grabber_beam_texlist name it, and only leon.c's words those five, but e_leon_texlist, which texture.c's ruin_pvms and words in STG02 and STG12 name too. the bytes leave the seam open
+src/enemy/robo.c                               D        0x8c5ca930  0x8c5cec48
+# e_saru_textures starts on 8 straight after robo.c's robo_trail_speed, on 8 too, and robo_trail_from: only this object's e_saru_texlist names it, and only robo.c's pool words those two. the bytes leave the seam open
+src/enemy/saru.c                               D        0x8c5cec48  0x8c5d90dc
+src/enemy/uni.c                                D        0x8c5d90e0  0x8c5dba70
+# supi_supi_textures starts on 8 straight after uni.c's uni_b_spike_places, on 8 too: only this object's supi_supi_texlist names it, and only uni.c's pool words the places. the bytes leave the seam open
+src/enemy/spina.c                              D        0x8c5dba70  0x8c5dd440
+# zero_actions starts on 8 straight after spina.c's spina_shapes, on 8 too, and dat_8c5dd404, which nothing names. zero_shock_shape, after zero_hatena_texanims, on 8 at 0x8c5dd738, and zero_hatena_sprite, ends the row where the generated data starts on 8 with an NJS_OBJECT, which only that data names. only this object's pool words name zero_actions, zero_hatena_sprite and zero_shock_shape, only its zero_hatena_sprite the texanims, and only spina.c's pool word at 0x8c10f838 the shapes. the bytes leave both seams open
+src/enemy/zero.c                               D        0x8c5dd440  0x8c5dd7c8
+gen/1st_read/d_8c5dd7c8.c                      D        0x8c5dd7c8  0x8c5e6338
+# zero_textures, which names this object's 29 texture names, starts on 8 straight after the generated data's zero_shock_object, which only zero.c's pool word at 0x8c11590c names: the bytes leave the seam open. zero_texlist, then the keys, the motion data and zero_hit_behind_motion, which only zero_hit_behind_action names, each start 4 past 8 straight after the datum before, so they are one object's. the constants row gives their owners
+src/enemy/zero_textures.c                      D        0x8c5e6338  0x8c5e89a8
+# zero_hit_behind_action, which only zero.c's zero_actions names, starts the generated data on 8 where zero_hit_behind_motion ends, with no fill: the bytes leave the seam open, and this data can be zero_textures.c's object's. the row names zero_textures.c's static zero_hit_behind_motion through symbols.txt; in C it could stay static only if this data is zero_textures.c's
+gen/1st_read/d_8c5e89a8.c                      D        0x8c5e89a8  0x8c612308
+# the motion of zero_stand_action, which only zero.c's zero_actions names, starts this object on 8 straight after dat_8c612008, its motion data, which the generated data holds and only the motion names. the bytes leave the seam open, and that data can be this object's. the action starts 4 past 8 straight after the motion, so they are one object's. they are an object's of data alone, as they build; zero_textures.c's, were the generated data from its data to here its; or zero_handle.c's, were the 4 zero bytes after them a datum of its that nothing reads, though its code doesn't read them
+src/enemy/zero_stand.c                         D        0x8c612308  0x8c61231c
+# nothing points into the 4 zero bytes from zero_stand.c's data to this row: they are the linker's fill, as the rule takes them, or a last word of the action's object that nothing reads. zero_task, this object's only data, starts on 8 after them, and only this object's pool words name it
+src/enemy/zero_handle.c                        D        0x8c612320  0x8c612324
+src/sound/stream.c                             D        0x8c612328  0x8c612540
+# talk_list starts on 8 straight after stream.c's music_saved, on 8 too, and stream_task. talk_current ends the row where mail.c's base64_alphabet starts on 8. only this object's pool words name its two, and only stream.c's and mail.c's theirs. history.c, range.c and vmu's draw.c, screen.c and vibration.c, between stream.c and talk.c in link order, have no data row. the bytes leave both seams open
+src/player/talk.c                              D        0x8c612540  0x8c612548
+src/save/mail.c                                D        0x8c612548  0x8c614208
+sdk/shinobi/syhw.c                             D        0x8c614208  0x8c61420c
+sdk/shinobi/vmsapi.c                           D        0x8c61420c  0x8c614214
+sdk/shinobi/vmsutil.c                          D        0x8c614214  0x8c614234
+sdk/shinobi/sybtcfg.c                          D        0x8c614234  0x8c614238
+sdk/runtime/_rnext.c                           D        0x8c614238  0x8c61423c
+sdk/shinobi/kdapi.c                            D        0x8c61423c  0x8c614240
+sdk/shinobi/vmsphys.c                          D        0x8c614240  0x8c6143a4
+sdk/shinobi/sy_g2_dma_end_interrupt_handler.c  D        0x8c6143a4  0x8c6143a8
+sdk/shinobi/sy_g2_dma_set_protect.c            D        0x8c6143a8  0x8c6143ac
+sdk/shinobi/sy_g2_variable.c                   D        0x8c6143ac  0x8c6143b0
+sdk/shinobi/mpapi.c                            D        0x8c6143b0  0x8c6143b4
+sdk/shinobi/mpdrv.c                            D        0x8c6143b4  0x8c6143c4
+sdk/shinobi/vmsio.c                            D        0x8c6143c4  0x8c6143c8
+# the 24 zero bytes from vmsio.c's data to this row, which nothing points into, run to D32's start. strt1.src declares an empty D32, on 32, after D. it starts D32, with R, R32 and PSG, at 0x8c6143e0, the start strt1's table holds at 0x8c1283d0. the SDK's members link last in D, every one's data there placed, and njGlobal.c has none. vmsio.c's own data ends where its row does, and 32 rounds that end up to D32's start, so the splicer writes the 24 bytes as the linker's fill from D's last placement (TOOLCHAIN.md#fill). data of an object no source holds would build the same
+sdk/ninja/njDrawPolygon2D.c                    PSG      0x8c6143e0  0x8c614dd8
+sdk/ninja/njDrawPolygon3D.c                    PSG      0x8c614dd8  0x8c615030
+sdk/ninja/njTranslateLight.c                   PSG      0x8c615030  0x8c615040
+sdk/ninja/njFogDisable.c                       PSG      0x8c615040  0x8c615070
+sdk/ninja/njLightOn.c                          PSG      0x8c615070  0x8c615078
+sdk/ninja/njSetLightLocation.c                 PSG      0x8c615078  0x8c6150a0
+sdk/ninja/njSetLightAlpha.c                    PSG      0x8c6150a0  0x8c615118
+sdk/ninja/njRotateLightX.c                     PSG      0x8c615118  0x8c615128
+sdk/ninja/njRotateLightY.c                     PSG      0x8c615128  0x8c615138
+# follows the member before it with no fill; built whole, its 36 bytes end where njCollisionCheckSS's begin
+sdk/ninja/njRoundOff.c                         PSG      0x8c615138  0x8c61515c
+sdk/ninja/njCollisionCheckSS.c                 PSG      0x8c61515c  0x8c6151bc
+sdk/ninja/njUnitLightMatrix.c                  PSG      0x8c6151bc  0x8c6151cc
+# follows njUnitLightMatrix.c with no fill. SDK 1.20J ninja.lib's module njMotion_ is these 1,516 bytes of code
+sdk/ninja/njMotion.c                           PSG      0x8c6151cc  0x8c6157b8
+# follows njMotion.c with no fill. SDK 1.20J ninja.lib's module njMotionE_ has these 3,036 bytes of code
+sdk/ninja/njMotionE.c                          PSG      0x8c6157b8  0x8c616394
+# follows njMotionE.c with no fill, and ends where njLinear.c begins. SDK 1.20J ninja.lib's module njGetMotion_ is these 1,036 bytes of code
+sdk/ninja/njGetMotion.c                        PSG      0x8c616394  0x8c6167a0
+sdk/ninja/njLinear.c                           PSG      0x8c6167a0  0x8c6167d8
+# follows njLinear.c with no fill; one file or two build the same under this row's flags. SDK 1.20J ninja.lib's module njGenerateFogTable3_ is these 636 bytes
+sdk/ninja/njGenerateFogTable3.c                PSG      0x8c6167d8  0x8c616a54
+# follows njGenerateFogTable3.c with no fill; as one file under that row's flags, 235 of 976 code bytes differ, and without its -macsave=0, the code runs 8 bytes longer
+sdk/ninja/njGenerateFogDensity.c               PSG      0x8c616a54  0x8c616ba8
+# follows njGenerateFogDensity.c with no fill; one file or two build the same under that row's flags. SDK 1.20J ninja.lib's module njDrawLine2D_ has these 2,260 bytes of code
+sdk/ninja/njDrawLine2D.c                       PSG      0x8c616ba8  0x8c61747c
+sdk/ninja/njGetTranslation.c                   PSG      0x8c61747c  0x8c6174a0
+# follows njGetTranslation.c with no fill; one file or two build the same. SDK 1.20J ninja.lib's module njLightOff_ is these 8 bytes
+sdk/ninja/njLightOff.c                         PSG      0x8c6174a0  0x8c6174a8
+# follows njLightOff.c with no fill; built whole, its 1,824 bytes end where sg_sycf's begin
+sdk/ninja/njMotLinkS.c                         PSG      0x8c6174a8  0x8c617bc8
+sdk/shinobi/sg_sycf.c                          PSG      0x8c617bc8  0x8c617d0c
+sdk/shinobi/sg_syfb.c                          PSG      0x8c617d0c  0x8c617f04
+sdk/shinobi/sg_syf2.src                        PSG      0x8c617f04  0x8c61820c
+sdk/sofdec/mwsfdini.c                          PSG      0x8c61820c  0x8c61822c
+sdk/shinobi/sd_get_2nd_host_cmd_index.c        PSG      0x8c61822c  0x8c618274
+sdk/shinobi/sd_set_null_host_cmd.c             PSG      0x8c618274  0x8c6182d0
+sdk/shinobi/sd_set_host_cmd.c                  PSG      0x8c6182d0  0x8c618384
+sdk/shinobi/sd_memblk_create.c                 PSG      0x8c618384  0x8c61845c
+sdk/shinobi/sd_memblk_destroy.c                PSG      0x8c61845c  0x8c6184c0
+sdk/shinobi/sd_memblk_set_prm.c                PSG      0x8c6184c0  0x8c61856c
+sdk/shinobi/sd_memblk_set_transfer_mode.c      PSG      0x8c61856c  0x8c618584
+sdk/shinobi/sd_qsnd_set_pos.c                  PSG      0x8c618584  0x8c6185f0
+sdk/shinobi/sd_snd_set_fx_out_prm.c            PSG      0x8c6185f0  0x8c61868c
+sdk/shinobi/sd_snd_set_fx_prg.c                PSG      0x8c61868c  0x8c618718
+sdk/shinobi/sd_snd_set_space.c                 PSG      0x8c618718  0x8c6187a0
+sdk/shinobi/sd_bank_download.c                 PSG      0x8c6187a0  0x8c61880c
+sdk/shinobi/sd_multi_unit_download.c           PSG      0x8c61880c  0x8c61895c
+sdk/shinobi/sd_midi_open_port.c                PSG      0x8c61895c  0x8c6189a4
+sdk/shinobi/sd_midi_play.c                     PSG      0x8c6189a4  0x8c618a38
+sdk/shinobi/sd_midi_send_mes.c                 PSG      0x8c618a38  0x8c618ab4
+sdk/shinobi/sd_midi_set_mes.c                  PSG      0x8c618ab4  0x8c618c20
+sdk/shinobi/sd_midi_set_vol.c                  PSG      0x8c618c20  0x8c618ca0
+sdk/shinobi/sd_midi_stop.c                     PSG      0x8c618ca0  0x8c618d04
+sdk/shinobi/sd_drv_init.c                      PSG      0x8c618d04  0x8c618e04
+sdk/shinobi/sd_lib_init.c                      PSG      0x8c618e04  0x8c618e30
+sdk/shinobi/sd_sys_err_trap.c                  PSG      0x8c618e30  0x8c618e44
+sdk/shinobi/sd_sys_server.c                    PSG      0x8c618e44  0x8c618ec8
+sdk/shinobi/gdfs.c                             PSG      0x8c618ec8  0x8c61a104
+sdk/shinobi/gdfshn.c                           PSG      0x8c61a104  0x8c61a9be
+sdk/shinobi/gdfsif.c                           PSG      0x8c61a9c0  0x8c61acb0
+sdk/shinobi/ov_main.c                          PSG      0x8c61acc0  0x8c61b160
+sdk/shinobi/njpad.c                            PSG      0x8c61b160  0x8c61b408
+sdk/shinobi/pdmain.c                           PSG      0x8c61b408  0x8c61ba6c
+sdk/shinobi/syCache.c                          PSG      0x8c61ba6c  0x8c61c2e0
+sdk/shinobi/syMalloc.c                         PSG      0x8c61c2e0  0x8c61c6ec
+sdk/shinobi/sg_syrtc.c                         PSG      0x8c61c6ec  0x8c61ccec
+sdk/shinobi/sh4tmr.c                           PSG      0x8c61ccec  0x8c61d0a4
+sdk/shinobi/lcd.c                              PSG      0x8c61d0a4  0x8c61d130
+sdk/shinobi/lcdvms.c                           PSG      0x8c61d130  0x8c61d348
+sdk/shinobi/sg_syCbl.c                         PSG      0x8c61d348  0x8c61d36c
+# follows the member before it with no fill; built whole, its 1,904 bytes end where sg_sybt's begin
+sdk/shinobi/fm.c                               PSG      0x8c61d36c  0x8c61dadc
+sdk/shinobi/sg_sybt.c                          PSG      0x8c61dadc  0x8c61db14
+sdk/ninja/kmsurfac_kamui_lib.c                 PSG      0x8c61db20  0x8c61fc80
+sdk/ninja/kmvertex_kamui_lib.c                 PSG      0x8c61fc80  0x8c621260
+sdk/ninja/kmcalbac_kamui_lib.c                 PSG      0x8c621260  0x8c621860
+sdk/ninja/kmglobal_kamui_lib.c                 PSG      0x8c621860  0x8c621fa0
+sdk/ninja/kmsrvice_kamui_lib.c                 PSG      0x8c621fa0  0x8c622340
+sdk/ninja/njDistanceL2PL.c                     PSG      0x8c622340  0x8c622420
+sdk/ninja/njDistanceP2L.c                      PSG      0x8c622420  0x8c622530
+sdk/ninja/njDistanceP2PL.c                     PSG      0x8c622530  0x8c6225e0
+sdk/ninja/njDistanceP2P.c                      PSG      0x8c6225e0  0x8c62262c
+sdk/ninja/njDistancePL2PL.c                    PSG      0x8c62262c  0x8c62282c
+sdk/ninja/njDebug.c                            PSG      0x8c62282c  0x8c623300
+sdk/ninja/njExecuteFade.c                      PSG      0x8c623300  0x8c623330
+# follows njExecuteFade.c with no fill; as one file, 49 of 96 code bytes differ
+sdk/ninja/njFadeDisable.c                      PSG      0x8c623330  0x8c623360
+# follows njFadeDisable.c with no fill; as one file, the code runs 12 bytes shorter
+sdk/ninja/njFadeEnable.c                       PSG      0x8c623360  0x8c623390
+# follows njFadeEnable.c with no fill; as one file, the code runs 12 bytes shorter
+sdk/ninja/njFogEnable.c                        PSG      0x8c623390  0x8c6233c0
+sdk/ninja/njGenerateFogTable.c                 PSG      0x8c6233c0  0x8c623408
+sdk/ninja/njSetFadeColor.c                     PSG      0x8c623408  0x8c623424
+sdk/ninja/njSetFogColor.c                      PSG      0x8c623424  0x8c623440
+sdk/ninja/njSetFogDensity.c                    PSG      0x8c623440  0x8c62344c
+sdk/ninja/njSetFogTable.c                      PSG      0x8c62344c  0x8c623458
+sdk/ninja/njDraw.c                             PSG      0x8c623458  0x8c6236b0
+# follows the member before it with no fill; built whole, its 2,952 bytes end where njDrawLine3D's begin
+sdk/ninja/njSprite.src                         PSG      0x8c6236b0  0x8c624238
+sdk/ninja/njDrawLine3D.c                       PSG      0x8c624238  0x8c62484c
+sdk/ninja/njDrawTriangle3D.c                   PSG      0x8c62484c  0x8c624b40
+sdk/ninja/njFarClipping.c                      PSG      0x8c624b40  0x8c624b6c
+sdk/ninja/njNearClipping.c                     PSG      0x8c624b6c  0x8c624e20
+sdk/ninja/njtri_filled.c                       PSG      0x8c624e20  0x8c624fa4
+sdk/ninja/njtri_filled_with_tex.c              PSG      0x8c624fa4  0x8c625150
+sdk/ninja/njtri_wiredpoly.c                    PSG      0x8c625150  0x8c6254b8
+# follows njtri_wiredpoly.c with no fill; one file or two build the same. SDK 1.20J ninja.lib's module njtri_wiredpoly_with_tex_ is these 1,138 bytes
+sdk/ninja/njtri_wiredpoly_with_tex.c           PSG      0x8c6254b8  0x8c62592a
+# built whole, its 528 bytes end where njDeleteLight's begin
+sdk/ninja/njCreateLight.c                      PSG      0x8c62592c  0x8c625b3c
+sdk/ninja/njDeleteLight.c                      PSG      0x8c625b3c  0x8c625ba0
+sdk/ninja/njLight.c                            PSG      0x8c625ba0  0x8c625ce0
+# follows njLight.c with no fill; built whole, its 7,836 bytes end where njSetLightAngle's begin
+sdk/ninja/njLtSrcs.c                           PSG      0x8c625ce0  0x8c627b7c
+sdk/ninja/njSetLightAngle.c                    PSG      0x8c627b7c  0x8c627bc8
+sdk/ninja/njSetLightColor.c                    PSG      0x8c627bc8  0x8c627c4a
+sdk/ninja/njSetLightDirection.c                PSG      0x8c627c4c  0x8c627c84
+sdk/ninja/njSetLightIntensity.c                PSG      0x8c627c84  0x8c627d04
+sdk/ninja/njSetLightRange.c                    PSG      0x8c627d04  0x8c627d3c
+sdk/ninja/njTranslateLightV.c                  PSG      0x8c627d3c  0x8c627d4c
+sdk/ninja/njCos.c                              PSG      0x8c627d4c  0x8c627d5c
+sdk/ninja/njFraction.c                         PSG      0x8c627d5c  0x8c627d70
+sdk/ninja/njSin.c                              PSG      0x8c627d70  0x8c627d7c
+sdk/ninja/njSqrt.c                             PSG      0x8c627d7c  0x8c627dac
+sdk/ninja/njTan.c                              PSG      0x8c627dac  0x8c627dbc
+sdk/ninja/njAddVector.c                        PSG      0x8c627dbc  0x8c627ddc
+sdk/ninja/njCalcPoint.c                        PSG      0x8c627ddc  0x8c627e38
+sdk/ninja/njCalcVector.c                       PSG      0x8c627e38  0x8c627ea4
+sdk/ninja/njGetMatrix.c                        PSG      0x8c627ea4  0x8c627ed0
+sdk/ninja/njInitMatrix.c                       PSG      0x8c627ed0  0x8c627f7c
+sdk/ninja/njInnerProduct.c                     PSG      0x8c627f7c  0x8c627f9c
+sdk/ninja/njInvertMatrix.c                     PSG      0x8c627f9c  0x8c6287a4
+sdk/ninja/njMirror.c                           PSG      0x8c6287a4  0x8c628868
+sdk/ninja/njMultiMatrix.c                      PSG      0x8c628868  0x8c628a3c
+sdk/ninja/njOuterProduct.c                     PSG      0x8c628a3c  0x8c628a84
+sdk/ninja/njPopMatrix.c                        PSG      0x8c628a84  0x8c628ac8
+sdk/ninja/njProjectScreen.c                    PSG      0x8c628ac8  0x8c628b5c
+sdk/ninja/njPushMatrix.c                       PSG      0x8c628b5c  0x8c628bd4
+sdk/ninja/njRotateXYZ.c                        PSG      0x8c628bd4  0x8c628da8
+sdk/ninja/njRotateX.c                          PSG      0x8c628da8  0x8c628e3c
+sdk/ninja/njRotateY.c                          PSG      0x8c628e3c  0x8c628ed8
+sdk/ninja/njRotateZXY.c                        PSG      0x8c628ed8  0x8c6290ac
+sdk/ninja/njRotateZ.c                          PSG      0x8c6290ac  0x8c629148
+sdk/ninja/njRotate.c                           PSG      0x8c629148  0x8c6294cc
+sdk/ninja/njScaleV.c                           PSG      0x8c6294cc  0x8c62957c
+sdk/ninja/njScale.c                            PSG      0x8c62957c  0x8c629628
+sdk/ninja/njScalor2.c                          PSG      0x8c629628  0x8c62963c
+sdk/ninja/njScalor.c                           PSG      0x8c62963c  0x8c629650
+sdk/ninja/njSetMatrix.c                        PSG      0x8c629650  0x8c6296c4
+sdk/ninja/njSubVector.c                        PSG      0x8c6296c4  0x8c6296e4
+sdk/ninja/njTranslateV.c                       PSG      0x8c6296e4  0x8c629758
+sdk/ninja/njTranslate.c                        PSG      0x8c629758  0x8c6297c0
+sdk/ninja/njUnitMatrix.c                       PSG      0x8c6297c0  0x8c62982c
+sdk/ninja/njUnitVector.c                       PSG      0x8c62982c  0x8c629850
+sdk/ninja/njControl.c                          PSG      0x8c629850  0x8c6298f4
+# follows njControl.c with no fill; built whole, its 8,776 bytes end where njModelS.c's begin
+sdk/ninja/njModelE.c                           PSG      0x8c6298f4  0x8c62bb3c
+# follows njModelE.c with no fill; built whole, its 66,640 bytes end where njModel.c's begin
+sdk/ninja/njModelS.c                           PSG      0x8c62bb3c  0x8c63bf8c
+sdk/ninja/njModel.c                            PSG      0x8c63bf8c  0x8c6537e8
+# follows njModel.c with no fill; built whole, its 2,004 bytes end where njMotLinkSrc.c's begin
+sdk/ninja/njCameraMotion.c                     PSG      0x8c6537e8  0x8c653fbc
+# follows njCameraMotion.c with no fill; built whole, its 7,492 bytes end where njMotSrc.c's begin
+sdk/ninja/njMotLinkSrc.c                       PSG      0x8c653fbc  0x8c655d00
+# follows njMotLinkSrc.c with no fill; built whole, its 4,144 bytes end where njMotionS.c's begin
+sdk/ninja/njMotSrc.c                           PSG      0x8c655d00  0x8c656d30
+# follows njMotSrc.c with no fill; built whole, its 1,472 bytes end where njMem_'s begin
+sdk/ninja/njMotionS.c                          PSG      0x8c656d30  0x8c6572f0
+sdk/ninja/njMem.c                              PSG      0x8c6572f0  0x8c65731a
+sdk/ninja/njSystem.c                           PSG      0x8c65731c  0x8c658898
+sdk/ninja/njkm.c                               PSG      0x8c658898  0x8c659454
+# follows the member before it with no fill; built whole, its 5,900 bytes end where njReleaseTextureAll's begin
+sdk/ninja/njLoadTexturePvmFile.c               PSG      0x8c659454  0x8c65ab60
+sdk/ninja/njReleaseTextureAll.c                PSG      0x8c65ab60  0x8c65ac2c
+sdk/ninja/njReleaseTexture.c                   PSG      0x8c65ac2c  0x8c65ac70
+sdk/ninja/njSetTextureInfo.c                   PSG      0x8c65ac70  0x8c65ac90
+sdk/ninja/njTexStride.c                        PSG      0x8c65ac90  0x8c65af5a
+sdk/ninja/njTexture.c                          PSG      0x8c65af5c  0x8c65b1dc
+sdk/ninja/njClipZ.c                            PSG      0x8c65b1dc  0x8c65b220
+sdk/ninja/njInitView.c                         PSG      0x8c65b220  0x8c65b28c
+sdk/ninja/njRotateViewXAbsolute.c              PSG      0x8c65b28c  0x8c65b2c4
+sdk/ninja/njRotateViewXRelative.c              PSG      0x8c65b2c4  0x8c65b2fc
+sdk/ninja/njRotateViewYRelative.c              PSG      0x8c65b2fc  0x8c65b338
+sdk/ninja/njRotateViewZAbsolute.c              PSG      0x8c65b338  0x8c65b354
+sdk/ninja/njRotateViewZRelative.c              PSG      0x8c65b354  0x8c65b370
+sdk/ninja/njSetPerspective.c                   PSG      0x8c65b370  0x8c65b398
+sdk/ninja/njSetScreen.c                        PSG      0x8c65b398  0x8c65b3b0
+sdk/ninja/njSetView.c                          PSG      0x8c65b3b0  0x8c65b4cc
+sdk/ninja/njTranslateViewAbsolute.c            PSG      0x8c65b4cc  0x8c65b4f4
+sdk/ninja/njTranslateViewRelative.c            PSG      0x8c65b4f4  0x8c65b51c
+sdk/sofdec/adx_inis.c                          PSG      0x8c65b51c  0x8c65b634
+sdk/sofdec/adx_tlk.c                           PSG      0x8c65b634  0x8c65bd7c
+sdk/sofdec/adx_tlk2.c                          PSG      0x8c65bd7c  0x8c65bfd8
+sdk/sofdec/adx_xpnd.c                          PSG      0x8c65bfd8  0x8c65c200
+sdk/sofdec/adx_fs.c                            PSG      0x8c65c200  0x8c65cb68
+# follows adx_fs.c with no fill; adx_fs.c builds under -size and this under -speed: as one file under -size, the code runs 160 bytes shorter and 2,473 of its 4,932 bytes differ, and under -speed the code runs 144 bytes longer
+sdk/shinobi/sg_playtime.c                      PSG      0x8c65cb68  0x8c65d5e4
+sdk/shinobi/sg_flcommon.c                      PSG      0x8c65d5e4  0x8c65d904
+sdk/shinobi/sg_rdalahd.c                       PSG      0x8c65d904  0x8c65d9dc
+sdk/shinobi/sd_aica_reset_keep.c               PSG      0x8c65d9dc  0x8c65da58
+sdk/shinobi/sd_aica_reset_rel.c                PSG      0x8c65da58  0x8c65dad8
+sdk/shinobi/sd_debug_printf.c                  PSG      0x8c65dad8  0x8c65db54
+sdk/shinobi/sd_2nd_host_cmd_send_lst.c         PSG      0x8c65db54  0x8c65dc40
+sdk/shinobi/sd_memblk_execute_callback.c       PSG      0x8c65dc40  0x8c65dc90
+sdk/shinobi/sd_memblk_get_stat.c               PSG      0x8c65dc90  0x8c65dcd4
+sdk/shinobi/sd_memblk_set_adr.c                PSG      0x8c65dcd4  0x8c65dcda
+sdk/shinobi/sd_memblk_set_callback.c           PSG      0x8c65dcdc  0x8c65dcf4
+sdk/shinobi/sd_memblk_set_stat.c               PSG      0x8c65dcf4  0x8c65dcfa
+sdk/shinobi/sd_memblk_set_sz.c                 PSG      0x8c65dcfc  0x8c65dd02
+sdk/shinobi/sd_memblk_transfer.c               PSG      0x8c65dd04  0x8c65de54
+sdk/shinobi/sd_snd_mem_allocate_bank.c         PSG      0x8c65de54  0x8c65dff8
+sdk/shinobi/sd_snd_mem_clear.c                 PSG      0x8c65dff8  0x8c65e030
+sdk/shinobi/sd_snd_mem_get_bank_stat.c         PSG      0x8c65e030  0x8c65e15c
+sdk/shinobi/sd_module_open_port.c              PSG      0x8c65e15c  0x8c65e21c
+sdk/shinobi/sd_drv_get_info.c                  PSG      0x8c65e21c  0x8c65e3d4
+sdk/shinobi/sd_sys_wrk_init.c                  PSG      0x8c65e3d4  0x8c65e474
+sdk/shinobi/gdctl.c                            PSG      0x8c65e474  0x8c65e7d8
+sdk/shinobi/gdDec.c                            PSG      0x8c65e7d8  0x8c65e9ac
+sdk/shinobi/gdfsdir.c                          PSG      0x8c65e9ac  0x8c65ef1c
+sdk/shinobi/pd_kbd.c                           PSG      0x8c65ef1c  0x8c65eff4
+sdk/shinobi/syChain.c                          PSG      0x8c65eff4  0x8c65f4dc
+sdk/shinobi/syIntCtrl.c                        PSG      0x8c65f4dc  0x8c65f6f0
+sdk/shinobi/sySq.c                             PSG      0x8c65f6f0  0x8c65f794
+sdk/shinobi/lcdasm.src                         PSG      0x8c65f794  0x8c65f844
+sdk/shinobi/fmcrc.c                            PSG      0x8c65f844  0x8c65f884
+sdk/shinobi/sg_syb2.c                          PSG      0x8c65f884  0x8c65fa4c
+sdk/ninja/kmvtxlst_kamui_lib.c                 PSG      0x8c65fa60  0x8c65fc80
+sdk/ninja/kmvtxbuf_kamui_lib.c                 PSG      0x8c65fc80  0x8c661700
+sdk/ninja/kmdevice_kamui_lib.c                 PSG      0x8c661700  0x8c661e40
+sdk/ninja/kmtex_kamui_lib.c                    PSG      0x8c661e40  0x8c6633a0
+sdk/ninja/internal_kamui_lib.c                 PSG      0x8c6633a0  0x8c663860
+sdk/ninja/kmasm_kamui_lib.src                  PSG      0x8c663860  0x8c6638f6
+sdk/ninja/dma_kamui_lib.c                      PSG      0x8c663900  0x8c663f00
+sdk/ninja/hwinit_kamui_lib.c                   PSG      0x8c663f00  0x8c664300
+sdk/ninja/video_kamui_lib.c                    PSG      0x8c664300  0x8c6652c8
+sdk/ninja/interupt_kamui_lib.c                 PSG      0x8c6652e0  0x8c6663a0
+sdk/ninja/kmimem_kamui_lib.c                   PSG      0x8c6663a0  0x8c666620
+sdk/ninja/bgplane_kamui_lib.c                  PSG      0x8c666620  0x8c668540
+sdk/ninja/njPointCamereInterest.c              PSG      0x8c668540  0x8c66869c
+sdk/ninja/njRollCameraInterest.c               PSG      0x8c66869c  0x8c668748
+# follows njRollCameraInterest.c with no fill, and ends where njSetCamera.c begins; one file or two build the same with either. SDK 1.20J ninja.lib's module njSetCameraAngle_ is these 8 bytes
+sdk/ninja/njSetCameraAngle.c                   PSG      0x8c668748  0x8c668750
+sdk/ninja/njSetCamera.c                        PSG      0x8c668750  0x8c66893c
+sdk/ninja/njGetPlaneNormal2.c                  PSG      0x8c66893c  0x8c66899e
+sdk/ninja/njIsParalellL2PL.c                   PSG      0x8c6689a0  0x8c6689c6
+sdk/ninja/njIsParalellPL2PL.c                  PSG      0x8c6689c8  0x8c668a1c
+sdk/ninja/njNearClippingLine.c                 PSG      0x8c668a1c  0x8c668c64
+sdk/ninja/njLightSystemInit.c                  PSG      0x8c668c64  0x8c668cdc
+sdk/ninja/njClearMatrix.c                      PSG      0x8c668cdc  0x8c668d94
+sdk/ninja/njDetMatrix.c                        PSG      0x8c668d94  0x8c668ef0
+sdk/ninja/dummy.c                              PSG      0x8c668ef0  0x8c668f1c
+sdk/ninja/njLoadTextureLN.c                    PSG      0x8c668f1c  0x8c66a58c
+sdk/ninja/njPalette.c                          PSG      0x8c66a58c  0x8c66a814
+sdk/ninja/njReleaseCacheTextureAll.c           PSG      0x8c66a814  0x8c66a898
+sdk/ninja/njReleaseTextureNum.c                PSG      0x8c66a898  0x8c66a9d4
+sdk/ninja/njSetTextureParam.c                  PSG      0x8c66a9d4  0x8c66aacc
+sdk/ninja/njTexFile.c                          PSG      0x8c66aacc  0x8c66b06c
+sdk/ninja/njTexList.c                          PSG      0x8c66b06c  0x8c66b3e4
+sdk/ninja/njTexLoad.c                          PSG      0x8c66b3e4  0x8c66b8e8
+sdk/ninja/njTexinner.c                         PSG      0x8c66b8e8  0x8c66bc0c
+sdk/ninja/kmutil_workaround_for_sh_lnk.c       PSG      0x8c66bc0c  0x8c66ce38
+sdk/sofdec/adx_crs.c                           PSG      0x8c66ce38  0x8c66ce98
+sdk/sofdec/adx_dcd.c                           PSG      0x8c66ce98  0x8c66d218
+sdk/sofdec/adx_dcd2.c                          PSG      0x8c66d218  0x8c66d560
+sdk/sofdec/adx_dcda.c                          PSG      0x8c66d560  0x8c66d760
+sdk/sofdec/adx_errs.c                          PSG      0x8c66d760  0x8c66d7f4
+sdk/sofdec/adx_rnas.c                          PSG      0x8c66d7f4  0x8c66d908
+sdk/sofdec/adx_sjd.c                           PSG      0x8c66d908  0x8c66e020
+sdk/sofdec/adx_stms.c                          PSG      0x8c66e020  0x8c66e5cc
+sdk/sofdec/adx_tsvr.c                          PSG      0x8c66e5cc  0x8c66ecd8
+sdk/sofdec/mw_rna.c                            PSG      0x8c66ecd8  0x8c6700dc
+sdk/sofdec/sj_mem.c                            PSG      0x8c6700dc  0x8c67039a
+sdk/sofdec/sj_rbf.c                            PSG      0x8c67039c  0x8c6707bc
+sdk/shinobi/sg_userflag.c                      PSG      0x8c6707bc  0x8c670948
+sdk/shinobi/sg_userhis.c                       PSG      0x8c670948  0x8c6709f4
+sdk/shinobi/sg_fhref.c                         PSG      0x8c6709f4  0x8c670ce8
+sdk/shinobi/sd_2nd_host_cmd_init_lst.c         PSG      0x8c670ce8  0x8c670d88
+sdk/shinobi/sd_prim_host_cmd_flush.c           PSG      0x8c670d88  0x8c670e54
+sdk/shinobi/sd_prim_host_cmd_init_lst.c        PSG      0x8c670e54  0x8c670ec8
+sdk/shinobi/sd_prim_host_cmd_write.c           PSG      0x8c670ec8  0x8c670f50
+sdk/shinobi/sd_memblk_cpu_transfer.c           PSG      0x8c670f50  0x8c671034
+sdk/shinobi/sd_memblk_dma_transfer.c           PSG      0x8c671034  0x8c671174
+sdk/shinobi/sd_memblk_init.c                   PSG      0x8c671174  0x8c67120c
+sdk/shinobi/sd_memblk_que_init.c               PSG      0x8c67120c  0x8c6712b0
+sdk/shinobi/sd_memblk_que_pop.c                PSG      0x8c6712b0  0x8c671394
+sdk/shinobi/sd_memblk_que_push.c               PSG      0x8c671394  0x8c671464
+sdk/shinobi/sd_snd_mem_read_sint32.c           PSG      0x8c671464  0x8c67149c
+sdk/shinobi/sd_snd_mem_read_sint8.c            PSG      0x8c67149c  0x8c6714d8
+sdk/shinobi/sd_snd_mem_read_uint8.c            PSG      0x8c6714d8  0x8c671514
+sdk/shinobi/sd_snd_mem_write_sint32.c          PSG      0x8c671514  0x8c671554
+sdk/shinobi/sd_module_port.c                   PSG      0x8c671554  0x8c671688
+sdk/shinobi/syIntIsr.src                       PSG      0x8c671688  0x8c671a94
+sdk/shinobi/mpsmp.src                          PSG      0x8c671a94  0x8c671a99
+sdk/shinobi/vmsasm.src                         PSG      0x8c671a9c  0x8c671acc
+sdk/ninja/kmframe_kamui_lib.c                  PSG      0x8c671ae0  0x8c671e00
+sdk/ninja/fballoc_kamui_lib.c                  PSG      0x8c671e00  0x8c674460
+# follows fballoc_kamui_lib.c with no fill; as one file, the code runs 32 bytes shorter. 111 of its 9,868 bytes differ, and the two keep one copy of "HARDWARE" and "EnableTexture16MB"
+sdk/ninja/inifile_kamui_lib.c                  PSG      0x8c674460  0x8c6744c0
+sdk/ninja/tactrl_kamui_lib.c                   PSG      0x8c6744c0  0x8c6750a4
+# follows tactrl_kamui_lib.c with no fill; that builds under R32 and this under R10: as one file under R32, the code runs 48 bytes longer, and under R10, 296 bytes shorter
+sdk/ninja/njInitCacheTexture.c                 PSG      0x8c6750a4  0x8c675198
+sdk/ninja/njTexpvr.c                           PSG      0x8c675198  0x8c6753a4
+sdk/sofdec/adx_bsc.c                           PSG      0x8c6753a4  0x8c676144
+sdk/sofdec/mw_rnaer.c                          PSG      0x8c676144  0x8c676178
+sdk/sofdec/mw_sdcs.c                           PSG      0x8c676178  0x8c676aa0
+sdk/sofdec/sj_patch.c                          PSG      0x8c676aa0  0x8c676aac
+sdk/sofdec/sj_utl.c                            PSG      0x8c676aac  0x8c676adc
+sdk/shinobi/sd_memblk_end_transfer_handller.c  PSG      0x8c676adc  0x8c676b98
+sdk/shinobi/sd_move_wrk_mem_to_snd_mem.c       PSG      0x8c676b98  0x8c676c20
+sdk/shinobi/sd_snd_mem_read_uint32.c           PSG      0x8c676c20  0x8c676c58
+sdk/shinobi/sd_snd_mem_write_uint8.c           PSG      0x8c676c58  0x8c676ca8
+sdk/shinobi/sd_module_check_port.c             PSG      0x8c676ca8  0x8c676ce4
+sdk/shinobi/sd_pstm_close_port.c               PSG      0x8c676ce4  0x8c676d34
+sdk/shinobi/sd_pstm_get_cur_adr.c              PSG      0x8c676d34  0x8c676e2c
+sdk/shinobi/sd_pstm_get_flg.c                  PSG      0x8c676e2c  0x8c676ebc
+sdk/shinobi/sd_pstm_get_stat.c                 PSG      0x8c676ebc  0x8c676fbc
+sdk/shinobi/sd_pstm_open_port.c                PSG      0x8c676fbc  0x8c677124
+sdk/shinobi/sd_pstm_play_mw.c                  PSG      0x8c677124  0x8c67717c
+sdk/shinobi/sd_pstm_reset_prm.c                PSG      0x8c67717c  0x8c6771e0
+sdk/shinobi/sd_pstm_set_base_vol.c             PSG      0x8c6771e0  0x8c67725c
+sdk/shinobi/sd_pstm_set_drct_lev.c             PSG      0x8c67725c  0x8c6772cc
+sdk/shinobi/sd_pstm_set_fx_ch.c                PSG      0x8c6772cc  0x8c677344
+sdk/shinobi/sd_pstm_set_pan.c                  PSG      0x8c677344  0x8c6774d4
+sdk/shinobi/sd_pstm_set_pitch.c                PSG      0x8c6774d4  0x8c67757c
+sdk/shinobi/sd_pstm_set_use_ch.c               PSG      0x8c67757c  0x8c677638
+sdk/shinobi/sd_pstm_set_vol.c                  PSG      0x8c677638  0x8c677704
+sdk/shinobi/sd_pstm_stop.c                     PSG      0x8c677704  0x8c6777b4
+sdk/shinobi/sd_pstm_stop_all.c                 PSG      0x8c6777b4  0x8c67785c
+sdk/shinobi/sd_sys_flush_host_cmd.c            PSG      0x8c67785c  0x8c67789c
+sdk/shinobi/mpasm.src                          PSG      0x8c67789c  0x8c6778b0
+# follows mpasm.src with no fill, and mw_sdbuf.c follows it with none. SDK 1.20J sofdec.lib's module adx_spsd is these 296 bytes
+sdk/sofdec/adx_spsd.c                          PSG      0x8c6778b0  0x8c6779d8
+sdk/sofdec/mw_sdbuf.c                          PSG      0x8c6779d8  0x8c677a38
+sdk/shinobi/sd_memblk_que_get_push_num.c       PSG      0x8c677a38  0x8c677a78
+sdk/shinobi/sd_snd_mem_write_uint32.c          PSG      0x8c677a78  0x8c677ab8
+sdk/shinobi/sd_module_close_port.c             PSG      0x8c677ab8  0x8c677af4
+sdk/shinobi/sd_midi_get_stat.c                 PSG      0x8c677af4  0x8c677bdc
+sdk/shinobi/sd_pstm_get_drct_lev.c             PSG      0x8c677bdc  0x8c677c58
+sdk/shinobi/sd_pstm_get_err.c                  PSG      0x8c677c58  0x8c677ce8
+sdk/shinobi/sd_pstm_get_fx_lev.c               PSG      0x8c677ce8  0x8c677d78
+sdk/shinobi/sd_pstm_get_pan.c                  PSG      0x8c677d78  0x8c677e50
+sdk/shinobi/sd_pstm_get_pitch.c                PSG      0x8c677e50  0x8c677ee0
+sdk/shinobi/sd_pstm_get_speed.c                PSG      0x8c677ee0  0x8c677f70
+sdk/shinobi/sd_pstm_get_total_smp_frame.c      PSG      0x8c677f70  0x8c678000
+sdk/shinobi/sd_pstm_get_vol.c                  PSG      0x8c678000  0x8c678080
+sdk/shinobi/sd_pstm_play.c                     PSG      0x8c678080  0x8c67818c
+sdk/shinobi/sd_midi_get_cur_adr.c              PSG      0x8c67818c  0x8c6781fc
+sdk/shinobi/sd_midi_get_drct_lev.c             PSG      0x8c6781fc  0x8c67826c
+sdk/shinobi/sd_midi_get_err.c                  PSG      0x8c67826c  0x8c6782dc
+sdk/shinobi/sd_midi_get_flg.c                  PSG      0x8c6782dc  0x8c67834c
+sdk/shinobi/sd_midi_get_fx_lev.c               PSG      0x8c67834c  0x8c6783bc
+sdk/shinobi/sd_midi_get_pan.c                  PSG      0x8c6783bc  0x8c67842c
+sdk/shinobi/sd_midi_get_pitch.c                PSG      0x8c67842c  0x8c67849c
+sdk/shinobi/sd_midi_get_speed.c                PSG      0x8c67849c  0x8c67850c
+sdk/shinobi/sd_midi_get_total_beat_time.c      PSG      0x8c67850c  0x8c67857c
+sdk/shinobi/sd_midi_get_vol.c                  PSG      0x8c67857c  0x8c6785ec
+# built whole, its 56 bytes end where sprite.src's begin
+sdk/shinobi/strt1.src                          CSG      0x8c6785ec  0x8c678624
+src/draw/sprite.src                            CSG      0x8c678624  0x8c678640
+sdk/shinobi/sg_sycf.c                          CSG      0x8c678640  0x8c67866c
+sdk/shinobi/sg_syfb.c                          CSG      0x8c67866c  0x8c678698
+sdk/shinobi/sd_memblk_create.c                 CSG      0x8c678698  0x8c6786c9
+sdk/shinobi/sd_multi_unit_download.c           CSG      0x8c6786cc  0x8c67874c
+sdk/shinobi/sd_midi_set_mes.c                  CSG      0x8c67874c  0x8c678795
+sdk/shinobi/sd_global_variable.c               CSG      0x8c678798  0x8c6787c8
+sdk/shinobi/gdfs.c                             CSG      0x8c6787c8  0x8c678883
+sdk/shinobi/gdfsif.c                           CSG      0x8c678888  0x8c678898
+sdk/shinobi/_0sbver.c                          CSG      0x8c678898  0x8c678971
+sdk/shinobi/ov_main.c                          CSG      0x8c678978  0x8c678998
+sdk/shinobi/njpad.c                            CSG      0x8c678998  0x8c678a19
+sdk/shinobi/pdmain.c                           CSG      0x8c678a1c  0x8c678a51
+sdk/shinobi/syCache.c                          CSG      0x8c678a54  0x8c678a88
+sdk/shinobi/syMalloc.c                         CSG      0x8c678a88  0x8c678abd
+sdk/shinobi/sg_syrtc.c                         CSG      0x8c678ac0  0x8c678b4c
+sdk/shinobi/sh4tmr.c                           CSG      0x8c678b4c  0x8c678b78
+sdk/shinobi/lcd.c                              CSG      0x8c678b78  0x8c678be4
+sdk/shinobi/lcdvms.c                           CSG      0x8c678be4  0x8c678c06
+sdk/shinobi/sg_syCbl.c                         CSG      0x8c678c08  0x8c678c34
+# follows the member before it with no fill; built whole, its 68 bytes end where sg_sybt's begin
+sdk/shinobi/fm.c                               CSG      0x8c678c34  0x8c678c78
+sdk/shinobi/sg_sybt.c                          CSG      0x8c678c78  0x8c678ca7
+# starts at list_end, which the pool words at 0x8c61df1c and 0x8c61e69c name; built whole, its 44 bytes, the CSG of SDK 1.30J ninja.lib's module kmsurfac_kamui_lib_, end 4 bytes before kmvertex's begin
+sdk/ninja/kmsurfac_kamui_lib.c                 CSG      0x8c678ca8  0x8c678cd4
+sdk/ninja/kmvertex_kamui_lib.c                 CSG      0x8c678cd8  0x8c678cf8
+sdk/ninja/njDebug.c                            CSG      0x8c678cf8  0x8c678cfe
+# built whole, its 24 bytes end where njSystem's begin
+sdk/ninja/njSprite.src                         CSG      0x8c678d00  0x8c678d18
+sdk/ninja/njSystem.c                           CSG      0x8c678d18  0x8c678e22
+sdk/ninja/njLoadTexturePvmFile.c               CSG      0x8c678e24  0x8c678e29
+# its constants run on, on 4, from its message to the SFA build string, and its data starts with sfa_build, which names the string, at 0x8c67fb20, on 8, straight after adx_inis.c's. SDK 1.30J's cri_adxs.lib has the two in a module of their own, adx_sfa, with code this image doesn't link, and its adx_tlk's 43 bytes of CSG and 24 of DSG equal the image's at 0x8c678e2c and 0x8c67fb24, before the string and after the pointer. here the string follows this object's constants and the pointer precedes its data, so no object linked once holds both unless this one does, and the whole object builds them where the image has them. this object aligns its sections on 4, as its CSG's start 4 past 8 shows, where 1.30J's adx_tlk aligns them on 8, so the pointer's start on 8 is no evidence either way. no word in this image or another points at either
+sdk/sofdec/adx_tlk.c                           CSG      0x8c678e2c  0x8c678e82
+sdk/sofdec/adx_tlk2.c                          CSG      0x8c678e84  0x8c678fbf
+sdk/sofdec/adx_fs.c                            CSG      0x8c678fc0  0x8c67902b
+sdk/shinobi/sg_playtime.c                      CSG      0x8c67902c  0x8c67907b
+sdk/shinobi/sg_flcommon.c                      CSG      0x8c67907c  0x8c6790e9
+sdk/shinobi/sd_drv_get_info.c                  CSG      0x8c6790ec  0x8c679213
+sdk/shinobi/gdctl.c                            CSG      0x8c679218  0x8c679268
+sdk/shinobi/gdDec.c                            CSG      0x8c679268  0x8c679468
+sdk/shinobi/gdfsdir.c                          CSG      0x8c679468  0x8c67946b
+sdk/shinobi/syChain.c                          CSG      0x8c67946c  0x8c6794a0
+sdk/shinobi/syIntCtrl.c                        CSG      0x8c6794a0  0x8c6794d4
+sdk/shinobi/sySq.c                             CSG      0x8c6794d4  0x8c679505
+sdk/shinobi/fmcrc.c                            CSG      0x8c679508  0x8c679708
+# follows fmcrc.c's constants with no gap. SDK 1.30J ninja.lib's module kmvtxbuf_kamui_lib_ has these 112 bytes of CSG: three tables of object pointer block sizes, a profile section and key, and a list header
+sdk/ninja/kmvtxbuf_kamui_lib.c                 CSG      0x8c679708  0x8c679778
+sdk/ninja/kmdevice_kamui_lib.c                 CSG      0x8c679778  0x8c6797c4
+sdk/ninja/kmtex_kamui_lib.c                    CSG      0x8c6797c8  0x8c6799b8
+sdk/ninja/internal_kamui_lib.c                 CSG      0x8c6799b8  0x8c679a69
+sdk/ninja/video_kamui_lib.c                    CSG      0x8c679a70  0x8c679a88
+sdk/ninja/njLtMath.c                           CSG      0x8c679a88  0x8c67de88
+sdk/ninja/njTexinner.c                         CSG      0x8c67de88  0x8c67de8d
+sdk/ninja/kmutil_workaround_for_sh_lnk.c       CSG      0x8c67de90  0x8c67debc
+sdk/sofdec/adx_dcd2.c                          CSG      0x8c67debc  0x8c67defc
+sdk/sofdec/adx_stms.c                          CSG      0x8c67defc  0x8c67dffe
+sdk/sofdec/adx_tsvr.c                          CSG      0x8c67e000  0x8c67e02d
+sdk/sofdec/mw_rna.c                            CSG      0x8c67e030  0x8c67e314
+sdk/sofdec/sj_mem.c                            CSG      0x8c67e314  0x8c67e324
+sdk/sofdec/sj_rbf.c                            CSG      0x8c67e324  0x8c67e334
+sdk/shinobi/sg_userflag.c                      CSG      0x8c67e334  0x8c67e344
+sdk/shinobi/sg_userhis.c                       CSG      0x8c67e344  0x8c67e387
+sdk/shinobi/sg_fhref.c                         CSG      0x8c67e388  0x8c67e3cb
+sdk/ninja/kmframe_kamui_lib.c                  CSG      0x8c67e3d0  0x8c67e400
+sdk/ninja/fballoc_kamui_lib.c                  CSG      0x8c67e400  0x8c67e41e
+sdk/ninja/inifile_kamui_lib.c                  CSG      0x8c67e420  0x8c67e43e
+sdk/sofdec/adx_bsc.c                           CSG      0x8c67e440  0x8c67e489
+sdk/sofdec/adx_qtbl.c                          CSG      0x8c67e48c  0x8c67eccc
+sdk/sofdec/mw_sdcs.c                           CSG      0x8c67eccc  0x8c67f242
+sdk/shinobi/sd_sys_flush_host_cmd.c            CSG      0x8c67f244  0x8c67f27b
+# the 5 zero bytes from sd_sys_flush_host_cmd.c's constants to this row, which nothing points into, run to DSG's start. strt1.src declares an empty CSG32, on 32, after CSG, which starts DSG at 0x8c67f280, the start strt1's table holds at 0x8c6785fc. every byte of CSG before them is placed or fill, and njGlobal.c has no constants. sd_sys_flush_host_cmd.c's own constants end where its row does, and 32 rounds that end up to CSG32's start, where DSG starts, so the splicer writes the 5 bytes as the linker's fill from CSG's last placement (TOOLCHAIN.md#fill). constants of an object no source holds would build the same
+sdk/ninja/njDrawPolygon2D.c                    DSG      0x8c67f280  0x8c67f2a8
+# motion_steps and shape_steps, the member's only data, at the addresses the code's pools hold
+sdk/ninja/njMotionE.c                          DSG      0x8c67f2a8  0x8c67f2cc
+sdk/ninja/njDrawLine2D.c                       DSG      0x8c67f2cc  0x8c67f2fc
+sdk/shinobi/sg_sycf.c                          DSG      0x8c67f2fc  0x8c67f304
+sdk/shinobi/sg_syfb.c                          DSG      0x8c67f304  0x8c67f314
+sdk/shinobi/sd_memblk_create.c                 DSG      0x8c67f314  0x8c67f334
+sdk/shinobi/sd_drv_init.c                      DSG      0x8c67f334  0x8c67f338
+sdk/shinobi/sd_sys_err_trap.c                  DSG      0x8c67f338  0x8c67f340
+sdk/shinobi/sd_global_variable.c               DSG      0x8c67f340  0x8c67f350
+sdk/shinobi/gdfs.c                             DSG      0x8c67f350  0x8c67f35c
+sdk/shinobi/gdfsif.c                           DSG      0x8c67f360  0x8c67f368
+sdk/shinobi/pdmain.c                           DSG      0x8c67f368  0x8c67f36a
+sdk/shinobi/syCache.c                          DSG      0x8c67f36c  0x8c67f370
+sdk/shinobi/syMalloc.c                         DSG      0x8c67f370  0x8c67f374
+sdk/shinobi/sg_syrtc.c                         DSG      0x8c67f374  0x8c67f378
+sdk/shinobi/sh4tmr.c                           DSG      0x8c67f378  0x8c67f37c
+sdk/shinobi/sg_syCbl.c                         DSG      0x8c67f37c  0x8c67f380
+# follows the member before it with no fill; the pool word at 0x8c61d898 holds active's address, 0x8c67f380
+sdk/shinobi/fm.c                               DSG      0x8c67f380  0x8c67f384
+# SDK 1.30J ninja.lib's module kmsurfac_kamui_lib_ has these 140 bytes of DSG, aligned on 8: 4 bytes its code doesn't read, then vertex_bank, render_direct and kmiDummyOpaque at the addresses the pool words at 0x8c61e29c, 0x8c61dee0 and 0x8c61dbc8 hold
+sdk/ninja/kmsurfac_kamui_lib.c                 DSG      0x8c67f388  0x8c67f414
+sdk/ninja/kmvertex_kamui_lib.c                 DSG      0x8c67f418  0x8c67f560
+sdk/ninja/njDebug.c                            DSG      0x8c67f560  0x8c67f570
+# _nj_rgb_lt_func_, the member's only data, at the address the code's pools hold
+sdk/ninja/njLtSrcs.c                           DSG      0x8c67f570  0x8c67f5f0
+# light_tint, the member's only data, at the address the code's pools hold
+sdk/ninja/njModelE.c                           DSG      0x8c67f5f0  0x8c67f600
+sdk/ninja/njModel.c                            DSG      0x8c67f600  0x8c67f650
+# position_samplers, the member's only data, at the address the code's pool holds
+sdk/ninja/njCameraMotion.c                     DSG      0x8c67f650  0x8c67f658
+# the nine step, interpolation and blend tables, the member's only data; built whole, its 92 bytes end where njMotSrc.c's begin, and njMotLinkS.c's pools, from 0x8c6175f0 to 0x8c617844, hold seven of their addresses
+sdk/ninja/njMotLinkSrc.c                       DSG      0x8c67f658  0x8c67f6b4
+# the six step and interpolation tables, the member's only data, at the addresses njMotion.c's pools hold, from 0x8c6152a8 to 0x8c6157b0
+sdk/ninja/njMotSrc.c                           DSG      0x8c67f6b4  0x8c67f6f8
+sdk/ninja/njGlobal.c                           DSG      0x8c67f6f8  0x8c67f744
+sdk/ninja/njSystem.c                           DSG      0x8c67f744  0x8c67f764
+sdk/sofdec/adx_inis.c                          DSG      0x8c67f764  0x8c67fb20
+sdk/sofdec/adx_tlk.c                           DSG      0x8c67fb20  0x8c67fb3c
+sdk/sofdec/adx_tlk2.c                          DSG      0x8c67fb3c  0x8c67fb40
+sdk/sofdec/adx_xpnd.c                          DSG      0x8c67fb40  0x8c67fb44
+sdk/sofdec/adx_fs.c                            DSG      0x8c67fb44  0x8c67fb48
+sdk/shinobi/sg_flcommon.c                      DSG      0x8c67fb48  0x8c67fb4d
+sdk/shinobi/sd_aica_reset_rel.c                DSG      0x8c67fb50  0x8c67fb54
+sdk/shinobi/sd_snd_mem_clear.c                 DSG      0x8c67fb54  0x8c67fb58
+sdk/shinobi/syChain.c                          DSG      0x8c67fb58  0x8c67fb5c
+sdk/shinobi/sySq.c                             DSG      0x8c67fb5c  0x8c67fb60
+sdk/ninja/kmvtxlst_kamui_lib.c                 DSG      0x8c67fb60  0x8c67fbc0
+# follows kmvtxlst_kamui_lib.c's data with no gap. SDK 1.30J ninja.lib's module kmvtxbuf_kamui_lib_ has these 8 bytes of DSG, its two flag words
+sdk/ninja/kmvtxbuf_kamui_lib.c                 DSG      0x8c67fbc0  0x8c67fbc8
+sdk/ninja/internal_kamui_lib.c                 DSG      0x8c67fbc8  0x8c67fe3c
+# field_toggle, the member's only data, at the address the code's pool holds
+sdk/ninja/interupt_kamui_lib.c                 DSG      0x8c67fe40  0x8c67fe44
+sdk/ninja/bgplane_kamui_lib.c                  DSG      0x8c67fe48  0x8c67fe90
+# follows bgplane_kamui_lib.c's data with no gap, and ends where njLoadTextureLN.c's begins. SDK 1.20J ninja.lib's module debug_ is these 32,768 bytes of DSG, _nj_debug_char_ alone, whose address njInitPrint's pool word at 0x8c622908 holds
+sdk/ninja/debug.c                              DSG      0x8c67fe90  0x8c687e90
+sdk/ninja/njLoadTextureLN.c                    DSG      0x8c687e90  0x8c687e98
+sdk/ninja/njTexFile.c                          DSG      0x8c687e98  0x8c687ec0
+sdk/ninja/njTexList.c                          DSG      0x8c687ec0  0x8c687ec4
+sdk/ninja/njTexLoad.c                          DSG      0x8c687ec4  0x8c687efc
+sdk/ninja/kmutil_workaround_for_sh_lnk.c       DSG      0x8c687efc  0x8c687f00
+sdk/sofdec/adx_crs.c                           DSG      0x8c687f00  0x8c687f08
+sdk/sofdec/adx_errs.c                          DSG      0x8c687f08  0x8c687f10
+sdk/sofdec/adx_stms.c                          DSG      0x8c687f10  0x8c687f14
+sdk/sofdec/sj_mem.c                            DSG      0x8c687f14  0x8c687f44
+sdk/sofdec/sj_rbf.c                            DSG      0x8c687f44  0x8c687f74
+sdk/shinobi/sd_2nd_host_cmd_init_lst.c         DSG      0x8c687f74  0x8c687f90
+sdk/shinobi/sd_memblk_dma_transfer.c           DSG      0x8c687f90  0x8c687f94
+sdk/shinobi/sd_memblk_init.c                   DSG      0x8c687f94  0x8c687fb4
+sdk/shinobi/sd_memblk_que_init.c               DSG      0x8c687fb4  0x8c687fbc
+sdk/ninja/kmframe_kamui_lib.c                  DSG      0x8c687fc0  0x8c687fc4
+sdk/ninja/fballoc_kamui_lib.c                  DSG      0x8c687fc8  0x8c68801c
+# opb_words and gkmCopyTransToPunchthrough, at the addresses the code's pool words at 0x8c6745ac, 0x8c674944 and 0x8c674a84 hold
+sdk/ninja/tactrl_kamui_lib.c                   DSG      0x8c688020  0x8c688034
+sdk/sofdec/adx_bsc.c                           DSG      0x8c688034  0x8c68803c
+sdk/sofdec/mw_rnaer.c                          DSG      0x8c68803c  0x8c688044
+sdk/shinobi/sd_pstm_play_mw.c                  DSG      0x8c688044  0x8c6880ac
+sdk/shinobi/sd_pstm_set_pan.c                  DSG      0x8c6880ac  0x8c6880b0
+sdk/shinobi/sd_pstm_set_vol.c                  DSG      0x8c6880b0  0x8c6880b4
+# SDK 1.20J shinobi.lib's module sd_midi_get_total_beat_time_ has these 4 bytes of DSG, which no word points at; the objects linked between sd_pstm_set_vol.c and it, and sd_midi_get_vol.c after it, have no DSG. the 8 zero bytes after it run to DSG32's start, where njGlobal.c's object starts it on 32, so the splicer writes them as the linker's fill from DSG's last placement (TOOLCHAIN.md#fill)
+sdk/shinobi/sd_midi_get_total_beat_time.c      DSG      0x8c6880b4  0x8c6880b8
+sdk/ninja/njGlobal.c                           DSG32    0x8c6880c0  0x8c688100
+src/system/sbinit.c                            B        0x8c688100  0x8c6b5f08
+src/debug/host.c                               B        0x8c6b5f08  0x8c6b6140
+src/save/card.c                                B        0x8c6b6140  0x8c6c040c
+src/hud/overlay.c                              B        0x8c6c0410  0x8c6c0418
+src/draw/motion.c                              B        0x8c6c0418  0x8c6c0a00
+src/camera/camera.c                            B        0x8c6c0a00  0x8c6c0c50
+src/camera/editor.c                            B        0x8c6c0c50  0x8c6c0cb6
+# modes.c's bss starts at 0x8c6c0cb8, 0x8c6c0cc0, 0x8c6c0cc8 or 0x8c6c0cd0: no access on the disc reaches from 0x8c6c0cb6, where editor.c's last variable ends, to trigger_orbit_distance at 0x8c6c0cd0, where the row starts
+src/camera/modes.c                             B        0x8c6c0cd0  0x8c6c0e6c
+src/chao/chao.c                                B        0x8c6c0e70  0x8c6c4623
+src/collision/polygon.c                        B        0x8c6c4628  0x8c748770
+src/collision/collision.c                      B        0x8c748770  0x8c751048
+src/debug/print.c                              B        0x8c751050  0x8c751450
+src/progress/recorder.c                        B        0x8c751450  0x8c751458
+# banks_loaded starts on 8 straight after recorder.c's recording_buttons, on 8 too, and dat_8c751454: only this object's pool words name it, recorder.c's and stage.c's pool words recording_buttons, and only stage.c's at 0x8c0515c8 dat_8c751454. the bytes leave the seam open
+src/object/download.c                          B        0x8c751458  0x8c751918
+# action_factor_count, action_motion_type, action_shape_morphs and action_shape_type, the object's only bss, at the addresses its pools hold
+src/draw/action.c                              B        0x8c751918  0x8c751920
+src/draw/text.c                                B        0x8c751920  0x8c751948
+src/debug/editor.c                             B        0x8c751948  0x8c751c8c
+src/draw/fade.c                                B        0x8c751c90  0x8c751c9c
+src/effect/spark.c                             B        0x8c751ca0  0x8c751cb8
+src/camera/battle.c                            B        0x8c751cb8  0x8c751d28
+src/event/play.c                               B        0x8c751d28  0x8c751e10
+# weld_matrix_a starts on 8 straight after play.c's loaded_event, on 8 too, and event_controlling, and weld_inverse_b, on 8, ends the row where stage.c's event_ending starts on 8: only this object's pool words name its four matrices, only play.c's the two before, and play.c's and stage.c's event_ending. event.c and prs.src, between them in link order, have no bss row. the bytes leave both seams open
+src/player/weld.c                              B        0x8c751e10  0x8c751f10
+src/stage/stage.c                              B        0x8c751f10  0x8c75d75d
+src/system/pad.c                               B        0x8c75d760  0x8c75da14
+src/system/frame.c                             B        0x8c75da18  0x8c75da28
+src/collision/world.c                          B        0x8c75da50  0x8c769370
+src/draw/light.c                               B        0x8c769370  0x8c7694c8
+src/main.c                                     B        0x8c7694c8  0x8c791770
+src/system/util.c                              B        0x8c791770  0x8c791fa4
+src/draw/pose.c                                B        0x8c791fa8  0x8c793fb0
+# menu_state starts on 8 straight after pose.c's pose_count, on 8 too, and pose_limit: words in this object, hud.c, overlay.c, npc.c, race.c, sonic.c and tails.c and in ADVERTISE, STG08 and SUMMARY name it, and only pose.c's pool words those two. the bytes leave the seam open
+src/object/common.c                            B        0x8c793fb0  0x8c794dc0
+# target_count starts on 8 straight after common.c's object_tree, on 8 too, and object_tree_last: only this object's pool words name it, and only common.c's those two. dash_panel.c, balloon.c, dash_ring.c and kusa.c, between common.c and target.c in link order, have no bss row. the bytes leave the seam open
+src/object/target.c                            B        0x8c794dc0  0x8c794ec4
+src/object/item_box.c                          B        0x8c794ec8  0x8c794ee8
+# item_rings_given starts on 8 straight after item_box.c's item_box_kind, on 8 too, and dat_8c794ee4, which nothing names: item_box.c's pool word at 0x8c060b30 and this object's at 0x8c0613e8 name it, only this object's pool words item_box_air_current after it, and only item_box.c's item_box_kind. the bytes leave the seam open
+src/object/item_box_air.c                      B        0x8c794ee8  0x8c79504c
+src/object/panel.c                             B        0x8c795050  0x8c795078
+# message_voiced starts on 8 straight after panel.c's panel_tasks, on 8 too: only this object's pool words name it, and only panel.c's the tasks. the bytes leave the seam open
+src/event/script.c                             B        0x8c795078  0x8c7950c4
+src/object/capsule.c                           B        0x8c7950c8  0x8c7950d4
+src/object/rocket.c                            B        0x8c7950d8  0x8c795100
+# savepoint_current starts on 8 straight after rocket.c's rockets, on 8 too: only this object's pool words name it, and rocket.c's pool words and STG06's cannon_h.c's and cannon_h2.c's rockets. sample.c, between rocket.c and savepoint.c in link order, has no bss row. the bytes leave the seam open
+src/object/savepoint.c                         B        0x8c795100  0x8c795128
+# switch_flags starts on 8 straight after savepoint.c's savepoint_current, on 8 too, and restart_point: only this object's pool words name it, and only savepoint.c's those two. spring.c and helpers.c, between savepoint.c and switch.c in link order, have no bss row. the bytes leave the seam open
+src/object/switch.c                            B        0x8c795128  0x8c795148
+# level_item_current starts on 8 straight after switch.c's switch_flags, on 8 too: only this object's pool words name it, and only switch.c's the flags. spring_h.c and toge_bubble.c, between switch.c and level_item.c in link order, have no bss row. the bytes leave the seam open
+src/object/level_item.c                        B        0x8c795148  0x8c795150
+# dat_8c795150, which nothing names, starts on 8 straight after level_item.c's level_item_current, on 8 too, and big_lure_count; only this object's pool words name timer_counts, after it. only level_item.c's pool words name level_item_current, and they and fishing.c's at 0x8c0f1548 big_lure_count. path/steps.c, between level_item.c and timer.c in link order, has no bss row. the bytes leave the seam open
+src/system/timer.c                             B        0x8c795150  0x8c79517c
+# player_saved_draws, on 8, ends the row where screen.c's screen_corners starts on 8: only this object's pool word at 0x8c081e0c names it, and only screen.c's the corners. target.c, between them in link order, has no bss row. the bytes leave the seam open
+src/player/player.c                            B        0x8c795180  0x8c7a1358
+src/draw/screen.c                              B        0x8c7a1358  0x8c7a13cc
+src/player/race.c                              B        0x8c7a13d0  0x8c7a14b0
+# title_card, its only bss, starts on 8 straight after race.c's race_eggman_top_speed, on 8 too, and race_eggman_turn_speed: only this object's pool words name it, and only race.c's those two. the bytes leave the seam open
+src/player/npc.c                               B        0x8c7a14b0  0x8c7a14bc
+src/player/rival.c                             B        0x8c7a14c0  0x8c7a14c4
+src/object/ring.c                              B        0x8c7a14c8  0x8c7a1528
+# stage_last_cleared starts on 8 straight after ring.c's ring_sprite, on 8 too: this object's pool words and stage.c's at 0x8c05209c name it, and only ring.c's pool words the sprite. ring_group.c, between ring.c and save.c in link order, has no bss row. the bytes leave the seam open
+src/save/save.c                                B        0x8c7a1528  0x8c7a230c
+src/hud/hud.c                                  B        0x8c7a2318  0x8c7a2341
+src/progress/demo.c                            B        0x8c7a2348  0x8c7a2354
+src/progress/select.c                          B        0x8c7a2358  0x8c7a235e
+src/progress/progress.c                        B        0x8c7a2360  0x8c7a3164
+src/object/placement.c                         B        0x8c7a3168  0x8c7a716e
+src/sound/sound.c                              B        0x8c7a7178  0x8c7a7d5c
+src/draw/inset.c                               B        0x8c7a7d60  0x8c7a7ddc
+src/system/task.c                              B        0x8c7a7de0  0x8c7a7e10
+src/system/texture.c                           B        0x8c7a7e10  0x8c7a97a8
+src/system/thread.c                            B        0x8c7a97a8  0x8c7a97d0
+src/progress/title.c                           B        0x8c7a97d0  0x8c7a9824
+src/system/loader.c                            B        0x8c7a9828  0x8c7a9ab4
+src/effect/particle.c                          B        0x8c7a9ab8  0x8c7a9af8
+src/effect/blast_dome.c                        B        0x8c7a9af8  0x8c7aaaa8
+src/draw/quad.c                                B        0x8c7aaaa8  0x8c7aab28
+# zero_trigger_line_points, its only bss, starts on 8 straight after quad.c's quad_offsets, on 8 too: only this object's pool word at 0x8c0a8204 and its zero_trigger_line name it, and only quad.c's pool word at 0x8c0a7b00 the offsets. minigame.c, between quad.c and zero_trigger.c in link order, has no bss row. the bytes leave the seam open
+src/object/zero_trigger.c                      B        0x8c7aab28  0x8c7aab40
+# fog_editor.c's bss starts at 0x8c7aab40 or 0x8c7aab48: no word on the disc names the 8 bytes from 0x8c7aab40, where zero_trigger.c's last variable ends, to fog_page at 0x8c7aab48, where the row starts
+src/debug/fog_editor.c                         B        0x8c7aab48  0x8c7aab9c
+src/debug/seq_editor.c                         B        0x8c7aaba0  0x8c7aabdc
+src/hud/menu.c                                 B        0x8c7aabe0  0x8c7aabf4
+src/player/effects.c                           B        0x8c7aabf8  0x8c7aac38
+src/player/tails.c                             B        0x8c7aaf38  0x8c7ab040
+src/player/tails_trail.c                       B        0x8c7ab080  0x8c7ab100
+src/player/knuckles.c                          B        0x8c7ab3a0  0x8c7ab534
+src/player/knuckles_effects.c                  B        0x8c7ab538  0x8c7abc5c
+src/player/e102.c                              B        0x8c7abc60  0x8c7abe04
+src/player/e102_sphere.c                       B        0x8c7abe28  0x8c7acdd8
+# amy_base_matrix starts on 8 straight after e102_sphere.c's e102_sphere_uvs, on 8 too: only this object's pool words name it, and only e102_sphere.c's words the UVs. e102_smoke.c and e102_hit.c, between them in link order, have no bss row. the bytes leave the seam open
+src/player/amy.c                               B        0x8c7acdd8  0x8c7ace58
+# drum_touched, its only bss, starts on 8 straight after amy.c's amy_node_matrix, on 8 too: only this object's pool words, at 0x8c0e8de0, 0x8c0e8f30 and 0x8c0e8f60, name it, and only amy.c's the matrix. amy_bird.c, between them in link order, has no bss row. the bytes leave the seam open
+src/player/amy_drum.c                          B        0x8c7ace58  0x8c7ace5c
+src/player/amy_effects.c                       B        0x8c7ace60  0x8c7ace70
+# amy_handle, its only bss, starts on 8 straight after shock_ring_fade_colors, amy_effects.c's only bss, on 8 too: only this object's pool word at 0x8c0e9e18 names it, and only amy_effects.c's words the colors. the bytes leave the seam open
+src/player/amy_handle.c                        B        0x8c7ace70  0x8c7ace8c
+src/player/big.c                               B        0x8c7ace90  0x8c7acea0
+# fishing_score starts on 8 straight after big.c's fishing_fish_count, on 8 too, and fishing_shelter_ready: only this object's and hud.c's pool words name it and biggest_fish, and only big.c's and Big's four stages' those two, with fish.c's the second. the bytes leave the seam open
+src/player/fishing.c                           B        0x8c7acea0  0x8c7ad36c
+src/chaos/ribbon.c                             B        0x8c7ad370  0x8c7ad440
+src/chaos/puddle.c                             B        0x8c7ad440  0x8c7ad548
+src/chaos/effect.c                             B        0x8c7ad548  0x8c7add60
+src/chaos/chaos.c                              B        0x8c7add60  0x8c7ade68
+src/chaos/deform.c                             B        0x8c7ade68  0x8c7adea8
+src/hud/boss_name.c                            B        0x8c7adea8  0x8c7adeac
+src/hud/life_gauge.c                           B        0x8c7adeb0  0x8c7adec1
+src/chaos/emeralds.c                           B        0x8c7adec8  0x8c7adee4
+src/effect/brain.c                             B        0x8c7adee8  0x8c7adef0
+# sai_bf_sprite, its only bss, starts on 8 straight after brain.c's brain_shown, on 8 too, and brain_offset: only this object's pool word at 0x8c0fe0d4 names it; brain.c's pool words and words in B_CHAOS0, B_CHAOS2 and B_CHAOS4 name brain_shown, and only brain.c's brain_offset. the bytes leave the seam open
+src/enemy/sai.c                                B        0x8c7adef0  0x8c7adf10
+# zero_anim starts on 8 straight after sai_bf_sprite, sai.c's only bss, on 8 too: only this object's pool words name it, and only sai.c's at 0x8c0fe0d4 the sprite. snake.c, amenbo.c, charger.c, hiyoko.c, leon.c, robo.c, saru.c, uni.c and spina.c, between sai.c and zero.c in link order, have no bss row. the bytes leave the seam open
+src/enemy/zero.c                               B        0x8c7adf10  0x8c7ae170
+# voice_ptinfo starts on 8 straight after zero.c's zero_event_grab_state, on 8 too, and zero_event_grab_pos: only this object's pool word at 0x8c1166b8 names it, and only zero.c's pool words those two. zero_handle.c, between zero.c and stream.c in link order, has no bss row. the bytes leave the seam open
+src/sound/stream.c                             B        0x8c7ae170  0x8c7af2ac
+src/system/history.c                           B        0x8c7af2b0  0x8c7bf30c
+src/vmu/screen.c                               B        0x8c7bf310  0x8c7c0c14
+src/save/mail.c                                B        0x8c7c0c18  0x8c7c0c1c
+src/progress/movie.c                           B        0x8c7c0c20  0x8c7c0c24
+sdk/shinobi/vmsapi.c                           B        0x8c7c0c24  0x8c7c0c3c
+sdk/shinobi/kdapi.c                            B        0x8c7c0c44  0x8c7c1118
+sdk/shinobi/rfiber.c                           B        0x8c7c1118  0x8c7cd744
+sdk/shinobi/vms_rw.c                           B        0x8c7cd744  0x8c7cd748
+sdk/shinobi/vmscmd.c                           B        0x8c7cd748  0x8c7d5b68
+sdk/shinobi/vmsphys.c                          B        0x8c7d5b68  0x8c7dbe8c
+sdk/shinobi/pdvib.c                            B        0x8c7dbe8c  0x8c7dc12c
+sdk/shinobi/sy_g2_variable.c                   B        0x8c7dc12c  0x8c7dc274
+sdk/shinobi/mpapi.c                            B        0x8c7dc274  0x8c7dc374
+sdk/shinobi/mpgbl.c                            B        0x8c7dc374  0x8c7dd478
+sdk/shinobi/vmsfib.c                           B        0x8c7dd478  0x8c7dd47c
+sdk/shinobi/vmsio.c                            B        0x8c7dd47c  0x8c7dd480
+sdk/runtime/longjmp.src                        B        0x8c7dd480  0x8c7dd484
+sdk/ninja/njDrawPolygon2D.c                    BSG      0x8c8bf4e0  0x8c8bf5a8
+# motion_count, motion_type, shape_parts and shape_type, the member's only bss, at the addresses the code's pools hold
+sdk/ninja/njMotionE.c                          BSG      0x8c8bf5a8  0x8c8bf5b0
+sdk/ninja/njDrawLine2D.c                       BSG      0x8c8bf5b0  0x8c8bf678
+sdk/shinobi/sg_syfb.c                          BSG      0x8c8bf678  0x8c8bf67c
+sdk/sofdec/mwsfdini.c                          BSG      0x8c8bf67c  0x8c8c167c
+sdk/shinobi/sd_qsnd_set_pos.c                  BSG      0x8c8c167c  0x8c8c1690
+sdk/shinobi/sd_snd_set_fx_out_prm.c            BSG      0x8c8c1690  0x8c8c16a4
+sdk/shinobi/sd_snd_set_fx_prg.c                BSG      0x8c8c16a4  0x8c8c16b8
+sdk/shinobi/sd_snd_set_space.c                 BSG      0x8c8c16b8  0x8c8c16cc
+sdk/shinobi/sd_midi_play.c                     BSG      0x8c8c16cc  0x8c8c16e0
+sdk/shinobi/sd_midi_send_mes.c                 BSG      0x8c8c16e0  0x8c8c16f4
+sdk/shinobi/sd_midi_set_mes.c                  BSG      0x8c8c16f4  0x8c8c1708
+sdk/shinobi/sd_midi_set_vol.c                  BSG      0x8c8c1708  0x8c8c171c
+sdk/shinobi/sd_midi_stop.c                     BSG      0x8c8c171c  0x8c8c1730
+sdk/shinobi/sd_sys_server.c                    BSG      0x8c8c1730  0x8c8c1738
+sdk/shinobi/gdfs.c                             BSG      0x8c8c1738  0x8c8c1780
+sdk/shinobi/pdmain.c                           BSG      0x8c8c1780  0x8c8c1cc8
+sdk/shinobi/syCache.c                          BSG      0x8c8c1cc8  0x8c8c1cdc
+sdk/shinobi/syMalloc.c                         BSG      0x8c8c1cdc  0x8c8c1d0c
+sdk/shinobi/sg_syrtc.c                         BSG      0x8c8c1d0c  0x8c8c1d24
+sdk/shinobi/sh4tmr.c                           BSG      0x8c8c1d24  0x8c8c1d34
+sdk/shinobi/lcdvms.c                           BSG      0x8c8c1d34  0x8c8c2334
+# the pool word at 0x8c61d89c holds storage's address, 0x8c8c2334
+sdk/shinobi/fm.c                               BSG      0x8c8c2334  0x8c8c23a8
+# kmiTextureRenderParam, the member's only bss, at the address the pool word at 0x8c61e364 holds
+sdk/ninja/kmsurfac_kamui_lib.c                 BSG      0x8c8c23a8  0x8c8c23c0
+sdk/ninja/kmvertex_kamui_lib.c                 BSG      0x8c8c23c0  0x8c8c2434
+sdk/ninja/njDebug.c                            BSG      0x8c8c2434  0x8c8c2484
+# its 140 bytes of bss: the code's pools hold _nj_ptr_rgb_lt_argb_'s address, 0x8c8c2484, its first, and _nj_ptr_rgb_lt_'s, 0x8c8c2490, its last
+sdk/ninja/njLtSrcs.c                           BSG      0x8c8c2484  0x8c8c2510
+sdk/ninja/njFraction.c                         BSG      0x8c8c2510  0x8c8c2514
+# its 80 bytes of bss: the code's pools hold packet_cursor's address, 0x8c8c2528, 20 bytes in
+sdk/ninja/njModelE.c                           BSG      0x8c8c2514  0x8c8c2564
+# follows njModelE.c's bss with no gap; its 228 bytes, the member's, end with corner_uv_window
+sdk/ninja/njModelS.c                           BSG      0x8c8c2564  0x8c8c2648
+sdk/ninja/njModel.c                            BSG      0x8c8c2648  0x8c8c2670
+sdk/ninja/njCameraMotion.c                     BSG      0x8c8c2670  0x8c8c26d8
+sdk/ninja/njGlobal.c                           BSG      0x8c8c26d8  0x8c8c3130
+sdk/ninja/njSystem.c                           BSG      0x8c8c3130  0x8c8c3138
+sdk/ninja/njkm.c                               BSG      0x8c8c3138  0x8c8c3164
+# the pool words at 0x8c65a170 and 0x8c65959c hold load_info's address, 0x8c8c3164, and mem_ptr's, 0x8c8c3198
+sdk/ninja/njLoadTexturePvmFile.c               BSG      0x8c8c3164  0x8c8c319c
+sdk/sofdec/adx_xpnd.c                          BSG      0x8c8c319c  0x8c8c333c
+sdk/sofdec/adx_fs.c                            BSG      0x8c8c333c  0x8c8c7abc
+sdk/shinobi/sg_playtime.c                      BSG      0x8c8c7abc  0x8c8c7af0
+sdk/shinobi/sg_flcommon.c                      BSG      0x8c8c7af0  0x8c8c7c1c
+sdk/shinobi/sd_aica_reset_keep.c               BSG      0x8c8c7c1c  0x8c8c7c20
+sdk/shinobi/sd_debug_printf.c                  BSG      0x8c8c7c20  0x8c8c8020
+sdk/shinobi/sd_sys_wrk_init.c                  BSG      0x8c8c8020  0x8c8c8024
+sdk/shinobi/pd_kbd.c                           BSG      0x8c8c8024  0x8c8c8044
+sdk/shinobi/syChain.c                          BSG      0x8c8c8044  0x8c8c9344
+sdk/ninja/kmvtxbuf_kamui_lib.c                 BSG      0x8c8c9348  0x8c8c9444
+sdk/ninja/dma_kamui_lib.c                      BSG      0x8c8c9930  0x8c8c9b4c
+# starts at slot_busy, whose address the code's pools hold
+sdk/ninja/interupt_kamui_lib.c                 BSG      0x8c8c9b50  0x8c8c9bb0
+sdk/ninja/njLoadTextureLN.c                    BSG      0x8c8c9bb0  0x8c8c9be0
+sdk/ninja/njTexFile.c                          BSG      0x8c8c9be0  0x8c8c9bec
+sdk/sofdec/adx_errs.c                          BSG      0x8c8c9bec  0x8c8c9cec
+sdk/sofdec/adx_sjd.c                           BSG      0x8c8c9cec  0x8c8ca16c
+sdk/sofdec/adx_stms.c                          BSG      0x8c8ca16c  0x8c8cadec
+sdk/sofdec/mw_rna.c                            BSG      0x8c8cadec  0x8c8cc254
+sdk/sofdec/sj_mem.c                            BSG      0x8c8cc254  0x8c8cc6d4
+sdk/sofdec/sj_rbf.c                            BSG      0x8c8cc6d4  0x8c8cccd4
+sdk/shinobi/sg_userflag.c                      BSG      0x8c8cccd4  0x8c8ccd10
+sdk/shinobi/sd_2nd_host_cmd_init_lst.c         BSG      0x8c8ccd10  0x8c8ccd14
+sdk/shinobi/sd_prim_host_cmd_init_lst.c        BSG      0x8c8ccd14  0x8c8ccd18
+sdk/shinobi/sd_memblk_init.c                   BSG      0x8c8ccd18  0x8c8ccd1c
+sdk/shinobi/sd_memblk_que_init.c               BSG      0x8c8ccd1c  0x8c8ccd28
+sdk/shinobi/sd_buffer.c                        BSG      0x8c8ccd28  0x8c8cfad8
+sdk/ninja/fballoc_kamui_lib.c                  BSG      0x8c8cfad8  0x8c8faad8
+sdk/ninja/njInitCacheTexture.c                 BSG      0x8c8faad8  0x8c8fab00
+sdk/sofdec/adx_bsc.c                           BSG      0x8c8fab00  0x8c8fb060
+sdk/sofdec/mw_sdcs.c                           BSG      0x8c8fb060  0x8c8fb1ac
+sdk/shinobi/sd_pstm_reset_prm.c                BSG      0x8c8fb1ac  0x8c8fb1c0
+sdk/shinobi/sd_pstm_set_drct_lev.c             BSG      0x8c8fb1c0  0x8c8fb1d4
+sdk/shinobi/sd_pstm_set_fx_ch.c                BSG      0x8c8fb1d4  0x8c8fb1e8
+sdk/shinobi/sd_pstm_set_pan.c                  BSG      0x8c8fb1e8  0x8c8fb1fc
+sdk/shinobi/sd_pstm_set_pitch.c                BSG      0x8c8fb1fc  0x8c8fb210
+sdk/shinobi/sd_pstm_set_vol.c                  BSG      0x8c8fb210  0x8c8fb224
+sdk/shinobi/sd_pstm_stop.c                     BSG      0x8c8fb224  0x8c8fb238
+sdk/shinobi/sd_pstm_stop_all.c                 BSG      0x8c8fb238  0x8c8fb24c
+sdk/sofdec/mw_sdbuf.c                          BSG      0x8c8fb24c  0x8c8fb28c
+sdk/shinobi/sd_pstm_play.c                     BSG      0x8c8fb28c  0x8c8fb2a0
+sdk/ninja/njLight.c                            BSG32    0x8c8fb2a0  0x8c8fb2e0
+sdk/ninja/njGlobal.c                           BSG32    0x8c8fb2e0  0x8c8fb6c0
+sdk/ninja/njModelGlobal.src                    BSG32    0x8c8fb6c0  0x8c8fc960
+sdk/ninja/njTexLoad.c                          BSG32    0x8c8fc960  0x8c8fd160

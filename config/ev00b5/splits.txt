@@ -1,0 +1,38 @@
+# EV00B5.PRS, E-102 and E-101 accepted aboard the Egg Carrier
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb82580
+C          0x0cb82580  0x0cb82868
+D          0x0cb82868  0x0cb9bcf4
+B          0x0cb9bcf8  0x0cb9bd38
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00b5/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00b5/script.c                P        0x0cb80008  0x0cb809f0
+events/ev00b5/script.c                C        0x0cb82580  0x0cb826c0
+events/ev00b5/script.c                D        0x0cb82868  0x0cb82888
+events/shared/e101.c                  P        0x0cb809f0  0x0cb80d78
+events/shared/e101.c                  B        0x0cb9bcf8  0x0cb9bd38
+events/shared/move.c                  P        0x0cb80d78  0x0cb8189c
+events/shared/move.c                  D        0x0cb9bca0  0x0cb9bcc8
+events/shared/mover.c                 P        0x0cb8189c  0x0cb82034
+events/shared/fade.c                  P        0x0cb82034  0x0cb821c0
+events/shared/fade.c                  D        0x0cb9bcc8  0x0cb9bce8
+events/shared/sound.c                 P        0x0cb821c0  0x0cb82580
+events/shared/sound.c                 D        0x0cb9bce8  0x0cb9bcf4
+# event_e101_jet_object, the root node of the model e101.c draws, which ends the generated data before move.c's: it ends 4 past 8, and the 4 bytes of 0xff after it, to that data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of its object. it meets its model, event_e101_jet_model, on 8 with no fill, so the bytes don't say whether the generated row before it, the model and the nodes under the root, is its object's. its bytes are the same in EV00B4 but for the words that point into the image
+events/shared/e101_jet_object.c       D        0x0cb9bc68  0x0cb9bc9c
+# the names of the textures that the 2 texture name tables at 0x0cb93638 and 0x0cb937e4 in this object's data name: the tables at 0x0cb93638 and 0x0cb937e4 share names, so they are one file's, with the data between them. after the table at 0x0cb93638, each item to a material at 0x0cb93834 starts off 8, so they share its object. the table at 0x0cb937e4 starts off 8, straight after a texlist at 0x0cb937dc, so it shares that item's object. after the table at 0x0cb937e4, each item to a material at 0x0cb93834 starts off 8, so they share its object. the names and the data from 0x0cb93638 to 0x0cb93848 in D are the least those joins make one object's, and this source holds no more. script.c's and e101.c's code read event_e101_texlist and event_e101_jet_texlist, which name the tables at 0x0cb93638 and 0x0cb937e4. they start on 8 straight after script.c's constants, and end 2 bytes short of D on 8. they are e101.c's, which has no constants or data row and can link between them, whose code reads event_e101_jet_texlist and event_e101_texlist; e101_jet_object.c's, which has no constants row and can link between them, were the data from the tables to its own data its too; or an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. script.c can't hold them: it is this event's own, and the object is the same in each event that places this source. the 2 bytes of 0xff after them are this object's padding or data, or the linker's fill. nothing points into the 2 bytes after them, to D, and the fill rule takes them as the linker's fill
+events/shared/e101_textures.c         C        0x0cb826c0  0x0cb82866
+# its data, from 0x0cb93638 to 0x0cb93848: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 after the 4 bytes of 0xff after e101_action_3.c's data, which ends 4 past 8: the linker's fill, as the fill rule takes them, or a last word of e101_action_3.c's object, and nothing points into them. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data after it. event_e101_material, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's. EV00B4 holds the same bytes, but for the words that point into the image, with the same names in C, and e101.c reads event_e101_texlist in each: consistent with one object each of them links, as eggmobile_textures.c is
+events/shared/e101_textures.c         D        0x0cb93638  0x0cb93848
+# ev00b5_e101_action_3 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to e101_textures.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. the motion meets its motion data, at 0x0cb93150, on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. they are script.c's, whose code reads the action, were the generated data from its own data to them its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here, which may hold some of the generated data before them too. e101.c can't hold them: EV00B4, the only other event that links it, holds the same 1,252 bytes, from their motion data at 0x0cb93150 to the action's end, but for the words that point into the image, and they start 4 past 8 there and on 8 here, so no object both events link holds them
+events/ev00b5/e101_action_3.c         D        0x0cb93620  0x0cb93634
+#
+# generated data ranges
+gen/ev00b5/d_0cb82888.c               D        0x0cb82888  0x0cb93620
+gen/ev00b5/d_0cb93848.c               D        0x0cb93848  0x0cb9bc68

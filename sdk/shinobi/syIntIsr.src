@@ -1,0 +1,648 @@
+; the CPU's exception and interrupt entry. syIntInit copies the two stubs to
+; VBR, and each stub jumps to a master, which calls the code's handler.
+; syIntBrkRteRte is the handler syIntInit gives every code
+
+        .EXPORT     _syIntExpISRTop
+        .EXPORT     _syIntExpISRBottom
+        .EXPORT     _syIntExpMastISR
+        .EXPORT     _syIntISRTop
+        .EXPORT     _syIntISRBottom
+        .EXPORT     _syIntMastISR
+        .EXPORT     _syIntMasterISR
+        .EXPORT     _syIntMasterISR_2
+        .EXPORT     _syIntLastStack
+        .EXPORT     _syIntIntStack
+        .EXPORT     _syIntNestCount
+        .EXPORT     _syIntBrkRteRte
+
+; SR's bits that block exceptions and interrupts and select the second
+; register bank, and its interrupt mask
+SR_BL:          .EQU    H'10000000
+SR_RB:          .EQU    H'20000000
+SR_IMASK:       .EQU    H'F0
+
+        .SECTION    PSG,CODE,ALIGN=4
+
+; Uint32 syIntExpISRTop
+; the exception stub, which syIntInit copies to VBR + 0x100 and VBR + 0x400.
+; it latches EXPEVT in latched_event, and jumps to the master its last word
+; holds. it leaves R0 as the exception left it, and R1 pushed for the master
+; to pop
+; @asm abi: exception-entry, syIntInit copies it from 0x8c671688 to VBR + 0x100
+; and VBR + 0x400, where an exception enters it; it loads EXPEVT at 0x8c6716a2
+; and jumps through its master's long at 0x8c6716ac with R1 pushed, which no C
+; function or #pragma interrupt frame does
+_syIntExpISRTop:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        MOV.L       R1,@-R15
+        MOV         R0,R1
+        MOVA        ?exp_saved_r0,R0
+        MOV.L       R1,@R0
+        MOV         #-1,R1
+        SHLL16      R1
+        SHLL8       R1
+        ADD         #H'24,R1                ; EXPEVT, H'FF000024
+        MOV.L       @R1,R1
+        MOV.L       ?exp_event_slot,R0
+        MOV.L       R1,@R0
+        MOV.L       _syIntExpMastISR,R1
+        MOV.L       ?exp_saved_r0,R0
+        JMP         @R1
+        NOP
+?exp_event_slot:
+        .DATA.L     latched_event
+?exp_saved_r0:
+        .DATA.L     0
+
+; void (*syIntExpMastISR)(void)
+; the master the exception stub jumps to. syIntInit sets it before it copies
+; the stub, and each copy reads its own (MOV.L at 0x8c6716a8)
+_syIntExpMastISR:
+        .DATA.L     _syIntMasterISR
+
+; Uint32 syIntExpISRBottom
+; the word after the exception stub's last. syIntInit copies it too
+_syIntExpISRBottom:
+
+; Uint32 syIntISRTop
+; the interrupt stub, which syIntInit copies to VBR + 0x600. it is the
+; exception stub with INTEVT in place of EXPEVT
+; @asm abi: exception-entry, syIntInit copies it from 0x8c6716bc to VBR + 0x600,
+; where an interrupt enters it; it loads INTEVT at 0x8c6716d6 and jumps through
+; its master's long at 0x8c6716e0 with R1 pushed, which no C function or #pragma
+; interrupt frame does
+_syIntISRTop:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        MOV.L       R1,@-R15
+        MOV         R0,R1
+        MOVA        ?int_saved_r0,R0
+        MOV.L       R1,@R0
+        MOV         #-1,R1
+        SHLL16      R1
+        SHLL8       R1
+        ADD         #H'28,R1                ; INTEVT, H'FF000028
+        MOV.L       @R1,R1
+        MOV.L       ?int_event_slot,R0
+        MOV.L       R1,@R0
+        MOV.L       _syIntMastISR,R1
+        MOV.L       ?int_saved_r0,R0
+        JMP         @R1
+        NOP
+?int_event_slot:
+        .DATA.L     latched_event
+?int_saved_r0:
+        .DATA.L     0
+
+; void (*syIntMastISR)(void)
+; the master the interrupt stub jumps to, which syIntInit sets as it sets
+; syIntExpMastISR. each copy of the stub reads its own (MOV.L at 0x8c6716dc)
+_syIntMastISR:
+        .DATA.L     _syIntMasterISR
+
+; Uint32 syIntISRBottom
+; the word after the interrupt stub's last. syIntInit copies it too
+_syIntISRBottom:
+
+; void syIntMasterISR(void)
+; the master that runs on the interrupted stack. it pops the R1 its stub
+; pushed, then saves SSR, SPC, PR, GBR, VBR, MACH, MACL, R14 to R0, SR, FPUL,
+; FPSCR and both float banks there. it clears SR.BL, masks every interrupt and
+; sets FPSCR to H'40001. it then calls the latched code's handler, if USER_VECT
+; holds one, with the code in R4. after a handler it sets SR.BL. it restores
+; the registers and returns by RTE
+; @asm abi: stack-above-entry, MOV.L @R15+,R1 at 0x8c6716f0 pops the R1 its stub
+; pushed, which takes R15 4 bytes above its entry, where it stays to its RTE at
+; 0x8c67182c
+_syIntMasterISR:
+        MOV.L       @R15+,R1
+        STC.L       SSR,@-R15
+        STC.L       SPC,@-R15
+        STS.L       PR,@-R15
+        STC.L       GBR,@-R15
+        STC.L       VBR,@-R15
+        STS.L       MACH,@-R15
+        STS.L       MACL,@-R15
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R6,@-R15
+        MOV.L       R5,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       R2,@-R15
+        MOV.L       R1,@-R15
+        MOV.L       R0,@-R15
+        STC.L       SR,@-R15
+        STS.L       FPUL,@-R15
+        STS.L       FPSCR,@-R15
+; FPSCR H'40001: single precision, round to zero, denormals as zero
+        MOV         #4,R0
+        SHLL16      R0
+        ADD         #1,R0
+        LDS         R0,FPSCR
+        XOR         R0,R0
+        LDS         R0,FPUL
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+        FRCHG
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+        FRCHG
+        STC         SR,R0
+        MOV.L       ?master_sr_mask,R1
+        AND         R1,R0
+        OR          #SR_IMASK,R0
+        LDC         R0,SR
+; the handler word, USER_VECT(code)
+        MOV         #-2,R3
+        SHLL8       R3
+        STC         VBR,R14
+        MOV.L       ?master_event,R4
+        MOV.L       @R4,R4
+        MOV         R4,R2
+        ADD         R3,R2
+        MOV         #2,R0
+        SHLL8       R0
+        SHAR        R2
+        SHAR        R2
+        SHAR        R2
+        ADD         R2,R14
+        MOV.L       @(R0,R14),R14
+        TST         R14,R14
+        BT          ?master_restore
+        JSR         @R14
+        NOP
+        MOV.L       ?master_block,R0
+        STC         SR,R1
+        OR          R0,R1
+        LDC         R1,SR
+?master_restore:
+        MOV         #4,R0
+        SHLL16      R0
+        ADD         #1,R0
+        LDS         R0,FPSCR
+        XOR         R0,R0
+        LDS         R0,FPUL
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,FPSCR
+        LDS.L       @R15+,FPUL
+        LDC.L       @R15+,SR
+        MOV.L       @R15+,R0
+        MOV.L       @R15+,R1
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R5
+        MOV.L       @R15+,R6
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        LDS.L       @R15+,MACL
+        LDS.L       @R15+,MACH
+        LDC.L       @R15+,VBR
+        LDC.L       @R15+,GBR
+        LDS.L       @R15+,PR
+        LDC.L       @R15+,SPC
+        LDC.L       @R15+,SSR
+        RTE
+        NOP
+?master_sr_mask:
+        .DATA.L     ~SR_BL
+?master_block:
+        .DATA.L     SR_BL
+?master_event:
+        .DATA.L     latched_event
+
+; void syIntMasterISR_2(void)
+; syIntMasterISR's work on a stack of its own. syIntNestCount counts the
+; levels running. the outermost level keeps the interrupted stack pointer in
+; syIntLastStack and moves to syIntIntStack, and moves back before its RTE.
+; after the handler, or with none, it sets SR.RB and SR.BL
+; @asm abi: stack-written, MOV.L at 0x8c671860 loads syIntIntStack into R15 for
+; the outermost level, and MOV.L at 0x8c6719a8 loads syIntLastStack back before
+; its RTE
+_syIntMasterISR_2:
+; save R0 and count a level, in the two words below syIntBrkRteRte. DT sets T
+; for the outermost level
+        MOV         R0,R1
+        MOVA        _syIntBrkRteRte,R0
+        MOV.L       R1,@-R0
+        ADD         #-4,R0
+        MOV.L       @R0,R1
+        ADD         #1,R1
+        MOV.L       R1,@R0
+        ADD         #4,R0
+        DT          R1
+        MOV.L       @R0,R0
+        BF/S        ?nested_entry
+        MOV.L       @R15+,R1
+        MOV.L       R0,@-R15
+        MOVA        _syIntLastStack,R0
+        ADD         #4,R15                  ; R15 before the push
+        MOV.L       R15,@R0
+        ADD         #-4,R15
+        MOV.L       @R15+,R0
+        MOV.L       _syIntIntStack,R15
+?nested_entry:
+        STC.L       SSR,@-R15
+        STC.L       SPC,@-R15
+        STS.L       PR,@-R15
+        STC.L       GBR,@-R15
+        STC.L       VBR,@-R15
+        STS.L       MACH,@-R15
+        STS.L       MACL,@-R15
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        MOV.L       R10,@-R15
+        MOV.L       R9,@-R15
+        MOV.L       R8,@-R15
+        MOV.L       R7,@-R15
+        MOV.L       R6,@-R15
+        MOV.L       R5,@-R15
+        MOV.L       R4,@-R15
+        MOV.L       R3,@-R15
+        MOV.L       R2,@-R15
+        MOV.L       R1,@-R15
+        MOV.L       R0,@-R15
+        STC.L       SR,@-R15
+        STS.L       FPUL,@-R15
+        STS.L       FPSCR,@-R15
+        MOV         #4,R0
+        SHLL16      R0
+        ADD         #1,R0
+        LDS         R0,FPSCR
+        XOR         R0,R0
+        LDS         R0,FPUL
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+        FRCHG
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR14,@-R15
+        FMOV.S      FR13,@-R15
+        FMOV.S      FR12,@-R15
+        FMOV.S      FR11,@-R15
+        FMOV.S      FR10,@-R15
+        FMOV.S      FR9,@-R15
+        FMOV.S      FR8,@-R15
+        FMOV.S      FR7,@-R15
+        FMOV.S      FR6,@-R15
+        FMOV.S      FR5,@-R15
+        FMOV.S      FR4,@-R15
+        FMOV.S      FR3,@-R15
+        FMOV.S      FR2,@-R15
+        FMOV.S      FR1,@-R15
+        FMOV.S      FR0,@-R15
+        FRCHG
+        STC         SR,R0
+        MOV.L       ?nested_sr_mask,R1
+        AND         R1,R0
+        OR          #SR_IMASK,R0
+        LDC         R0,SR
+        MOV         #-2,R3
+        SHLL8       R3
+        STC         VBR,R14
+        MOVA        latched_event,R0
+        MOV.L       @R0,R4
+        MOV         R4,R2
+        ADD         R3,R2
+        MOV         #2,R0
+        SHLL8       R0
+        SHAR        R2
+        SHAR        R2
+        SHAR        R2
+        ADD         R2,R14
+        MOV.L       @(R0,R14),R14
+        TST         R14,R14
+        BT          ?nested_unwind
+        JSR         @R14
+        NOP
+?nested_unwind:
+        MOV.L       ?nested_block,R0
+        STC         SR,R1
+        OR          R0,R1
+        LDC         R1,SR
+        MOVA        _syIntNestCount,R0
+        MOV.L       @R0,R1
+        ADD         #-1,R1
+        MOV.L       R1,@R0
+        TST         R1,R1                   ; T: the outermost level
+        MOV         #4,R0
+        SHLL16      R0
+        ADD         #1,R0
+        LDS         R0,FPSCR
+        XOR         R0,R0
+        LDS         R0,FPUL
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,FPSCR
+        LDS.L       @R15+,FPUL
+; the frame's SR word is popped into R4, and R4's own pop overwrites it. SR
+; keeps its value up to the RTE, so T still holds the outermost test for the
+; BF before it
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R0
+        MOV.L       @R15+,R1
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R5
+        MOV.L       @R15+,R6
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        LDS.L       @R15+,MACL
+        LDS.L       @R15+,MACH
+        LDC.L       @R15+,VBR
+        LDC.L       @R15+,GBR
+        LDS.L       @R15+,PR
+        LDC.L       @R15+,SPC
+        LDC.L       @R15+,SSR
+        BF          ?nested_return
+        MOV.L       _syIntLastStack,R15
+?nested_return:
+        RTE
+        NOP
+        .ALIGN      4
+?nested_sr_mask:
+        .DATA.L     ~SR_BL
+?nested_block:
+        .DATA.L     SR_RB|SR_BL
+; a pointer to latched_event that nothing reads: syIntMasterISR_2 reaches
+; latched_event by MOVA
+?nested_event:
+        .DATA.L     latched_event
+
+; void *syIntLastStack
+; the interrupted stack pointer, while syIntMasterISR_2's outermost level
+; runs. syIntMasterISR_2 reaches it PC-relative (MOVA at 0x8c671856, MOV.L at
+; 0x8c6719a8)
+_syIntLastStack:
+        .DATA.L     0
+
+; void *syIntIntStack
+; the stack syIntInit gives syIntMasterISR_2, or NULL in any other mode.
+; syIntMasterISR_2 loads it PC-relative (MOV.L at 0x8c671860)
+_syIntIntStack:
+        .DATA.L     0
+
+; the code the last stub latched
+latched_event:
+        .DATA.L     0
+
+; Sint32 syIntNestCount
+; how many of syIntMasterISR_2's levels are running. syIntMasterISR_2 counts
+; a level up through a MOVA of syIntBrkRteRte, reaching the count as the
+; second word below that label, and down through a MOVA of the count itself
+; (0x8c67191a)
+_syIntNestCount:
+        .DATA.L     0
+
+; R0, while syIntMasterISR_2's entry counts its level
+?nested_saved_r0:
+        .RES.L      1
+
+; void syIntBrkRteRte(void)
+; the handler syIntInit gives every code. it sets SR.RB and SR.BL, and pops
+; the master's frame into every register it saved but SR. with syIntIntStack
+; set, it counts syIntNestCount down by one, and when that ends the
+; outermost level, it goes back to the interrupted stack. it then jumps to
+; H'AC000010
+; @asm abi: stack-written, MOV.L at 0x8c671a70 loads syIntLastStack's address
+; into R15, and MOV.L @R15,R15 at 0x8c671a72 puts the interrupted stack pointer
+; it holds back in R15
+_syIntBrkRteRte:
+        MOV.L       ?brk_block,R0
+        STC         SR,R1
+        OR          R0,R1
+        LDC         R1,SR
+        MOV.L       ?brk_int_stack,R0
+        MOV.L       @R0,R0
+        TST         R0,R0
+        BT/S        ?brk_frame
+        CLRT                                ; T clear with no syIntIntStack
+        MOV.L       ?brk_nest_count,R0
+        MOV.L       @R0,R1
+        ADD         #-1,R1
+        MOV.L       R1,@R0
+        TST         R1,R1                   ; T: the outermost level
+?brk_frame:
+        MOV         #4,R0
+        SHLL16      R0
+        ADD         #1,R0
+        LDS         R0,FPSCR
+        XOR         R0,R0
+        LDS         R0,FPUL
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        FRCHG
+        FMOV.S      @R15+,FR0
+        FMOV.S      @R15+,FR1
+        FMOV.S      @R15+,FR2
+        FMOV.S      @R15+,FR3
+        FMOV.S      @R15+,FR4
+        FMOV.S      @R15+,FR5
+        FMOV.S      @R15+,FR6
+        FMOV.S      @R15+,FR7
+        FMOV.S      @R15+,FR8
+        FMOV.S      @R15+,FR9
+        FMOV.S      @R15+,FR10
+        FMOV.S      @R15+,FR11
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR13
+        FMOV.S      @R15+,FR14
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,FPSCR
+        LDS.L       @R15+,FPUL
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R0
+        MOV.L       @R15+,R1
+        MOV.L       @R15+,R2
+        MOV.L       @R15+,R3
+        MOV.L       @R15+,R4
+        MOV.L       @R15+,R5
+        MOV.L       @R15+,R6
+        MOV.L       @R15+,R7
+        MOV.L       @R15+,R8
+        MOV.L       @R15+,R9
+        MOV.L       @R15+,R10
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        MOV.L       @R15+,R14
+        LDS.L       @R15+,MACL
+        LDS.L       @R15+,MACH
+        LDC.L       @R15+,VBR
+        LDC.L       @R15+,GBR
+        LDS.L       @R15+,PR
+        LDC.L       @R15+,SPC
+        LDC.L       @R15+,SSR
+        BF          ?brk_enter
+        MOV.L       ?brk_last_stack,R15
+        MOV.L       @R15,R15
+?brk_enter:
+; to H'AC000010, with R0 as it was
+        MOV.L       R0,@-R15
+        MOV         #-84,R0
+        SHLL16      R0
+        SHLL8       R0
+        OR          #H'10,R0
+        JMP         @R0
+        MOV.L       @R15+,R0
+        .ALIGN      4
+?brk_block:
+        .DATA.L     SR_RB|SR_BL
+?brk_nest_count:
+        .DATA.L     _syIntNestCount
+?brk_last_stack:
+        .DATA.L     _syIntLastStack
+?brk_int_stack:
+        .DATA.L     _syIntIntStack
+
+        .END

@@ -1,0 +1,33 @@
+# EV00E3.PRS, Big spots Froggy at the station
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81d58
+C          0x0cb81d58  0x0cb81da0
+D          0x0cb81da0  0x0cb8eb0c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00e3/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00e3/script.c                P        0x0cb80008  0x0cb804c8
+events/ev00e3/script.c                C        0x0cb81d58  0x0cb81d5d
+events/ev00e3/script.c                D        0x0cb81da0  0x0cb81db8
+events/ev00e3/frog.c                  P        0x0cb804c8  0x0cb8054c
+events/ev00e3/frog.c                  D        0x0cb8ea60  0x0cb8eab4
+events/shared/fade.c                  P        0x0cb8054c  0x0cb806d8
+events/shared/fade.c                  D        0x0cb8eab8  0x0cb8ead8
+events/shared/move.c                  P        0x0cb806d8  0x0cb811fc
+events/shared/move.c                  D        0x0cb8ead8  0x0cb8eb00
+events/shared/mover.c                 P        0x0cb811fc  0x0cb81994
+events/shared/sound.c                 P        0x0cb81994  0x0cb81d54
+events/shared/sound.c                 D        0x0cb8eb00  0x0cb8eb0c
+# the names its table points at, its object's constants: they start on 8 at 0x0cb81d60, after script.c
+events/shared/froggy_textures.c       C        0x0cb81d60  0x0cb81da0
+# the names of the textures the script's FROG texlist lists, for the frog model its actions draw. its bytes are the same in EV0055, EV00B7, EV00BB, EV00DF and EV00E0 but for the words that point at its names. the words before it differ in each of those events, while it and the 7,960 bytes from it match, which is consistent with an object that starts here. ev00e3_frog_texlist meets it on 8 with no fill at 0x0cb81e18: one file or two build the same, and its pointer at the table is consistent with one object, not proof. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/froggy_textures.c       D        0x0cb81db8  0x0cb81e18
+#
+# generated data ranges
+# the 4 bytes of 0xff after this row, to frog.c's data on 8, which nothing points into, are the linker's fill or a last word of the object before them. the generator reads the 8 bytes before them as pointer words, though they hold a node and a motion, as an action does. they lie straight after the motion they name, so they are its object's. no word in this event or 1ST_READ.BIN points at those bytes, so no reader gives them a role or an extent, and no source holds them. across the 204 events, a word of 0xff bytes follows some of the actions that end 4 past 8 straight after the motion they name, and none of those that end on 8, as the linker's fill before an object on 8 would: so the row declares end, and the splicer writes the 4 bytes as the linker's fill. an unread last word of the object would build the same, and a reader of the action would settle which
+gen/ev00e3/d_0cb81e18.c               D        0x0cb81e18  0x0cb8ea5c  end

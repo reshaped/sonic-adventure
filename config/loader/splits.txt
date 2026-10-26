@@ -1,0 +1,296 @@
+# LOADER.BIN, the hand-off to Dream Passport
+#
+# section  start       end
+DSGLH      0x8ce00000  0x8ce00080
+DSGLE      0x8ce00080  0x8ce000a0
+P          0x8ce000a0  0x8ce064f4
+C          0x8ce064f4  0x8ce06ca8  # ends with _power.c's constants, as 1ST_READ.BIN's C does. strt1.src declares an empty C32, on 32, between C and D, which puts D on 32 at 0x8ce06cc0, the start strt1's table holds at 0x8ce064f4; every object with constants is placed
+D          0x8ce06cc0  0x8ce06d00
+PSG        0x8ce06d00  0x8ce1f72c
+CSG        0x8ce1f72c  0x8ce2032d  # ends with njTexinner.c's constants. strt1.src declares an empty CSG32, on 32, between CSG and DSG, which puts DSG on 32 at 0x8ce20340, the start strt1's table holds at 0x8ce1f73c; every object with constants is placed
+DSG        0x8ce20340  0x8ce209c0
+DSG32      0x8ce209c0  0x8ce20a00  # strt1's table holds its start at 0x8ce1f740, and at 0x8ce1f744 the start of the empty RSG after it, where the row ends
+B          0x8ce20a00  0x8ce50040  # past the file, with the empty B32 after it; strt1's table holds B's start and end at 0x8ce0650c and 0x8ce06510, and B32's, where the row ends, at 0x8ce06514 and 0x8ce06518
+BSG        0x8ce50040  0x8ce7dd30  # past the file; strt1's table holds its start and end at 0x8ce1f754 and 0x8ce1f758
+BSG32      0x8ce7dd40  0x8ce7e920  # past the file; strt1's table holds its start and end at 0x8ce1f75c and 0x8ce1f760
+#
+# source                                             section  start       end
+# built whole, its 64 bytes end where ov_main's begin
+sdk/shinobi/strt1.src                                DSGLH    0x8ce00000  0x8ce00040
+sdk/shinobi/ov_main.c                                DSGLH    0x8ce00040  0x8ce00060
+loader/sdk/gdfs.c                            DSGLH    0x8ce00060  0x8ce00080
+sdk/shinobi/strt1.src                                DSGLE    0x8ce00080  0x8ce000a0
+# built whole, its 12 bytes end where strt2's begin
+sdk/shinobi/strt1.src                                P        0x8ce000a0  0x8ce000ac
+sdk/shinobi/strt2.c                                  P        0x8ce000ac  0x8ce00188
+loader/sbinit.c                                      P        0x8ce001a0  0x8ce00300
+loader/main.c                                        P        0x8ce00300  0x8ce003e0
+# built whole, its 4 bytes end where syhw's begin
+loader/stack.src                                     P        0x8ce003e0  0x8ce003e4
+sdk/shinobi/syhw.c                                   P        0x8ce003e4  0x8ce004cc
+sdk/shinobi/sy_g2_read.c                             P        0x8ce004cc  0x8ce00608
+sdk/shinobi/sy_g2_sys_init.c                         P        0x8ce00608  0x8ce0075c
+sdk/shinobi/sy_g2_write.c                            P        0x8ce0075c  0x8ce008f4
+sdk/shinobi/kdapi.c                                  P        0x8ce008f4  0x8ce0198c
+sdk/shinobi/gdc_lib.src                              P        0x8ce0198c  0x8ce01a90
+sdk/runtime/r_divls.src                              P        0x8ce01a90  0x8ce01b44
+sdk/runtime/r_divlu.src                              P        0x8ce01b44  0x8ce01bec
+sdk/runtime/r_modls.src                              P        0x8ce01bec  0x8ce01cb4
+sdk/runtime/r_modlu.src                              P        0x8ce01cb4  0x8ce01d6c
+sdk/runtime/r_q_fmvn.src                             P        0x8ce01d6c  0x8ce01e10
+sdk/runtime/r_q_mvn.src                              P        0x8ce01e10  0x8ce01ed0
+sdk/runtime/memcmp.c                                 P        0x8ce01ed0  0x8ce01f04
+sdk/runtime/memset.c                                 P        0x8ce01f04  0x8ce01f1c
+sdk/shinobi/sy_g2_aica_fifo_wait_empty.c             P        0x8ce01f1c  0x8ce01f58
+sdk/shinobi/sy_g2_dma_end_interrupt_handler.c        P        0x8ce01f58  0x8ce01fb0
+sdk/shinobi/sy_g2_dma_reset.c                        P        0x8ce01fb0  0x8ce02094
+sdk/shinobi/sy_g2_dma_resume_all.c                   P        0x8ce02094  0x8ce020dc
+sdk/shinobi/sy_g2_dma_set_protect.c                  P        0x8ce020dc  0x8ce02114
+sdk/shinobi/sy_g2_dma_suspend_all.c                  P        0x8ce02114  0x8ce0215c
+sdk/shinobi/sy_g2_fifo_wait_empty.c                  P        0x8ce0215c  0x8ce02198
+sdk/shinobi/mpapi.c                                  P        0x8ce02198  0x8ce02ad8
+sdk/shinobi/mpdrv.c                                  P        0x8ce02ad8  0x8ce03e0c
+sdk/runtime/r_s_scpy.src                             P        0x8ce03e0c  0x8ce03e5c
+# follows the member before it with no fill; built whole, its 20 bytes end where sy_g2_dma_resume's begin
+sdk/shinobi/sy_g2_aica_fifo_is_empty.c               P        0x8ce03e5c  0x8ce03e70
+# follows the member before it with no fill; built whole, its 56 bytes end where sy_g2_dma_suspend's begin
+sdk/shinobi/sy_g2_dma_resume.c                       P        0x8ce03e70  0x8ce03ea8
+# follows the member before it with no fill; built whole, its 64 bytes end where sy_g2_fifo_is_empty's begin
+sdk/shinobi/sy_g2_dma_suspend.c                      P        0x8ce03ea8  0x8ce03ee8
+# follows the member before it with no fill; built whole, its 20 bytes end where r_q_scpy's begin
+sdk/shinobi/sy_g2_fifo_is_empty.c                    P        0x8ce03ee8  0x8ce03efc
+sdk/runtime/r_q_scpy.src                             P        0x8ce03efc  0x8ce03f64
+sdk/runtime/r_s_mvn.src                              P        0x8ce03f64  0x8ce03f9c
+sdk/runtime/strcmp.c                                 P        0x8ce03f9c  0x8ce03fb0
+sdk/runtime/vsprintf.c                               P        0x8ce03fb0  0x8ce03fd8
+sdk/shinobi/sy_g2_dma_is_busy.c                      P        0x8ce03fd8  0x8ce04004
+sdk/runtime/_fmtout.c                                P        0x8ce04004  0x8ce049c8
+sdk/runtime/strcat.c                                 P        0x8ce049c8  0x8ce049e6
+sdk/runtime/strlen.c                                 P        0x8ce049e8  0x8ce049f8
+sdk/runtime/r_strcmp.src                             P        0x8ce049f8  0x8ce04aa0
+sdk/runtime/_xtostr.c                                P        0x8ce04aa0  0x8ce05208
+sdk/runtime/memcpy.c                                 P        0x8ce05208  0x8ce0524c
+sdk/runtime/toupper.c                                P        0x8ce0524c  0x8ce05268
+sdk/runtime/_its.c                                   P        0x8ce05268  0x8ce05398
+sdk/runtime/_xti.c                                   P        0x8ce05398  0x8ce056a8
+sdk/runtime/_allzero.c                               P        0x8ce056a8  0x8ce056c6
+sdk/runtime/_calcnpw.c                               P        0x8ce056c8  0x8ce057c8
+sdk/runtime/_log10.c                                 P        0x8ce057c8  0x8ce05aac
+sdk/runtime/_lsfts.c                                 P        0x8ce05aac  0x8ce05afa
+sdk/runtime/_pow5.c                                  P        0x8ce05afc  0x8ce05b20
+sdk/runtime/_rsfts.c                                 P        0x8ce05b20  0x8ce05b76
+sdk/runtime/_sub.c                                   P        0x8ce05b78  0x8ce05bf2
+sdk/runtime/_umemcmp.c                               P        0x8ce05bf4  0x8ce05c28
+sdk/runtime/_unpack.c                                P        0x8ce05c28  0x8ce05d30
+sdk/runtime/r_divws.src                              P        0x8ce05d30  0x8ce05d80
+sdk/runtime/_div64.c                                 P        0x8ce05d80  0x8ce05f14
+sdk/runtime/_duchek.c                                P        0x8ce05f14  0x8ce05f58
+sdk/runtime/_lsft.c                                  P        0x8ce05f58  0x8ce05fa6
+sdk/runtime/_mult64.c                                P        0x8ce05fa8  0x8ce06018
+sdk/runtime/_mvito4b.c                               P        0x8ce06018  0x8ce06038
+sdk/runtime/_power.c                                 P        0x8ce06038  0x8ce0618c
+sdk/runtime/_rnd.c                                   P        0x8ce0618c  0x8ce06264
+sdk/runtime/_setsbit.c                               P        0x8ce06264  0x8ce062e0
+sdk/runtime/_add.c                                   P        0x8ce062e0  0x8ce06324
+sdk/runtime/_mult.c                                  P        0x8ce06324  0x8ce063f0
+sdk/runtime/_pow10.c                                 P        0x8ce063f0  0x8ce06488
+sdk/runtime/_rsft.c                                  P        0x8ce06488  0x8ce064ce
+sdk/runtime/_mvsto2b.c                               P        0x8ce064d0  0x8ce064f2
+# built whole, its 40 bytes end where strt2's begin
+sdk/shinobi/strt1.src                                C        0x8ce064f4  0x8ce0651c
+sdk/shinobi/strt2.c                                  C        0x8ce0651c  0x8ce0654a
+loader/main.c                                        C        0x8ce06550  0x8ce06564
+sdk/shinobi/syhw.c                                   C        0x8ce06564  0x8ce06870
+sdk/shinobi/kdapi.c                                  C        0x8ce06870  0x8ce068d1
+sdk/shinobi/sy_g2_variable.c                         C        0x8ce068d4  0x8ce06906
+sdk/shinobi/mpapi.c                                  C        0x8ce06908  0x8ce0693e
+sdk/shinobi/mpdrv.c                                  C        0x8ce06940  0x8ce0696a
+# SDK 1.20J shinobi.lib's module mpgbl_ has these 48 bytes of C, aligned on 4, and the 4,356 bytes of B after mpapi.c's
+sdk/shinobi/mpgbl.c                                  C        0x8ce0696c  0x8ce0699c
+sdk/runtime/_ctype.c                                 C        0x8ce069a0  0x8ce06aa0
+sdk/runtime/_its.c                                   C        0x8ce06aa0  0x8ce06b28
+sdk/runtime/_pow5.c                                  C        0x8ce06b28  0x8ce06c08
+sdk/runtime/_power.c                                 C        0x8ce06c08  0x8ce06ca8
+# sygStartBuild, the member's only data; it holds 0x8ce0651c, the start of this member's C
+sdk/shinobi/strt2.c                                  D        0x8ce06cc0  0x8ce06cc4
+sdk/shinobi/syhw.c                                   D        0x8ce06cc4  0x8ce06cc8
+sdk/shinobi/kdapi.c                                  D        0x8ce06cc8  0x8ce06ccc
+sdk/shinobi/sy_g2_dma_end_interrupt_handler.c        D        0x8ce06ccc  0x8ce06cd0
+sdk/shinobi/sy_g2_dma_set_protect.c                  D        0x8ce06cd0  0x8ce06cd4
+sdk/shinobi/sy_g2_variable.c                         D        0x8ce06cd4  0x8ce06cd8
+sdk/shinobi/mpapi.c                                  D        0x8ce06cd8  0x8ce06cdc
+sdk/shinobi/mpdrv.c                                  D        0x8ce06cdc  0x8ce06cec
+sdk/shinobi/ov_main.c                                PSG      0x8ce06d00  0x8ce071a0
+loader/sdk/gdfs.c                            PSG      0x8ce071a0  0x8ce08380
+loader/sdk/gdfshn.c                          PSG      0x8ce08380  0x8ce08b26
+loader/sdk/gdfsif.c                          PSG      0x8ce08b28  0x8ce08e00
+sdk/shinobi/pdmain.c                                 PSG      0x8ce08e00  0x8ce09464
+sdk/shinobi/syMalloc.c                               PSG      0x8ce09464  0x8ce09870
+# follows the member before it with no fill; built whole, its 1,536 bytes end where sg_sybt's begin
+sdk/shinobi/sg_syrtc.c                               PSG      0x8ce09870  0x8ce09e70
+sdk/shinobi/sg_sybt.c                                PSG      0x8ce09e70  0x8ce09ea8
+sdk/ninja/njSystem.c                                 PSG      0x8ce09ea8  0x8ce0b424
+loader/sdk/gdDec.c                           PSG      0x8ce0b424  0x8ce0b5fa
+loader/sdk/gdctl.c                           PSG      0x8ce0b5fc  0x8ce0b960
+loader/sdk/gdfsdir.c                         PSG      0x8ce0b960  0x8ce0bd7c
+sdk/shinobi/pd_kbd.c                                 PSG      0x8ce0bd7c  0x8ce0be54
+# follows the member before it with no fill; built whole, its 2,164 bytes end where syChain's begin
+sdk/shinobi/syCache.c                                PSG      0x8ce0be54  0x8ce0c6c8
+sdk/shinobi/syChain.c                                PSG      0x8ce0c6c8  0x8ce0cbb0
+sdk/shinobi/syIntCtrl.c                              PSG      0x8ce0cbb0  0x8ce0cdc4
+sdk/shinobi/sySq.c                                   PSG      0x8ce0cdc4  0x8ce0ce68
+sdk/shinobi/sh4tmr.c                                 PSG      0x8ce0ce68  0x8ce0d220
+sdk/shinobi/sg_syCbl.c                               PSG      0x8ce0d220  0x8ce0d244
+# follows the member before it with no fill; built whole, its 2,952 bytes end where njLightSystemInit's begin
+sdk/ninja/njSprite.src                               PSG      0x8ce0d244  0x8ce0ddcc
+sdk/ninja/njLightSystemInit.c                        PSG      0x8ce0ddcc  0x8ce0de44
+sdk/ninja/njMem.c                                    PSG      0x8ce0de44  0x8ce0de6e
+sdk/ninja/njkm.c                                     PSG      0x8ce0de70  0x8ce0ea2c
+sdk/ninja/njTexture.c                                PSG      0x8ce0ea2c  0x8ce0ecac
+# follows the member before it with no fill; built whole, its 1,160 bytes end where kmdevice_workaround's begin
+loader/sdk/kmcalbac_workaround_for_sh_lnk.c  PSG      0x8ce0ecac  0x8ce0f134
+loader/sdk/kmdevice_workaround_for_sh_lnk.c  PSG      0x8ce0f134  0x8ce0f738
+loader/sdk/kmglobal_workaround_for_sh_lnk.c  PSG      0x8ce0f738  0x8ce0fd1c
+# follows the member before it with no fill; built whole, its 5,300 bytes end where kmvertex_workaround's begin
+loader/sdk/kmsurfac_workaround_for_sh_lnk.c  PSG      0x8ce0fd1c  0x8ce111d0
+loader/sdk/kmvertex_workaround_for_sh_lnk.c  PSG      0x8ce111d0  0x8ce124f4
+loader/sdk/kmvtxbuf_workaround_for_sh_lnk.c  PSG      0x8ce124f4  0x8ce13ba0
+# follows the member before it with no fill; built whole, its 532 bytes end where syIntIsr's begin
+loader/sdk/kmvtxlst_workaround_for_sh_lnk.c  PSG      0x8ce13ba0  0x8ce13db4
+# follows the member before it with no fill; built whole, its 1,036 bytes and mpsmp's 5 after them end on the fill at 0x8ce141c5
+sdk/shinobi/syIntIsr.src                             PSG      0x8ce13db4  0x8ce141c0
+sdk/shinobi/mpsmp.src                                PSG      0x8ce141c0  0x8ce141c5
+sdk/ninja/njLoadTextureLN.c                          PSG      0x8ce141c8  0x8ce15838
+sdk/ninja/njReleaseCacheTextureAll.c                 PSG      0x8ce15838  0x8ce158bc
+sdk/ninja/njReleaseTextureAll.c                      PSG      0x8ce158bc  0x8ce15988
+sdk/ninja/njSetTextureParam.c                        PSG      0x8ce15988  0x8ce15a80
+sdk/ninja/njTexList.c                                PSG      0x8ce15a80  0x8ce15df8
+loader/sdk/bgplane_workaround_for_sh_lnk.c   PSG      0x8ce15df8  0x8ce17bac
+loader/sdk/dma_workaround_for_sh_lnk.c       PSG      0x8ce17bac  0x8ce18094
+loader/sdk/fballoc_workaround_for_sh_lnk.c   PSG      0x8ce18094  0x8ce19fc0
+loader/sdk/hwinit_workaround_for_sh_lnk.c    PSG      0x8ce19fc0  0x8ce1a2c4
+loader/sdk/inifile_workaround_for_sh_lnk.c   PSG      0x8ce1a2c4  0x8ce1a2fc
+# follows the member before it with no fill; built whole, its 1,064 bytes end where interupt_workaround's begin
+loader/sdk/internal_workaround_for_sh_lnk.c  PSG      0x8ce1a2fc  0x8ce1a724
+# follows the member before it with no fill; built whole, its 3,532 bytes end on the fill at 0x8ce1b4f0
+loader/sdk/interupt_workaround_for_sh_lnk.c  PSG      0x8ce1a724  0x8ce1b4f0
+loader/sdk/kmasm_workaround_for_sh_lnk.src   PSG      0x8ce1b500  0x8ce1b596
+# built whole, its 616 bytes end where kmimem_workaround's begin
+loader/sdk/kmframe_workaround_for_sh_lnk.c   PSG      0x8ce1b598  0x8ce1b800
+loader/sdk/kmimem_workaround_for_sh_lnk.c    PSG      0x8ce1b800  0x8ce1ba04
+# follows the member before it with no fill; built whole, its 4,668 bytes end where tactrl_workaround's begin
+loader/sdk/kmtex_workaround_for_sh_lnk.c     PSG      0x8ce1ba04  0x8ce1cc40
+# follows the member before it with no fill; built whole, its 2,684 bytes end where video_workaround's begin
+loader/sdk/tactrl_workaround_for_sh_lnk.c    PSG      0x8ce1cc40  0x8ce1d6bc
+loader/sdk/video_workaround_for_sh_lnk.c     PSG      0x8ce1d6bc  0x8ce1e39c
+sdk/shinobi/mpasm.src                                PSG      0x8ce1e39c  0x8ce1e3b0
+sdk/ninja/njInitCacheTexture.c                       PSG      0x8ce1e3b0  0x8ce1e4a4
+sdk/ninja/njPalette.c                                PSG      0x8ce1e4a4  0x8ce1e72c
+sdk/ninja/njTexFile.c                                PSG      0x8ce1e72c  0x8ce1eccc
+sdk/ninja/njTexLoad.c                                PSG      0x8ce1eccc  0x8ce1f1d0
+sdk/ninja/njTexinner.c                               PSG      0x8ce1f1d0  0x8ce1f4f4
+sdk/ninja/dummy.c                                    PSG      0x8ce1f4f4  0x8ce1f520
+sdk/ninja/njTexpvr.c                                 PSG      0x8ce1f520  0x8ce1f72c
+# built whole, its 56 bytes end where _0sbver's begin
+sdk/shinobi/strt1.src                                CSG      0x8ce1f72c  0x8ce1f764
+sdk/shinobi/_0sbver.c                                CSG      0x8ce1f764  0x8ce1f83d
+sdk/shinobi/ov_main.c                                CSG      0x8ce1f840  0x8ce1f860
+loader/sdk/gdfs.c                            CSG      0x8ce1f860  0x8ce1f917
+loader/sdk/gdfsif.c                          CSG      0x8ce1f918  0x8ce1f928
+sdk/shinobi/pdmain.c                                 CSG      0x8ce1f928  0x8ce1f95d
+sdk/shinobi/syMalloc.c                               CSG      0x8ce1f960  0x8ce1f995
+# starts at the table the pool word at 0x8ce09a54 names; built whole, its 140 bytes end where sg_sybt's begin
+sdk/shinobi/sg_syrtc.c                               CSG      0x8ce1f998  0x8ce1fa24
+sdk/shinobi/sg_sybt.c                                CSG      0x8ce1fa24  0x8ce1fa53
+sdk/ninja/njSystem.c                                 CSG      0x8ce1fa54  0x8ce1fb5e
+loader/sdk/gdDec.c                           CSG      0x8ce1fb60  0x8ce1fd60
+loader/sdk/gdctl.c                           CSG      0x8ce1fd60  0x8ce1fdb0
+loader/sdk/gdfsdir.c                         CSG      0x8ce1fdb0  0x8ce1fdb3
+# built whole, its 52 bytes end where syChain's begin
+sdk/shinobi/syCache.c                                CSG      0x8ce1fdb4  0x8ce1fde8
+sdk/shinobi/syChain.c                                CSG      0x8ce1fde8  0x8ce1fe1c
+sdk/shinobi/syIntCtrl.c                              CSG      0x8ce1fe1c  0x8ce1fe50
+sdk/shinobi/sySq.c                                   CSG      0x8ce1fe50  0x8ce1fe81
+sdk/shinobi/sh4tmr.c                                 CSG      0x8ce1fe84  0x8ce1feb0
+sdk/shinobi/sg_syCbl.c                               CSG      0x8ce1feb0  0x8ce1fedc
+# follows the member before it with no fill; built whole, its 24 bytes end where kmdevice_workaround's begin
+sdk/ninja/njSprite.src                               CSG      0x8ce1fedc  0x8ce1fef4
+loader/sdk/kmdevice_workaround_for_sh_lnk.c  CSG      0x8ce1fef4  0x8ce1ff40
+# starts at list_end, which the pool words at 0x8ce10130 and 0x8ce106dc name; built whole, its 44 bytes end where kmvertex_workaround's begin
+loader/sdk/kmsurfac_workaround_for_sh_lnk.c  CSG      0x8ce1ff40  0x8ce1ff6c
+loader/sdk/kmvertex_workaround_for_sh_lnk.c  CSG      0x8ce1ff6c  0x8ce1ff8c
+loader/sdk/kmvtxbuf_workaround_for_sh_lnk.c  CSG      0x8ce1ff8c  0x8ce1fffc
+loader/sdk/fballoc_workaround_for_sh_lnk.c   CSG      0x8ce1fffc  0x8ce2001a
+loader/sdk/inifile_workaround_for_sh_lnk.c   CSG      0x8ce2001c  0x8ce2003a
+loader/sdk/internal_workaround_for_sh_lnk.c  CSG      0x8ce2003c  0x8ce200ed
+loader/sdk/kmframe_workaround_for_sh_lnk.c   CSG      0x8ce200f0  0x8ce20120
+# starts at the table the pool word at 0x8ce1c004 names; built whole, its 496 bytes end where video_workaround's begin
+loader/sdk/kmtex_workaround_for_sh_lnk.c     CSG      0x8ce20120  0x8ce20310
+loader/sdk/video_workaround_for_sh_lnk.c     CSG      0x8ce20310  0x8ce20328
+sdk/ninja/njTexinner.c                               CSG      0x8ce20328  0x8ce2032d
+loader/sdk/gdfs.c                            DSG      0x8ce20340  0x8ce2034c
+loader/sdk/gdfsif.c                          DSG      0x8ce2034c  0x8ce20354
+sdk/shinobi/pdmain.c                                 DSG      0x8ce20354  0x8ce20356
+sdk/shinobi/syMalloc.c                               DSG      0x8ce20358  0x8ce2035c
+# sygRtcBuild, the member's only data, between syMalloc's and njSystem's; it holds 0x8ce1f9f8, in this member's CSG
+sdk/shinobi/sg_syrtc.c                               DSG      0x8ce2035c  0x8ce20360
+sdk/ninja/njSystem.c                                 DSG      0x8ce20360  0x8ce20380
+# sygCacheBuild, the member's only data, between njSystem's and syChain's; it holds 0x8ce1fdb8, in this member's CSG
+sdk/shinobi/syCache.c                                DSG      0x8ce20380  0x8ce20384
+sdk/shinobi/syChain.c                                DSG      0x8ce20384  0x8ce20388
+sdk/shinobi/sySq.c                                   DSG      0x8ce20388  0x8ce2038c
+sdk/shinobi/sh4tmr.c                                 DSG      0x8ce2038c  0x8ce20390
+sdk/shinobi/sg_syCbl.c                               DSG      0x8ce20390  0x8ce20394
+sdk/ninja/njGlobal.c                                 DSG      0x8ce20394  0x8ce203e0
+# SDK 1.20J ninja.lib's module kmsurfac_workaround_for_sh_lnk_ has these 140 bytes of DSG: 4 bytes its code doesn't read, then vertex_bank, render_direct and kmiDummyOpaque at the addresses the code's pools hold; they end where kmvertex_workaround's begin
+loader/sdk/kmsurfac_workaround_for_sh_lnk.c  DSG      0x8ce203e0  0x8ce2046c
+loader/sdk/kmvertex_workaround_for_sh_lnk.c  DSG      0x8ce2046c  0x8ce205b4
+loader/sdk/kmvtxbuf_workaround_for_sh_lnk.c  DSG      0x8ce205b4  0x8ce205bc
+loader/sdk/kmvtxlst_workaround_for_sh_lnk.c  DSG      0x8ce205bc  0x8ce2061c
+sdk/ninja/njLoadTextureLN.c                          DSG      0x8ce2061c  0x8ce20624
+sdk/ninja/njTexList.c                                DSG      0x8ce20624  0x8ce20628
+loader/sdk/bgplane_workaround_for_sh_lnk.c   DSG      0x8ce20628  0x8ce20670
+loader/sdk/fballoc_workaround_for_sh_lnk.c   DSG      0x8ce20670  0x8ce206c4
+# the notice and kmiHardwareResource, at the addresses the code's pools hold
+loader/sdk/internal_workaround_for_sh_lnk.c  DSG      0x8ce206c4  0x8ce20938
+# field_toggle, the member's only data, at the address the code's pool holds
+loader/sdk/interupt_workaround_for_sh_lnk.c  DSG      0x8ce20938  0x8ce2093c
+# next_request, the member's only variable, at the address the code's pool holds
+loader/sdk/kmframe_workaround_for_sh_lnk.c   DSG      0x8ce2093c  0x8ce20940
+loader/sdk/tactrl_workaround_for_sh_lnk.c    DSG      0x8ce20940  0x8ce20954
+sdk/ninja/njTexFile.c                                DSG      0x8ce20954  0x8ce2097c
+sdk/ninja/njTexLoad.c                                DSG      0x8ce2097c  0x8ce209b4
+sdk/ninja/njGlobal.c                                 DSG32    0x8ce209c0  0x8ce20a00
+loader/sbinit.c                                      B        0x8ce20a00  0x8ce4e804
+sdk/shinobi/kdapi.c                                  B        0x8ce4e804  0x8ce4ecd8
+sdk/shinobi/sy_g2_variable.c                         B        0x8ce4ecd8  0x8ce4ee20
+sdk/shinobi/mpapi.c                                  B        0x8ce4ee20  0x8ce4ef20
+sdk/shinobi/mpgbl.c                                  B        0x8ce4ef20  0x8ce50024
+loader/sdk/gdfs.c                            BSG      0x8ce50040  0x8ce50088
+sdk/shinobi/pdmain.c                                 BSG      0x8ce50088  0x8ce505d0
+sdk/shinobi/syMalloc.c                               BSG      0x8ce505d0  0x8ce50600
+# sygRtcCount to sygRtcDbgLogMax, whose addresses the pool words at 0x8ce09920 and 0x8ce09e6c hold; built whole, its 24 bytes end where njSystem's begin
+sdk/shinobi/sg_syrtc.c                               BSG      0x8ce50600  0x8ce50618
+sdk/ninja/njSystem.c                                 BSG      0x8ce50618  0x8ce50620
+sdk/shinobi/pd_kbd.c                                 BSG      0x8ce50620  0x8ce50640
+# cache_ram_pages and cache_ram_page_offset, whose addresses the pool words at 0x8ce0c6bc and 0x8ce0c6c0 hold; built whole, its 20 bytes end where syChain's begin
+sdk/shinobi/syCache.c                                BSG      0x8ce50640  0x8ce50654
+sdk/shinobi/syChain.c                                BSG      0x8ce50654  0x8ce51954
+sdk/shinobi/sh4tmr.c                                 BSG      0x8ce51954  0x8ce51964
+sdk/ninja/njGlobal.c                                 BSG      0x8ce51964  0x8ce523bc
+sdk/ninja/njkm.c                                     BSG      0x8ce523bc  0x8ce523e8
+# kmiTextureRenderParam, the member's only bss, at the address the code's pools hold
+loader/sdk/kmsurfac_workaround_for_sh_lnk.c  BSG      0x8ce523e8  0x8ce52400
+loader/sdk/kmvertex_workaround_for_sh_lnk.c  BSG      0x8ce52400  0x8ce52474
+loader/sdk/kmvtxbuf_workaround_for_sh_lnk.c  BSG      0x8ce52474  0x8ce52570
+sdk/ninja/njLoadTextureLN.c                          BSG      0x8ce52570  0x8ce525a0
+loader/sdk/dma_workaround_for_sh_lnk.c       BSG      0x8ce525a0  0x8ce527bc
+loader/sdk/fballoc_workaround_for_sh_lnk.c   BSG      0x8ce527bc  0x8ce7d7bc
+# kmiDeviceExtension and kmiVersionInfo, at the addresses the code's pools hold
+loader/sdk/internal_workaround_for_sh_lnk.c  BSG      0x8ce7d7bc  0x8ce7dca0
+# starts at kmiIntStatisticData, whose address the code's pools hold
+loader/sdk/interupt_workaround_for_sh_lnk.c  BSG      0x8ce7dca0  0x8ce7dcfc
+sdk/ninja/njInitCacheTexture.c                       BSG      0x8ce7dcfc  0x8ce7dd24
+sdk/ninja/njTexFile.c                                BSG      0x8ce7dd24  0x8ce7dd30
+sdk/ninja/njGlobal.c                                 BSG32    0x8ce7dd40  0x8ce7e120
+sdk/ninja/njTexLoad.c                                BSG32    0x8ce7e120  0x8ce7e920

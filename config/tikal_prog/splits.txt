@@ -1,0 +1,23 @@
+# TIKAL_PROG.PRS, Tikal as a character, loaded beside B_CHAOS7.PRS and ADV03.PRS
+#
+# section  start       end
+P          0x0cb00000  0x0cb015c0
+D          0x0cb015c0  0x0cb35898
+C          0x0cb35898  0x0cb35927
+#
+# source                              section  start       end
+modules/tikal_prog/tikal.c             P        0x0cb00000  0x0cb015c0
+# dat_0cb018d0 follows tikal_welds on 8. its twin in sonic.c, dat_8c1dc5a4, follows sonic_welds off 8, in sonic.c's object, and has sonic_board_actions 44 bytes on: so the table ends tikal.c's data 4 bytes short of tikal_textures.c's, which starts on 8, where in one object the textures would start at 0x0cb018fc. sonic.c's own textures are another object, sonic_textures.c, past effects.c's data. here alone the table could run to 23 or 24 halfwords and reach 0x0cb01900 with no seam: at 24 in one object with the textures, or at 23 or 24 at the start of tikal_textures.c's, the image builds the same, so its extent and the seam rest on sonic.c's copy
+modules/tikal_prog/tikal.c             D        0x0cb015c0  0x0cb018fc
+# tikal_texlist ends it on 8 where her model's data starts; the bytes leave open whether her model's data is this object's or another's
+modules/tikal_prog/tikal_textures.c    D        0x0cb01900  0x0cb019e0
+# the names start C where D's last datum, the action at 0x0cb35890, ends. it is taken for data as its siblings are: dat_0cb29744 and tikal_walk_action each follow their motion off 8, inside D, and this one follows its own with no gap as they do. it starts on 8, so the bytes alone would also allow a constant opening C, such as one of tikal.c's, which links before this one
+modules/tikal_prog/tikal_textures.c    C        0x0cb35898  0x0cb35927
+# her model: tikal_object and the nodes and models it reaches, which her welds, look nodes and actions name
+gen/tikal_prog/d_0cb019e0.c            D        0x0cb019e0  0x0cb09a10
+# the tree under tikal_head_blend, and the shapes tikal_mouth_shapes moves it through, which follow it off 8 at 0x0cb0dbfc, as one object's data do
+gen/tikal_prog/d_0cb09a10.c            D        0x0cb09a10  0x0cb23468
+# two motions of her model, with their actions dat_0cb29744 and dat_0cb2d478: the second's keys follow the first's action off 8, at 0x0cb2974c
+gen/tikal_prog/d_0cb23468.c            D        0x0cb23468  0x0cb2d480
+# two more, with tikal_walk_action and dat_0cb35890, the second's keys off 8 at 0x0cb31964. these four rows meet on 8 with no gap, at 0x0cb09a10, 0x0cb23468 and 0x0cb2d480; the bytes leave open whether they are one object's data or several objects'
+gen/tikal_prog/d_0cb2d480.c            D        0x0cb2d480  0x0cb35898

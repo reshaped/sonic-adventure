@@ -1,0 +1,35 @@
+# EV00D9.PRS, Big spots Froggy in Hot Shelter, Big's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81bc8
+C          0x0cb81bc8  0x0cb81c40
+D          0x0cb81c40  0x0cb8baa4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00d9/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00d9/script.c                P        0x0cb80008  0x0cb804c4
+events/ev00d9/script.c                C        0x0cb81bc8  0x0cb81bfd
+events/ev00d9/script.c                D        0x0cb81c40  0x0cb81c54
+events/ev00e3/frog.c                  P        0x0cb804c4  0x0cb80548
+events/ev00e3/frog.c                  D        0x0cb8ba18  0x0cb8ba6c
+events/shared/move.c                  P        0x0cb80548  0x0cb8106c
+events/shared/move.c                  D        0x0cb8ba70  0x0cb8ba98
+events/shared/mover.c                 P        0x0cb8106c  0x0cb81804
+events/shared/sound.c                 P        0x0cb81804  0x0cb81bc4
+events/shared/sound.c                 D        0x0cb8ba98  0x0cb8baa4
+# position keys of a node of ev00d9_big_action's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and frog.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb821f8, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+events/ev00d9/dat_0cb81c58.c          D        0x0cb81c58  0x0cb821f8
+# ev00d9_frog_action and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to frog.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb8b910 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00d9/frog_action.c           D        0x0cb8ba00  0x0cb8ba14
+# the names of the textures that the texture name table at 0x0cb8815c in this object's data names: the table at 0x0cb8815c starts off 8, straight after an action at 0x0cb88154, so it shares that item's object; after the table at 0x0cb8815c, each item to a material at 0x0cb881c4 starts off 8, so they share its object. the names and the data from 0x0cb88148 to 0x0cb881d8 in D are the least those joins make one object's, and this source holds no more. script.c's code reads ev00d9_frog_texlist, which names the table at 0x0cb8815c. they start on 8 after script.c's constants, where script.c's next string would, and end where D begins. they are script.c's, whose code reads ev00d9_big_action and ev00d9_frog_texlist, were the 4 bytes after its data, dat_0cb81c58.c's data and the data from there to the table its too; dat_0cb81c58.c's, which has no constants row and can link between them, were the data from its own data to the table its too; frog_action.c's, which has no constants row and can link between them, were the data from the table to its own data its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. the 3 bytes of 0xff before them are padding between script.c's constants and the names, were the names script.c's, or else script.c's data or the linker's fill. nothing points into the 3 bytes before them, and the fill rule takes them as the linker's fill
+events/ev00d9/big_action.c            C        0x0cb81c00  0x0cb81c40
+# its data, from 0x0cb88148 to 0x0cb881d8: the table that names its constants and the items the note on them joins, typed as the generated rows had them, with bodies. it starts on 8 straight after the generated data. it ends on 8 straight before the generated data, so the bytes don't say whether its object runs on into the generated data before it and the generated data after it. dat_0cb881c4, which the generated data after it names, is static here, as a source's own data the generated rows reach through symbols.txt: it could stay so only were that data this object's
+events/ev00d9/big_action.c            D        0x0cb88148  0x0cb881d8
+#
+# generated data ranges
+gen/ev00d9/d_0cb821f8.c               D        0x0cb821f8  0x0cb88148
+gen/ev00d9/d_0cb881d8.c               D        0x0cb881d8  0x0cb8ba00

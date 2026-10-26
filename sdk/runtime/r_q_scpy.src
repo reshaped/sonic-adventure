@@ -1,0 +1,75 @@
+; copy the string at R1 to R0, and return R0. the two are word aligned and
+; don't overlap. the copy reads whole words, through the one that holds the
+; terminator. it changes R1 and T, and no other register
+
+        .EXPORT     __quick_strcpy
+        .EXPORT     _quick_strcpy1
+
+        .SECTION    P,CODE,ALIGN=4
+
+; the copy, for a call
+; @asm open: every instruction is one SHC writes for C
+__quick_strcpy:
+        MOV.L       R3,@-R15
+        MOV.L       R4,@-R15
+; the copy, entered with R3 and then R4 pushed, which it pops. _slow_strcpy
+; jumps here
+; @asm open: no inspect rule reads R0 or R1 at its entry
+_quick_strcpy1:
+        MOV.L       R5,@-R15
+        MOV.L       R6,@-R15
+        MOV         R0,R3
+        MOV.L       @R1+,R4
+        MOV         #0,R6
+qscpy_copy_words:
+        CMP/STR     R4,R6
+        BT          qscpy_copy_tail
+        MOV.L       @R1+,R5
+        MOV.L       R4,@R0
+        CMP/STR     R5,R6
+        BT          qscpy_tail_after_4
+        MOV.L       @R1+,R4
+        MOV.L       R5,@(4,R0)
+        CMP/STR     R4,R6
+        BT          qscpy_tail_after_8
+        MOV.L       @R1+,R5
+        MOV.L       R4,@(8,R0)
+        CMP/STR     R5,R6
+        BT          qscpy_tail_after_12
+        MOV.L       @R1+,R4
+        MOV.L       R5,@(12,R0)
+        BRA         qscpy_copy_words
+        ADD         #16,R0
+qscpy_tail_after_4:
+        BRA         qscpy_copy_tail
+        ADD         #4,R0
+qscpy_tail_after_8:
+        BRA         qscpy_copy_tail
+        ADD         #8,R0
+qscpy_tail_after_12:
+        ADD         #12,R0
+qscpy_copy_tail:
+        ADD         #-4,R1
+        MOV         R0,R6
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@R6
+        BT          qscpy_copy_done
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@(1,R6)
+        BT          qscpy_copy_done
+        MOV.B       @R1+,R0
+        CMP/EQ      #0,R0
+        MOV.B       R0,@(2,R6)
+        BT          qscpy_copy_done
+        MOV.B       @R1+,R0
+        MOV.B       R0,@(3,R6)
+qscpy_copy_done:
+        MOV.L       @R15+,R6
+        MOV         R3,R0
+        MOV.L       @R15+,R5
+        MOV.L       @R15+,R4
+        RTS
+        MOV.L       @R15+,R3
+        .END

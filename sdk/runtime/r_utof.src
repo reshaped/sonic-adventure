@@ -1,0 +1,33 @@
+        .EXPORT     __utof
+
+        .SECTION    P,CODE,ALIGN=4
+
+; unsigned long to float for compiled code, outside the C calling convention:
+; R0 in, FR0 out. R0 from 2^31 up comes out as a negative float, as a signed
+; long would. it changes FR0, T and FPSCR's cause and flag bits, and no other
+; register
+; @asm open: no inspect rule reads R0 at its entry
+__utof:
+        MOV.L       R1,@-R15
+        FMOV.S      FR1,@-R15
+        STS.L       FPUL,@-R15
+        LDS         R0,FPUL
+        FLOAT       FPUL,FR0
+        ; @bug arithmetic: no step adds 2^32 for R0 from 2^31 up. BF at
+        ; 0x0cb84c38 in EV0009 skips the FADD for such an R0. below 2^31, the
+        ; FADD at 0x0cb84c40 adds -0.0, which changes nothing
+        CMP/PZ      R0
+        BF          ?done
+        MOV.L       R0,@-R15
+        MOVA        ?negative_zero,R0
+        FMOV.S      @R0,FR1
+        FADD        FR1,FR0
+        MOV.L       @R15+,R0
+?done:
+        LDS.L       @R15+,FPUL
+        FMOV.S      @R15+,FR1
+        RTS
+        MOV.L       @R15+,R1
+?negative_zero:
+        .DATA.L     H'80000000
+        .END

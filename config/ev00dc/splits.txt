@@ -1,0 +1,30 @@
+# EV00DC.PRS, Tikal reads the altar's tablet, Big's story
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb81618
+C          0x0cb81618  0x0cb81790
+D          0x0cb81790  0x0cb97398
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev00dc/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev00dc/script.c                P        0x0cb80008  0x0cb80cdc
+events/ev00dc/script.c                C        0x0cb81618  0x0cb81781
+events/ev00dc/script.c                D        0x0cb81790  0x0cb817a8
+events/shared/white.c                 P        0x0cb80cdc  0x0cb80f64
+events/shared/white.c                 D        0x0cb96820  0x0cb96824
+events/shared/sound.c                 P        0x0cb80f64  0x0cb81324
+events/shared/sound.c                 D        0x0cb96828  0x0cb96834
+events/shared/wave.c                  P        0x0cb81324  0x0cb81614
+# the wave's texture name, its one constant, which event_wave_textures points at: in D that table lies before its data, with the ring's models and motions, which wave.c's code draws
+events/shared/wave.c                  C        0x0cb81788  0x0cb8178f
+# from event_wave_materials, at 0x0cb96838: the ring's model, its motions, its action and its texture name table and list, which wave.c's code reads, meet its data on 8 with no fill, the same 2,872 bytes in all six events that link it, but for the words that point into the image: consistent with wave.c's object, though one file or two build the same. the ring starts on 8, past the 4 bytes of 0xff after sound.c's data, where that object's next item would start on 4: those are the linker's fill, as the fill rule takes them, or a last word of sound.c's object, and nothing with code links between sound.c and wave.c. sound.c links in events without the ring, so its object can't hold it, and the head's object, which is each event's own, can't hold what all six link alike: the ring is wave.c's or an object's of data alone that links in all six
+events/shared/wave.c                  D        0x0cb96838  0x0cb97398
+# ev00dc_tikal_action_2 and its motion, the last items of an object: the action ends 4 past 8, and the 4 bytes of 0xff after it, to white.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. it meets motion data at 0x0cb96198 on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. script.c reads the action, and places its data elsewhere
+events/ev00dc/tikal_action_2.c        D        0x0cb96808  0x0cb9681c
+#
+# generated data ranges
+gen/ev00dc/d_0cb817a8.c               D        0x0cb817a8  0x0cb96808

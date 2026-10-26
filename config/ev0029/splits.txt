@@ -1,0 +1,43 @@
+# EV0029.PRS, Tornado 2 landing on the Egg Carrier; EV0054.PRS is the same file
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb85180
+C          0x0cb85180  0x0cb858a8
+D          0x0cb858a8  0x0cb96114
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0029/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0029/script.c               P        0x0cb80008  0x0cb8059c
+events/ev0029/script.c               C        0x0cb85180  0x0cb85230
+events/ev0029/script.c               D        0x0cb858a8  0x0cb85ec4
+events/shared/sprite.c                P        0x0cb8059c  0x0cb80d98
+events/shared/sprite.c                C        0x0cb85438  0x0cb854b7
+events/shared/sprite.c                D        0x0cb95950  0x0cb95bf0
+# follows sprite.c with no fill; as one file, 51 of 13,424 code bytes differ
+events/shared/path_editor.c           P        0x0cb80d98  0x0cb83a0c
+events/shared/path_editor.c           C        0x0cb854b8  0x0cb85888
+events/shared/path_editor.c           D        0x0cb95bf0  0x0cb960fc
+# follows path_editor.c with no fill; as one file, the code runs 4 bytes longer. 931 of its first 12,340 bytes differ
+events/shared/sound.c                 P        0x0cb83a0c  0x0cb83dcc
+events/shared/sound.c                 D        0x0cb96100  0x0cb9610c
+events/shared/stopwatch.c             P        0x0cb83dcc  0x0cb83f50
+events/shared/stopwatch.c             C        0x0cb85888  0x0cb858a1
+events/shared/stopwatch.c             D        0x0cb96110  0x0cb96114
+events/shared/sdk/sscanf.c           P        0x0cb83f50  0x0cb83f8c
+events/shared/sdk/strchr.c           P        0x0cb83f8c  0x0cb83fa8
+events/shared/sdk/_fmtin.c           P        0x0cb83fa8  0x0cb84e20
+events/shared/sdk/_stf.c             P        0x0cb84e20  0x0cb84eac
+events/shared/sdk/_calcfpow.c        P        0x0cb84eac  0x0cb8506c
+events/shared/sdk/_calcint.c         P        0x0cb8506c  0x0cb85118
+events/shared/sdk/_packf.c           P        0x0cb85118  0x0cb8517c
+# the names its table points at, its object's constants: they meet script.c on 8 with no fill
+events/ev0029/tornado_textures.c      C        0x0cb85230  0x0cb85432
+# the names of the textures ev0029_tornado_texlist lists. it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. of the code that links after script.c's, sscanf.c, strchr.c, _fmtin.c, _stf.c, _calcfpow.c, _calcint.c and _packf.c link in events without it and sprite.c, path_editor.c, sound.c and stopwatch.c place their data elsewhere in this one, so its object holds data alone, or is script.c's, were that word its. ev0029_tornado_texlist meets it on 8 with no fill at 0x0cb860a8: one file or two build the same, and its pointer at the table is consistent with one object, not proof. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/ev0029/tornado_textures.c      D        0x0cb85ec8  0x0cb860a8
+#
+# generated data ranges
+gen/ev0029/d_0cb860a8.c               D        0x0cb860a8  0x0cb95950

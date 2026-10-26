@@ -1,0 +1,62 @@
+# EV0026.PRS, Sonic's ending
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb89110
+C          0x0cb89110  0x0cb89800
+D          0x0cb89800  0x0cba6a54
+B          0x0cba6a58  0x0cba6bd4
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0026/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0026/script.c               P        0x0cb80008  0x0cb81380
+events/ev0026/script.c               C        0x0cb89110  0x0cb89253
+events/ev0026/script.c               D        0x0cb89800  0x0cb8b674
+events/shared/clouds.c                P        0x0cb81380  0x0cb81940
+events/shared/clouds.c                C        0x0cb892b0  0x0cb892c0
+events/shared/clouds.c                D        0x0cb9a520  0x0cb9a5f4
+events/shared/eggmobile.c             P        0x0cb81940  0x0cb82334
+events/shared/eggmobile.c             D        0x0cb9a5f8  0x0cb9a814
+events/shared/motion.c                P        0x0cb82334  0x0cb839d0
+events/shared/motion.c                B        0x0cba6a58  0x0cba6b98
+events/shared/picture.c               P        0x0cb839d0  0x0cb83b2c
+events/shared/picture.c               D        0x0cba64c0  0x0cba64f4
+events/shared/move.c                  P        0x0cb83b2c  0x0cb84650
+events/shared/move.c                  D        0x0cba64f8  0x0cba6520
+events/shared/mover.c                 P        0x0cb84650  0x0cb84de8
+events/shared/dust.c                  P        0x0cb84de8  0x0cb84f08
+events/shared/dust.c                  B        0x0cba6b98  0x0cba6bd4
+events/shared/fade.c                  P        0x0cb84f08  0x0cb85094
+events/shared/fade.c                  D        0x0cba6520  0x0cba6540
+# follows fade.c with no fill; as one file, the code runs 4 bytes shorter. 9,876 of its 11,772 bytes differ
+events/shared/path_editor.c           P        0x0cb85094  0x0cb87d08
+events/shared/path_editor.c           C        0x0cb89410  0x0cb897e0
+events/shared/path_editor.c           D        0x0cba6540  0x0cba6a4c
+# follows path_editor.c with no fill; as one file, the code runs 8 bytes shorter. 417 of its 11,760 bytes differ
+events/shared/stopwatch.c             P        0x0cb87d08  0x0cb87e8c
+events/shared/stopwatch.c             C        0x0cb897e0  0x0cb897f9
+events/shared/stopwatch.c             D        0x0cba6a50  0x0cba6a54
+events/shared/shapes.c                P        0x0cb87e8c  0x0cb87ee4
+events/shared/sdk/sscanf.c            P        0x0cb87ee4  0x0cb87f20
+events/shared/sdk/strchr.c            P        0x0cb87f20  0x0cb87f3c
+events/shared/sdk/_fmtin.c           P        0x0cb87f3c  0x0cb88db4
+events/shared/sdk/_stf.c              P        0x0cb88db4  0x0cb88e40
+events/shared/sdk/_calcfpow.c         P        0x0cb88e40  0x0cb89000
+events/shared/sdk/_calcint.c          P        0x0cb89000  0x0cb890ac
+events/shared/sdk/_packf.c            P        0x0cb890ac  0x0cb89110
+# the names its table points at, its object's constants: they meet clouds.c's on 8 with no fill, and clouds.c's object can't hold them, as their table lies in D after eggmobile.c's data, which links after its
+events/shared/eggmobile_textures.c    C        0x0cb892c0  0x0cb8940f
+# the Egg Mobile's texture names, the first item of an object: it starts on 8, past the 4 bytes of 0xff after eggmobile.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of eggmobile.c's object. of the code that links between eggmobile.c and picture.c, motion.c, which links only in events that have it, can't hold it: in EV0007, EV0008, EV0033 and EV0034 it links after jets.c, in EV004D after missile.c and in EV00FD after sprite.c, and their data follows this object's there, and the object is the same in each event that places this source. so it is an object of data alone. head.c can't hold it: it is this event's own, and the object is the same in each event that places this source. eggmobile.c can't hold it: other data follows its own in EV0007, EV0008, EV0033 and others, where its object would carry this too. event_eggmobile_texlist, which eggmobile.c reads, meets the table on 8 with no fill at 0x0cb9a9b0: one file or two build the same, and its pointer at the table is consistent with one object, not proof. nor do the bytes say whether the model and action after it, the same in the 31 events that link the table, share its object. the generated row names the table through symbols.txt, so in C it could stay static only if the texlist is its object's
+events/shared/eggmobile_textures.c    D        0x0cb9a818  0x0cb9a9b0
+# event_eggmobile_action, which eggmobile.c and the scripts read, and its motion: the last items of the 48,292 bytes that start with event_eggmobile_textures and are the same in the 31 events that link them, but for the words that point into the image. the action ends 4 past 8, and the 4 bytes of 0xff after it, to picture.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of the object. the motion meets its motion data on 8 with no fill, so the bytes don't say whether the generated row before it is its object's. they are eggmobile_textures.c's, were the generated data between them that object's too; or an object's of data alone, as built here. head.c can't hold them: it is this event's own, and the object is the same in each event that places this source. motion.c, which links in the same 31 events, can't hold them: in EV0007, EV0008, EV0033 and EV0034 it links after jets.c, in EV004D it links after missile.c and in EV00FD it links after sprite.c, whose data follows theirs there, and the object is the same in each event that places this source. eggmobile.c, whose code reads the action, can't hold them: other data follows its own in EV0007, EV0008, EV0033 and others, where its object would carry the textures too
+events/shared/eggmobile_action.c      D        0x0cba64a8  0x0cba64bc
+# the names of the textures that the 3 texture name tables at 0x0cb8b678, 0x0cb9a4ac and 0x0cb9a4f0 in this object's data name: the names of the table at 0x0cb9a4ac start off 8 straight after those of the table at 0x0cb8b678, so they are one object's constants. the names of the table at 0x0cb9a4f0 start off 8 straight after those of the table at 0x0cb9a4ac, so they are one object's constants. after the table at 0x0cb8b678, each item to a material at 0x0cb8b68c starts off 8, so they share its object. the table at 0x0cb9a4ac starts off 8, straight after an action at 0x0cb9a4a4, so it shares that item's object. after the table at 0x0cb9a4f0, each item to a texlist at 0x0cb9a514 starts off 8, so they share its object. the names and the data from 0x0cb8b678 to 0x0cb9a51c in D are the least those joins make one object's, and this source holds no more. script.c's code reads event_clouds_texlist, which names the table at 0x0cb9a4f0. they start on 8 after script.c's constants, 4 bytes past where script.c's next string would start on 4, and end 1 byte short of clouds.c's constants, which begin on 8 where the names' next string would. they are script.c's, whose code reads ev0026_tails_action_0, ev0026_tails_action_1 and 7 more in that data, were the 5 bytes before them and the data from its own data to the tables its too; head.c's, whose object holds the event's head, were that object to hold them too; or an object's of data alone, as built here. clouds.c can't hold them: it links in events without them. the 5 bytes of 0xff before them are script.c's padding or data, or the linker's fill; the byte of 0xff after them is this object's data or the linker's fill: not padding, as its next item on 4 would start where clouds.c's constants do. nothing points into the 5 bytes before them and the byte after them, and the fill rule takes them as the linker's fill
+events/ev0026/sonic_fingers.c         C        0x0cb89258  0x0cb892af
+# its data, from 0x0cb8b678 to 0x0cb9a51c: the tables that name its constants and the items the note on them joins, typed as the generated rows had them, with bodies. the generator had left pointer words at 0x0cb8b678 (a texture name table and its texlist) and 0x0cb9a4ac (a texture name table and its texlist). the source types them as consistent with the words they hold, and nothing reads the texlists at 0x0cb8b684 and 0x0cb9a4e8: no word in this event or 1ST_READ.BIN points at them. it starts on 8 after the 4 bytes of 0xff after script.c's data, which ends 4 past 8: the linker's fill, as the fill rule takes them, or a last word of script.c's object, and nothing points into them. it ends 4 past 8, after event_clouds_texlist, and the 4 bytes of 0xff after it, to clouds.c's data on 8, which nothing points into, are the linker's fill, as the fill rule takes them, or a last word of this object
+events/ev0026/sonic_fingers.c         D        0x0cb8b678  0x0cb9a51c
+#
+# generated data ranges
+gen/ev0026/d_0cb9a9b0.c               D        0x0cb9a9b0  0x0cba64a8

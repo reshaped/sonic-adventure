@@ -1,0 +1,20 @@
+# EV0092.PRS, Knuckles follows E-102 through the jungle
+#
+fill       0xff
+#
+# section  start       end
+DHEAD      0x0cb80000  0x0cb80008
+P          0x0cb80008  0x0cb80b00
+C          0x0cb80b00  0x0cb80b38
+D          0x0cb80b38  0x0cb80b7c
+#
+# source                              section  start       end
+# the module's head, which play.c reads at the load address as struct event_module, naming script.c's entry and texture list. it is DHEAD's only datum, so the bytes don't say whose object holds it. it can be an object of its own, as here, script.c's, where one file or two build the same, or any other object the image links, though that object's code doesn't read it. a shared object can hold it only if every event that links that object names the same entry and texture list
+events/ev0092/head.c                  DHEAD    0x0cb80000  0x0cb80008
+events/ev0092/script.c                P        0x0cb80008  0x0cb805b2
+events/ev0092/script.c                C        0x0cb80b00  0x0cb80b35
+events/ev0092/script.c                D        0x0cb80b38  0x0cb80b4c
+events/shared/fade.c                  P        0x0cb805b4  0x0cb80740
+events/shared/fade.c                  D        0x0cb80b50  0x0cb80b70
+events/shared/sound.c                 P        0x0cb80740  0x0cb80b00
+events/shared/sound.c                 D        0x0cb80b70  0x0cb80b7c
