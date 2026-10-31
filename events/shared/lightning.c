@@ -107,9 +107,12 @@ static void event_lightning_init(struct task *task)
 
     for (i = 0; i < LIGHTNING(work)->count; i++) {
         spark = task_create_child(TASK_WORK, event_lightning_spark_step, task);
-        spark->work->pos.x = work->pos.x + RANDOM(-2.5F, 2.5F);
-        spark->work->pos.y = work->pos.y + RANDOM(8.0F, 13.0F);
-        spark->work->pos.z = work->pos.z + RANDOM(-2.5F, 2.5F);
+        spark->work->pos.x =
+            work->pos.x + (rand() * (5.0F * RAND_SCALE)) - 2.5F;
+        spark->work->pos.y =
+            work->pos.y + (rand() * (5.0F * RAND_SCALE)) + 8.0F;
+        spark->work->pos.z =
+            work->pos.z + (rand() * (5.0F * RAND_SCALE)) - 2.5F;
         spark->work->mode = SPARK_WAIT;
         spark->work->tick = 0;
         SPARK(spark->work)->frame = 0;

@@ -174,6 +174,10 @@ static void dash_ring_carrier_step(struct task *task)
     switch (work->mode) {
     case CARRIER_WAIT:
         near = players_near(&work->pos, TAKE_RANGE);
+#ifdef GCC
+        /* GCC can't see that players_near returns 0 to 3, the cases below */
+        player = 0;
+#endif
         switch (near) {
         case 0:
             return;

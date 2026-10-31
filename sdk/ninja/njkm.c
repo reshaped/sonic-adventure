@@ -89,22 +89,6 @@
     (TSP_FACTORS | TSP_FLIP | TSP_CLAMP | TSP_FILTER | TSP_SUPERSAMPLE |       \
      TSP_MIPMAP_D)
 
-/* the polygon header words the njStart functions write, and each list's write
- * pointer in Kamui's vertex buffer. njGetkmPointer copies them from the
- * current vertex context and the vertex buffer, and njSetkmPointer copies
- * them back */
-struct nj_parameterkm {
-    Uint32 GLOBALPARAMBUFFER;
-    Uint32 ISPPARAMBUFFER;
-    Uint32 TSPPARAMBUFFER;
-    Uint32 TexturePARAMBUFFER;
-    Uint32 *opaque_polygon;
-    Uint32 *trans_polygon;
-    Uint32 *punchthrough_polygon;
-    Uint32 *opaque_modifier;
-    Uint32 *trans_modifier;
-};
-
 struct nj_parameterkm _nj_parameterkm_;
 /* the LIST_TOP bits of the list the last njStart function opened */
 Uint32 _nj_sq_base_;

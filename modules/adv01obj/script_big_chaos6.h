@@ -4,7 +4,8 @@
 
 #include "progress/story.h"
 
-/* big_story in progress/story.c lists it by address */
+/* the section's script, in ADV01OBJ, which big_story in progress/story.c
+ * names */
 extern struct story_script script_big_chaos6;
 
 #endif

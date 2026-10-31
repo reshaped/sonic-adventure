@@ -22,6 +22,7 @@
 0x0cb8016e  egg_carrier_garden_end
 0x0cb801e0  egg_carrier_garden_sky_draw
 0x0cb807a0  egg_carrier_garden_land_pvm
+0x0cb80a88  egg_carrier_garden_script_table
 0x0cb8106c  egg_carrier_garden_land_texlist
 0x0cb81560  dat_0cb81560
 0x0cb81758  dat_0cb81758

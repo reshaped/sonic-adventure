@@ -547,8 +547,15 @@ static struct weld body_welds[] = {
      WELD_TO_B, 0, 0, NULL, body_indices_5},
     {&chaos6_body_object, &chaos6_body_node63, &chaos6_body_node3, 5,
      WELD_TO_B, 0, 0, NULL, body_indices_6},
+#ifdef GCC
+    /* repairs body_indices_7's last pair, which its tag names: GCC welds
+     * only the 4 pairs before it */
+    {&chaos6_body_object, &chaos6_body_node45, &chaos6_body_node3, 4,
+     WELD_TO_B, 0, 0, NULL, body_indices_7},
+#else
     {&chaos6_body_object, &chaos6_body_node45, &chaos6_body_node3, 5,
      WELD_TO_B, 0, 0, NULL, body_indices_7},
+#endif
     {&chaos6_body_object, &chaos6_body_node51, &chaos6_body_node3, 5,
      WELD_TO_B, 0, 0, NULL, body_indices_8},
     {&chaos6_body_object, &chaos6_body_node69, &chaos6_body_node3, 6,

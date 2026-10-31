@@ -1,9 +1,17 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* set m to S * m, where S scales by sx, sy and sz. a null m selects the
  * current matrix, in XMTRX */
+#ifdef GCC
+/* ninja_zam.h defines no njScale macro, so every call reaches this
+ * definition */
+void njScale(NJS_MATRIX *m, Float sx, Float sy, Float sz)
+{
+    zam_njScale(m, sx, sy, sz);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629624 follows the
  * body's own return at 0x8c62961e */
 #pragma inline_asm(njScale)
@@ -96,3 +104,4 @@ void njScale(NJS_MATRIX *m, Float sx, Float sy, Float sz)
 }
 #endif
 /* clang-format on */
+#endif

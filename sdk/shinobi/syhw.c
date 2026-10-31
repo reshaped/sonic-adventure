@@ -130,7 +130,14 @@ struct register_setting {
 
 const char sygHwBuild[] = "\nsyHw Ver 1.03 Build:Oct 30 1998 12:20:48\n";
 const Uint32 sygCacheForm = CCR_ICE | CCR_CB | CCR_OCE;
+#ifdef GCC
+/* mwsfdini.c writes sygIntMode, through a declaration without const, before
+ * syHwInit reads it. GCC would fold a const definition's value into the
+ * read */
+Uint32 sygIntMode = SYD_INT_MODE_LOCALSTACK;
+#else
 const Uint32 sygIntMode = SYD_INT_MODE_LOCALSTACK;
+#endif
 void *sygIntStack = NULL;
 const struct register_setting sygHwRegs[] = {
     {CH2_DMA_DESTINATION, IDLE_TA},

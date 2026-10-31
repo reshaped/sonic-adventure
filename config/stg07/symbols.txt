@@ -763,6 +763,7 @@
 0x0c9f8e14  dat_0c9f8e14
 0x0c9f8e48  dat_0c9f8e48
 0x0c9f95dc  dat_0c9f95dc
+0x0c9f9994  ruin_act2_land
 0x0c9f99b8  ruin03_textures
 0x0c9f9b20  ruin03_texlist
 0x0ca276c0  dat_0ca276c0

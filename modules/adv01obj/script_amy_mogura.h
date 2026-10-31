@@ -4,7 +4,8 @@
 
 #include "progress/story.h"
 
-/* amy_story in progress/story.c lists it by address */
+/* the section's script, in ADV01OBJ, which amy_story in progress/story.c
+ * names */
 extern struct story_script script_amy_mogura;
 
 #endif

@@ -26,9 +26,8 @@ extern NJS_OBJECT lion_object;
 /* the sides as the collision world holds them. its root's children are the
  * left side, then the right */
 extern NJS_OBJECT lion_world_object;
-/* meshsets 5 and 10 of node 2's model, whose UVs shift */
-extern NJS_MESHSET lion_meshset_5;
-extern NJS_MESHSET lion_meshset_10;
+/* the meshsets of node 2's model, of which 5 and 10 shift their UVs */
+extern NJS_MESHSET lion_meshsets[11];
 
 /* destroyed beyond about 800 units of the camera and player 0 */
 #define RANGE ((800.0F * 800.0F) + 10.0F)

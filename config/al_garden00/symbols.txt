@@ -48,6 +48,7 @@
 0x0cb80d92  garden_flags_load
 0x0cb80dc0  garden_flags_save
 0x0cb80fc0  station_square_garden_land_pvm
+0x0cb812b0  station_square_garden_script_table
 0x0cb81974  station_square_garden_land_texlist
 0x0cb82174  dat_0cb82174
 0x0cb82760  dat_0cb82760

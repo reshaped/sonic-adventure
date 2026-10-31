@@ -6,8 +6,8 @@
 #include "stg07/land1.h"
 #include "stg07/ruin02_textures.h" /* NOLINT(misc-include-cleaner) */
 
-/* the objects the land's entries name */
-extern NJS_OBJECT dat_0c964ecc;
+/* the objects the land's entries name, except the first entry's, which
+ * ruin02_textures.h declares */
 extern NJS_OBJECT dat_0c965a20;
 extern NJS_OBJECT dat_0c965e00;
 extern NJS_OBJECT dat_0c9663f0;

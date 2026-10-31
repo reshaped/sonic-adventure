@@ -1,0 +1,7 @@
+# M_SBMOT.PRS, Tails' board motions, and his board
+#
+# section  start       end
+D          0x0cadc000  0x0cb04574
+#
+# source                  section  start       end
+gen/m_sbmot/d_0cadc000.c  D        0x0cadc000  0x0cb04574

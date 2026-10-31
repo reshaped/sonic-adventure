@@ -922,7 +922,7 @@ static NJS_OBJECT dat_0cbbd440 = {
 NJS_OBJECT ev00bb_frog_2_object = {
 #include "ev00bb/frog_action_1/ev00bb_frog_2_object.inc"
 };
-static NJS_TEXNAME dat_0cbbd4a8[8] = {
+NJS_TEXNAME dat_0cbbd4a8[8] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_14, 0, 0}, {TEXT_15, 0, 0},
     {TEXT_16, 0, 0}, {TEXT_13, 0, 0}, {TEXT_17, 0, 0}, {TEXT_18, 0, 0},
 };

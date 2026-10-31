@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev002b_police_texlist;
+/* the sibling of the generated object at 0x0cb8a808 */
+extern NJS_OBJECT dat_0cb8a7d4;
 
 #endif

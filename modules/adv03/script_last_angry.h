@@ -4,8 +4,8 @@
 
 #include "progress/story.h"
 
-/* the section's script, which last_story_sections in progress/story.c names
- * by its address in ADV03 */
+/* the section's script, in ADV03, which last_story_sections in progress/story.c
+ * names */
 extern struct story_script script_last_angry;
 
 #endif

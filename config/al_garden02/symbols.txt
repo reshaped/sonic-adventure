@@ -32,6 +32,7 @@
 0x0cb808de  mine_cart_destroy
 0x0cb80920  mine_cart_roll
 0x0cb80db0  mystic_ruins_garden_land_pvm
+0x0cb81300  mystic_ruins_garden_script_table
 0x0cb81530  land_textures
 0x0cb817a0  mystic_ruins_garden_land_texlist
 0x0cb81bb4  dat_0cb81bb4

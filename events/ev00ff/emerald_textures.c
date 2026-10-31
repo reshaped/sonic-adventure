@@ -330,7 +330,7 @@ static NJS_MOTION ev00ff_gather_motion_6 = {
 NJS_ACTION ev00ff_gather_action_6 = {
 #include "ev00ff/emerald_textures/ev00ff_gather_action_6.inc"
 };
-static NJS_TEXNAME ev00ff_bird_textures[7] = {
+NJS_TEXNAME ev00ff_bird_textures[7] = {
     {TEXT_2, 0, 0}, {TEXT_3, 0, 0}, {TEXT_4, 0, 0}, {TEXT_5, 0, 0},
     {TEXT_6, 0, 0}, {TEXT_7, 0, 0}, {TEXT_8, 0, 0},
 };

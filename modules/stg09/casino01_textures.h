@@ -7,5 +7,7 @@
 /* the texlist act 0's land loads from its pvm, which 1ST_READ.BIN's
  * casino_act_pvms names */
 extern NJS_TEXLIST casino01_texlist;
+/* the materials after it, which a model in the generated data names */
+extern NJS_MATERIAL dat_0c927ddc[9];
 
 #endif

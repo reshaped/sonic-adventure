@@ -101,12 +101,12 @@ static NJS_TEXNAME casino04_textures[71] = {
 NJS_TEXLIST casino04_texlist = {
 #include "stg09/casino04_textures/casino04_texlist.inc"
 };
-static NJS_MATERIAL dat_0c9da0a4[2] = {
+NJS_MATERIAL dat_0c9da0a4[2] = {
 #include "stg09/casino04_textures/dat_0c9da0a4.inc"
 };
-static Sint16 dat_0c9da0cc[9] = {
+Sint16 dat_0c9da0cc[9] = {
 #include "stg09/casino04_textures/dat_0c9da0cc.inc"
 };
-static Sint16 dat_0c9da0de[5] = {
+Sint16 dat_0c9da0de[5] = {
 #include "stg09/casino04_textures/dat_0c9da0de.inc"
 };

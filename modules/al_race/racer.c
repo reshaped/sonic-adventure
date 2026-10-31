@@ -415,7 +415,15 @@ void racer_print_motion(struct racer *racer, int x, int y)
      * labels, but race_chao.h's modes run to 22. a mode past 14 prints a row
      * of racer_command_labels, which follows at 0x0cb99f8c. the labels also
      * stop naming race_chao.h's modes at mode 5: MODE_FLY, 8, prints PUSH */
+#ifdef GCC
+    /* repairs the read the tag names: GCC prints no label for a mode past
+     * the table's 15 */
+    if (racer->work->mode < 15) {
+        njPrintC(NJM_LOCATION(x, y + 1), racer_mode_labels[racer->work->mode]);
+    }
+#else
     njPrintC(NJM_LOCATION(x, y + 1), racer_mode_labels[racer->work->mode]);
+#endif
     njPrintD(NJM_LOCATION(x + 6, y + 1), racer->work->submode, 2);
     njPrintC(NJM_LOCATION(x + 9, y + 1), racer_command_labels[racer->command]);
     njPrintF(NJM_LOCATION(x, y + 2), racer->distance, 4);
@@ -808,6 +816,11 @@ static void racer_release_item(struct racer *racer)
     /* @bug uninitialized: without a source, no path sets command, and the
      * call passes the caller's R13 (MOV R13,R6 at 0x0cb87cf2). item_tell,
      * given a null task, never reads it */
+#ifdef GCC
+    /* repairs the unset command the tag names: without a source, item_tell
+     * tells nothing, so GCC passes it 0 */
+    command = 0;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
     if (reaction->source) {
         switch (reaction->kind) {

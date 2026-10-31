@@ -250,11 +250,11 @@ static void sky_destroy(struct task *task);
 
 static struct task *inside_act_tasks[INSIDE_ACT_TASKS];
 
-/* #pragma section HEAD puts what follows in PHEAD, CHEAD and DHEAD, which
- * lead the module. 1ST_READ.BIN names three of these items by address:
- * sky_steps the sky task's step, stage_pvms egg_carrier_inside_pvms, and
- * adv0130_acts the rows of egg_carrier_inside_act_pvms. the texture lists those
- * tables name lie in the head too */
+/* #pragma section HEAD puts what follows in PHEAD, CHEAD and DHEAD, which lead
+ * the module. 1ST_READ.BIN holds the addresses of three of these items there:
+ * the sky task's step, in sky_steps; egg_carrier_inside_pvms, in stage_pvms;
+ * and the rows of egg_carrier_inside_act_pvms, in adv0130_acts. the texture
+ * lists those pvm lists name lie in the head too */
 #pragma section HEAD
 void egg_carrier_inside_sky_step(struct task *task)
 {
@@ -300,7 +300,7 @@ static NJS_TEXNAME adv_ec30_textures[] = {
     {TEXT_37, 0, 0}, {TEXT_38, 0, 0}, {TEXT_39, 0, 0}, {TEXT_40, 0, 0},
     {TEXT_41, 0, 0}, {TEXT_42, 0, 0}, {TEXT_43, 0, 0}, {TEXT_44, 0, 0},
 };
-static NJS_TEXLIST adv_ec30_texlist = {
+NJS_TEXLIST adv_ec30_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec30_texlist.inc"
 };
 
@@ -318,7 +318,7 @@ static NJS_TEXNAME adv_ec31_textures[] = {
     {TEXT_81, 0, 0}, {TEXT_82, 0, 0}, {TEXT_83, 0, 0}, {TEXT_84, 0, 0},
     {TEXT_85, 0, 0},
 };
-static NJS_TEXLIST adv_ec31_texlist = {
+NJS_TEXLIST adv_ec31_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec31_texlist.inc"
 };
 
@@ -330,7 +330,7 @@ static NJS_TEXNAME adv_ec32_textures[] = {
     {TEXT_98, 0, 0},  {TEXT_99, 0, 0}, {TEXT_100, 0, 0}, {TEXT_101, 0, 0},
     {TEXT_102, 0, 0},
 };
-static NJS_TEXLIST adv_ec32_texlist = {
+NJS_TEXLIST adv_ec32_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec32_texlist.inc"
 };
 
@@ -341,7 +341,7 @@ static NJS_TEXNAME adv_ec33_textures[] = {
     {TEXT_112, 0, 0}, {TEXT_48, 0, 0},  {TEXT_113, 0, 0}, {TEXT_114, 0, 0},
     {TEXT_115, 0, 0}, {TEXT_49, 0, 0},  {TEXT_116, 0, 0}, {TEXT_44, 0, 0},
 };
-static NJS_TEXLIST adv_ec33_texlist = {
+NJS_TEXLIST adv_ec33_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec33_texlist.inc"
 };
 
@@ -358,7 +358,7 @@ static NJS_TEXNAME adv_ec34_textures[] = {
     {TEXT_125, 0, 0}, {TEXT_41, 0, 0}, {TEXT_126, 0, 0}, {TEXT_42, 0, 0},
     {TEXT_43, 0, 0},  {TEXT_44, 0, 0},
 };
-static NJS_TEXLIST adv_ec34_texlist = {
+NJS_TEXLIST adv_ec34_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec34_texlist.inc"
 };
 
@@ -368,7 +368,7 @@ static NJS_TEXNAME adv_ec35_textures[] = {
     {TEXT_88, 0, 0},  {TEXT_75, 0, 0},  {TEXT_84, 0, 0},  {TEXT_93, 0, 0},
     {TEXT_95, 0, 0},  {TEXT_97, 0, 0},
 };
-static NJS_TEXLIST adv_ec35_texlist = {
+NJS_TEXLIST adv_ec35_texlist = {
 #include "adv0130/egg_carrier_inside/adv_ec35_texlist.inc"
 };
 

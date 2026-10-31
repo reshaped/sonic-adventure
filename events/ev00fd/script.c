@@ -84,9 +84,18 @@ extern NJS_ACTION dat_0cb2d478;
  * 0x0cbbebe8). with the names, SHC loads each address from a pool word at
  * each call, as at 0x0cb80e2c, 0x0cb80f6e and 0x0cb81a78. without them,
  * ev00fd_script runs 28 bytes long and 3024 of 3247 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and these
+ * name texlists inside event_sprite_texlists */
+#define event_sprite_bomb_texlist (event_sprite_texlists[EVENT_SPRITE_BOMB])
+#define event_sprite_lightning_texlist                                         \
+    (event_sprite_texlists[EVENT_SPRITE_LIGHTNING])
+#define event_sprite_jet_texlist (event_sprite_texlists[EVENT_SPRITE_JET])
+#else
 extern NJS_TEXLIST event_sprite_bomb_texlist;
 extern NJS_TEXLIST event_sprite_lightning_texlist;
 extern NJS_TEXLIST event_sprite_jet_texlist;
+#endif
 
 extern NJS_TEXLIST event_eggmobile_texlist;
 

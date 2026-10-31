@@ -3,28 +3,34 @@
 #include <multiprec.h>
 
 /* 0 for a finite double, 1 for a NaN, 2 for an infinity */
-extern int _duchek(double value);
+extern int _duchek(long double value);
 
-static double split_exponent(double value, int *exp);
-static double split_whole(double value, double *whole);
+static long double split_exponent(long double value, int *exp);
+static long double split_whole(long double value, long double *whole);
 
 /* the binary exponent frexp gives value, times 0.301 and truncated toward
  * zero. 0.301 is about log10(2). value must be finite: a NaN or an infinity
  * leaves the exponent unset */
-int _log10(double value)
+int _log10(long double value)
 {
     int exp;
-    double whole;
+    long double whole;
 
+#ifdef GCC
+    /* GCC can't see that the splits set both: _xti passes no NaN or infinity,
+     * and exp's product is finite */
+    exp = 0;
+    whole = 0.0L;
+#endif
     split_exponent(value, &exp);
-    split_whole(exp * 0.301, &whole);
+    split_whole(exp * 0.301L, &whole);
     return (int)whole;
 }
 
 /* frexp on the double's bits: store the binary exponent in *exp and return
  * the fraction, in [0.5, 1). a NaN sets errno to ENUM and an infinity to
  * ERANGE. either returns all ones, with *exp unset */
-static double split_exponent(double value, int *exp)
+static long double split_exponent(long double value, int *exp)
 {
     unsigned char bytes[8];
     unsigned int keep = 0x800f;
@@ -115,7 +121,7 @@ static double split_exponent(double value, int *exp)
  * _log10 truncates. the fraction returned is not modf's, and _log10 doesn't
  * read it. a NaN sets errno to ENUM and an infinity to ERANGE. either returns
  * all ones, with *whole unset */
-static double split_whole(double value, double *whole)
+static long double split_whole(long double value, long double *whole)
 {
     int kind;
     int exp;

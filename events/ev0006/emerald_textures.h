@@ -6,5 +6,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev0006_emerald_texlist;
+/* the material belongs to a node of dat_0cb864f4, the emerald's model */
+extern NJS_MATERIAL dat_0cb85714[1];
 
 #endif

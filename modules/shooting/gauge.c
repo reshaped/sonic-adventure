@@ -38,7 +38,7 @@ static NJS_TEXNAME gauge_textures[] = {
     {TEXT_1, 0, 0},
     {TEXT_2, 0, 0},
 };
-static NJS_TEXLIST gauge_texlist = {
+NJS_TEXLIST gauge_texlist = {
 #include "shooting/gauge/gauge_texlist.inc"
 };
 /* the bar's pieces, which the sprite reads as one array from the cap, in
@@ -47,6 +47,32 @@ static NJS_TEXLIST gauge_texlist = {
  * address in R11 and PIECE_SIZE in R12 in the draw (0x0c908f8a,
  * 0x0c908fca); as one array, the two trade registers and 15 of 190 words
  * differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's six are one array */
+static NJS_TEXANIM gauge_pieces[PIECES] = {
+    {
+#include "shooting/gauge/gauge_cap.inc"
+    },
+    {
+#include "shooting/gauge/gauge_frame.inc"
+    },
+    {
+#include "shooting/gauge/gauge_frame_end.inc"
+    },
+    {
+#include "shooting/gauge/gauge_fill.inc"
+    },
+    {
+#include "shooting/gauge/gauge_fill_end.inc"
+    },
+    {
+#include "shooting/gauge/gauge_label.inc"
+    },
+};
+#define gauge_cap gauge_pieces[PIECE_CAP]
+#define gauge_frame_end gauge_pieces[PIECE_FRAME_END]
+#define gauge_fill_end gauge_pieces[PIECE_FILL_END]
+#else
 static NJS_TEXANIM gauge_cap = {
 #include "shooting/gauge/gauge_cap.inc"
 };
@@ -65,6 +91,7 @@ static NJS_TEXANIM gauge_fill_end = {
 static NJS_TEXANIM gauge_label = {
 #include "shooting/gauge/gauge_label.inc"
 };
+#endif
 static NJS_SPRITE gauge_sprite = {
 #include "shooting/gauge/gauge_sprite.inc"
 };

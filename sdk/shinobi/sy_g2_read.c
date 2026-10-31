@@ -12,6 +12,15 @@ SYE_G2_ERR syG2Read(void *g2_adr, void *buf_ptr, SYE_G2_DATA_WIDTH data_width,
     int i;
     Sint32 mask;
 
+#ifdef GCC
+    /* repairs the unset steps the tag below names: GCC steps a mode its
+     * switch doesn't name by 0, as SYE_G2_ADR_MODE_FIX. GCC can't see that
+     * every path that restores mask sets it: both run under one test of
+     * mask_interrupts, which nothing between changes */
+    src_step = 0;
+    dst_step = 0;
+    mask = 0;
+#endif
     /* @bug uninitialized: a mode its switch doesn't name leaves that step
      * unset. the loops then step by what the caller left in R12 for src or
      * in R13 for dst (the byte loop's ADD R12,R5 and ADD R13,R6 at 0x8c11c496

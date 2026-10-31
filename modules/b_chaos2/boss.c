@@ -2049,6 +2049,11 @@ static void chaos2_draw(struct task *task)
              * and blue, and njSetConstantMaterial (JSR at 0x0c903bc0) reads
              * its alpha from R15+8, whatever the stack held there */
             glow.r = glow.g = glow.b = chaos->barrier_glow - 1.0F;
+#ifdef GCC
+            /* repairs the unset alpha the tag names: 0 adds nothing to the
+             * alpha of the barrier's material */
+            glow.a = 0.0F;
+#endif
             njSetConstantMaterial(&glow);
             njSetTexture(&chaos2_barrier_texlist);
             njScale(NULL, 1.5F, 1.5F, 1.5F);

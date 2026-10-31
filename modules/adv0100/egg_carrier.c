@@ -131,7 +131,7 @@ static void change_flag_set(int changed);
 static void change_step(struct task *task);
 static void act_sound(struct task *task);
 
-/* 1ST_READ.BIN's stage_steps names the field task step at its address in the
+/* 1ST_READ.BIN's stage_steps holds the address of the field task step, in the
  * module's head, right after the sky task step. under section HEAD, SHC
  * writes the function to section PHEAD, which the module's link places
  * first */

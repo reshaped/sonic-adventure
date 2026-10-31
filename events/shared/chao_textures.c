@@ -1,5 +1,6 @@
-/* the Chao's texlist, the names of its eleven textures, and a material that
- * nothing reads */
+/* the Chao's texlist and the names of its eleven textures. the material
+ * belongs to a node of event_chao_object, the Chao's model, in the generated
+ * data of each event that links it */
 #include <ninja.h>
 
 #include "shared/chao_textures.h"
@@ -25,6 +26,6 @@ static NJS_TEXNAME event_chao_textures[11] = {
 NJS_TEXLIST event_chao_texlist = {
 #include "shared/chao_textures/event_chao_texlist.inc"
 };
-static NJS_MATERIAL event_chao_material[1] = {
+NJS_MATERIAL event_chao_material[1] = {
 #include "shared/chao_textures/event_chao_material.inc"
 };

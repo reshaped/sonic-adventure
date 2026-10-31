@@ -139,8 +139,18 @@ static struct polygon *polygon_cursor;
 static int polygon_cursor_index;
 /* 4 bytes of unknown type, which no code names */
 static Uint32 dat_8c6c4bb0;
+#ifdef GCC
+/* both on 32 bytes, so that each 64-byte record fills two cache lines. a
+ * walk of a mesh reads each polygon's next, center and radius, its first 24
+ * bytes, which then lie in one line. in 1ST_READ.BIN both pools start 20
+ * bytes into a line, where a record spans three lines and those 24 bytes
+ * two */
+static struct collision_mesh mesh_pool[MESHES] __attribute__((aligned(32)));
+static struct polygon polygon_pool[MESH_POLYGONS] __attribute__((aligned(32)));
+#else
 static struct collision_mesh mesh_pool[MESHES];
 static struct polygon polygon_pool[MESH_POLYGONS];
+#endif
 /* the triangles polygon_collect_near listed, mesh by mesh */
 static int near_polygon_count;
 static struct polygon *near_polygons[NEAR_POLYGONS];
@@ -188,7 +198,13 @@ static const Float size_reach2[4] = {
  * -1958.1, 0.0 and the denormal 0x002e0018. the shift is the SHLD at
  * 0x8c028dde, 0x8c02c6e6 and 0x8c02cb9a, and the reads the FMOV.S at
  * 0x8c028de4, 0x8c02c6ec and 0x8c02cba2 */
+#ifdef GCC
+/* repairs the shift the tag names: GCC reads size_reach2 at the size's own
+ * entry */
+#define SIZE_REACH2(flags) size_reach2[((flags) & WORLD_SIZE) >> 29]
+#else
 #define SIZE_REACH2(flags) size_reach2[((flags) & WORLD_SIZE) >> 13]
+#endif
 
 static NJS_OBJECT *segment_cross_mesh(struct segment_query *query,
                                       NJS_OBJECT *object, Sint32 flags);
@@ -471,8 +487,16 @@ static void sweep_model(struct polygon_ball *ball, NJS_OBJECT *object,
         for (; strips != 0 && sweep->count < POLYGON_CONTACTS; strips--) {
             reversed = strip_next(&strip);
             tri[0].x = tri[0].y = tri[0].z = 0.0F;
+#ifdef GCC
+            /* repairs the writes the tag in this loop names: GCC's loop tests
+             * the count, as the strips' and meshsets' loops do */
+            for (i = 0, corner = strip.points;
+                 i < strip.count - 2 && sweep->count < POLYGON_CONTACTS;
+                 i++, corner++) {
+#else
             for (i = 0, corner = strip.points; i < strip.count - 2;
                  i++, corner++) {
+#endif
                 /* @hack spelling: Float cursors stepped across the corners'
                  * members from &corner->x, + 3 and + 6, which SHC forms again
                  * in each test and arm; as corner[0] to corner[2]'s members,
@@ -2683,28 +2707,52 @@ Bool polygon_find_nearest_height(struct line_query *query, NJS_OBJECT *object,
                 /* @bug memory: the first reach test reads three Floats
                  * of the stack, from v0's own slot on, not the corner v0
                  * points at (0x8c02c3a0, 0x8c02c3a6, 0x8c02c3ac) */
+#ifdef GCC
+                /* repairs the reads the tag names: GCC measures to the
+                 * corner v0 points at */
+                dx = px - v0->x;
+                dy = py - v0->y;
+                dz = pz - v0->z;
+#else
                 slot = (Float *)&v0;
                 dx = px - *slot++;
                 dy = py - *slot++;
                 dz = pz - *slot;
+#endif
                 if ((dx * dx) + (dy * dy) + (dz * dz) > reach) {
                     continue;
                 }
                 /* @bug memory: the second reads them from v1's own
                  * slot on (0x8c02c3c8, 0x8c02c3ce, 0x8c02c3d4) */
+#ifdef GCC
+                /* repairs the reads the tag names: GCC measures to the
+                 * corner v1 points at */
+                dx = px - v1->x;
+                dy = py - v1->y;
+                dz = pz - v1->z;
+#else
                 slot = (Float *)&v1;
                 dx = px - *slot++;
                 dy = py - *slot++;
                 dz = pz - *slot;
+#endif
                 if ((dx * dx) + (dy * dy) + (dz * dz) > reach) {
                     continue;
                 }
                 /* @bug memory: the third reads them from v2's own
                  * slot on (0x8c02c3f0, 0x8c02c3f4, 0x8c02c3f8) */
+#ifdef GCC
+                /* repairs the reads the tag names: GCC measures to the
+                 * corner v2 points at */
+                dx = px - v2->x;
+                dy = py - v2->y;
+                dz = pz - v2->z;
+#else
                 slot = (Float *)&v2;
                 dx = px - *slot++;
                 dy = py - *slot++;
                 dz = pz - *slot;
+#endif
                 if ((dx * dx) + (dy * dy) + (dz * dz) > reach) {
                     continue;
                 }
@@ -2765,6 +2813,16 @@ Bool polygon_find_nearest_height(struct line_query *query, NJS_OBJECT *object,
 static Bool find_model_heights_near(struct height_query *query,
                                     NJS_OBJECT *object, Uint32 flags)
 {
+#ifdef GCC
+    /* keeps the image's result, no floor, everywhere except within REACH
+     * of the world origin over a WORLD_HUGE object. there the image's reach
+     * test passes: it reads the pointers v0, v2 and v1 as Floats near 0, and
+     * SIZE_REACH2's shift leaves the other sizes no reach. GCC finds no floor
+     * anywhere */
+    query->below.found = FALSE;
+    query->above.found = FALSE;
+    return FALSE;
+#else
     NJS_POINT3 *v0;
     NJS_POINT3 *v1;
     NJS_POINT3 *v2;
@@ -2912,6 +2970,7 @@ static Bool find_model_heights_near(struct height_query *query,
     }
     njPopMatrix(1);
     return any;
+#endif
 }
 
 Bool polygon_find_model_sides(struct sides_query *query, NJS_OBJECT *object,
@@ -3002,12 +3061,20 @@ Bool polygon_find_model_sides(struct sides_query *query, NJS_OBJECT *object,
                 /* @bug memory: the reach test reads three Floats of
                  * the stack, from v0's own slot on, not the corner v0 points
                  * at (0x8c02cd88, 0x8c02cd90, 0x8c02cd96) */
+#ifdef GCC
+                /* repairs the reads the tag names: GCC measures to the
+                 * corner v0 points at */
+                dx = *pos++ - v0->x;
+                dy = *pos++ - v0->y;
+                dz = *pos - v0->z;
+#else
                 slot = (Float *)&v0;
                 dx = *pos++ - *slot;
                 slot++;
                 dy = *pos++ - *slot;
                 slot++;
                 dz = *pos - *slot;
+#endif
                 if (reach2 < (dx * dx) + (dy * dy) + (dz * dz)) {
                     continue;
                 }

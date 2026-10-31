@@ -237,6 +237,11 @@ void pdVibEnumUnitCallback(Sint32 device, Sint32 seqno, KDS_DEVICE *dev,
     Sint32 err;
 
     vib->busy = false;
+#ifdef GCC
+    /* repairs the unset err the tag below names: with no unit_func, no
+     * answer is read, so none fails and the walk goes on */
+    err = PDD_VIBERR_OK;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
     if (vib->unit_func) {
         err = pdVibSetUnitInfo(device, seqno, dev, info, &unit_info, &unit);

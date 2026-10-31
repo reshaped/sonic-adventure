@@ -8,6 +8,16 @@
 
 #include "system/task.h"
 
+#ifdef GCC
+struct path;
+
+/* the lists 1ST_READ.BIN's path_lists names for the stage's acts 0 and 2.
+ * each ends with a null, where path_create_tasks stops. act 1 has none. the
+ * stage's generated data holds them */
+extern struct path *windy_act0_paths[];
+extern struct path *windy_act2_paths[];
+#endif
+
 /* 1ST_READ.BIN's windy_set_fog sets act 0's fog from windy_fog_table and
  * windy_fog_shown at the vsync that ends each frame. during a demo, it sets the
  * fog only when windy_fog_shown is 0xffffffff */

@@ -12,7 +12,7 @@
 #include "system/util.h"
 
 extern NJS_OBJECT neon_sign_object;
-extern NJS_MESHSET neon_sign_meshsets[];
+extern NJS_MESHSET neon_sign_meshsets[3];
 
 /* destroyed beyond about 600 units of the camera and player 0 */
 #define RANGE ((600.0F * 600.0F) + 10.0F)

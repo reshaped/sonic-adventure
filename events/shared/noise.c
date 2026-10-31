@@ -231,6 +231,11 @@ static void event_noise_draw_noise(struct task *task)
     polygon.col[3].argb.g = 0;
     polygon.col[3].argb.b = 0;
     njDrawPolygon2D(&polygon, 4, -1.5F, NJD_FILL | NJD_TRANSPARENT);
+#ifdef GCC
+    /* the port's 16:9 keeps the pixels' x: they scatter across the whole
+     * screen, and each square stretches with it */
+    port_wide_cover = TRUE;
+#endif
     for (i = 0; i < NOISE_PIXELS; i++) {
         polygon.p[0].x = (Sint16)(rand() * (SCREEN_WIDTH * RAND_SCALE));
         polygon.p[0].y = (Sint16)(rand() * (SCREEN_HEIGHT * RAND_SCALE));
@@ -258,6 +263,9 @@ static void event_noise_draw_noise(struct task *task)
         polygon.col[3].argb.b = 255;
         njDrawPolygon2D(&polygon, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
     }
+#ifdef GCC
+    port_wide_cover = FALSE;
+#endif
 }
 
 /* draw what the phase shows: the black, or the noise */

@@ -216,10 +216,10 @@ static NJS_TEXLIST super_wake_texlist = {
 NJS_TEXLIST super_sonic_texlist = {
 #include "b_chaos7/super/super_sonic_texlist.inc"
 };
-/* Super Sonic's models, then the aura's and the wake's. sonic.c reaches his by
- * address, and this file draws the others. the aura's and the wake's texture
- * names point at super_sonic_textures' strings, which SHC shares only within
- * one file */
+/* Super Sonic's models, then the aura's and the wake's. sonic.c draws his,
+ * and this file draws the others. the aura's and the wake's texture names
+ * point at super_sonic_textures' strings, which SHC shares only within one
+ * file */
 static NJS_OBJECT dat_0c901f24 = {
 #include "b_chaos7/super/dat_0c901f24.inc"
 };
@@ -283,7 +283,7 @@ static NJS_VECTOR dat_0c9022ac[8] = {
 static NJS_MODEL dat_0c90230c = {
 #include "b_chaos7/super/dat_0c90230c.inc"
 };
-static NJS_OBJECT dat_0c902334 = {
+NJS_OBJECT dat_0c902334 = {
 #include "b_chaos7/super/dat_0c902334.inc"
 };
 static NJS_MATERIAL dat_0c902368[1] = {
@@ -307,7 +307,7 @@ static NJS_VECTOR dat_0c902434[8] = {
 static NJS_MODEL dat_0c902494 = {
 #include "b_chaos7/super/dat_0c902494.inc"
 };
-static NJS_OBJECT dat_0c9024bc = {
+NJS_OBJECT dat_0c9024bc = {
 #include "b_chaos7/super/dat_0c9024bc.inc"
 };
 static NJS_MATERIAL dat_0c9024f0[3] = {
@@ -343,7 +343,7 @@ static NJS_VECTOR dat_0c902750[16] = {
 static NJS_MODEL dat_0c902810 = {
 #include "b_chaos7/super/dat_0c902810.inc"
 };
-static NJS_OBJECT dat_0c902838 = {
+NJS_OBJECT dat_0c902838 = {
 #include "b_chaos7/super/dat_0c902838.inc"
 };
 static NJS_MATERIAL dat_0c90286c[5] = {
@@ -391,7 +391,7 @@ static NJS_VECTOR dat_0c902cb0[29] = {
 static NJS_MODEL dat_0c902e0c = {
 #include "b_chaos7/super/dat_0c902e0c.inc"
 };
-static NJS_OBJECT dat_0c902e34 = {
+NJS_OBJECT dat_0c902e34 = {
 #include "b_chaos7/super/dat_0c902e34.inc"
 };
 static NJS_MATERIAL dat_0c902e68[3] = {
@@ -427,7 +427,7 @@ static NJS_VECTOR dat_0c90313c[23] = {
 static NJS_MODEL dat_0c903250 = {
 #include "b_chaos7/super/dat_0c903250.inc"
 };
-static NJS_OBJECT dat_0c903278 = {
+NJS_OBJECT dat_0c903278 = {
 #include "b_chaos7/super/dat_0c903278.inc"
 };
 static NJS_OBJECT dat_0c9032ac = {
@@ -466,7 +466,7 @@ static NJS_VECTOR dat_0c90347c[8] = {
 static NJS_MODEL dat_0c9034dc = {
 #include "b_chaos7/super/dat_0c9034dc.inc"
 };
-static NJS_OBJECT dat_0c903504 = {
+NJS_OBJECT dat_0c903504 = {
 #include "b_chaos7/super/dat_0c903504.inc"
 };
 static NJS_MATERIAL dat_0c903538[1] = {
@@ -490,7 +490,7 @@ static NJS_VECTOR dat_0c903604[8] = {
 static NJS_MODEL dat_0c903664 = {
 #include "b_chaos7/super/dat_0c903664.inc"
 };
-static NJS_OBJECT dat_0c90368c = {
+NJS_OBJECT dat_0c90368c = {
 #include "b_chaos7/super/dat_0c90368c.inc"
 };
 static NJS_MATERIAL dat_0c9036c0[3] = {
@@ -526,7 +526,7 @@ static NJS_VECTOR dat_0c903914[16] = {
 static NJS_MODEL dat_0c9039d4 = {
 #include "b_chaos7/super/dat_0c9039d4.inc"
 };
-static NJS_OBJECT dat_0c9039fc = {
+NJS_OBJECT dat_0c9039fc = {
 #include "b_chaos7/super/dat_0c9039fc.inc"
 };
 static NJS_MATERIAL dat_0c903a30[5] = {
@@ -574,7 +574,7 @@ static NJS_VECTOR dat_0c903e68[29] = {
 static NJS_MODEL dat_0c903fc4 = {
 #include "b_chaos7/super/dat_0c903fc4.inc"
 };
-static NJS_OBJECT dat_0c903fec = {
+NJS_OBJECT dat_0c903fec = {
 #include "b_chaos7/super/dat_0c903fec.inc"
 };
 static NJS_MATERIAL dat_0c904020[3] = {
@@ -610,7 +610,7 @@ static NJS_VECTOR dat_0c9042f4[23] = {
 static NJS_MODEL dat_0c904408 = {
 #include "b_chaos7/super/dat_0c904408.inc"
 };
-static NJS_OBJECT dat_0c904430 = {
+NJS_OBJECT dat_0c904430 = {
 #include "b_chaos7/super/dat_0c904430.inc"
 };
 static NJS_OBJECT dat_0c904464 = {
@@ -649,7 +649,7 @@ static NJS_VECTOR dat_0c90465c[8] = {
 static NJS_MODEL dat_0c9046bc = {
 #include "b_chaos7/super/dat_0c9046bc.inc"
 };
-static NJS_OBJECT dat_0c9046e4 = {
+NJS_OBJECT dat_0c9046e4 = {
 #include "b_chaos7/super/dat_0c9046e4.inc"
 };
 static NJS_MATERIAL dat_0c904718[1] = {
@@ -673,7 +673,7 @@ static NJS_VECTOR dat_0c9047e4[8] = {
 static NJS_MODEL dat_0c904844 = {
 #include "b_chaos7/super/dat_0c904844.inc"
 };
-static NJS_OBJECT dat_0c90486c = {
+NJS_OBJECT dat_0c90486c = {
 #include "b_chaos7/super/dat_0c90486c.inc"
 };
 static NJS_MATERIAL dat_0c9048a0[2] = {
@@ -703,7 +703,7 @@ static NJS_VECTOR dat_0c904ac4[16] = {
 static NJS_MODEL dat_0c904b84 = {
 #include "b_chaos7/super/dat_0c904b84.inc"
 };
-static NJS_OBJECT dat_0c904bac = {
+NJS_OBJECT dat_0c904bac = {
 #include "b_chaos7/super/dat_0c904bac.inc"
 };
 static NJS_MATERIAL dat_0c904be0[1] = {
@@ -757,7 +757,7 @@ static NJS_VECTOR dat_0c904f8c[9] = {
 static NJS_MODEL dat_0c904ff8 = {
 #include "b_chaos7/super/dat_0c904ff8.inc"
 };
-static NJS_OBJECT dat_0c905020 = {
+NJS_OBJECT dat_0c905020 = {
 #include "b_chaos7/super/dat_0c905020.inc"
 };
 static NJS_MATERIAL dat_0c905054[3] = {
@@ -793,7 +793,7 @@ static NJS_VECTOR dat_0c905328[23] = {
 static NJS_MODEL dat_0c90543c = {
 #include "b_chaos7/super/dat_0c90543c.inc"
 };
-static NJS_OBJECT dat_0c905464 = {
+NJS_OBJECT dat_0c905464 = {
 #include "b_chaos7/super/dat_0c905464.inc"
 };
 static NJS_OBJECT dat_0c905498 = {
@@ -832,7 +832,7 @@ static NJS_VECTOR dat_0c905680[8] = {
 static NJS_MODEL dat_0c9056e0 = {
 #include "b_chaos7/super/dat_0c9056e0.inc"
 };
-static NJS_OBJECT dat_0c905708 = {
+NJS_OBJECT dat_0c905708 = {
 #include "b_chaos7/super/dat_0c905708.inc"
 };
 static NJS_MATERIAL dat_0c90573c[1] = {
@@ -856,7 +856,7 @@ static NJS_VECTOR dat_0c905808[8] = {
 static NJS_MODEL dat_0c905868 = {
 #include "b_chaos7/super/dat_0c905868.inc"
 };
-static NJS_OBJECT dat_0c905890 = {
+NJS_OBJECT dat_0c905890 = {
 #include "b_chaos7/super/dat_0c905890.inc"
 };
 static NJS_MATERIAL dat_0c9058c4[2] = {
@@ -886,7 +886,7 @@ static NJS_VECTOR dat_0c905ae8[16] = {
 static NJS_MODEL dat_0c905ba8 = {
 #include "b_chaos7/super/dat_0c905ba8.inc"
 };
-static NJS_OBJECT dat_0c905bd0 = {
+NJS_OBJECT dat_0c905bd0 = {
 #include "b_chaos7/super/dat_0c905bd0.inc"
 };
 static NJS_MATERIAL dat_0c905c04[1] = {
@@ -940,7 +940,7 @@ static NJS_VECTOR dat_0c905fb0[9] = {
 static NJS_MODEL dat_0c90601c = {
 #include "b_chaos7/super/dat_0c90601c.inc"
 };
-static NJS_OBJECT dat_0c906044 = {
+NJS_OBJECT dat_0c906044 = {
 #include "b_chaos7/super/dat_0c906044.inc"
 };
 static NJS_MATERIAL dat_0c906078[3] = {
@@ -976,7 +976,7 @@ static NJS_VECTOR dat_0c906340[23] = {
 static NJS_MODEL dat_0c906454 = {
 #include "b_chaos7/super/dat_0c906454.inc"
 };
-static NJS_OBJECT dat_0c90647c = {
+NJS_OBJECT dat_0c90647c = {
 #include "b_chaos7/super/dat_0c90647c.inc"
 };
 static NJS_OBJECT dat_0c9064b0 = {
@@ -1192,7 +1192,7 @@ static NJS_OBJECT dat_0c909d40 = {
 static NJS_OBJECT dat_0c909d74 = {
 #include "b_chaos7/super/dat_0c909d74.inc"
 };
-static NJS_OBJECT super_sonic_object = {
+NJS_OBJECT super_sonic_object = {
 #include "b_chaos7/super/super_sonic_object.inc"
 };
 static NJS_MATERIAL dat_0c909ddc[1] = {
@@ -1216,7 +1216,7 @@ static NJS_VECTOR dat_0c90b368[212] = {
 static NJS_MODEL dat_0c90bd58 = {
 #include "b_chaos7/super/dat_0c90bd58.inc"
 };
-static NJS_OBJECT dat_0c90bd80 = {
+NJS_OBJECT dat_0c90bd80 = {
 #include "b_chaos7/super/dat_0c90bd80.inc"
 };
 static NJS_TEXNAME dat_0c90bdb4[1] = {{TEXT_17, 0, 0}};

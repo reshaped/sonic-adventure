@@ -32,12 +32,16 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import csource
 import tags
 from code_ranges import CATEGORIES, overlap, written
-from config import configs, content, fail
-from link import section, section_table
+from config import Config
+from images import binaries
+from link import section
+from shc_object import section_table
+from tool import content, fail, save
 
-# the number of images config/ describes: a repeated event file shares its event's image
+# the number of binaries config/ describes: a repeated event file shares its event's image
 PROGRAMS = 247
 README = Path('README.md')
 OPENING, CLOSING = '<!-- progress -->', '<!-- /progress -->'
@@ -85,11 +89,11 @@ MEASURED = {}
 
 
 def survey():
-    """Every image's Config. Fails unless config/ describes PROGRAMS images.
-    A repeated event file has no image of its own here."""
-    images = configs()
+    """Every binary's Config, in name order. Fails unless config/ describes
+    PROGRAMS binaries. A repeated event file has no image of its own here."""
+    images = [Config(name) for name in binaries()]
     if len(images) != PROGRAMS:
-        fail(f'config/ has {len(images)} images, and progress expects {PROGRAMS}')
+        fail(f'config/ has {len(images)} binaries, and progress expects {PROGRAMS}')
     return images
 
 
@@ -118,8 +122,8 @@ def report(images, routes):
 
 def listing(source):
     """The listing asmsh wrote beside source's object, and the object's
-    sections, as (path, sections), sections as link.section_table() gives
-    them. The object is under build/ or build/stub/. make check builds a
+    sections, as (path, sections), sections as shc_object.section_table()
+    gives them. The object is under build/ or build/stub/. make check builds a
     stub under build/stub/ in place of a source that imports data. Where
     both stand, it is the newer, as link.section takes the newer of two
     that differ. Of two that agree with neither newer, it is the one under
@@ -177,9 +181,9 @@ def lines_and_runs(path, sections):
     alignment are of the line asmsh put the pool after. A row of an offset
     and code alone is of the row above's lines.
 
-    sections gives the object's sections, as link.section_table() does.
-    For each section the listing gives bytes in, its runs must tile the size
-    the object declares, starting at 0. Fails on:
+    sections gives the object's sections, as shc_object.section_table()
+    does. For each section the listing gives bytes in, its runs must tile the
+    size the object declares, starting at 0. Fails on:
     - a run in no section, or one that doesn't follow the one before it in
       its section;
     - a section that sections lacks, or whose runs don't end at its size;
@@ -237,16 +241,17 @@ def lines_and_runs(path, sections):
     return texts, runs
 
 
-def construct(lines, line, what):
+def construct(lines, ends, line, what):
     """The lines of the inline body or #pragma asm block that a site of
-    tags.check_c() opens at line, or None where it has no end. The site is a
-    block where what is #pragma asm, and a body otherwise. A block's lines
-    run from below line to the first #pragma endasm. A body's lines lie
-    between its function's braces. The braces are found by text alone: the
-    first line below line that is { and nothing else, and the next that is }
-    and nothing else."""
+    tags.check_c() opens at line, or None where it has no end. ends holds
+    the index of each #pragma endasm's line, in order. The site is a block
+    where what is #pragma asm, and a body otherwise. A block's lines run
+    from below line to the first #pragma endasm. A body's lines lie between
+    its function's braces. The braces are found by text alone: the first
+    line below line that is { and nothing else, and the next that is } and
+    nothing else."""
     if what == '#pragma asm':
-        end = next((at for at in range(line, len(lines)) if tags.END.match(lines[at])), None)
+        end = next((at for at in ends if at >= line), None)
         return None if end is None else lines[line:end]
     opening = next((at for at in range(line, len(lines)) if lines[at] == '{'), None)
     closing = None if opening is None else next((at for at in range(opening, len(lines)) if lines[at] == '}'), None)
@@ -283,8 +288,9 @@ def bodies(source, texts, tables):
     - two on the same lines, one with a basis and one open."""
     text = content(source).decode('latin-1')
     lines, sites = text.split('\n'), []
+    ends = [each.line - 1 for each in csource.parse(text).directives if csource.pragma(each) == ['endasm']]
     for line, what, found in tags.check_c(source, text, tables, []):
-        body = construct(lines, line, what)
+        body = construct(lines, ends, line, what)
         if body is None:
             fail(f'{source}:{line}: {what} has no end')
         if body:
@@ -489,13 +495,17 @@ def row(*cells):
     return '|' + '|'.join(f' {cell} ' if cell else ' ' for cell in cells) + '|'
 
 
-def block(counted):
+def block(counted, patched=0):
     """README.md's lines between its markers, from counted, numbers()'s
-    counts. The lines give the headline, the table, the basis's share of the
-    assembly's instructions and data, the space it reserves left out, and a
-    link to the accounting. The table has a row for each row of counted,
-    then one for All. Fails where a row or All has no C or assembly bytes, or
-    where All's assembly is all reserved space, leaving no share to take."""
+    counts, and patched, how many C sources take shckit's patches, patched
+    and grafted. The lines give the headline, the table, an italic line
+    under it with a note on those sources where there are any, which C's
+    heading marks, and a link to the accounting, then the basis's share of
+    the assembly's instructions and data, the space it reserves left out.
+    The table has a row for each row of
+    counted, then one for All. Fails where a row or All has no C or assembly
+    bytes, or where All's assembly is all reserved space, leaving no share to
+    take."""
     total = sum(counted.values(), Counter())
     for name, counts in (*counted.items(), ('All', total)):
         if not compiled(counts):
@@ -504,16 +514,20 @@ def block(counted):
     if not written:
         fail('no assembly but the space it reserves, so no share of it with a basis')
     lines = ["**100% of the game's code builds from source, byte for byte.**", '',
-             row('', 'Binaries', 'Code bytes', 'C', 'Assembly'), '|---|---:|---:|---:|---:|']
+             row('', 'Binaries', 'Code bytes', 'C\\*' if patched else 'C', 'Assembly'), '|---|---:|---:|---:|---:|']
     for name, counts in counted.items():
         lines.append(row(name, '' if name == SDK else f'{counts["programs"]:,}', f'{compiled(counts):,}',
                          *shares(counts)))
     lines.append(row(*(f'**{cell}**' for cell in ('All', f'{total["programs"]:,}', f'{compiled(total):,}',
                                                    *shares(total)))))
     basis = percent(share(total['basis'], written), total['basis'])
-    lines += ['', 'Most of the assembly was handwritten in the original, not compiled from C. Compiler analysis and '
+    note = (f"\\*SHC's assembly for {patched} of the C sources matches once "
+            '[shckit](https://github.com/reshaped/shckit) patches it ([Patched R10](TOOLCHAIN.md#patched-r10)). '
+            if patched else '')
+    lines += ['', f'*{note}[Accounting](TOOLCHAIN.md#accounting) explains the percentages.*', '',
+              'Most of the assembly was handwritten in the original, not compiled from C. Compiler analysis and '
               'original symbol names already provide [evidence](TAGS.md#assembly) of handwritten origins for '
-              f'{basis} of its instructions and data.', '', 'See [Accounting](TOOLCHAIN.md#accounting) for methodology.']
+              f'{basis} of its instructions and data.']
     return lines
 
 
@@ -545,11 +559,11 @@ def main(argv):
         print(report(survey(), routes), end='')
         return
     text = content(README).decode()
-    new = rewritten(text, block(numbers(survey(), routes)))
+    new = rewritten(text, block(numbers(survey(), routes), len(routes[0] | routes[1])))
     if new != text and args.check:
         fail(f'{README}: its numbers are stale; make progress rewrites them')
     if new != text:
-        README.write_bytes(new.encode())
+        save(README, new.encode())
 
 
 if __name__ == '__main__':

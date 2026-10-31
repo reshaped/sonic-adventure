@@ -868,7 +868,14 @@ static void camera_demo_edit(void)
         camera_demo_keys[act][camera_demo_key].target.x += move.x;
         camera_demo_keys[act][camera_demo_key].target.y += move.y;
         camera_demo_keys[act][camera_demo_key].target.z += move.z;
+#ifdef GCC
+        /* repairs the reads and writes the tags name: GCC's B steps the key
+         * to the act's last at most, DEMO_KEYS - 1 */
+        if ((pad_records[1].press & PDD_DGT_TB) &&
+            camera_demo_key < DEMO_KEYS - 1) {
+#else
         if (pad_records[1].press & PDD_DGT_TB) {
+#endif
             /* @bug memory: from key 21 this samples keys past
              * the act's, and from key 22 its records run past intro_path's
              * 420, at 0x0c913f24 and 0x0c913fa0 */
@@ -968,7 +975,13 @@ static void camera_demo_draw(int count)
     const NJS_COLOR *line_color;
 
     if (limit != 0) {
+#ifdef GCC
+        /* repairs the read past intro_path the tag below names: GCC's lines
+         * end at its last record */
+        for (i = 0; i < limit && i < INTRO_RECORDS - 1; ++i) {
+#else
         for (i = 0; i < limit; ++i) {
+#endif
             color.argb.a = 255;
             color.argb.r = 255;
             color.argb.g = 0;

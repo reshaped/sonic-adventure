@@ -69,7 +69,7 @@ static NJS_TEXNAME police_texnames[21] = {
     {TEXT_17, 0, 0}, {TEXT_18, 0, 0}, {TEXT_19, 0, 0}, {TEXT_20, 0, 0},
     {TEXT_21, 0, 0},
 };
-static NJS_TEXLIST police_texlist = {
+NJS_TEXLIST police_texlist = {
 #include "stg04/police/police_texlist.inc"
 };
 static NJS_MATERIAL dat_0ca791bc[5] = {
@@ -377,6 +377,10 @@ enum police_mode {
  * and waits within HOME_NEAR */
 #define RETURN_NEAR 30.0F
 #define HOME_NEAR 10.0F
+/* a car that isn't waiting blows dust off the floor while its clearance is
+ * under DOWNWASH_REACH. police_hover's clearance is the car's height over
+ * the floor, plus 3.5 */
+#define DOWNWASH_REACH 12.8F
 
 /* police_start chases once the timer passes START_STEPS. police_return
  * waits once it passes RETURN_STEPS */
@@ -1221,6 +1225,17 @@ static void police_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct lockon_target *record = LOCKON_TARGET(task);
+#ifdef GCC
+    /* the split frame's second picture draws from a copy of the record, so
+     * that the action's frame, which police_draw_car wraps, stays as the
+     * steps left it */
+    struct lockon_target copy;
+
+    if (frame_redrawing) {
+        copy = *record;
+        record = &copy;
+    }
+#endif
 
     police_draw_car(work, record);
 }
@@ -1288,6 +1303,14 @@ static void police_hover(struct task_work *work, struct lockon_target *record)
             work->ang.z = angle_approach(work->ang.z, 0, 0xf0);
         }
     } else {
+#ifdef GCC
+        /* repairs the unset clearance the tag below names: with no floor,
+         * clearance is DOWNWASH_REACH, so the car raises no dust, as in the
+         * image. GCC can't see that height then goes unread, so height
+         * takes the last floor's */
+        clearance = DOWNWASH_REACH;
+        height = POLICE_FLOOR(record);
+#endif
         record->motion.accel.y += POLICE_THRUST(record) *
                                   (0.85F + (POLICE_SPEED2(record) * 0.045F)) /
                                   (work->pos.y - POLICE_FLOOR(record) + 6.8F);
@@ -1306,7 +1329,7 @@ static void police_hover(struct task_work *work, struct lockon_target *record)
      * SIREN_RADIUS into FR15 at 0x0c90f666, before it calls the five modes'
      * functions. so with no floor, clearance holds 200, and the test at
      * 0x0c90ebf2 fails. height then goes unread */
-    if (clearance > -3.0F && clearance < 12.8F && work->mode) {
+    if (clearance > -3.0F && clearance < DOWNWASH_REACH && work->mode) {
         Float strength = (21.0F - clearance) * 0.25F;
 
         police_downwash.scale = 0.5F + (strength * 0.1F);

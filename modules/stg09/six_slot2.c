@@ -20,9 +20,9 @@
 
 /* the body, with the spinning top as its child */
 extern NJS_OBJECT six_slot2_object;
-/* O 6SLOT's face meshset, which six_slot2_faces shifts. this model doesn't
- * draw it, so O 6SLOT2's faces never change */
-extern NJS_MESHSET six_slot_face_meshset;
+/* O 6SLOT's meshsets, of which six_slot2_faces shifts the face, meshset 8.
+ * this model doesn't draw it, so O 6SLOT2's faces never change */
+extern NJS_MESHSET six_slot_meshsets[10];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */

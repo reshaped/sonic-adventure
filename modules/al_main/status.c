@@ -1033,6 +1033,13 @@ void status_give_skills(struct task_work *work, struct alife_chao *chao,
      * 8 bytes past the table, child_part_objects' first two pointers, which
      * are null, so it adds nothing, at 0x0c90e742, 0x0c90e760 and
      * 0x0c90e7a2 */
+#ifdef GCC
+    /* keeps the value the tag names, as the sums read it: ANIMAL_ZOU adds
+     * nothing */
+    if (kind == ANIMAL_ZOU) {
+        return;
+    }
+#endif
     if (kind < ANIMAL_MOGU) {
         if (record->type == CHAO_SWIM) {
             record->skills.swim += animal_skill_bonuses[kind][0] * 2;

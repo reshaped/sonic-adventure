@@ -15,7 +15,7 @@
 #include "system/util.h"
 
 extern NJS_ACTION sign_c_action;
-extern NJS_MESHSET sign_c_meshsets[];
+extern NJS_MESHSET sign_c_meshsets[4];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */

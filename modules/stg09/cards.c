@@ -239,16 +239,31 @@ static void card_hand_run(struct task *task)
         draw_set_material(0.5F, 0.0F, 0.0F, 0.0F);
         card_white_sprite.sx = 80.0F;
         card_white_sprite.p.x = 0.0F;
+#ifdef GCC
+        /* the port's 16:9 stretches the dim across the screen */
+        port_wide_cover = TRUE;
+#endif
         njDrawSprite2D(&card_white_sprite, 0, -3.0F,
                        NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR);
+#ifdef GCC
+        port_wide_cover = FALSE;
+#endif
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
         if (!(HAND_VARS(work)->countdown & HAND_BLINK)) {
             card_face_sprite.p.x = COLUMN_X;
             card_face_sprite.p.y = COLUMN_BOTTOM;
+#ifdef GCC
+            /* the port's 16:9 squeezes the column about the screen's right
+             * edge */
+            port_wide_anchor = WIDE_RIGHT;
+#endif
             for (i = 0; i < PINBALL_CARDS; i++) {
                 njDrawSprite2D(&card_face_sprite, pinball_cards[i], -2.0F, 0);
                 card_face_sprite.p.y -= COLUMN_RISE;
             }
+#ifdef GCC
+            port_wide_anchor = WIDE_MIDDLE;
+#endif
         }
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
         njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_ONE);
@@ -433,6 +448,11 @@ static void card_display_draw(struct task *task)
         return;
     }
     if (pinball_cards_dealt) {
+#ifdef GCC
+        /* the port's 16:9 squeezes the column and the band behind it about
+         * the screen's right edge */
+        port_wide_anchor = WIDE_RIGHT;
+#endif
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_INVSRCALPHA);
@@ -448,6 +468,9 @@ static void card_display_draw(struct task *task)
             njDrawSprite2D(&card_face_sprite, pinball_cards[i], -2.0F, 0);
             card_face_sprite.p.y -= COLUMN_RISE;
         }
+#ifdef GCC
+        port_wide_anchor = WIDE_MIDDLE;
+#endif
     }
 }
 

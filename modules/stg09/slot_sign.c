@@ -15,9 +15,9 @@
 /* the base. its child is the middle part, and that child's sibling the upper
  * part */
 extern NJS_OBJECT slot_sign_object;
-extern NJS_MESHSET slot_sign_base_meshset;
-extern NJS_MESHSET slot_sign_middle_meshset;
-extern NJS_MESHSET slot_sign_upper_meshset;
+extern NJS_MESHSET slot_sign_base_meshsets[6];
+extern NJS_MESHSET slot_sign_middle_meshsets[2];
+extern NJS_MESHSET slot_sign_upper_meshsets[4];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */

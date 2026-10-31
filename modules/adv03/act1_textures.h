@@ -5,9 +5,8 @@
 
 #include <ninja.h>
 
-/* the texlist the act 1 land names. 1ST_READ.BIN's past_act_pvms names it
- * and PAST01 for act 1, which texture_load_act loads into it. the table
- * reaches the texlist by its address, not by its name */
+/* the texlist the act 1 land names. 1ST_READ.BIN's past_act_pvms names it and
+ * PAST01 for act 1, which texture_load_act loads into it */
 extern NJS_TEXLIST past01_texlist;
 /* the only material of the model that the act 1 land's first entry
  * names. the rest of that model, in the gen/ range after it, names it */

@@ -1239,6 +1239,16 @@ static void grabber_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct lockon_target *record = LOCKON_TARGET(task);
+#ifdef GCC
+    /* the split frame's second picture draws from a copy of the record, so
+     * that the matrix the puffs read stays as the steps left it */
+    struct lockon_target copy;
+
+    if (frame_redrawing) {
+        copy = *record;
+        record = &copy;
+    }
+#endif
 
     grabber_render(work, record);
 }
@@ -1779,6 +1789,17 @@ static void robo_draw(struct task *task)
     struct lockon_target *record = LOCKON_TARGET(task);
     Float across = work->scl.x * 1.5F;
     Float up = work->scl.y * 1.5F;
+#ifdef GCC
+    /* the split frame's second picture draws from a copy of the record, so
+     * that the matrix the puffs and the trail read stays as the steps left
+     * it */
+    struct lockon_target copy;
+
+    if (frame_redrawing) {
+        copy = *record;
+        record = &copy;
+    }
+#endif
 
     njSetTexture(&e_robo_texlist);
     if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 10.0F)) {

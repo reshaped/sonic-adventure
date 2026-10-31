@@ -4,8 +4,7 @@ from pathlib import Path
 import align
 import code_ranges
 from config import Config
-from support import cwd, tree
-from test_make import make
+from support import cwd, make, tree
 
 ROOT = Path(__file__).resolve().parents[1]
 

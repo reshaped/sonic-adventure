@@ -4,8 +4,7 @@
 
 #include "system/texture.h"
 
-/* 1ST_READ.BIN's stage_pvms points at this list for the stage. it reaches
- * the list by its address, 0x0ca146b8, not by its name */
+/* 1ST_READ.BIN's stage_pvms points at this list for the stage */
 extern struct texture_pvm windy_pvms[];
 
 #endif

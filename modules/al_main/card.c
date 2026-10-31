@@ -75,7 +75,13 @@ static Uint8 dat_0ca865fa[0x200a];
 static Uint8 card_work[BUM_WORK_SIZE(BUD_CAPACITY_1MB, CARD_DRIVES)];
 static Uint8 dat_0cb02704[4];
 /* the first block of the executable file read_mark last read */
+#ifdef GCC
+/* buLoadFileEx reads the block in by vmsfs_memcpyl's longword stores, which
+ * fault on an address off 4. GCC aligns this structure only to its Uint16 */
+static struct exec_block exec_block __attribute__((aligned(4)));
+#else
 static struct exec_block exec_block;
+#endif
 static Uint8 dat_0cb02908[0x200];
 /* the placeholder record, named DUMMY, that card_clear_chao and fun_0c902760
  * write */
@@ -286,7 +292,12 @@ int alife_save(void)
      * chao_get_file_data's 0x180 bytes reads 0x600 (0x0c901ed8, 0x0c901eda).
      * the 0x480 bytes past them are chao_get_records's first. the next copy
      * writes the same bytes to the same place in alife_data */
+#ifdef GCC
+    /* repairs the count the tag names: GCC copies the 0x180 bytes as longs */
+    njMemCopy4(alife_data, head, CHAO_FILE_DATA_SIZE / sizeof(Sint32));
+#else
     njMemCopy4(alife_data, head, CHAO_FILE_DATA_SIZE);
+#endif
     njMemCopy4(&alife_data[CHAO_FILE_DATA_SIZE], records,
                ALIFE_RECORDS * sizeof(struct chao) / sizeof(Sint32));
     strcpy(header.vms_comment, TEXT_1);
@@ -352,7 +363,12 @@ int alife_save_wait(void)
     memset(alife_data, 0, sizeof(alife_data));
     /* @bug memory: as in alife_save, this copy reads 0x600 bytes for
      * chao_get_file_data's 0x180 (0x0c90207a, 0x0c90207c) */
+#ifdef GCC
+    /* repairs the count, as in alife_save */
+    njMemCopy4(alife_data, head, CHAO_FILE_DATA_SIZE / sizeof(Sint32));
+#else
     njMemCopy4(alife_data, head, CHAO_FILE_DATA_SIZE);
+#endif
     njMemCopy4(&alife_data[CHAO_FILE_DATA_SIZE], records,
                ALIFE_RECORDS * sizeof(struct chao) / sizeof(Sint32));
     strcpy(header.vms_comment, TEXT_1);
@@ -618,6 +634,12 @@ int card_write_egg(Sint32 drive, const struct chao *egg)
     status = buFindExecFile(drive, name);
     if (status == (Sint32)BUD_ERR_FILE_NOT_FOUND) {
         if (buGetDiskFree(drive, BUD_FILETYPE_EXECUTABLE) >= EXEC_BLOCKS) {
+#ifdef GCC
+            /* repairs the unset bytes the tag below names: GCC's empty slot
+             * holds 0 in every byte but its type's, so no stack bytes reach
+             * the card */
+            memset(&empty, 0, sizeof(empty));
+#endif
             empty.type = CHAO_NOTHING;
             card_get_time(&time);
             /* @bug uninitialized: only empty's type is set (0x0c902680). the

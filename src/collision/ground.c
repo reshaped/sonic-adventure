@@ -42,6 +42,12 @@ Float ground_below(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 10.0F);
     best = -GROUND_FAR;
+#ifdef GCC
+    /* repairs the unset ang_x and ang_z the tag at the end names: with no
+     * floor, GCC writes a flat slope */
+    ang_x = 0;
+    ang_z = 0;
+#endif
     for (i = 0; i < world_count; i++) {
         object = objects[i].object;
         /* a task's object counts only when the point is within its reach
@@ -122,6 +128,12 @@ Float ground_nearest(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
+#ifdef GCC
+    /* repairs the unset ang_x and ang_z the tag at the end names: with no
+     * floor, GCC writes a flat slope */
+    ang_x = 0;
+    ang_z = 0;
+#endif
     for (i = 0; i < world_count; i++) {
         object = objects[i].object;
         if (objects[i].owner != NULL) {
@@ -194,6 +206,12 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
+#ifdef GCC
+    /* repairs the unset ang_x and ang_z the tag at the end names: with no
+     * floor, GCC writes a flat slope */
+    ang_x = 0;
+    ang_z = 0;
+#endif
     for (i = 0; i < world_count; i++) {
         object = objects[i].object;
         if (objects[i].owner != NULL) {
@@ -290,10 +308,47 @@ Float ground_find_first_floor(struct task_work *work, struct angles *slope)
     return query.floor.level;
 }
 
+#ifdef GCC
+/* hand port.h's present_shadow the shadow at x, y and z, turned about z, x
+ * and y, of width scale, drawn as way says */
+static void shadow_cast(Float x, Float y, Float z, Angle ang_z, Angle ang_x,
+                        Angle ang_y, Float scale, enum shadow_way way)
+{
+    struct shadow_place place = {{x, y, z}, ang_z, ang_x, ang_y, scale, way};
+
+    present_shadow(&place);
+}
+
+void shadow_draw_placed(const struct shadow_place *place)
+{
+    texture_set_regular();
+    njPushMatrix(NULL);
+    njTranslate(NULL, place->pos.x, place->pos.y, place->pos.z);
+    TURN(njRotateZ, place->ang_z);
+    TURN(njRotateX, place->ang_x);
+    TURN(njRotateY, place->ang_y);
+    if (place->way == SHADOW_TWICE) {
+        njScale(NULL, place->scale, place->scale, place->scale);
+    }
+    njScale(NULL, place->scale, place->scale, place->scale * SHADOW_LENGTH);
+    if (place->way == SHADOW_MODEL) {
+        njEasyDrawModel(shadow_object->model);
+    } else {
+        njEasyDrawObject(shadow_object);
+    }
+    njPopMatrix(1);
+}
+#endif
+
 void shadow_draw_at_height(struct task_work *work, Float height)
 {
     Float scale;
 
+#ifdef GCC
+    scale = SHADOW_SCALE(1.0F, work->pos.y - height);
+    shadow_cast(work->pos.x, height + GIVEN_LIFT, work->pos.z, work->ang.z,
+                work->ang.x, 0, scale, SHADOW_MODEL);
+#else
     if (frame_step == 0) {
         scale = SHADOW_SCALE(1.0F, work->pos.y - height);
         texture_set_regular();
@@ -305,6 +360,7 @@ void shadow_draw_at_height(struct task_work *work, Float height)
         njEasyDrawModel(shadow_object->model);
         njPopMatrix(1);
     }
+#endif
 }
 
 Float shadow_draw(struct task_work *work, Float scale)
@@ -313,6 +369,11 @@ Float shadow_draw(struct task_work *work, Float scale)
     Float floor;
 
     floor = ground_below(work->pos.x, work->pos.y + 4.0F, work->pos.z, &slope);
+#ifdef GCC
+    scale = SHADOW_SCALE(scale, work->pos.y - floor);
+    shadow_cast(work->pos.x, floor + SHADOW_LIFT, work->pos.z, slope.z, slope.x,
+                -work->ang.y, scale, SHADOW_OBJECT);
+#else
     if (frame_step == 0) {
         scale = SHADOW_SCALE(scale, work->pos.y - floor);
         texture_set_regular();
@@ -325,11 +386,15 @@ Float shadow_draw(struct task_work *work, Float scale)
         njEasyDrawObject(shadow_object);
         njPopMatrix(1);
     }
+#endif
     return floor;
 }
 
 void shadow_draw_at(struct angles *ang, NJS_POINT3 *pos, Float scale)
 {
+#ifdef GCC
+    shadow_cast(pos->x, pos->y, pos->z, ang->z, ang->x, 0, scale, SHADOW_TWICE);
+#else
     if (frame_step == 0) {
         texture_set_regular();
         njPushMatrix(NULL);
@@ -341,6 +406,7 @@ void shadow_draw_at(struct angles *ang, NJS_POINT3 *pos, Float scale)
         njEasyDrawObject(shadow_object);
         njPopMatrix(1);
     }
+#endif
 }
 
 Float shadow_draw_slope(struct task_work *work, Float scale,
@@ -349,6 +415,11 @@ Float shadow_draw_slope(struct task_work *work, Float scale,
     Float floor;
 
     floor = ground_below(work->pos.x, work->pos.y, work->pos.z, slope);
+#ifdef GCC
+    scale = SHADOW_SCALE(scale, work->pos.y - floor);
+    shadow_cast(work->pos.x, floor + SHADOW_LIFT, work->pos.z, slope->z,
+                slope->x, work->ang.y, scale, SHADOW_OBJECT);
+#else
     if (frame_step == 0) {
         scale = SHADOW_SCALE(scale, work->pos.y - floor);
         texture_set_regular();
@@ -361,6 +432,7 @@ Float shadow_draw_slope(struct task_work *work, Float scale,
         njEasyDrawObject(shadow_object);
         njPopMatrix(1);
     }
+#endif
     return floor;
 }
 
@@ -460,6 +532,14 @@ void shadow_update(struct task_work *work, struct shadow *shadow)
             }
         }
     }
+#ifdef GCC
+    if (shadow->below > query.pos.y - 20000.0F) {
+        scale = SHADOW_SCALE(shadow->scale, query.pos.y - shadow->below);
+        shadow_cast(work->pos.x, shadow->below + SHADOW_LIFT, work->pos.z,
+                    shadow->ang_z, shadow->ang_x, -work->ang.y, scale,
+                    SHADOW_OBJECT);
+    }
+#else
     if (frame_step == 0 && shadow->below > query.pos.y - 20000.0F) {
         scale = SHADOW_SCALE(shadow->scale, query.pos.y - shadow->below);
         texture_set_regular();
@@ -473,6 +553,7 @@ void shadow_update(struct task_work *work, struct shadow *shadow)
         njEasyDrawObject(shadow_object);
         njPopMatrix(1);
     }
+#endif
 }
 
 Bool ground_find_sides(struct sides_query *result)

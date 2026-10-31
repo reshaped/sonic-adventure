@@ -1,8 +1,8 @@
 /* the kurotama's object, the A-Life textures and their texlist, and the
  * monorail camera's action with its camera and motion. the models of the
  * booster, the laser and the long hammer follow, three level items whose root
- * objects 1ST_READ.BIN's level_item_models names by address. a list of six
- * textures and its texlist stands ahead of each of the first two models */
+ * objects 1ST_READ.BIN's level_item_models names. a list of six textures
+ * and its texlist stands ahead of each of the first two models */
 #include <ninja.h>
 #include <sg_xpt.h>
 

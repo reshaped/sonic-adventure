@@ -198,9 +198,17 @@ static void camera_roll_with_gravity(struct camera_view *view)
      * (0x8c01e9d0) and squared from registers; set before the sum, x and z
      * take registers, the function runs 32 bytes short and 171 of 177 words
      * differ */
+#ifdef GCC
+    /* keeps SHC's angle: C leaves the tag's spelling undefined, so GCC sets
+     * x and z before their squares, as SHC's code does */
+    x = up.x;
+    z = up.z;
+    angle = (Angle)(asinf(njSqrt((x * x) + (z * z))) * ANGLE_PER_RADIAN);
+#else
     /* NOLINTNEXTLINE(clang-diagnostic-unsequenced) */
     angle = (Angle)(asinf(njSqrt(((x = up.x) * x) + ((z = up.z) * z))) *
                     ANGLE_PER_RADIAN);
+#endif
     up.y = look.y = 0.0F;
     njUnitVector(&look);
     njUnitVector(&up);
@@ -1983,6 +1991,11 @@ static int path_nearest_index(NJS_POINT3 *point, struct camera_path *stretch)
     Float distance;
     NJS_POINT3 shifted;
 
+#ifdef GCC
+    /* repairs a path with no points, where the image returns nearest
+     * unset: GCC's nearest is the first index */
+    nearest = 0;
+#endif
     for (i = 0; i < count; i++) {
         /* @hack spelling: byte cursors over the point and the shift, for the
          * image's @Rn+ loads (0x8c0224b4 to 0x8c0224c2); through the
@@ -3008,7 +3021,16 @@ void camera_step_follow(struct camera_view *view)
     if (camera_state->pos.y > player_work[0]->pos.y) {
         vector.x = camera_state->pos.x - player_work[0]->pos.x;
         vector.z = camera_state->pos.z - player_work[0]->pos.z;
+#ifdef GCC
+        /* repairs the camera straight above player 0, where vector.x and
+         * vector.z are 0: the image's njUnitVector of that zero vector (JSR
+         * @R3 at 0x8c0241fc) writes NaN into the camera's x and z. GCC skips
+         * the move across, which has no direction there */
+        if ((vector.x * vector.x) + (vector.z * vector.z) < 900.0F &&
+            (vector.x != 0.0F || vector.z != 0.0F)) {
+#else
         if ((vector.x * vector.x) + (vector.z * vector.z) < 900.0F) {
+#endif
             vector.y = 0.0F;
             njUnitVector(&vector);
             camera_state->pos.x = (vector.x * 30.0F) + player_work[0]->pos.x;

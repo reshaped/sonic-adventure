@@ -72,6 +72,12 @@
 #define TEXT_52_LENGTH 4
 #include "ev0047/script/text.inc"
 
+#ifdef GCC
+/* repairs the scale the (0, 0, 0) call's @bug tag names: by
+ * event_sprite_set_scale's prototype, the call passes 0.0F, the scale of 0
+ * it spells */
+#define ev0047_sprite_set_scale event_sprite_set_scale
+#else
 /* @hack type: event_sprite_set_scale under a name of its own, declared without
  * a prototype. a declaration of event_sprite_set_scale itself would keep the
  * prototype shared/sprite.h gives it. ev0047_script's one call that passes
@@ -84,6 +90,7 @@
  * differ */
 /* NOLINTNEXTLINE(clang-diagnostic-strict-prototypes) */
 extern void ev0047_sprite_set_scale();
+#endif
 
 extern NJS_ACTION ev0047_tails_action_0;
 extern NJS_ACTION ev0047_tails_action_1;

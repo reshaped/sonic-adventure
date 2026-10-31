@@ -1,0 +1,50 @@
+# EV00C5.PRS: each definition of its gen/ ranges, by address.
+# A definition is a kind or a C type, with [COUNT] for an array. Both
+# builds write each row (TOOLCHAIN.md#generated-ranges).
+#
+# address   definition
+0x0cb80ef0  mkey_a[58]
+0x0cb81290  mkey_a[58]
+0x0cb81630  mkey_a[58]
+0x0cb819d0  mkey_a[58]
+0x0cb81d70  mkey_a[58]
+0x0cb82110  mkey_a[58]
+0x0cb824b0  mkey_a[58]
+0x0cb82850  mkey_a[58]
+0x0cb82bf0  mkey_a[58]
+0x0cb82f90  mkey_a[57]
+0x0cb83320  mkey_a[57]
+0x0cb836b0  mkey_a[60]
+0x0cb83a70  mkey_a[51]
+0x0cb83da0  mkey_a[57]
+0x0cb84130  mkey_a[57]
+0x0cb844c0  mkey_a[60]
+0x0cb84880  mkey_a[60]
+0x0cb84c40  mdata2[77]
+0x0cb85110  motion
+0x0cb8511c  action
+0x0cb85124  mkey_f[30]
+0x0cb85304  mkey_a[30]
+0x0cb854e4  mkey_a[30]
+0x0cb856c4  mkey_a[27]
+0x0cb85874  mkey_a[27]
+0x0cb85a24  mkey_a[30]
+0x0cb85c04  mkey_a[30]
+0x0cb85de4  mkey_a[30]
+0x0cb85fc4  mkey_a[29]
+0x0cb86194  mkey_a[29]
+0x0cb86364  mkey_a[30]
+0x0cb86544  mkey_a[16]
+0x0cb86644  mkey_a[30]
+0x0cb86824  mkey_a[30]
+0x0cb86a04  mkey_a[30]
+0x0cb86be4  mkey_a[30]
+0x0cb86dc4  mkey_a[30]
+0x0cb86fa4  mkey_a[30]
+0x0cb87184  mkey_a[30]
+0x0cb87364  mkey_a[30]
+0x0cb87544  mkey_a[30]
+0x0cb87724  mkey_a[30]
+0x0cb87904  mdata2[77]
+0x0cb87dd4  motion
+0x0cb87de0  action

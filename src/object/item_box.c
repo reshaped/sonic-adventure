@@ -13,6 +13,9 @@
 #include "object/item_box_air.h"
 #include "object/models.h"
 #include "object/placement.h"
+#ifdef GCC
+#include "player/e102_shot.h"
+#endif
 #include "player/lockon.h"
 #include "player/player.h"
 #include "player/target.h"
@@ -365,7 +368,18 @@ static void item_give_speed_up(struct task_work *work)
 {
     struct collision_work *hit = work->collision->hit;
 
+#ifdef GCC
+    /* repairs the slot for E-102's shot. the image takes as the player the
+     * byte at the shot's work + 8 (MOV.B @(8,R4),R0 at 0x8c0609b2), the low
+     * byte of its shooter's work's address (MOV.L R4,@(8,R14) at
+     * 0x8c0dcfb0). GCC gives a shot's speed up to the E-102 who fired it */
+    struct task_work *shooter = e102_shot_shooter(hit->owner);
+
+    player_give_speed_up(
+        PLAYER_VARS(shooter != NULL ? shooter : hit->owner->work)->player);
+#else
     player_give_speed_up(PLAYER_VARS(hit->owner->work)->player);
+#endif
     if (get_character() == CHARACTER_E102) {
         sound_play(SE_E102_SPEED_UP, 0, 0, 0);
     }

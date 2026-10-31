@@ -734,6 +734,12 @@ void collision_register(struct task_work *work)
 {
     struct collision_work *collision = work->collision;
 
+#ifdef GCC
+    /* the split frame's second picture registers no collision */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     if (edit_mode) {
         return;
     }
@@ -3530,6 +3536,14 @@ Sint8 collision_get_hit_normal(struct task_work *work, NJS_VECTOR *normal)
     NJS_POINT3 other_pos;
     NJS_POINT3 local;
 
+#ifdef GCC
+    /* repairs the normal each return of 0 leaves unset (0x8c0359a0). all
+     * but two of the callers use it regardless, as player_slide_along_wall
+     * copies it into wall_normal. GCC returns 0 with a zero normal */
+    normal->x = 0.0F;
+    normal->y = 0.0F;
+    normal->z = 0.0F;
+#endif
     /* @hack redundant: the count tested in an else, which puts which's EXTS.W
      * in R3 (0x8c0355ae); in an if of its own, R2, and 2 of 497 words differ */
     if (other == NULL) {
@@ -3537,6 +3551,14 @@ Sint8 collision_get_hit_normal(struct task_work *work, NJS_VECTOR *normal)
     } else if (which > other->count) {
         return 0;
     }
+#ifdef GCC
+    /* repairs the read past hit's shapes: the test above lets which equal
+     * hit's count, and other->shapes[which] then lies past hit's last
+     * shape. GCC refuses that index too */
+    if (which == other->count) {
+        return 0;
+    }
+#endif
     other_shape = &other->shapes[which];
     if (shape == NULL) {
         return 0;

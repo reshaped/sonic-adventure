@@ -1714,6 +1714,10 @@
 0x0cacd52c  dat_0cacd52c
 0x0cacd790  dat_0cacd790
 0x0cacd894  sky_deck_vent_object
+0x0cad1584  dat_0cad1584
+0x0cad5248  dat_0cad5248
+0x0cad6dac  dat_0cad6dac
+0x0cad8f60  dat_0cad8f60
 0x0cadb438  dat_0cadb438
 0x0cadb8d4  dat_0cadb8d4
 0x0cadbfbc  sky_deck_act0_paths

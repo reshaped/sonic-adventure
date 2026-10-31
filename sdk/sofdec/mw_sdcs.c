@@ -250,6 +250,12 @@ int mwSndPlay(MwSnd *snd, int bps, Uint16 freq)
     int type;
     int err;
 
+#ifdef GCC
+    /* repairs the unset type the tag below names: for a bps no format has,
+     * GCC passes -1, which sdPstmPlay rejects as out of range, as it
+     * rejects the rna's address that the image passes */
+    type = -1;
+#endif
     /* NOLINTBEGIN(clang-diagnostic-sometimes-uninitialized) */
     if (bps == 16) {
         type = SDE_PCM_TYPE_16BIT_PCM;

@@ -367,9 +367,6 @@ enum weld_kind {
     WELD_MARK
 };
 
-/* an action in a stage's module, at the address it loads at */
-#define MODULE_ACTION(address) ((NJS_ACTION *)(address))
-
 /* an entry in a character's table of actions */
 struct player_action {
     NJS_ACTION *action;
@@ -476,7 +473,8 @@ struct death_zone {
     NJS_OBJECT *object;
 };
 
-/* each stage's lists of zones, by act, each ended by a null object */
+/* each stage's lists of zones, by act, each ended by a null object. a
+ * stage's lists lie in its module, so use them only while it is loaded */
 extern struct death_zone **death_zones[];
 
 /* each slot's task work and motion, null while the slot is empty. the

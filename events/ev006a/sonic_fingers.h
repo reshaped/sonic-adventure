@@ -19,5 +19,7 @@ extern NJS_ACTION ev006a_amy_action_2;
 extern NJS_ACTION ev006a_amy_action_3;
 extern NJS_OBJECT dat_0cba20f8;
 extern NJS_TEXLIST ev006a_bird_texlist_1;
+/* the texture names of the generated texlist ev006a_bird_texlist_2 */
+extern NJS_TEXNAME ev006a_bird_textures_2[12];
 
 #endif

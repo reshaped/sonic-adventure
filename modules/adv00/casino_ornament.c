@@ -101,7 +101,13 @@ static void casino_ornament_draw_still(struct task *task);
  * and 0x0c90ad9c. without it, the stores share 0x0c90ad98, 3 of the 76
  * words of casino_ornament_init differ, and the code from 0x0c90adc0 on
  * lies 32 bytes early */
+#ifdef GCC
+/* GCC's link binds a name only to a definition of that name, and nothing
+ * defines this second name, so GCC's side uses casino_ornament_draw_still */
+#define casino_ornament_step_still casino_ornament_draw_still
+#else
 extern void casino_ornament_step_still(struct task *task);
+#endif
 
 /* or bits into the attrflags of every material in the tree */
 static void tree_attr_or(NJS_OBJECT *object, Uint32 bits)
@@ -264,8 +270,14 @@ static void casino_ornament_step(struct task *task)
      * 0x0c90ad30). the callee leaves stage << 8 | act there unnarrowed
      * (0x8c052ac8, 0x8c052acc). as a Uint16, an EXTU.W R0,R0 comes first
      * and 9 of 78 words differ */
+#ifdef GCC
+    /* keeps the shipped play: stage << 8 | act fits a Uint16, so stage.h's
+     * return compares the same */
+    if (ORNAMENT_STAGE_ACT(work) != stage_get_stage_act()) {
+#else
     /* NOLINTNEXTLINE(clang-diagnostic-cast-function-type-mismatch) */
     if (ORNAMENT_STAGE_ACT(work) != ((int (*)(void))stage_get_stage_act)()) {
+#endif
         task_kill(task);
         return;
     }

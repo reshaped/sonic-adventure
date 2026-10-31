@@ -20,7 +20,7 @@
 
 /* the body, with the spinning top as its child */
 extern NJS_OBJECT six_slot_object;
-extern NJS_MESHSET six_slot_face_meshset;
+extern NJS_MESHSET six_slot_meshsets[10];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */

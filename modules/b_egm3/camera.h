@@ -6,10 +6,10 @@
 
 struct camera_view;
 
-/* the step of camera mode EGM3, which 1ST_READ.BIN's camera_mode_list
- * names by its address in PHEAD. it reads player 0's work and
- * egg_viper_task's, so both tasks must exist. it sets camera_state's phase,
- * pos and target, and leaves view alone */
+/* the step of camera mode EGM3, in PHEAD, which 1ST_READ.BIN's
+ * camera_mode_list names. it reads player 0's work and egg_viper_task's, so
+ * both tasks must exist. it sets camera_state's phase, pos and target, and
+ * leaves view alone */
 void eggmobile3_camera_step(struct camera_view *view);
 /* start the next step's phase from its first subphase. stop the shake too,
  * whether asked for or under way */

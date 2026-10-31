@@ -25,8 +25,19 @@ static struct death_zone twinkle_act2_death_zones[2] = {
 /* the lists by act, one for each of the stage's three acts. 1ST_READ.BIN's
  * death_zones names the array. death_zone_step and knuckles_outside_zones
  * read the current act's list */
+#ifdef GCC
+/* keeps the value death_zone_step's tag names: in act 3 it reads this null
+ * fourth entry, where the image reads a fill word of 0 */
+struct death_zone *twinkle_death_zones[4] = {
+    twinkle_act0_death_zones,
+    twinkle_act1_death_zones,
+    twinkle_act2_death_zones,
+    NULL,
+};
+#else
 struct death_zone *twinkle_death_zones[3] = {
     twinkle_act0_death_zones,
     twinkle_act1_death_zones,
     twinkle_act2_death_zones,
 };
+#endif

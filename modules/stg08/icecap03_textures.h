@@ -3,9 +3,8 @@
 #define STG08_ICECAP03_TEXTURES_H
 #include <ninja.h>
 
-/* 1ST_READ.BIN's icecap_act_pvms names this texlist and ICECAP03 for act
- * 2, which texture_load_act loads into it. the table reaches the texlist by
- * its address, not by its name */
+/* 1ST_READ.BIN's icecap_act_pvms names this texlist and ICECAP03 for act 2,
+ * which texture_load_act loads into it */
 extern NJS_TEXLIST icecap03_texlist;
 
 #endif

@@ -6,16 +6,13 @@
 #include "collision/collision.h"
 #include "debug/editor.h"
 #include "draw/tree.h"
+#include "object/helpers.h"
 #include "object/placement.h"
 #include "player/player.h"
 #include "stg05/lava_control.h"
 #include "stg05/mountain.h"
 #include "system/task.h"
 #include "system/util.h"
-
-/* an arrow a unit long, pointing up y. object/helpers.c defines it static,
- * but 1ST_READ.BIN's symbols name it */
-extern NJS_OBJECT arrow_y;
 
 enum lava_control_mode {
     LAVA_CONTROL_INIT,

@@ -3,6 +3,8 @@
  * that action */
 #include <ninja.h>
 
-static NJS_MKEY_F dat_0cb8ba10[15] = {
+#include "ev004d/dat_0cb8ba10.h"
+
+NJS_MKEY_F dat_0cb8ba10[15] = {
 #include "ev004d/dat_0cb8ba10/dat_0cb8ba10.inc"
 };

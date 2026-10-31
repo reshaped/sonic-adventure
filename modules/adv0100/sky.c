@@ -21,6 +21,11 @@
  * SEA_RIPPLE_STEPS. only this file reads it. it is the bss word at
  * 0x0cb2de4c, 4 bytes below near_clouds, the first of this file's own bss */
 extern Sint32 sea_frame;
+#ifdef GCC
+/* ADV0100's tables place the word in bss no source holds, so the port
+ * defines it here */
+Sint32 sea_frame;
+#endif
 
 /* the flying_ objects show in flight, and the sea_ ones once the Egg Carrier
  * has sunk */
@@ -146,7 +151,7 @@ static NJS_SPRITE cloud_sprite = {
 };
 
 /* the sky's step opens the module, at 0x0c920000, the address 1ST_READ.BIN's
- * sky_steps names. #pragma section HEAD puts it in PHEAD, the module's first
+ * sky_steps holds. #pragma section HEAD puts it in PHEAD, the module's first
  * section. each step advances the sea's ripple and the sheet's scroll, and
  * draws the sky */
 #pragma section HEAD

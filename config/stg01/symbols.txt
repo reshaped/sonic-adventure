@@ -614,6 +614,7 @@
 0x0c978c94  beach_act0_wave_object_14
 0x0c978f94  beach_act0_wave_object_15
 0x0c9792fc  beach_act0_wave_object_16
+0x0c981904  beach_act0_land
 0x0c98fb48  beach_act1_sand_object_0
 0x0c990b50  beach_act1_sand_object_1
 0x0c9916d4  beach_act1_sand_object_2

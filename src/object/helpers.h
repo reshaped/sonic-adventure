@@ -99,6 +99,8 @@ Float vector_reflect(NJS_VECTOR *vector, NJS_VECTOR *normal, NJS_VECTOR *out);
 void arrow_draw(NJS_POINT3 *pos, NJS_VECTOR *vector);
 void arrow_draw_y(NJS_POINT3 *pos, NJS_VECTOR *vector);
 void marker_draw(NJS_POINT3 *pos, Float size);
+/* an arrow one unit long, from the origin up y, which arrow_draw_y stretches */
+extern NJS_OBJECT arrow_y;
 
 /* a kind picked at random from table, pairs of a weight and a kind as
  * Floats that end at a weight of 0. a kind's chance is its weight, out of

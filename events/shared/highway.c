@@ -72,6 +72,10 @@ static struct task *event_highway_spawn(void)
      * (MOV R0,R4 at 0x0cb860be in EV00FE), which event_highway_create stores
      * (0x0cb860e6); returned explicitly, the function runs 2 bytes long and 10
      * of 18 words differ */
+#ifdef GCC
+    /* keeps the value the tag names: task_create's result */
+    return task;
+#endif
 } /* NOLINT(clang-diagnostic-return-type) */
 
 void event_highway_create(void)

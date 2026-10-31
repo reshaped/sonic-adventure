@@ -48,7 +48,9 @@ struct goal_robot_record {
 
 enum goal_robot_mode { GOAL_ROBOT_WAVE };
 
-extern NJS_MATERIAL robot_flag;
+/* the robot's model's materials, the flag's at FLAG_MATERIAL */
+#define FLAG_MATERIAL 7
+extern NJS_MATERIAL robot_materials[];
 extern NJS_ACTION goal_robot_action;
 
 static void goal_robot_init(struct task *task, void *arg);
@@ -65,7 +67,7 @@ static const struct task_desc goal_robot_desc = {
     goal_robot_draw,
     NULL};
 static const struct flag_textures goal_robot_flags[1] = {
-    {&robot_flag, {MIN_HATA7, MIN_HATA8}}};
+    {&robot_materials[FLAG_MATERIAL], {MIN_HATA7, MIN_HATA8}}};
 
 void goal_robot_step(struct task *task)
 {

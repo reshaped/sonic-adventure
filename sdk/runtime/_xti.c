@@ -2,10 +2,10 @@
 #include <string.h>
 
 extern int _allzero(const unsigned char *bytes, int n);
-extern void _unpack(double value, signed char *sign, short *exponent,
+extern void _unpack(long double value, signed char *sign, short *exponent,
                     unsigned char *fraction);
 /* an estimate of value's decimal exponent */
-extern int _log10(double value);
+extern int _log10(long double value);
 extern void _pow5(int n, unsigned char *bytes);
 /* divide the number exponent and fraction give by 10 to the n. integer gets
  * the quotient rounded to a whole number, in 8 bytes, most significant
@@ -18,7 +18,7 @@ extern void _calcnpw(short exponent, unsigned char *fraction, int n,
  * digits. a zero gives an *integer and *scale of 0. it returns 1 or -1 for
  * plus or minus infinity, 2 for a NaN, and 0 otherwise. an infinity or a NaN
  * leaves *integer and *scale unset */
-int _xti(double value, int digits, unsigned char *integer, int *scale,
+int _xti(long double value, int digits, unsigned char *integer, int *scale,
          signed char *sign)
 {
     unsigned char *bytes;

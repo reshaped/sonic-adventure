@@ -48,6 +48,32 @@ NJS_TEXLIST chaos_lifegauge_texlist = {
  * address in R11 and PIECE_SIZE in R12 in the draw (0x8c0fd396,
  * 0x8c0fd3d6); as one array, the two trade registers and 15 of 194 words
  * differ */
+#ifdef GCC
+/* keeps the sprite's read from the cap: GCC's six are one array */
+static NJS_TEXANIM life_gauge_pieces[PIECES] = {
+    {
+#include "hud/life_gauge/life_gauge_cap.inc"
+    },
+    {
+#include "hud/life_gauge/life_gauge_frame.inc"
+    },
+    {
+#include "hud/life_gauge/life_gauge_frame_end.inc"
+    },
+    {
+#include "hud/life_gauge/life_gauge_fill.inc"
+    },
+    {
+#include "hud/life_gauge/life_gauge_fill_end.inc"
+    },
+    {
+#include "hud/life_gauge/life_gauge_label.inc"
+    },
+};
+#define life_gauge_cap life_gauge_pieces[PIECE_CAP]
+#define life_gauge_frame_end life_gauge_pieces[PIECE_FRAME_END]
+#define life_gauge_fill_end life_gauge_pieces[PIECE_FILL_END]
+#else
 static NJS_TEXANIM life_gauge_cap = {
 #include "hud/life_gauge/life_gauge_cap.inc"
 };
@@ -66,6 +92,7 @@ static NJS_TEXANIM life_gauge_fill_end = {
 static NJS_TEXANIM life_gauge_label = {
 #include "hud/life_gauge/life_gauge_label.inc"
 };
+#endif
 static NJS_SPRITE life_gauge_sprite = {
 #include "hud/life_gauge/life_gauge_sprite.inc"
 };
@@ -98,6 +125,10 @@ static void life_gauge_draw(struct task *task)
     if (hud_hidden < 0) {
         return;
     }
+#ifdef GCC
+    /* the port's 16:9 squeezes the gauge about the screen's right edge */
+    port_wide_anchor = WIDE_RIGHT;
+#endif
     draw_set_material(1.0F, 1.0F, 1.0F, 1.0F);
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
     njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
@@ -142,6 +173,9 @@ static void life_gauge_draw(struct task *task)
         njDrawSprite2D(&life_gauge_sprite, PIECE_FILL_END, -2.0F,
                        NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR);
     }
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 /* the gauge has nothing of its own to free */

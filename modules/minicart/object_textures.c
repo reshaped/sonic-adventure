@@ -66,11 +66,8 @@ static NJS_TEXNAME obj_mini_cart_textures[43] = {
 NJS_TEXLIST obj_mini_cart_texlist = {
 #include "minicart/object_textures/obj_mini_cart_texlist.inc"
 };
-NJS_MATERIAL dat_0ca38044[4] = {
-#include "minicart/object_textures/dat_0ca38044.inc"
-};
-NJS_MATERIAL signboard_face[4] = {
-#include "minicart/object_textures/signboard_face.inc"
+NJS_MATERIAL signboard_materials[8] = {
+#include "minicart/object_textures/signboard_materials.inc"
 };
 Sint16 dat_0ca380e4[32] = {
 #include "minicart/object_textures/dat_0ca380e4.inc"

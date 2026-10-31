@@ -18,6 +18,6 @@ static NJS_MOTION ev00d0_emerald_motion = {
 NJS_ACTION ev00d0_emerald_action = {
 #include "ev00d0/emerald_action/ev00d0_emerald_action.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

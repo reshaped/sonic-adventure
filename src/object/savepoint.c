@@ -436,8 +436,16 @@ static void savepoint_show_time(struct task *task, struct task_work *work)
         case 11:
             break;
         default:
+#ifdef GCC
+            /* the port's 16:9 squeezes the time about the screen's right
+             * edge */
+            port_wide_anchor = WIDE_RIGHT;
+#endif
             hud_draw_time(&time_layout, restart_point.minutes,
                           restart_point.seconds);
+#ifdef GCC
+            port_wide_anchor = WIDE_MIDDLE;
+#endif
             break;
         }
     }

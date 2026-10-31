@@ -80,6 +80,6 @@ static NJS_TEXNAME icecap02_textures[55] = {
 NJS_TEXLIST icecap02_texlist = {
 #include "stg08/icecap02_textures/icecap02_texlist.inc"
 };
-static NJS_MATERIAL dat_0c95cb4c[1] = {
+NJS_MATERIAL dat_0c95cb4c[1] = {
 #include "stg08/icecap02_textures/dat_0c95cb4c.inc"
 };

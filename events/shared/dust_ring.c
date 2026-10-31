@@ -48,13 +48,14 @@ static void event_dust_ring_puff(struct task_work *work)
         work->tick = 0;
         ang = 0;
         for (i = 0; i < DUST_RING_PUFFS; ++i) {
-            event_dust_ring_params.pos.x = work->pos.x +
-                                           (njCos(ang) * DUST_RING_RADIUS) +
-                                           RANDOM(-3.0F, 3.0F);
-            event_dust_ring_params.pos.y = work->pos.y + RANDOM(-2.0F, 2.0F);
-            event_dust_ring_params.pos.z = work->pos.z +
-                                           (njSin(ang) * DUST_RING_RADIUS) +
-                                           RANDOM(-3.5F, 3.5F);
+            event_dust_ring_params.pos.x =
+                work->pos.x + (njCos(ang) * DUST_RING_RADIUS) +
+                (rand() * (6.0F * RAND_SCALE)) - 3.0F;
+            event_dust_ring_params.pos.y =
+                work->pos.y + (rand() * (4.0F * RAND_SCALE)) - 2.0F;
+            event_dust_ring_params.pos.z =
+                work->pos.z + (njSin(ang) * DUST_RING_RADIUS) +
+                (rand() * (7.0F * RAND_SCALE)) - 3.5F;
             event_dust_ring_params.scale = 0.5F;
             event_dust_ring_params.speed.x = RANDOM(-1.0F, 1.0F);
             event_dust_ring_params.speed.y = 0.0F;

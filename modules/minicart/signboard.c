@@ -27,6 +27,9 @@ struct signboard_kind {
  * signboard_init is 8 bytes longer and 64 of 69 words differ */
 #define KIND(arg) ((const struct signboard_kind *)(arg))
 
+/* the material the picture is on, in signboard_materials */
+#define FACE_MATERIAL 4
+
 /* a signboard's record, in task->motion */
 struct signboard_record {
     Sint16 shown; /* the index in textures of the one shown */
@@ -131,7 +134,7 @@ static void signboard_init(struct task *task, void *arg)
         record->wait = delay;
         record->delay = delay;
         record->model = model;
-        record->face = signboard_face;
+        record->face = &signboard_materials[FACE_MATERIAL];
         record->textures = KIND(arg)->textures;
         record->reach = model->r * 2.0F;
     }

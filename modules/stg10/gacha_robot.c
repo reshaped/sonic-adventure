@@ -1176,7 +1176,15 @@ static void gacha_robot_draw_at(struct task_work *work,
     Angle ang;
     NJS_OBJECT *object;
 
+#ifdef GCC
+    /* in ROBOT_FUSE, step 1 draws the spark, so the second picture's pass
+     * skips the robot's callback. step 1 draws the robot and its shadow
+     * too, where port.h's FRAME_DRAWS says */
+    if (FRAME_DRAWS()) {
+        present_untimed(TRUE);
+#else
     if (frame_step == 0) {
+#endif
         njSetTexture(&gacha_robot_texlist);
         njPushMatrix(NULL);
         distance = njDistanceP2P(&camera_work->pos, &work->pos);
@@ -1200,6 +1208,9 @@ static void gacha_robot_draw_at(struct task_work *work,
         njScale(NULL, 3.0F, 3.0F, 3.0F);
         njEasyDrawObject(shadow_object);
         njPopMatrix(1);
+#ifdef GCC
+        present_untimed(FALSE);
+#endif
     }
 }
 
@@ -1429,17 +1440,42 @@ static void gacha_robot_flash(struct task_work *work,
     gacha_robot_flash_small.pos.y = work->pos.y + 5.0F;
     gacha_robot_flash_small.pos.z = work->pos.z;
     for (i = 0; i < 3; i++) {
+#ifdef GCC
+        /* C leaves the arguments' order open, so x's rand() and then y's are
+         * drawn before the call. SHC draws them in that order, then z's (JSR
+         * at 0x0c90e2b4 for x, 0x0c90e2c4 for y and 0x0c90e2d8 for z) */
+        {
+            Float x = ((rand() * RAND_SCALE) - 0.5F) * 2.0F;
+            Float y = ((rand() * RAND_SCALE) - 0.5F) * 1.0F;
+
+            gacha_set_speed(&gacha_robot_flash_large.speed.x,
+                            ((rand() * RAND_SCALE) - 0.5F) * 2.0F, y, x);
+        }
+#else
         gacha_set_speed(&gacha_robot_flash_large.speed.x,
                         ((rand() * RAND_SCALE) - 0.5F) * 2.0F,
                         ((rand() * RAND_SCALE) - 0.5F) * 1.0F,
                         ((rand() * RAND_SCALE) - 0.5F) * 2.0F);
+#endif
         hit_create_from(&gacha_robot_flash_large);
     }
     for (i = 0; i < 8; i++) {
+#ifdef GCC
+        /* as above (JSR at 0x0c90e308 for x, 0x0c90e31a for y and 0x0c90e332
+         * for z) */
+        {
+            Float x = ((rand() * RAND_SCALE) - 0.5F) * 6.0F;
+            Float y = (((rand() * RAND_SCALE) - 0.5F) * 2.0F) + 0.4F;
+
+            gacha_set_speed(&gacha_robot_flash_small.speed.x,
+                            ((rand() * RAND_SCALE) - 0.5F) * 6.0F, y, x);
+        }
+#else
         gacha_set_speed(&gacha_robot_flash_small.speed.x,
                         ((rand() * RAND_SCALE) - 0.5F) * 6.0F,
                         (((rand() * RAND_SCALE) - 0.5F) * 2.0F) + 0.4F,
                         ((rand() * RAND_SCALE) - 0.5F) * 6.0F);
+#endif
         hit_create_from(&gacha_robot_flash_small);
     }
 }

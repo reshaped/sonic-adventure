@@ -50,7 +50,7 @@ static NJS_VECTOR arrow_normals[19] = {
 static NJS_MODEL arrow_model = {
 #include "object/helpers/arrow_model.inc"
 };
-static NJS_OBJECT arrow_y = {
+NJS_OBJECT arrow_y = {
 #include "object/helpers/arrow_y.inc"
 };
 /* the same arrow turned to lie along z, which arrow_draw stretches */

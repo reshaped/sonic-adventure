@@ -9,5 +9,8 @@
 extern NJS_TEXLIST ev0012_bird_texlist_1;
 extern NJS_ACTION ev0012_bird_action_1;
 extern NJS_TEXLIST ev0012_bird_texlist_2;
+/* the object and motion of the generated action ev0012_bird_action_2 */
+extern NJS_OBJECT dat_0cbb0728;
+extern NJS_MOTION dat_0cbb2f0c;
 
 #endif

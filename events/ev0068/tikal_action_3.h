@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_ACTION ev0068_tikal_action_3;
+/* the texture name of the generated texlist event_chaos0_water_texlist */
+extern NJS_TEXNAME event_chaos0_water_textures[1];
 
 #endif

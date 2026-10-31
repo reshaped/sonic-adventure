@@ -120,6 +120,6 @@ static NJS_TEXNAME shelter_column_textures[5] = {
 NJS_TEXLIST shelter_column_texlist = {
 #include "stg12/hotshelter1_textures/shelter_column_texlist.inc"
 };
-static NJS_MATERIAL dat_0ca5e9a4[1] = {
+NJS_MATERIAL dat_0ca5e9a4[1] = {
 #include "stg12/hotshelter1_textures/dat_0ca5e9a4.inc"
 };

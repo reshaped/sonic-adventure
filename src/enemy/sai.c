@@ -19,6 +19,9 @@
 #include "enemy/sai.h"
 #include "enemy/sai_textures.h"
 #include "object/placement.h"
+#ifdef GCC
+#include "object/simple.h"
+#endif
 #include "player/lockon.h"
 #include "player/player.h"
 #include "sound/sound.h"
@@ -258,6 +261,29 @@ static void sai_setup(struct task *task, struct task_work *work)
     sprite->p.x = 0.0F;
     sprite->p.y = 0.0F;
     sprite->p.z = 0.0F;
+#ifdef GCC
+    /* repairs the treads' short copies. the image's hold nbMesh * 3 uvs, 42,
+     * as if each tread's 14 meshes were triangles (SHLL2 R0 at 0x8c0fe07a,
+     * SHLL2 R4 at 0x8c0fe14c). its strips draw 56, so each draw of a tread
+     * reads 14 uvs past the copy, the next heap block's header among them.
+     * GCC's copies hold all 56 */
+    if ((VARS(work)->tread_plus_z_uvs =
+             heap_alloc(meshset_count_points(sai_tread_plus_z_model->meshsets) *
+                        sizeof(NJS_TEX))) != NULL) {
+        njMemCopy(VARS(work)->tread_plus_z_uvs,
+                  sai_tread_plus_z_model->meshsets->vertuv,
+                  meshset_count_points(sai_tread_plus_z_model->meshsets) *
+                      sizeof(NJS_TEX));
+    }
+    if ((VARS(work)->tread_minus_z_uvs = heap_alloc(
+             meshset_count_points(sai_tread_minus_z_model->meshsets) *
+             sizeof(NJS_TEX))) != NULL) {
+        njMemCopy(VARS(work)->tread_minus_z_uvs,
+                  sai_tread_minus_z_model->meshsets->vertuv,
+                  meshset_count_points(sai_tread_minus_z_model->meshsets) *
+                      sizeof(NJS_TEX));
+    }
+#else
     /* @hack spelling: the heap copy assigned in the test, which tests R0
      * itself (TST R0,R0 at 0x8c0fe080). assigned apart, SHC tests R0 moved
      * to R3, the function runs 2 bytes longer, and 70 of 216 words differ */
@@ -284,6 +310,7 @@ static void sai_setup(struct task *task, struct task_work *work)
                   sai_tread_minus_z_model->meshsets->nbMesh * 3 *
                       sizeof(NJS_TEX));
     }
+#endif
     work->pos.y = ground_below(work->pos.x, work->pos.y, work->pos.z, &slope);
     work->ang.z = 0;
     work->ang.x = 0;
@@ -582,7 +609,14 @@ static void sai_roll_treads(struct task_work *work,
     int i;
 
     uv = VARS(work)->tread_plus_z_uvs;
+#ifdef GCC
+    /* repairs the tread's scroll: it scrolls every uv sai_setup's copy holds,
+     * the 56 its strips draw. the image scrolls nbMesh * 3, 42, and draws heap
+     * words past them, which vary */
+    count = meshset_count_points(sai_tread_plus_z_model->meshsets);
+#else
     count = sai_tread_plus_z_model->meshsets->nbMesh * 3;
+#endif
     scroll = (int)((SPEED(record) * TREAD_SPEED_ROLL) +
                    ((Float)record->turn_speed * TREAD_TURN_ROLL));
     for (i = 0; i < count; i++) {
@@ -591,7 +625,12 @@ static void sai_roll_treads(struct task_work *work,
     }
     sai_tread_plus_z_model->meshsets->vertuv = VARS(work)->tread_plus_z_uvs;
     uv = VARS(work)->tread_minus_z_uvs;
+#ifdef GCC
+    /* repairs the other tread's scroll, as the first's */
+    count = meshset_count_points(sai_tread_minus_z_model->meshsets);
+#else
     count = sai_tread_minus_z_model->meshsets->nbMesh * 3;
+#endif
     scroll = (int)((SPEED(record) * TREAD_SPEED_ROLL) -
                    ((Float)record->turn_speed * TREAD_TURN_ROLL));
     for (i = 0; i < count; i++) {

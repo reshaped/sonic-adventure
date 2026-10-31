@@ -3002,6 +3002,6 @@ NJS_TEXLIST ev0071_wing_t_texlist = {
 /* the one material of node 0x0cbc8014 of the model ev0071_wing_t_action
  * moves. the rest of that model, and the action, lie in the data after this
  * object */
-static NJS_MATERIAL dat_0cbc7f44[1] = {
+NJS_MATERIAL dat_0cbc7f44[1] = {
 #include "ev0071/bird_textures/dat_0cbc7f44.inc"
 };

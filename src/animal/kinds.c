@@ -16,7 +16,11 @@
 /* @hack type: int, not stage.h's Uint16, which SHC shifts down by SHAD
  * without extending it first (0x8c0161d4, 0x8c01624a); as stage.h declares
  * it, EXTU.W and SHLR8, and 5 of 92 words differ */
+#ifdef GCC
+#include "stage/stage.h"
+#else
 extern int stage_get_stage_act(void);
+#endif
 
 static void (*kind_steps[ANIMAL_KINDS])(struct task *task) = {
     animal_start_goma, animal_start_pen,  animal_start_rako, animal_start_kuja,

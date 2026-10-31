@@ -447,12 +447,14 @@
 0x0c9165c6  script_last_opening_2_step
 0x0c916720  script_last_chaos_emerald_init
 0x0c916726  script_last_chaos_emerald_step
+0x0c9182c0  mystic_ruins_act0_land
 0x0c953e40  dat_0c953e40
 0x0c954214  dat_0c954214
 0x0c95a098  dat_0c95a098
 0x0c95a340  dat_0c95a340
 0x0c960844  station_sea_object
 0x0c975cf4  dat_0c975cf4
+0x0c99f114  mystic_ruins_act1_land
 0x0c9a4558  dat_0c9a4558
 0x0c9a8010  dat_0c9a8010
 0x0c9e99e0  mystic_ruins_act2_land_entries
@@ -627,6 +629,10 @@
 0x0cb1693c  windy_leaf_1_object
 0x0cb16a40  windy_leaf_2_object
 0x0cb1c7e0  tornado2_object
+0x0cb1d1dc  level_item_warrior_feather_object
+0x0cb1db9c  level_item_shovel_claws_object
+0x0cb1ef80  level_item_fighting_gloves_object
+0x0cb1f514  level_item_life_belt_object
 0x0cb1f548  jungle_fog_density
 0x0cb1f54c  jungle_fog_colors
 0x0cb1f558  jungle_fog_color

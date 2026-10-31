@@ -117,7 +117,8 @@ void spring_step(struct task *task)
                 PHASE_SPEED(work) = 18.0F;
             }
             VARS(work)->bob =
-                njCos((PHASE(work) - 180.0F) * 0.1F * ANGLE_PER_DEGREE) * 0.6F;
+                njCos((PHASE(work) - 180.0F) * (0.1F * ANGLE_PER_DEGREE)) *
+                0.6F;
             if (VARS(work)->bob < 0.0F) {
                 PHASE(work) = 180.0F;
                 PHASE_SPEED(work) = 0.0F;
@@ -207,6 +208,12 @@ static void spring_launch(struct task *task, Uint8 along_angles)
      * player off the ground, and its FALSE goes unread. the test below then
      * reads speed's frame slot unwritten (FMOV.S @(R0,R15),FR3 at
      * 0x8c069306, R0 4) */
+#ifdef GCC
+    /* repairs the unset speed the tag names: GCC starts it at 0, a still
+     * player's speed, so the test below takes a player off the ground as
+     * slow */
+    speed = 0.0F;
+#endif
     player_ground_speed(number, &speed);
     /* @hack spelling: RUN_SPEED > speed, which loads RUN_SPEED into FR2 and
      * speed into FR3 (FLDI1 FR2 at 0x8c069304); as speed < RUN_SPEED, the
@@ -356,8 +363,8 @@ void spring_b_step(struct task *task)
                 VARS(work)->phase_b < 290.0F + PHASE_SPEED(work)) {
                 PHASE_SPEED(work) = 15.0F;
             }
-            VARS(work)->bob = njCos((VARS(work)->phase_b - 180.0F) * 0.1F *
-                                    ANGLE_PER_DEGREE) *
+            VARS(work)->bob = njCos((VARS(work)->phase_b - 180.0F) *
+                                    (0.1F * ANGLE_PER_DEGREE)) *
                               0.6F;
             if (VARS(work)->bob < 0.0F) {
                 VARS(work)->phase_b = 180.0F;

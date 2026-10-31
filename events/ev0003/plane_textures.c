@@ -66,21 +66,21 @@ static NJS_TEXNAME ev0003_plane_textures[41] = {
 NJS_TEXLIST ev0003_plane_texlist = {
 #include "ev0003/plane_textures/ev0003_plane_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb9171c[4] = {
+NJS_MATERIAL dat_0cb9171c[4] = {
 #include "ev0003/plane_textures/dat_0cb9171c.inc"
 };
-static Sint16 dat_0cb9176c[40] = {
+Sint16 dat_0cb9176c[40] = {
 #include "ev0003/plane_textures/dat_0cb9176c.inc"
 };
-static Sint16 dat_0cb917bc[32] = {
+Sint16 dat_0cb917bc[32] = {
 #include "ev0003/plane_textures/dat_0cb917bc.inc"
 };
-static Sint16 dat_0cb917fc[39] = {
+Sint16 dat_0cb917fc[39] = {
 #include "ev0003/plane_textures/dat_0cb917fc.inc"
 };
-static Sint16 dat_0cb9184a[13] = {
+Sint16 dat_0cb9184a[13] = {
 #include "ev0003/plane_textures/dat_0cb9184a.inc"
 };
-static NJS_COLOR dat_0cb91864[31] = {
+NJS_COLOR dat_0cb91864[31] = {
 #include "ev0003/plane_textures/dat_0cb91864.inc"
 };

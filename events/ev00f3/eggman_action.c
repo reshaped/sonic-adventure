@@ -16,6 +16,6 @@ static NJS_MOTION ev00f3_eggman_motion = {
 NJS_ACTION ev00f3_eggman_action = {
 #include "ev00f3/eggman_action/ev00f3_eggman_action.inc"
 };
-static NJS_TEXNAME ev00f3_blue_emerald_textures[1] = {
+NJS_TEXNAME ev00f3_blue_emerald_textures[1] = {
     {TEXT_1, 0, 0},
 };

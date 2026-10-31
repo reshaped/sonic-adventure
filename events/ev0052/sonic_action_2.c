@@ -18,7 +18,7 @@ static NJS_MOTION ev0052_sonic_motion_2 = {
 NJS_ACTION ev0052_sonic_action_2 = {
 #include "ev0052/sonic_action_2/ev0052_sonic_action_2.inc"
 };
-static NJS_TEXNAME event_clouds_textures[3] = {
+NJS_TEXNAME event_clouds_textures[3] = {
     {TEXT_1, 0, 0},
     {TEXT_2, 0, 0},
     {TEXT_3, 0, 0},

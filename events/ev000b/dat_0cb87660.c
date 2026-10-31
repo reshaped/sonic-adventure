@@ -2,6 +2,8 @@
  * ev000b_sonic_action_0 */
 #include <ninja.h>
 
-static NJS_MKEY_F dat_0cb87660[5] = {
+#include "ev000b/dat_0cb87660.h"
+
+NJS_MKEY_F dat_0cb87660[5] = {
 #include "ev000b/dat_0cb87660/dat_0cb87660.inc"
 };

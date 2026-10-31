@@ -172,7 +172,7 @@ static void sky_deck_blast_step(struct task *task)
             0.5F;
     }
     if (work->phase >= 0.0F) {
-        work->size = njSin((Angle)(work->phase * 180.0F * ANGLE_PER_DEGREE));
+        work->size = njSin((Angle)(work->phase * (180.0F * ANGLE_PER_DEGREE)));
     } else {
         work->size = 0.0F;
     }
@@ -232,7 +232,7 @@ static void sky_deck_blast_draw(struct task *task)
         scale = part * RING_SIZE;
         draw_set_material(-part, 0.0F, 0.0F, 0.0F);
         njScale(NULL, scale, scale, scale);
-        TURN(njRotateY, (Angle)(time * RING_SPIN * ANGLE_PER_DEGREE));
+        TURN(njRotateY, (Angle)(time * (RING_SPIN * ANGLE_PER_DEGREE)));
         draw_tree(&blast_ring_object);
         njPopMatrix(1);
     }
@@ -242,12 +242,12 @@ static void sky_deck_blast_draw(struct task *task)
         njPushMatrix(NULL);
         scale = work->size;
         njScale(NULL, scale, scale, scale);
-        TURN(njRotateY, (Angle)(-(time * FIREBALL_SPIN) * ANGLE_PER_DEGREE));
+        TURN(njRotateY, (Angle)(-(time * (FIREBALL_SPIN * ANGLE_PER_DEGREE))));
         draw_tree(&blast_fireball_object);
         njPopMatrix(1);
     }
     if (time > BLAST_START && work->phase < 0.5F) {
-        height = njSin((Angle)(work->phase * 360.0F * ANGLE_PER_DEGREE)) *
+        height = njSin((Angle)(work->phase * (360.0F * ANGLE_PER_DEGREE))) *
                  PILLAR_HEIGHT;
         njSetTexture(&obj_skydeck_texlist);
         njPushMatrix(NULL);
@@ -255,7 +255,7 @@ static void sky_deck_blast_draw(struct task *task)
          * 0x0c915058 and 0x0c91505e; as work->size alone, 143 of 318 words
          * differ */
         njScale(NULL, work->size * 1.0F, height, work->size * 1.0F);
-        TURN(njRotateY, (Angle)(-(time * PILLAR_SPIN) * ANGLE_PER_DEGREE));
+        TURN(njRotateY, (Angle)(-(time * (PILLAR_SPIN * ANGLE_PER_DEGREE))));
         draw_tree(&blast_pillar_object);
         njPopMatrix(1);
     }
@@ -269,7 +269,7 @@ static void sky_deck_blast_draw(struct task *task)
             height = (1.0F - work->phase) * 2.0F;
         }
         njScale(NULL, width, height, width);
-        TURN(njRotateY, (Angle)(-(time * CLOUD_SPIN) * ANGLE_PER_DEGREE));
+        TURN(njRotateY, (Angle)(-(time * (CLOUD_SPIN * ANGLE_PER_DEGREE))));
         draw_tree(&blast_cloud_object);
         njPopMatrix(1);
     }
@@ -367,7 +367,7 @@ static void sky_deck_burst_step(struct task *task)
             0.5F;
     }
     if (work->phase >= 0.0F) {
-        work->size = njSin((Angle)(work->phase * 180.0F * ANGLE_PER_DEGREE));
+        work->size = njSin((Angle)(work->phase * (180.0F * ANGLE_PER_DEGREE)));
     } else {
         work->size = 0.0F;
     }

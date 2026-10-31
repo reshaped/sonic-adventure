@@ -1,5 +1,5 @@
-/* the names of the textures act 2's land loads, and their texlist. nothing
- * reads the material after it */
+/* the names of the textures act 2's land loads, their texlist, and the
+ * material after it */
 #include <ninja.h>
 
 #include "stg06/skydeck03_textures.h"
@@ -93,6 +93,6 @@ static NJS_TEXNAME skydeck03_textures[65] = {
 NJS_TEXLIST skydeck03_texlist = {
 #include "stg06/skydeck03_textures/skydeck03_texlist.inc"
 };
-static NJS_MATERIAL dat_0c9b03ac[1] = {
+NJS_MATERIAL dat_0c9b03ac[1] = {
 #include "stg06/skydeck03_textures/dat_0c9b03ac.inc"
 };

@@ -51,5 +51,8 @@ void rocket_v_step(struct task *task);
 void rocket_vs_step(struct task *task);
 /* set every slot of rockets to NULL, for a new stage */
 void rocket_reset(void);
+/* the texlist of a rocket's smoke, EFF_REGULAR's roketthrust01 to 08. a
+ * particle animation in ADV03's generated data names it too */
+extern NJS_TEXLIST rocket_thrust_texlist;
 
 #endif

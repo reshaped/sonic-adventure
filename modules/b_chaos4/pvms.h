@@ -4,8 +4,7 @@
 
 #include "system/texture.h"
 
-/* the list 1ST_READ.BIN's stage_pvms names for the stage by its address,
- * 0x0c9001d0 */
+/* the list 1ST_READ.BIN's stage_pvms names for the stage */
 extern struct texture_pvm chaos4_pvms[];
 
 #endif

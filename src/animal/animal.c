@@ -947,6 +947,11 @@ static void animal_hop(struct animal *animal, struct task_work *work)
         return;
     }
     animal->accel.y += GRAVITY;
+#ifdef GCC
+    /* GCC can't see that animal_init gives this move only to ANIMAL_USA and
+     * ANIMAL_WARA, whose cases set the leap */
+    up = across = leap.from = leap.to = 0.0F;
+#endif
     switch (animal->kind) {
     case ANIMAL_USA:
         up = 2.25F;

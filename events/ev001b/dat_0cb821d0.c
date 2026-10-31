@@ -3,6 +3,8 @@
  * this object. no word in EV001B or 1ST_READ.BIN points at the texlist */
 #include <ninja.h>
 
+#include "ev001b/dat_0cb821d0.h"
+
 #define TEXT_1_LENGTH 10
 #include "ev001b/dat_0cb821d0/text.inc"
 
@@ -12,6 +14,6 @@ static NJS_TEXNAME dat_0cb821d0[1] = {
 static NJS_TEXLIST dat_0cb821dc = {
 #include "ev001b/dat_0cb821d0/dat_0cb821dc.inc"
 };
-static NJS_MATERIAL dat_0cb821e4[3] = {
+NJS_MATERIAL dat_0cb821e4[3] = {
 #include "ev001b/dat_0cb821d0/dat_0cb821e4.inc"
 };

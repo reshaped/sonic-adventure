@@ -68,6 +68,6 @@ static NJS_TEXNAME ev0050_walker_textures[27] = {
 NJS_TEXLIST ev0050_walker_texlist = {
 #include "ev0050/eggman_body_textures/ev0050_walker_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb87b84[1] = {
+NJS_MATERIAL dat_0cb87b84[1] = {
 #include "ev0050/eggman_body_textures/dat_0cb87b84.inc"
 };

@@ -17,6 +17,9 @@
 #include "effect/bomb.h"
 #include "player/player.h"
 #include "sound/sound.h"
+#ifdef GCC
+#include "system/frame.h"
+#endif
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/util.h"
@@ -261,6 +264,13 @@ void egg_walker_leg_copies_draw(struct task *task)
     }
     njPopMatrix(1);
     njPopMatrix(1);
+#ifdef GCC
+    /* the split frame's second picture reads no press. the pass's press
+     * holds every step's, where 30 fps reads step 0's alone */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     if (per_info[0]->press & PDD_DGT_KU) {
         for (i = 0; i < LEGS; i++) {
             raise_leg(i);
@@ -401,6 +411,12 @@ void egg_walker_leg_shapes_lift(struct task_work *work)
     int j;
     struct leg_copy *copy;
 
+#ifdef GCC
+    /* GCC can't see that rise is set wherever it is read: pose_mode holds
+     * only the four modes the switch has cases for, and each case that
+     * doesn't return sets it */
+    rise = 0.0F;
+#endif
     switch (pose_mode) {
     case POSE_RAISE:
         /* each rise multiplies by an inverse step count. SHC folds this

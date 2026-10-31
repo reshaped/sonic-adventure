@@ -19,6 +19,7 @@
 
 #include "animal/animal.h"
 #include "animal/barrier.h"
+#include "animal/models.h"
 #include "animal/textures.h"
 
 #define TEXT_1_LENGTH 9
@@ -323,7 +324,7 @@ static NJS_OBJECT dat_8c1790c8 = {
 static NJS_OBJECT dat_8c1790fc = {
 #include "animal/models/dat_8c1790fc.inc"
 };
-static NJS_OBJECT goma_object = {
+NJS_OBJECT goma_object = {
 #include "animal/models/goma_object.inc"
 };
 static NJS_MKEY_F dat_8c179164[2] = {
@@ -835,7 +836,7 @@ static NJS_OBJECT dat_8c17b894 = {
 static NJS_OBJECT dat_8c17b8c8 = {
 #include "animal/models/dat_8c17b8c8.inc"
 };
-static NJS_OBJECT pen_object = {
+NJS_OBJECT pen_object = {
 #include "animal/models/pen_object.inc"
 };
 static NJS_MKEY_F dat_8c17b930[2] = {
@@ -1409,7 +1410,7 @@ static NJS_OBJECT dat_8c17e6f4 = {
 static NJS_OBJECT dat_8c17e728 = {
 #include "animal/models/dat_8c17e728.inc"
 };
-static NJS_OBJECT tuba_object = {
+NJS_OBJECT tuba_object = {
 #include "animal/models/tuba_object.inc"
 };
 static NJS_MKEY_F dat_8c17e790[2] = {
@@ -1947,7 +1948,7 @@ static NJS_OBJECT dat_8c180cb0 = {
 static NJS_OBJECT dat_8c180ce4 = {
 #include "animal/models/dat_8c180ce4.inc"
 };
-static NJS_OBJECT kuja_object = {
+NJS_OBJECT kuja_object = {
 #include "animal/models/kuja_object.inc"
 };
 static NJS_MKEY_F dat_8c180d4c[2] = {
@@ -2503,7 +2504,7 @@ static NJS_OBJECT dat_8c183664 = {
 static NJS_OBJECT dat_8c183698 = {
 #include "animal/models/dat_8c183698.inc"
 };
-static NJS_OBJECT oum_object = {
+NJS_OBJECT oum_object = {
 #include "animal/models/oum_object.inc"
 };
 static NJS_MKEY_F dat_8c183700[2] = {
@@ -3050,7 +3051,7 @@ static NJS_OBJECT dat_8c185dd8 = {
 static NJS_OBJECT dat_8c185e0c = {
 #include "animal/models/dat_8c185e0c.inc"
 };
-static NJS_OBJECT koar_object = {
+NJS_OBJECT koar_object = {
 #include "animal/models/koar_object.inc"
 };
 static NJS_MKEY_F dat_8c185e74[2] = {
@@ -3671,7 +3672,7 @@ static NJS_OBJECT dat_8c188e20 = {
 static NJS_OBJECT dat_8c188e54 = {
 #include "animal/models/dat_8c188e54.inc"
 };
-static NJS_OBJECT wara_object = {
+NJS_OBJECT wara_object = {
 #include "animal/models/wara_object.inc"
 };
 static NJS_MKEY_F dat_8c188ebc[2] = {
@@ -4247,7 +4248,7 @@ static NJS_OBJECT dat_8c18bfb0 = {
 static NJS_OBJECT dat_8c18bfe4 = {
 #include "animal/models/dat_8c18bfe4.inc"
 };
-static NJS_OBJECT banb_object = {
+NJS_OBJECT banb_object = {
 #include "animal/models/banb_object.inc"
 };
 static NJS_MKEY_F dat_8c18c04c[2] = {
@@ -4787,7 +4788,7 @@ static NJS_OBJECT dat_8c18eb80 = {
 static NJS_OBJECT dat_8c18ebb4 = {
 #include "animal/models/dat_8c18ebb4.inc"
 };
-static NJS_OBJECT usa_object = {
+NJS_OBJECT usa_object = {
 #include "animal/models/usa_object.inc"
 };
 static NJS_MKEY_F dat_8c18ec1c[2] = {
@@ -5261,7 +5262,7 @@ static NJS_OBJECT dat_8c191690 = {
 static NJS_OBJECT dat_8c1916c4 = {
 #include "animal/models/dat_8c1916c4.inc"
 };
-static NJS_OBJECT mogu_object = {
+NJS_OBJECT mogu_object = {
 #include "animal/models/mogu_object.inc"
 };
 static NJS_MKEY_F dat_8c19172c[2] = {
@@ -5786,7 +5787,7 @@ static NJS_OBJECT dat_8c193e48 = {
 static NJS_OBJECT dat_8c193e7c = {
 #include "animal/models/dat_8c193e7c.inc"
 };
-static NJS_OBJECT zou_object = {
+NJS_OBJECT zou_object = {
 #include "animal/models/zou_object.inc"
 };
 static NJS_MKEY_F dat_8c193ee4[2] = {
@@ -6409,7 +6410,7 @@ static NJS_OBJECT dat_8c197104 = {
 static NJS_OBJECT dat_8c197138 = {
 #include "animal/models/dat_8c197138.inc"
 };
-static NJS_OBJECT lion_object = {
+NJS_OBJECT lion_object = {
 #include "animal/models/lion_object.inc"
 };
 static NJS_MKEY_F dat_8c1971a0[2] = {
@@ -6853,7 +6854,7 @@ static NJS_OBJECT dat_8c199af8 = {
 static NJS_OBJECT dat_8c199b2c = {
 #include "animal/models/dat_8c199b2c.inc"
 };
-static NJS_OBJECT gori_object = {
+NJS_OBJECT gori_object = {
 #include "animal/models/gori_object.inc"
 };
 static NJS_MKEY_F dat_8c199b94[2] = {
@@ -7277,7 +7278,7 @@ static NJS_OBJECT dat_8c19bce4 = {
 static NJS_OBJECT dat_8c19bd18 = {
 #include "animal/models/dat_8c19bd18.inc"
 };
-static NJS_OBJECT suka_object = {
+NJS_OBJECT suka_object = {
 #include "animal/models/suka_object.inc"
 };
 static NJS_MKEY_F dat_8c19bd80[2] = {
@@ -7853,7 +7854,7 @@ static NJS_OBJECT dat_8c19e748 = {
 static NJS_OBJECT dat_8c19e77c = {
 #include "animal/models/dat_8c19e77c.inc"
 };
-static NJS_OBJECT rako_object = {
+NJS_OBJECT rako_object = {
 #include "animal/models/rako_object.inc"
 };
 static NJS_MKEY_F dat_8c19e7e4[2] = {

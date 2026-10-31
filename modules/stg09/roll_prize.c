@@ -190,8 +190,15 @@ static void roll_prize_draw(struct task *task)
     if (flags & PRIZE_OVERLAY) {
         draw_set_material(VARS(work)->alpha, VARS(work)->shade,
                           VARS(work)->shade, VARS(work)->shade);
+#ifdef GCC
+        /* the port's 16:9 stretches the overlay across the screen */
+        port_wide_cover = TRUE;
+#endif
         njDrawSprite2D(&card_white_sprite, 0, -5.0F,
                        NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR);
+#ifdef GCC
+        port_wide_cover = FALSE;
+#endif
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
     }
     casino_set_texture(CASINO_TEXTURES_ACTS_34);

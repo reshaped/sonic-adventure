@@ -29,8 +29,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from config import content, fail, lines, save
 from sums import LINE
+from tables import lines
+from tool import content, fail, save
 
 SUMS = Path('tools/SHA256SUMS')
 # the tools the Makefile builds, each from its library, TOOL.c and TOOL.h,

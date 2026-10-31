@@ -74,9 +74,8 @@ static void eggmanrobo_destroy(struct task *task)
     erobo_release();
 }
 
-/* section HEAD puts the stage's step at the module's start, and the sky's
- * after it. 1ST_READ.BIN's stage_steps and sky_steps reach them there by
- * address */
+/* section HEAD puts the stage's step at the module's start, and the sky's after
+ * it. 1ST_READ.BIN's stage_steps and sky_steps hold their addresses there */
 #pragma section HEAD
 /* count DELAY_STEPS in work->mode, then hand the task to eggmanrobo_run */
 void eggmanrobo_step(struct task *task)

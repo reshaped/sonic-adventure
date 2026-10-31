@@ -144,10 +144,20 @@ static Uint32 blink_drop_phase = 0x1000;
  * 0x8c05ecb8). ISO C leaves the read past blink_alpha undefined, but SHC
  * lays the four out in a row. as one NJS_ARGB, 154 of blink_draw's 156
  * words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's four are the members of one
+ * NJS_ARGB */
+static NJS_ARGB blink_color = {1.0F, 0.0F, 0.0F, 0.0F};
+#define blink_alpha blink_color.a
+#define blink_red blink_color.r
+#define blink_green blink_color.g
+#define blink_blue blink_color.b
+#else
 static Float blink_alpha = 1.0F;
 static Float blink_red = 0.0F;
 static Float blink_green = 0.0F;
 static Float blink_blue = 0.0F;
+#endif
 
 /* a glint draws at the scale in its scl.x, frames 1 to 3 on its first
  * three steps. its fourth step kills it */
@@ -158,6 +168,12 @@ static void piece_glint_step(struct task *task)
 
     if ((GLINT(work)->frame += 16.0F / 15.0F) >= 4.0F) {
         task_kill(task);
+#ifdef GCC
+        /* repairs the read the tag below names: on the step that kills the
+         * glint, GCC draws nothing, as the image does with a texanim of
+         * size 0 */
+        return;
+#endif
     }
     draw_set_material(0.5F, 1.0F, 1.0F, 1.0F);
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
@@ -180,6 +196,40 @@ static void piece_glint_step(struct task *task)
     placement_try_leave(task);
 }
 
+#ifdef GCC
+/* draw a piece at pos, turned by ang, and its glow, as piece_draw does */
+static void piece_draw_still(NJS_POINT3 *pos, Angle ang)
+{
+    NJS_OBJECT *piece = &emerald_piece_object;
+    Float glow;
+    Float scale;
+    int i;
+
+    texture_set_regular();
+    njPushMatrix(NULL);
+    njTranslateV(NULL, pos);
+    TURN(njRotateY, ang);
+    njScale(NULL, 2.0F, 2.0F, 2.0F);
+    draw_attr_save();
+    draw_attr_clear(0, NJD_FLAG_IGNORE_SPECULAR);
+    njSimpleDrawObject(piece);
+    draw_attr_restore();
+    draw_set_material(0.2F, 1.0F, 1.0F, 1.0F);
+    glow = (njSin(ang << 2) + 1.0F) * 0.2F;
+    scale = 1.0F + (glow * 0.3F);
+    piece->model->mats->attrflags = PIECE_GLOWING;
+    piece->model->mats->diffuse.argb.a = glow * (255.0F * 0.1F);
+    for (i = 0; i < 4; i++) {
+        njScale(NULL, scale, scale, scale);
+        njSimpleDrawObject(piece);
+    }
+    piece->model->mats->attrflags = PIECE_SOLID;
+    piece->model->mats->diffuse.argb.a = 204;
+    draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+    njPopMatrix(1);
+}
+#endif
+
 /* on a display frame's first step, draw a piece at pos and advance its
  * spin, *ang. four larger copies, added onto what's behind it, make a
  * glow that pulses with the spin. a tenth of the draws, at random, start a
@@ -198,6 +248,17 @@ static void piece_draw(NJS_POINT3 *pos, Angle *ang)
     int i;
 
     if (frame_step != 0) {
+#ifdef GCC
+        /* no callback draws the piece for the second picture's pass, so step 1
+         * draws it for that picture where port.h's FRAME_DRAWS says, as step 0
+         * left its spin, and starts no glint. where it says not, the piece
+         * shows in the first picture alone */
+        if (FRAME_DRAWS()) {
+            present_untimed(TRUE);
+            piece_draw_still(pos, *ang);
+            present_untimed(FALSE);
+        }
+#endif
         return;
     }
     texture_set_regular();

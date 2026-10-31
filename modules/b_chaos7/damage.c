@@ -197,10 +197,20 @@ static Float mist_strength = 1.0F;
 /* @hack type: four Floats, not an NJS_ARGB, so that SHC pools each channel's
  * own address for its store (FMOV.S FR0 at 0x0c91a26e, 0x0c91a270 and
  * 0x0c91a276); as one NJS_ARGB, 74 of damage_mist_draw's 78 words differ */
+#ifdef GCC
+/* keeps damage_mist_draw's read past mist_alpha: GCC's four are the members
+ * of one NJS_ARGB */
+static NJS_ARGB mist_color = {0.0F, 0.0F, 0.0F, 0.0F};
+#define mist_alpha mist_color.a
+#define mist_red mist_color.r
+#define mist_green mist_color.g
+#define mist_blue mist_color.b
+#else
 static Float mist_alpha = 0.0F;
 static Float mist_red = 0.0F;
 static Float mist_green = 0.0F;
 static Float mist_blue = 0.0F;
+#endif
 static NJS_ARGB mist_color_after = {0.0F, 0.0F, 0.0F, 0.0F};
 
 /* a sprite of c7_breath, chaos7_breath_texlist's first texture, and white.

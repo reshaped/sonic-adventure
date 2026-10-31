@@ -467,9 +467,9 @@
 #define TEXT_458_LENGTH 12
 #include "adv0100/texlists/text.inc"
 
-/* the lists below and their textures' names lie in the head sections,
- * which lead the module. the pvm lists come last, and 1ST_READ.BIN names
- * them by their addresses there */
+/* the lists below and their textures' names lie in the head sections, which
+ * lead the module. the pvm lists come last, and 1ST_READ.BIN holds their
+ * addresses there */
 #pragma section HEAD
 static NJS_TEXNAME ec_objects_textures[] = {
     {TEXT_1, 0, 0},   {TEXT_2, 0, 0},   {TEXT_3, 0, 0},   {TEXT_4, 0, 0},

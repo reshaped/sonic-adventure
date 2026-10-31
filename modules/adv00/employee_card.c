@@ -31,7 +31,13 @@
  * flag's address takes R3 and the stored 1 takes R2 (MOV.B R2,@R3 at
  * 0x0c9010bc). stored through the array, the two swap and 7 of
  * employee_card_step's 338 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a byte inside event_flags */
+#define sonic_ss_entrance_highway (event_flags[FLAG_SONIC_SS_ENTRANCE_HIGHWAY])
+#else
 extern Uint8 sonic_ss_entrance_highway;
+#endif
 
 extern NJS_ACTION employee_card_action;
 

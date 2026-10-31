@@ -341,7 +341,13 @@ static void pad_read_sticks(void)
          * player_pads_on[i] past its two bytes, by the MOV.B @(R0,R14),R3 at
          * 0x8c054548, 0x8c0546a8, 0x8c0547fc and 0x8c05495e. their sticks
          * are zero either way */
+#ifdef GCC
+        /* repairs the read the tag names: GCC reads player_pads_on for its
+         * two players alone */
+        if (pads_on == 1 && i < STICK_PLAYERS && player_pads_on[i] == 1) {
+#else
         if (pads_on == 1 && player_pads_on[i] == 1) {
+#endif
             pad_sticks[i].ang = ang;
             pad_sticks[i].stroke = stroke;
         } else {

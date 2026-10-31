@@ -2144,6 +2144,6 @@ static NJS_TEXNAME ev0160_pachacamac_textures[21] = {
 NJS_TEXLIST ev0160_pachacamac_texlist = {
 #include "ev0160/echidna_normal_textures/ev0160_pachacamac_texlist.inc"
 };
-static NJS_OBJECT dat_0cb9ca7c = {
+NJS_OBJECT dat_0cb9ca7c = {
 #include "ev0160/echidna_normal_textures/dat_0cb9ca7c.inc"
 };

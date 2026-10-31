@@ -3,6 +3,8 @@
  * and gives their count */
 #include <ninja.h>
 
-static NJS_MKEY_F dat_8c90e0f0[65] = {
+#include "advertise/dat_8c90e0f0.h"
+
+NJS_MKEY_F dat_8c90e0f0[65] = {
 #include "advertise/dat_8c90e0f0/dat_8c90e0f0.inc"
 };

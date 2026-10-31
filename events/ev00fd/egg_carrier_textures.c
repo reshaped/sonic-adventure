@@ -695,7 +695,7 @@ static NJS_MODEL dat_0cbb10f4 = {
 static NJS_OBJECT dat_0cbb111c = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb111c.inc"
 };
-static NJS_OBJECT dat_0cbb1150 = {
+NJS_OBJECT dat_0cbb1150 = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb1150.inc"
 };
 static NJS_MKEY_F dat_0cbb1184[2] = {
@@ -740,7 +740,7 @@ static NJS_TEXNAME ev00fd_emerald_black_textures[1] = {
 NJS_TEXLIST ev00fd_emerald_black_texlist = {
 #include "ev00fd/egg_carrier_textures/ev00fd_emerald_black_texlist.inc"
 };
-static NJS_MATERIAL dat_0cbb1344[2] = {
+NJS_MATERIAL dat_0cbb1344[2] = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb1344.inc"
 };
 static Sint16 dat_0cbb136c[24] = {
@@ -755,9 +755,9 @@ static NJS_COLOR dat_0cbb1424[24] = {
 static NJS_COLOR dat_0cbb1484[68] = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb1484.inc"
 };
-static NJS_MESHSET dat_0cbb1594[2] = {
+NJS_MESHSET dat_0cbb1594[2] = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb1594.inc"
 };
-static NJS_POINT3 dat_0cbb15c4[37] = {
+NJS_POINT3 dat_0cbb15c4[37] = {
 #include "ev00fd/egg_carrier_textures/dat_0cbb15c4.inc"
 };

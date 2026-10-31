@@ -30,7 +30,12 @@ void njtri_filled_with_tex(Int n, NJS_POINT3COL *p, Float **vertex)
      * last = n - 1, the two trade and 14 of 201 words differ */
     last--;
     scale_x = scale_y = _nj_screen_.dist;
+#ifdef GCC
+    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+    scale_x *= port_draw_aspect;
+#else
     scale_x *= _nj_scr_aspect_x_;
+#endif
     scale_y *= _nj_scr_aspect_y_;
     sq = *vertex;
     do {

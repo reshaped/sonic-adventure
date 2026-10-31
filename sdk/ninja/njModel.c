@@ -5,6 +5,10 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
+#ifdef GCC
+#include <sh4zam/shz_mem.h>
+#include <sh4zam/shz_vector.h>
+#endif
 
 /* a work vertex's clip bits. CLIP_NEAR and CLIP_FAR mark z below _nj_near_clip_
  * or above _nj_far_clip_. the side bits mark a screen position outside the 2D
@@ -154,8 +158,14 @@ static NJS_POINT3COL axis_lines = {
 /* the store queue address the next packet goes to. every function of this
  * object keeps it in R8, so the public entries save the caller's R8 and
  * restore it after */
+#ifdef GCC
+/* GCC's spelling of the #pragma global_register below. as under SHC, no
+ * function of this object saves R8 in its prologue */
+register Uint32 *queue_cursor __asm__("r8");
+#else
 #pragma global_register(queue_cursor = R8)
 Uint32 *queue_cursor;
+#endif
 
 /* clang never sees the inline bodies below, so it finds these functions
  * declared and not defined */
@@ -187,11 +197,46 @@ static void unpack_argb_body(Uint32 color, NJS_ARGB *dst);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 void CalcModelMatrix(NJS_POINT3 *dst, const NJS_POINT3 *src);
 
-/* clang-format off */
-#ifndef __clang__
 /* send vertex's packet, its first 16 bytes and its payload, at queue_cursor,
  * and advance queue_cursor 32 bytes. FPSCR.SZ must be 0: the body's FSCHGs set
  * it for the moves, which then move eight bytes each, and clear it after */
+#ifdef GCC
+/* an asm runs the shipped body's pair moves and both its FSCHGs, so none of
+ * GCC's own moves runs while SZ is 1. the pair moves need vertex on an 8-byte
+ * boundary. a work vertex lies on a 32-byte one, as the point loops' store
+ * queue writes need. the m inputs keep GCC's stores to the vertex ahead of
+ * the asm. the asm writes only the store queue area, which no C reads, so it
+ * declares no memory output. SH4ZAM's spelling is two shz_memcpy8 calls and
+ * a PREF behind a memory clobber. in a function of its own, that spelling
+ * runs 38 instructions where the asm runs 17. it also makes njModel.o's text
+ * about 8 KB larger */
+ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
+{
+    const struct model_vertex *head = vertex;
+    const void *payload = &vertex->payload;
+    Uint32 *packet = queue_cursor;
+
+    __asm__ volatile(
+        "add #32,%[packet]\n\t"
+        "fschg\n\t"
+        "fmov @%[head]+,dr0\n\t"
+        "fmov @%[head]+,dr2\n\t"
+        "fmov @%[payload]+,dr4\n\t"
+        "fmov @%[payload]+,dr6\n\t"
+        "fmov dr6,@-%[packet]\n\t"
+        "fmov dr4,@-%[packet]\n\t"
+        "fmov dr2,@-%[packet]\n\t"
+        "fmov dr0,@-%[packet]\n\t"
+        "fschg\n\t"
+        "pref @%[packet]"
+        : [head] "+r"(head), [payload] "+r"(payload), [packet] "+r"(packet)
+        : "m"(*(const Uint8(*)[PACKET_BYTES / 2]) vertex), "m"(vertex->payload)
+        : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7");
+    queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @hack spelling: size=64, against the body's 28 bytes, SHC's estimate of each
  * expansion, by which it places the pools of the functions around it; with
  * size=28, 22845 of 33373 words differ in 47 functions */
@@ -217,11 +262,42 @@ static void submit_work_vertex(const struct model_vertex *vertex)
 }
 #endif
 /* clang-format on */
+#endif
 
-/* clang-format off */
-#ifndef __clang__
 /* send the 32 bytes at block as one packet at queue_cursor, and advance
  * queue_cursor 32 bytes. FPSCR.SZ must be 0, as for submit_work_vertex */
+#ifdef GCC
+/* the asm is shz_sq_memcpy32_1's, with its two FSCHGs moved inside, as in
+ * submit_work_vertex. SH4ZAM runs each FSCHG in an asm of its own, and a move
+ * GCC puts between them would move a pair. the pair moves need block on an
+ * 8-byte boundary. each block is an element of vtx2 or vtx4, on a 32-byte one
+ * in njModelGlobal.src's BSG32. as in submit_work_vertex, the m input keeps
+ * GCC's stores to block ahead of the asm, which declares no memory output */
+ALWAYS_INLINE void submit_packet(void *block)
+{
+    const void *source = block;
+    Uint32 *packet = queue_cursor;
+
+    __asm__ volatile("fschg\n\t"
+                     "fmov @%[source]+,dr0\n\t"
+                     "fmov @%[source]+,dr2\n\t"
+                     "fmov @%[source]+,dr4\n\t"
+                     "fmov @%[source]+,dr6\n\t"
+                     "add #32,%[packet]\n\t"
+                     "fmov dr6,@-%[packet]\n\t"
+                     "fmov dr4,@-%[packet]\n\t"
+                     "fmov dr2,@-%[packet]\n\t"
+                     "fmov dr0,@-%[packet]\n\t"
+                     "pref @%[packet]\n\t"
+                     "fschg"
+                     : [source] "+r"(source), [packet] "+r"(packet)
+                     : "m"(*(const Uint8(*)[PACKET_BYTES])block)
+                     : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7");
+    queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @hack spelling: size=64, against the body's 26 bytes, SHC's estimate of each
  * expansion, by which it places the pools of the functions around it; with
  * size=26, 3166 of 4556 words differ in 11 functions, and unsized, align-pool
@@ -247,6 +323,7 @@ static void submit_packet(void *block)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* store queue_cursor, R8, in *slot */
 #pragma inline(save_queue_cursor)
@@ -1790,7 +1867,12 @@ Sint32 _njCalcModel(NJS_MODEL *model)
     Float bottom;
 
     model_clip_or = 0;
+#ifdef GCC
+    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+    projection_x = _nj_screen_.dist * port_draw_aspect;
+#else
     projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
+#endif
     projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
     CalcModelMatrix(&view_center, &model->center);
     if (_nj_control_3d_flag_ & NJD_CONTROL_3D_MODEL_CLIP) {
@@ -1892,9 +1974,15 @@ Sint32 _njCalcModel(NJS_MODEL *model)
     return 0;
 }
 
+/* an empty function, which each strip drawer calls first through DRAW_NOOP */
+#ifdef GCC
+/* GCC inlines each call */
+static inline void model_draw_noop(void)
+{
+}
+#else
 /* clang-format off */
 #ifndef __clang__
-/* an empty function, which each strip drawer calls first through DRAW_NOOP */
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(model_draw_noop)
 static void model_draw_noop(void)
@@ -1902,6 +1990,7 @@ static void model_draw_noop(void)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* @hack spelling: model_draw_noop called through its address, which gives the
  * JSR at each strip drawer's entry, as at 0x8c63e54c in
@@ -1914,9 +2003,15 @@ static void model_draw_noop(void)
  * prefetches the vertex the next index names, and after a meshset's last
  * strip that index lies past the end of meshes: MOV.W @R14,R3 at 0x8c63e7e8
  * in model_draw_smooth_strips_cull reads it for the PREF at 0x8c63e7fa */
+#ifdef GCC
+/* repairs the read the tag names: GCC prefetches nothing, so no walk reads
+ * past meshes for it. the prefetch only hints the cache */
+#define PREFETCH_NEXT(vertices, mesh_cursor) ((void)0)
+#else
 #define PREFETCH_NEXT(vertices, mesh_cursor)                                   \
     prefetch((void *)((Uint32)(vertices) +                                     \
                       ((Uint32)(mesh_cursor)[0] * sizeof *(vertices))))
+#endif
 
 #define WORK_VERTEX(index) (&((struct model_vertex *)_nj_vertex_buf_)[index])
 
@@ -2550,9 +2645,17 @@ static void model_clip_unlit_triangle(struct model_vertex *v0,
     }
 }
 
+/* write back the operand cache line holding address */
+#ifdef GCC
+/* SH4ZAM has no call for OCBWB. the memory clobber keeps each earlier store
+ * ahead of the asm, so the line it writes back holds them */
+ALWAYS_INLINE void writeback_line(void *address)
+{
+    __asm__ volatile("ocbwb @%0" : : "r"(address) : "memory");
+}
+#else
 /* clang-format off */
 #ifndef __clang__
-/* write back the operand cache line holding address */
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(writeback_line(size=2))
 static void writeback_line(void *address)
@@ -2561,7 +2664,23 @@ static void writeback_line(void *address)
 }
 #endif
 /* clang-format on */
+#endif
 
+#ifdef GCC
+/* the shipped head leaves the address of vertex's second cache line, where
+ * its payload starts, in FPUL for the tail. GCC's code takes FPUL for its own
+ * conversions between integers and floats, so here the head prefetches both
+ * lines, and the tail nothing */
+ALWAYS_INLINE void prefetch_vertex_head(struct model_vertex *vertex)
+{
+    SHZ_PREFETCH(vertex);
+    SHZ_PREFETCH(&vertex->payload);
+}
+
+ALWAYS_INLINE void prefetch_vertex_tail(void)
+{
+}
+#else
 /* clang-format off */
 #ifndef __clang__
 /* prefetch vertex's first cache line, and leave the address of its second in
@@ -2593,7 +2712,19 @@ static void prefetch_vertex_tail(void)
 }
 #endif
 /* clang-format on */
+#endif
 
+#ifdef GCC
+/* the dot product of point and normal. FIPR takes the normal, then point, as
+ * the shipped FIPR FV4,FV0 does. GCC gives both a fourth lane of 0, so the
+ * fourth term is 0. the shipped body's is NaN for an infinity or a NaN in
+ * FR7 */
+ALWAYS_INLINE Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
+{
+    return zam_fipr(shz_vec4_init(normal->x, normal->y, normal->z, 0.0F),
+                    shz_vec4_init(point->x, point->y, point->z, 0.0F));
+}
+#else
 /* clang-format off */
 #ifndef __clang__
 /* the dot product of point and normal. FIPR's fourth term is 0 times
@@ -2618,11 +2749,21 @@ static Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
 }
 #endif
 /* clang-format on */
+#endif
 
-/* clang-format off */
-#ifndef __clang__
 /* set uv[0] to normal->x * half + half and uv[1] to normal->y * half + half,
  * then write back uv[1]'s cache line */
+#ifdef GCC
+ALWAYS_INLINE void store_environment_uv(Float *uv, NJS_VECTOR *normal,
+                                        Float half)
+{
+    uv[0] = (normal->x * half) + half;
+    uv[1] = (normal->y * half) + half;
+    writeback_line(&uv[1]);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(store_environment_uv(size=20))
 static void store_environment_uv(Float *uv, NJS_VECTOR *normal, Float half)
@@ -2640,11 +2781,20 @@ static void store_environment_uv(Float *uv, NJS_VECTOR *normal, Float half)
 }
 #endif
 /* clang-format on */
+#endif
 
-/* clang-format off */
-#ifndef __clang__
 /* copy *color into vertex's floating color, then write back the cache line of
  * its last channel */
+#ifdef GCC
+ALWAYS_INLINE void store_vertex_color(struct model_vertex *vertex,
+                                      NJS_ARGB *color)
+{
+    vertex->payload.col = *color;
+    writeback_line(&vertex->payload.col.b);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(store_vertex_color(size=26))
 static void store_vertex_color(struct model_vertex *vertex, NJS_ARGB *color)
@@ -2665,7 +2815,23 @@ static void store_vertex_color(struct model_vertex *vertex, NJS_ARGB *color)
 }
 #endif
 /* clang-format on */
+#endif
 
+#ifdef GCC
+/* the triple product c . (a x b), whose sign gives the winding of triangle
+ * a, b, c seen from the eye. FIPR takes c, then a x b, as the shipped FIPR
+ * FV4,FV0 does. each holds its y, z and x in its first three lanes, where the
+ * shipped loads and FSUBs leave them. GCC gives both a fourth lane of 0, as in
+ * view_point_normal_dot */
+ALWAYS_INLINE Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a,
+                                         NJS_POINT3 *c)
+{
+    shz_vec3_t cross = shz_vec3_cross(shz_vec3_deref(a), shz_vec3_deref(b));
+
+    return zam_fipr(shz_vec4_init(c->y, c->z, c->x, 0.0F),
+                    shz_vec4_init(cross.y, cross.z, cross.x, 0.0F));
+}
+#else
 /* clang-format off */
 #ifndef __clang__
 /* the triple product c . (a x b), whose sign gives the winding of triangle
@@ -2707,6 +2873,7 @@ static Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a, NJS_POINT3 *c)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* the strip drawers draw a trimesh meshset from the work vertices. a strip is
  * its point count, with NJD_TRIMESH_END set where its winding is reversed, then
@@ -6406,10 +6573,17 @@ static void model_draw_flat_path_tex_strips_checked(NJS_MESHSET *meshset,
     _nj_draw_polygon_ += input_vertices;
 }
 
-/* clang-format off */
-#ifndef __clang__
 /* copy *src into *dst, then write back the cache line of dst's last
  * channel */
+#ifdef GCC
+ALWAYS_INLINE void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
+{
+    *dst = *src;
+    writeback_line(&dst->b);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(copy_color_writeback(size=26))
 static void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
@@ -6429,6 +6603,7 @@ static void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* send vertex in the material's diffuse color, as floats, writing back its
  * first cache line through a copy of its address */
@@ -11295,6 +11470,13 @@ void _njDrawModelSub(NJS_MODEL *model)
         return;
     }
     njGetLightDistance(&view_center);
+#ifdef GCC
+    /* GCC can't see that these are set wherever they are read: the loop's
+     * first pass, meshset_index 0, sets each before any read */
+    material = NULL;
+    previous_material_id = 0;
+    shader_flags = 0;
+#endif
     for (meshset_index = 0; meshset_index < model->nbMeshset; meshset_index++) {
         material_id = meshset->type_matId & MATERIAL_ID;
         if (meshset_index == 0 || material_id != previous_material_id) {

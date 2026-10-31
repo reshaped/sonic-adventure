@@ -2133,6 +2133,6 @@ static NJS_MOTION ev0069_eggmobile_motion_3 = {
 NJS_ACTION ev0069_eggmobile_action_3 = {
 #include "ev0069/bird_textures_1/ev0069_eggmobile_action_3.inc"
 };
-static NJS_TEXNAME ev0069_emerald_textures[1] = {
+NJS_TEXNAME ev0069_emerald_textures[1] = {
     {TEXT_13, 0, 0},
 };

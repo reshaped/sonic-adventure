@@ -6,6 +6,9 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 #include <stdlib.h>
+#ifdef GCC
+#include <string.h>
+#endif
 
 #include "collision/ground.h"
 #include "collision/mesh.h"
@@ -171,6 +174,14 @@ static const struct angles no_slope = {0, 0, 0};
 
 static struct wind_band wind_bands[WIND_BANDS];
 static struct wind_gust wind_gusts[WIND_GUSTS];
+
+#ifdef GCC
+void sky_deck_wind_clear(void)
+{
+    memset(wind_bands, 0, sizeof wind_bands);
+    memset(wind_gusts, 0, sizeof wind_gusts);
+}
+#endif
 
 void sky_deck_wind_step(struct task *task)
 {

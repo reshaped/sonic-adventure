@@ -6,5 +6,7 @@
 /* mountain_land0's texlist, which the PVM MOUNTAIN01 fills.
  * 1ST_READ.BIN's mountain_act_pvms pairs the two */
 extern NJS_TEXLIST mountain_land0_texlist;
+/* the materials that models in the generated data name */
+extern NJS_MATERIAL dat_0c91f46c[1];
 
 #endif

@@ -24,14 +24,22 @@
 #include "object/ring.h"
 #include "player/effects.h"
 #include "player/player.h"
+#include "player/s_mot.h"
+#include "player/s_sbmot.h"
 #include "player/sonic.h"
 #include "player/sonic_effect_models.h"
 #include "player/target.h"
 #include "player/textures.h"
 #include "sound/sound.h"
 #include "stage/stage.h"
+#include "stg02/sonic_actions.h"
+#include "stg04/dat_0ca72368.h"
+#include "stg06/dat_0cadb8c8.h"
+#include "stg06/sonic_actions.h"
+#include "stg07/dat_0ca57908.h"
+#include "stg08/sonic_actions.h"
+#include "stg09/sonic_actions.h"
 #include "system/frame.h"
-#include "system/loader.h"
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/texture.h"
@@ -494,23 +502,6 @@ enum sonic_action {
 #define SWAY_DEPTH_2 (-1.2F)
 #define SWAY_DEPTH_3 (-0.6F)
 
-/* an action in s_mot.PRS, his motion file, by the address it has once the
- * file is loaded at MOTION_AREA */
-#define S_MOT(address) ((NJS_ACTION *)(address))
-/* an object in a stage's module, by its address once the module is
- * loaded */
-#define MODULE_OBJECT(address) ((NJS_OBJECT *)(address))
-
-/* the head of the aura's model in s_mot.PRS, which sonic_look_step turns as
- * it turns his own */
-#define AURA_HEAD ((NJS_OBJECT *)(MOTION_AREA + 0x252c))
-
-/* super Sonic's model, in the last boss's module */
-extern NJS_OBJECT super_sonic_object;
-
-/* the board's model, and its textures, in the board stages' modules */
-#define BOARD_OBJECT MODULE_OBJECT(0x0cb37458)
-#define BOARD_TEXLIST ((NJS_TEXLIST *)0x0cb36f98)
 /* how far below its work->pos the board is drawn: always while it isn't
  * under him, and under him with BOARD_LOWER set */
 #define BOARD_DEPTH (-5.1901989F)
@@ -601,6 +592,18 @@ extern NJS_MODEL sonic_toe_minus_z_model;
 extern NJS_MODEL sonic_toe_minus_z_shape_a;
 extern NJS_MODEL sonic_toe_minus_z_shape_b;
 extern NJS_MODEL sonic_toe_minus_z_blend;
+#ifdef GCC
+/* the face normals model_blend writes for sonic_toe_plus_z_blend and
+ * sonic_toe_minus_z_blend, an array each. in each blend, the first meshset's
+ * normals point at the array's first, with room for the meshset's 26
+ * triangles. the second meshset's point at the 27th, with room for its 6.
+ * model_calc_face_normals writes each strip's normals from its meshset's
+ * first, so the first meshset writes at most 10 and the second 4, inside
+ * the array's 32. 1ST_READ.BIN's tables place the arrays in bss, where no
+ * source holds them. the port defines them here */
+NJS_VECTOR sonic_toe_plus_z_face_normals[32];
+NJS_VECTOR sonic_toe_minus_z_face_normals[32];
+#endif
 extern NJS_OBJECT sonic_head_joint;
 extern NJS_OBJECT sonic_eye0;
 extern NJS_OBJECT sonic_eye1;
@@ -838,8 +841,8 @@ static struct player_action sonic_actions[] = {
     {&sonic_hurt_land_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F,
      1.0F},
     {&sonic_skid_action, SONIC_NODES, PLAYER_ANIM_LOOP, 25, 0.25F, 1.0F},
-    {S_MOT(0x0cc06b74), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_UPDRAFT, 0.0625F,
-     1.0F},
+    {&sonic_updraft_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_UPDRAFT,
+     0.0625F, 1.0F},
     {&sonic_crash_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_CRASH_LAND,
      0.5F, 1.0F},
     {&sonic_crash_land_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND,
@@ -851,211 +854,198 @@ static struct player_action sonic_actions[] = {
     {&sonic_slide_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SLIDE, 0.0625F,
      1.0F},
     {&sonic_ball_action, BALL_NODES, PLAYER_ANIM_LOOP, ACTION_BALL, 0.5F, 1.0F},
-    {S_MOT(0x0cc09708), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+    {&sonic_lift_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
      1.0F},
-    {S_MOT(0x0cc0bb0c), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc18c70), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc1a454), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc0cd30), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND, 0.5F,
-     0.5F},
-    {S_MOT(0x0cc0f594), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F,
-     1.0F},
-    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
-     1.0F},
-    {MODULE_ACTION(0x0c9e28a0), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL,
+    {&sonic_hold_run_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN,
      0.5F, 1.0F},
-    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
-     1.0F},
-    {MODULE_ACTION(0x0c9e5224), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL,
+    {&sonic_hold_stop_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
      0.5F, 1.0F},
-    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
-     1.0F},
-    {MODULE_ACTION(0x0c9dff1c), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_SPRING,
+    {&sonic_hold_turn_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
      0.5F, 1.0F},
-    {MODULE_ACTION(0x0c9e6e18), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_SPRING,
-     0.5F, 1.0F},
-    {MODULE_ACTION(0x0ca72374), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_WALK,
+    {&sonic_hold_stand_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND,
      0.5F, 0.5F},
-    {S_MOT(0x0cc49f6c), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON, 0.5F,
+    {&sonic_hold_walk_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK,
+     0.5F, 1.0F},
+    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
+     1.0F},
+    {&dat_0c9e28a0, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
+    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
+     1.0F},
+    {&dat_0c9e5224, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
+    {&sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F,
+     1.0F},
+    {&dat_0c9dff1c, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_SPRING, 0.5F, 1.0F},
+    {&dat_0c9e6e18, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_SPRING, 0.5F, 1.0F},
+    {&dat_0ca72374, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_WALK, 0.5F, 0.5F},
+    {&sonic_hang_on_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON, 0.5F,
      0.5F},
-    {S_MOT(0x0cc32c70), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
-    {S_MOT(0x0cc344d4), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F,
+    {&sonic_pull_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F,
+     1.0F},
+    {&sonic_shake_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F,
      0.5F},
-    {S_MOT(0x0cc6b3dc), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_SHAKE, 0.5F,
+    {&sonic_hold_shake_start_action, SONIC_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_SHAKE, 0.5F, 0.5F},
+    {&sonic_hold_shake_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE,
+     0.5F, 0.5F},
+    {&sonic_hold_shake_end_action, SONIC_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_STAND, 0.5F, 0.5F},
+    {&sonic_grip_start_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F,
      0.5F},
-    {S_MOT(0x0cc6d0b0), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE, 0.5F,
+    {&sonic_grip_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F,
      0.5F},
-    {S_MOT(0x0cc6ecc4), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     0.5F},
-    {S_MOT(0x0cc2e298), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F, 0.5F},
-    {S_MOT(0x0cc2fafc), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F, 0.5F},
-    {S_MOT(0x0cc10a48), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F,
+    {&sonic_hold_jump_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP,
+     0.5F, 1.0F},
+    {&sonic_hold_fall_start_action, SONIC_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_FALL, 0.5F, 1.0F},
+    {&sonic_hold_fall_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL,
+     0.5F, 1.0F},
+    {&sonic_hold_hard_landing_action, SONIC_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_STAND, 0.5F, 1.0F},
+    {&sonic_throw_at_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
      1.0F},
-    {S_MOT(0x0cc12eec), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL, 0.5F,
+    {&sonic_throw_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
      1.0F},
-    {S_MOT(0x0cc14a20), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F,
+    {&sonic_air_throw_at_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL,
+     0.5F, 1.0F},
+    {&sonic_air_throw_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
      1.0F},
-    {S_MOT(0x0cc16aec), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+    {&sonic_lift_action, SONIC_NODES, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F,
      1.0F},
-    {S_MOT(0x0cc226c0), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc27514), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc2b280), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {S_MOT(0x0cc2d314), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {S_MOT(0x0cc09708), SONIC_NODES, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F,
-     1.0F},
-    {S_MOT(0x0cc69958), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SLIDE, 1.0F,
-     1.0F},
-    {S_MOT(0x0cc47710), SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_RIDE, 1.0F, 0.3F},
-    {S_MOT(0x0cc593ec), SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_HANG_GO, 1.0F,
-     1.0F},
-    {S_MOT(0x0cc5d0c4), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_HALFWAY,
-     0.25F, 0.25F},
-    {S_MOT(0x0cc5b248), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HANG, 0.25F,
+    {&sonic_light_dash_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SLIDE,
+     1.0F, 1.0F},
+    {&sonic_ride_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_RIDE, 1.0F,
+     0.3F},
+    {&sonic_hang_go_action, SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_HANG_GO,
+     1.0F, 1.0F},
+    {&sonic_hang_halfway_action, SONIC_NODES, PLAYER_ANIM_LOOP,
+     ACTION_HANG_HALFWAY, 0.25F, 0.25F},
+    {&sonic_hang_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_HANG, 0.25F,
      0.25F},
-    {S_MOT(0x0cc37db8), SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F,
+    {&sonic_ledge_action, SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F,
      1.0F},
-    {S_MOT(0x0cc39d5c), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_FLUNG, 1.0F,
+    {&sonic_flung_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_FLUNG, 1.0F,
      0.5F},
-    {S_MOT(0x0cc60da8), SONIC_NODES, PLAYER_ANIM_LOOP_SPEED, ACTION_GLIDE, 0.5F,
-     2.0F},
-    {S_MOT(0x0cc6456c), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_PANEL_WAIT, 1.0F,
-     1.0F},
-    {S_MOT(0x0cc66590), SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_PANEL_JUMP, 1.0F,
-     2.0F},
+    {&sonic_glide_action, SONIC_NODES, PLAYER_ANIM_LOOP_SPEED, ACTION_GLIDE,
+     0.5F, 2.0F},
+    {&sonic_panel_land_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_PANEL_WAIT,
+     1.0F, 1.0F},
+    {&sonic_panel_jump_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_PANEL_JUMP,
+     1.0F, 2.0F},
     {&sonic_jump_land_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_PANEL_WAIT,
      0.25F, 1.0F},
-    {S_MOT(0x0cc44638), SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_CLEAR, 0.5F,
+    {&sonic_clear_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_CLEAR, 0.5F,
      1.0F},
-    {S_MOT(0x0cc45d6c), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
-     1.0F},
-    {S_MOT(0x0cc2e298), SONIC_NODES, PLAYER_ANIM_ONCE, 78, 0.125F, 1.0F},
-    {S_MOT(0x0cc2fafc), SONIC_NODES, PLAYER_ANIM_LOOP, 78, 0.125F, 1.0F},
-    {S_MOT(0x0cc3d3b4), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_ALONG,
+    {&dat_0cc45d6c, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
+    {&sonic_grip_start_action, SONIC_NODES, PLAYER_ANIM_ONCE, 78, 0.125F, 1.0F},
+    {&sonic_grip_action, SONIC_NODES, PLAYER_ANIM_LOOP, 78, 0.125F, 1.0F},
+    {&sonic_rocket_along_action, SONIC_NODES, PLAYER_ANIM_LOOP,
+     ACTION_ROCKET_ALONG, 0.125F, 1.0F},
+    {&sonic_rocket_up_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP,
      0.125F, 1.0F},
-    {S_MOT(0x0cc3b790), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP, 0.125F,
-     1.0F},
-    {S_MOT(0x0cc4fea0), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CAUGHT, 0.125F,
+    {&sonic_caught_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CAUGHT, 0.125F,
      1.0F},
     {&sonic_hurt_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_ICED, 1.0F,
      15.0F},
     {&sonic_spin_action, SPIN_NODES, PLAYER_ANIM_LOOP_PACE, 83, 1.0F, 0.2F},
-    {S_MOT(0x0cc686b4), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 1.0F,
+    {&sonic_breathe_action, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 1.0F,
      0.25F},
-    {S_MOT(0x0cc77498), SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F,
+    {&sonic_drown_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F,
      0.5F},
     {&sonic_hurt_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_DOWN, 1.0F,
      1.0F},
     {&sonic_down_action, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_DOWN_LAND, 0.25F,
      1.0F},
-    {MODULE_ACTION(0x0ca57914), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_PATH_SLIDE, 0.125F, 1.0F},
-    {MODULE_ACTION(0x0cad6dac), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CIRCLE,
-     0.25F, 0.5F},
-    {MODULE_ACTION(0x0cad5248), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_CIRCLE_LEFT, 0.25F, 2.0F},
-    {MODULE_ACTION(0x0cad1584), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_CIRCLE_RIGHT, 0.25F, 2.0F},
-    {MODULE_ACTION(0x0cad8f60), SONIC_NODES, PLAYER_ANIM_HOLD,
-     ACTION_CIRCLE_DOWN, 0.25F, 0.5F},
-    {MODULE_ACTION(0x0cadb8d4), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_CIRCLE,
-     0.25F, 0.5F},
-    {MODULE_ACTION(0x0caaee64), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_DANGLE,
-     0.25F, 0.5F},
-    {MODULE_ACTION(0x0cab0ae8), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_DANGLE,
-     0.25F, 1.0F},
-    {MODULE_ACTION(0x0caa6454), SONIC_NODES, PLAYER_ANIM_ONCE, 97, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0caa7d08), SONIC_NODES, PLAYER_ANIM_DRIVEN, 97, 1.0F,
+    {&dat_0ca57914, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_PATH_SLIDE, 0.125F,
      1.0F},
-    {MODULE_ACTION(0x0caa7d08), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_DANGLE,
+    {&dat_0cad6dac, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CIRCLE, 0.25F, 0.5F},
+    {&dat_0cad5248, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CIRCLE_LEFT, 0.25F,
+     2.0F},
+    {&dat_0cad1584, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_CIRCLE_RIGHT, 0.25F,
+     2.0F},
+    {&dat_0cad8f60, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_CIRCLE_DOWN, 0.25F,
+     0.5F},
+    {&dat_0cadb8d4, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_CIRCLE, 0.25F, 0.5F},
+    {&dat_0caaee64, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_DANGLE, 0.25F, 0.5F},
+    {&dat_0cab0ae8, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_DANGLE, 0.25F, 1.0F},
+    {&dat_0caa6454, SONIC_NODES, PLAYER_ANIM_ONCE, 97, 1.0F, 1.0F},
+    {&dat_0caa7d08, SONIC_NODES, PLAYER_ANIM_DRIVEN, 97, 1.0F, 1.0F},
+    {&dat_0caa7d08, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_DANGLE, 1.0F, 1.0F},
+    {&dat_0caaaaac, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_DANGLE_LEFT, 0.25F,
+     1.0F},
+    {&dat_0caad820, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_DANGLE_RIGHT, 0.25F,
+     1.0F},
+    {&dat_0caad820, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_DANGLE_CLIMB, 0.25F,
+     1.0F},
+    {&dat_0cb24580, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_BOARD, 0.0625F, 1.0F},
+    {&dat_0cb3328c, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_BOARD_BRAKE_PLUS,
+     0.125F, 1.0F},
+    {&dat_0cb31228, SONIC_NODES, PLAYER_ANIM_HOLD, ACTION_BOARD_BRAKE_MINUS,
+     0.125F, 1.0F},
+    {&dat_0cb2980c, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL_START,
+     0.0625F, 1.0F},
+    {&dat_0cb27d88, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_AIR, 0.25F,
+     1.0F},
+    {&dat_0cb35110, SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_BOARD_LEAN_PLUS,
      1.0F, 1.0F},
-    {MODULE_ACTION(0x0caaaaac), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_DANGLE_LEFT, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0caad820), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_DANGLE_RIGHT, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0caad820), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_DANGLE_CLIMB, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0cb24580), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_BOARD,
-     0.0625F, 1.0F},
-    {MODULE_ACTION(0x0cb3328c), SONIC_NODES, PLAYER_ANIM_HOLD,
-     ACTION_BOARD_BRAKE_PLUS, 0.125F, 1.0F},
-    {MODULE_ACTION(0x0cb31228), SONIC_NODES, PLAYER_ANIM_HOLD,
-     ACTION_BOARD_BRAKE_MINUS, 0.125F, 1.0F},
-    {MODULE_ACTION(0x0cb2980c), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL_START, 0.0625F, 1.0F},
-    {MODULE_ACTION(0x0cb27d88), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_AIR,
-     0.25F, 1.0F},
-    {MODULE_ACTION(0x0cb35110), SONIC_NODES, PLAYER_ANIM_DRIVEN,
-     ACTION_BOARD_LEAN_PLUS, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb36f84), SONIC_NODES, PLAYER_ANIM_DRIVEN,
-     ACTION_BOARD_LEAN_MINUS, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb2f4b4), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_SLOW, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb2c750), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_SLOW, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb1e5b4), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.5F, 1.0F},
-    {MODULE_ACTION(0x0cb20168), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_BOARD_FALL, 0.5F, 0.3F},
-    {MODULE_ACTION(0x0cb2316c), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD,
-     0.5F, 1.0F},
-    {MODULE_ACTION(0x0cb1ad0c), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_BOARD_SLOW, 0.0625F, 1.0F},
-    {MODULE_ACTION(0x0cb1c930), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD,
-     0.0625F, 1.0F},
-    {MODULE_ACTION(0x0cb12974), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.0625F, 0.85F},
-    {MODULE_ACTION(0x0cb19108), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.0625F, 0.85F},
-    {MODULE_ACTION(0x0cb46fd8), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.0625F, 0.85F},
-    {MODULE_ACTION(0x0cb46fd8), SONIC_NODES, PLAYER_ANIM_BACK,
-     ACTION_BOARD_FALL, 0.0625F, 0.85F},
-    {MODULE_ACTION(0x0cb099dc), SONIC_NODES, PLAYER_ANIM_ONCE, 121, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb39f30), SONIC_NODES, PLAYER_ANIM_ONCE, 122, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0cb3b694), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0cb0d880), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_BOARD_FALL, 0.25F, 1.5F},
-    {MODULE_ACTION(0x0cb26314), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_BOARD_CROUCH, 0.25F, 1.5F},
+    {&dat_0cb36f84, SONIC_NODES, PLAYER_ANIM_DRIVEN, ACTION_BOARD_LEAN_MINUS,
+     1.0F, 1.0F},
+    {&dat_0cb2f4b4, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_SLOW, 1.0F,
+     1.0F},
+    {&dat_0cb2c750, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_SLOW, 1.0F,
+     1.0F},
+    {&dat_0cb1e5b4, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.5F,
+     1.0F},
+    {&dat_0cb20168, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_BOARD_FALL, 0.5F,
+     0.3F},
+    {&dat_0cb2316c, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD, 0.5F, 1.0F},
+    {&dat_0cb1ad0c, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_BOARD_SLOW, 0.0625F,
+     1.0F},
+    {&dat_0cb1c930, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD, 0.0625F, 1.0F},
+    {&dat_0cb12974, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.0625F,
+     0.85F},
+    {&dat_0cb19108, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.0625F,
+     0.85F},
+    {&dat_0cb46fd8, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.0625F,
+     0.85F},
+    {&dat_0cb46fd8, SONIC_NODES, PLAYER_ANIM_BACK, ACTION_BOARD_FALL, 0.0625F,
+     0.85F},
+    {&dat_0cb099dc, SONIC_NODES, PLAYER_ANIM_ONCE, 121, 1.0F, 1.0F},
+    {&dat_0cb39f30, SONIC_NODES, PLAYER_ANIM_ONCE, 122, 1.0F, 1.0F},
+    {&dat_0cb3b694, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.25F,
+     1.0F},
+    {&dat_0cb0d880, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_BOARD_FALL, 0.25F,
+     1.5F},
+    {&dat_0cb26314, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_BOARD_CROUCH, 0.25F,
+     1.5F},
     {&sonic_spin_action, SPIN_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_SLOPE_ROLL,
      0.25F, 0.2F},
-    {MODULE_ACTION(0x0cb062e0), SONIC_NODES, PLAYER_ANIM_ONCE, 127, 0.25F,
-     0.25F},
-    {MODULE_ACTION(0x0cb099f4), SONIC_NODES, PLAYER_ANIM_LOOP, 127, 0.25F,
-     0.25F},
-    {MODULE_ACTION(0x0cb12948), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND,
-     0.25F, 0.25F},
-    {MODULE_ACTION(0x0cafe4dc), SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND,
-     0.25F, 0.5F},
-    {MODULE_ACTION(0x0c914d88), SONIC_NODES, PLAYER_ANIM_LOOP,
+    {&dat_0cb062e0, SONIC_NODES, PLAYER_ANIM_ONCE, 127, 0.25F, 0.25F},
+    {&dat_0cb099f4, SONIC_NODES, PLAYER_ANIM_LOOP, 127, 0.25F, 0.25F},
+    {&dat_0cb12948, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 0.25F},
+    {&dat_0cafe4dc, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 0.5F},
+    {&super_sonic_stand_action, SONIC_NODES, PLAYER_ANIM_LOOP,
      ACTION_SUPER_STAND, 0.0625F, 0.25F},
-    {MODULE_ACTION(0x0c90ef2c), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_SUPER_WALK, 0.25F, 0.5F},
-    {MODULE_ACTION(0x0c910050), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_SUPER_TROT, 0.25F, 0.5F},
-    {MODULE_ACTION(0x0c9111f4), SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SUPER_RUN,
+    {&super_sonic_walk_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SUPER_WALK,
      0.25F, 0.5F},
-    {MODULE_ACTION(0x0c9111f4), SONIC_NODES, PLAYER_ANIM_LOOP,
+    {&super_sonic_trot_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SUPER_TROT,
+     0.25F, 0.5F},
+    {&super_sonic_run_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SUPER_RUN,
+     0.25F, 0.5F},
+    {&super_sonic_run_action, SONIC_NODES, PLAYER_ANIM_LOOP,
      ACTION_SUPER_SPRINT, 0.25F, 0.5F},
-    {MODULE_ACTION(0x0c914d98), SONIC_NODES, PLAYER_ANIM_LOOP,
+    {&super_sonic_spring_action, SONIC_NODES, PLAYER_ANIM_LOOP,
      ACTION_SUPER_SPRING, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0c914da0), SONIC_NODES, PLAYER_ANIM_ONCE,
+    {&super_sonic_fall_start_action, SONIC_NODES, PLAYER_ANIM_ONCE,
      ACTION_SUPER_FALL, 0.125F, 1.0F},
-    {MODULE_ACTION(0x0c914da8), SONIC_NODES, PLAYER_ANIM_LOOP,
-     ACTION_SUPER_FALL, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0c914db0), SONIC_NODES, PLAYER_ANIM_ONCE,
+    {&super_sonic_fall_action, SONIC_NODES, PLAYER_ANIM_LOOP, ACTION_SUPER_FALL,
+     0.25F, 1.0F},
+    {&super_sonic_hard_landing_action, SONIC_NODES, PLAYER_ANIM_ONCE,
      ACTION_SUPER_STAND, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0c914db8), SONIC_NODES, PLAYER_ANIM_HOLD,
+    {&super_sonic_clear_action, SONIC_NODES, PLAYER_ANIM_HOLD,
      ACTION_SUPER_CLEAR, 0.5F, 1.0F},
-    {MODULE_ACTION(0x0c914dc0), SONIC_NODES, PLAYER_ANIM_ONCE,
-     ACTION_SUPER_STAND, 0.5F, 1.0F},
-    {MODULE_ACTION(0x0c914d90), BALL_NODES, PLAYER_ANIM_LOOP_PACE,
+    {&dat_0c914dc0, SONIC_NODES, PLAYER_ANIM_ONCE, ACTION_SUPER_STAND, 0.5F,
+     1.0F},
+    {&super_sonic_ball_action, BALL_NODES, PLAYER_ANIM_LOOP_PACE,
      ACTION_SUPER_BALL, 0.25F, 0.2F},
 };
 
@@ -1162,30 +1152,30 @@ static struct weld sonic_welds[] = {
      WELD_TO_A, 0, 0, NULL, sonic_shoe_indices},
     {&sonic_object, &sonic_forearm_minus_z, &sonic_ring_wrist, 4, WELD_TO_A, 0,
      0, NULL, sonic_wrist_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c905708), MODULE_OBJECT(0x0c905890),
-     4, WELD_TO_A, 0, 0, NULL, sonic_arm_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c905890), MODULE_OBJECT(0x0c90647c),
-     4, WELD_TO_A, 0, 0, NULL, sonic_wrist_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c9046e4), MODULE_OBJECT(0x0c90486c),
-     4, WELD_TO_A, 0, 0, NULL, sonic_arm_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c90486c), MODULE_OBJECT(0x0c905464),
-     4, WELD_TO_A, 0, 0, NULL, sonic_wrist_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c903504), MODULE_OBJECT(0x0c90368c),
-     4, WELD_TO_A, 0, 0, NULL, sonic_thigh_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c90368c), MODULE_OBJECT(0x0c904430),
-     4, WELD_TO_A, 0, 0, NULL, sonic_shin_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c902334), MODULE_OBJECT(0x0c9024bc),
-     4, WELD_TO_A, 0, 0, NULL, sonic_thigh_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c9024bc), MODULE_OBJECT(0x0c903278),
-     4, WELD_TO_A, 0, 0, NULL, sonic_shin_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c903fec), MODULE_OBJECT(0x0c9039fc),
-     6, WELD_TO_A, 0, 0, NULL, sonic_shoe_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c902e34), MODULE_OBJECT(0x0c902838),
-     6, WELD_TO_A, 0, 0, NULL, sonic_shoe_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c905020), MODULE_OBJECT(0x0c904bac),
-     4, WELD_TO_A, 0, 0, NULL, sonic_hand_indices},
-    {&super_sonic_object, MODULE_OBJECT(0x0c906044), MODULE_OBJECT(0x0c905bd0),
-     4, WELD_TO_A, 0, 0, NULL, sonic_hand_indices},
+    {&super_sonic_object, &dat_0c905708, &dat_0c905890, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_arm_indices},
+    {&super_sonic_object, &dat_0c905890, &dat_0c90647c, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_wrist_indices},
+    {&super_sonic_object, &dat_0c9046e4, &dat_0c90486c, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_arm_indices},
+    {&super_sonic_object, &dat_0c90486c, &dat_0c905464, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_wrist_indices},
+    {&super_sonic_object, &dat_0c903504, &dat_0c90368c, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_thigh_indices},
+    {&super_sonic_object, &dat_0c90368c, &dat_0c904430, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_shin_indices},
+    {&super_sonic_object, &dat_0c902334, &dat_0c9024bc, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_thigh_indices},
+    {&super_sonic_object, &dat_0c9024bc, &dat_0c903278, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_shin_indices},
+    {&super_sonic_object, &dat_0c903fec, &dat_0c9039fc, 6, WELD_TO_A, 0, 0,
+     NULL, sonic_shoe_indices},
+    {&super_sonic_object, &dat_0c902e34, &dat_0c902838, 6, WELD_TO_A, 0, 0,
+     NULL, sonic_shoe_indices},
+    {&super_sonic_object, &dat_0c905020, &dat_0c904bac, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_hand_indices},
+    {&super_sonic_object, &dat_0c906044, &dat_0c905bd0, 4, WELD_TO_A, 0, 0,
+     NULL, sonic_hand_indices},
     {&sonic_object, &sonic_fingers_minus_z, NULL, 2, WELD_MARK, 0, 0, NULL,
      NULL},
     {&sonic_object, &sonic_fingers_plus_z, NULL, 2, WELD_MARK + 1, 0, 0, NULL,
@@ -1209,34 +1199,16 @@ static Uint16 dat_8c1dc5a4[22] = {0x0020, 0x0120, 0x0220, 0x0320, 0x0420,
  * ACTION_BOARD. null draws the board as its model has it */
 #define BOARD_ACTIONS (ACTION_BOARD_CROUCH - ACTION_BOARD + 1)
 static NJS_ACTION *sonic_board_actions[BOARD_ACTIONS] = {
-    NULL,
-    MODULE_ACTION(0x0cb38c24),
-    MODULE_ACTION(0x0cb38af0),
-    MODULE_ACTION(0x0cb38574),
-    MODULE_ACTION(0x0cb38440),
-    MODULE_ACTION(0x0cb38e68),
-    MODULE_ACTION(0x0cb390ac),
-    MODULE_ACTION(0x0cb389bc),
-    MODULE_ACTION(0x0cb38798),
-    MODULE_ACTION(0x0cb381c8),
-    MODULE_ACTION(0x0cb382fc),
-    NULL,
-    NULL,
-    NULL,
-    MODULE_ACTION(0x0cb37c70),
-    MODULE_ACTION(0x0cb38094),
-    MODULE_ACTION(0x0cb47e34),
-    MODULE_ACTION(0x0cb47e34),
-    MODULE_ACTION(0x0cb375b8),
-    MODULE_ACTION(0x0cb470fc),
-    MODULE_ACTION(0x0cb47230),
-    MODULE_ACTION(0x0cb3784c),
-    NULL,
+    NULL,          &dat_0cb38c24, &dat_0cb38af0, &dat_0cb38574, &dat_0cb38440,
+    &dat_0cb38e68, &dat_0cb390ac, &dat_0cb389bc, &dat_0cb38798, &dat_0cb381c8,
+    &dat_0cb382fc, NULL,          NULL,          NULL,          &dat_0cb37c70,
+    &dat_0cb38094, &dat_0cb47e34, &dat_0cb47e34, &dat_0cb375b8, &dat_0cb470fc,
+    &dat_0cb47230, &dat_0cb3784c, NULL,
 };
 
 /* the board's own textures. sonic_board_start picks the first of
- * sonic_board_texlists or the module's BOARD_TEXLIST by the play time.
- * sonic_board_texlist_count is 1, so the other three lists go unused */
+ * sonic_board_texlists or s_sbmot.PRS's sb_board1_texlist by the play
+ * time. sonic_board_texlist_count is 1, so the other three lists go unused */
 static NJS_TEXNAME sonic_board_textures[] = {{TEXT_1, 0, 0}};
 static NJS_TEXLIST sonic_board_texlists[4] = {
 #include "player/sonic/sonic_board_texlists.inc"
@@ -6984,6 +6956,17 @@ static void sonic_sway_step(struct task *task)
          * points past the end of the head's own points, and writes those it
          * turns past the end of the sway model's (0x8c0b9616 on, from in R14
          * and to in R12) */
+#ifdef GCC
+        /* repairs the read past the head's points and the write past the sway
+         * model's that the tag names, by dropping the third pass. in the image
+         * each model's count normals follow its points, sonic_head_model's at
+         * 0x8c1e3124 and sonic_head_sway_model's at 0x8c1ef480. the third pass
+         * turns each of the head's normals whose x is below SWAY_DEPTH_3 into
+         * the sway model's at the same index. here the sway model's points
+         * take the first two passes alone, as in the image, and its normals
+         * stay its own */
+        njPopMatrix(2);
+#else
         njPushMatrix(&_unit_matrix_);
         TURN(njRotateY, work->ang.y >> 2);
         TURN(njRotateZ, tilt >> 2);
@@ -7000,6 +6983,7 @@ static void sonic_sway_step(struct task *task)
             to++;
         }
         njPopMatrix(3);
+#endif
         break;
     default:
         task_destroy(task);
@@ -7166,6 +7150,15 @@ static void sonic_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
+#ifdef GCC
+            /* repairs angles[1] and [2], which the shipped code leaves
+             * unset with no task, or a task with no work. the BRA at
+             * 0x8c0b9a8e skips to the aims, which read them at 0x8c0b9b6c
+             * and 0x8c0b9b76. 0, as the default case sets them, looks
+             * ahead */
+            angles[1] = 0;
+            angles[2] = 0;
+#endif
             /* @hack spelling: two tests, each with its own store and break;
              * joined, the frame grows from 76 bytes to 80 (ADD #-44,R15 at
              * 0x8c0b97ce) and 196 of 406 words differ */
@@ -7208,8 +7201,8 @@ static void sonic_look_step(struct task *task)
         break;
     }
     if (PLAYER_VARS(work)->player == 0) {
-        AURA_HEAD->ang[1] = look->look.head->ang[1];
-        AURA_HEAD->ang[2] = look->look.head->ang[2];
+        sonic_aura_head.ang[1] = look->look.head->ang[1];
+        sonic_aura_head.ang[2] = look->look.head->ang[2];
     }
 }
 
@@ -7326,17 +7319,17 @@ static void sonic_charged_create(struct task_work *work,
 }
 
 /* the board takes its model, and the texlist the play time picks. an even
- * play time picks the first of sonic_board_texlists, and an odd one the
- * module's BOARD_TEXLIST */
+ * play time picks the first of sonic_board_texlists, and an odd one
+ * s_sbmot.PRS's sb_board1_texlist */
 void sonic_board_start(struct task *task)
 {
     struct task_work *work = task->work;
     int index;
 
-    BOARD_VARS(work)->object = BOARD_OBJECT;
+    BOARD_VARS(work)->object = &sonic_board_object;
     index = (Uint32)play_time_get() % (sonic_board_texlist_count + 1);
     if (index >= sonic_board_texlist_count) {
-        BOARD_VARS(work)->texlist = BOARD_TEXLIST;
+        BOARD_VARS(work)->texlist = &sb_board1_texlist;
     } else {
         BOARD_VARS(work)->texlist = &sonic_board_texlists[index];
     }

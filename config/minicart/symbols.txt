@@ -1285,8 +1285,7 @@
 0x0ca367e4  dat_0ca367e4
 0x0ca37e04  dat_0ca37e04
 0x0ca3803c  obj_mini_cart_texlist
-0x0ca38044  dat_0ca38044
-0x0ca38094  signboard_face
+0x0ca38044  signboard_materials
 0x0ca380e4  dat_0ca380e4
 0x0ca38124  dat_0ca38124
 0x0ca389b0  signboard_object
@@ -1297,7 +1296,7 @@
 0x0ca3930c  dial_lamp_2
 0x0ca39488  dial_face_1
 0x0ca395d0  dial_object
-0x0ca3a404  robot_flag
+0x0ca3a378  robot_materials
 0x0ca3bcd4  start_robot_action
 0x0ca3c018  goal_robot_action
 0x0ca3c020  cart_zone_shape

@@ -9,8 +9,7 @@
 #include "system/texlists.h" /* NOLINT(misc-include-cleaner) */
 #include "system/util.h"
 
-/* EFF_REGULAR's panlight */
-static NJS_TEXLIST glare_texlist = {
+NJS_TEXLIST glare_texlist = {
 #include "effect/glare/glare_texlist.inc"
 };
 static NJS_TEXANIM glare_frame = {

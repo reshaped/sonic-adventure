@@ -114,7 +114,16 @@ KMINT32 kmiCopyToFrameBuffer(KMDWORD offset, KMDWORD *src, KMDWORD size)
          * and returns DMA_EMPTY without setting handle. the loads at
          * 0x8ce1b8c2 and 0x8ce1b8c6 read the unset pointer and the word it
          * points to */
+#ifdef GCC
+        /* repairs the read of the unset handle that the tag above names. a
+         * copy that makes no request leaves frame_dma as it was, the last DMA
+         * transfer's handle */
+        if (dma_size != 0) {
+            kmiDeviceExtension.frame_dma = *handle;
+        }
+#else
         kmiDeviceExtension.frame_dma = *handle;
+#endif
         if (size & (CACHE_LINE - 1)) {
             offset += dma_size;
             src = (KMDWORD *)((KMDWORD)src + dma_size);

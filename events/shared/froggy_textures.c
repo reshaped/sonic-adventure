@@ -3,6 +3,8 @@
  * the same names with the first two swapped */
 #include <ninja.h>
 
+#include "shared/froggy_textures.h"
+
 #define TEXT_1_LENGTH 7
 #define TEXT_2_LENGTH 7
 #define TEXT_3_LENGTH 7
@@ -13,7 +15,7 @@
 #define TEXT_8_LENGTH 7
 #include "shared/froggy_textures/text.inc"
 
-static NJS_TEXNAME event_froggy_textures[8] = {
+NJS_TEXNAME event_froggy_textures[8] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0}, {TEXT_4, 0, 0},
     {TEXT_5, 0, 0}, {TEXT_6, 0, 0}, {TEXT_7, 0, 0}, {TEXT_8, 0, 0},
 };

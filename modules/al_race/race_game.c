@@ -224,7 +224,12 @@ struct race_game *race_game_create(void)
             /* @hack implicit: where race_game_init fails, R0 still holds
              * its 0 (0x0cb8c0e6), which alife_race_start stores
              * (0x0cb998ba); returned explicitly, 1 of 29 words differ */
+#ifdef GCC
+            /* keeps the value the tag names: R0's 0 */
+            return NULL;
+#else
             return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
         }
     }
     return NULL;
@@ -683,6 +688,12 @@ static int race_board_fill(struct race_game *game)
     if (places == NULL) {
         return 0;
     }
+#ifdef GCC
+    /* GCC can't see that node is set wherever it is read: the loop reads it
+     * only where kind isn't ENTRY_CARD, and the garden window's choice leaves
+     * any other kind a garden's, whose case sets it */
+    node = NULL;
+#endif
     switch (places->kind) {
     case GARDEN_STATION_SQUARE:
     case GARDEN_EGG_CARRIER:
@@ -739,6 +750,20 @@ static int race_board_fill(struct race_game *game)
                  * of address 4. as the cards are chosen, garden_window_step
                  * leaves it game->places (0x0cb8ed12), so the record is the
                  * word at place 0's flags */
+#ifdef GCC
+                /* repairs the read the tag names, whose record varies with
+                 * timing. the egg takes its look from its card's Chao,
+                 * game->chao[place], whose type the test above reads */
+                if (game->chao[place].flags & CHAO_GOLD) {
+                    places->places[place].flags |= ENTRANT_GOLD;
+                } else if (game->chao[place].flags & CHAO_PAL) {
+                    places->places[place].flags |= ENTRANT_PAL;
+                } else if (game->chao[place].flags & CHAO_BEGG) {
+                    places->places[place].flags |= ENTRANT_BEGG;
+                } else {
+                    places->places[place].flags |= ENTRANT_EGG;
+                }
+#else
                 if (node->chao->flags & CHAO_GOLD) {
                     places->places[place].flags |= ENTRANT_GOLD;
                 } else if (node->chao->flags & CHAO_PAL) {
@@ -748,6 +773,7 @@ static int race_board_fill(struct race_game *game)
                 } else {
                     places->places[place].flags |= ENTRANT_EGG;
                 }
+#endif
                 entrant_init(&places->places[place], &pos);
                 continue;
             }

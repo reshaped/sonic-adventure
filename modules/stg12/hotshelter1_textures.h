@@ -8,5 +8,7 @@
 extern NJS_TEXLIST hotshelter1_texlist;
 /* the 5 textures shelter_act0_pvms fills from SHELTER_COLUMN */
 extern NJS_TEXLIST shelter_column_texlist;
+/* a material that the generated data after this file names */
+extern NJS_MATERIAL dat_0ca5e9a4[1];
 
 #endif

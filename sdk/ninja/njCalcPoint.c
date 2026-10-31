@@ -1,9 +1,16 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* pd = (ps, 1) times m. a null m selects the current matrix, in XMTRX. pd may
  * be ps */
+#ifdef GCC
+#undef njCalcPoint
+void njCalcPoint(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd)
+{
+    zam_njCalcPoint(m, ps, pd);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c627e34 follows the
  * body's own return at 0x8c627e30 */
 #pragma inline_asm(njCalcPoint)
@@ -57,3 +64,4 @@ void njCalcPoint(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd)
 }
 #endif
 /* clang-format on */
+#endif

@@ -21,7 +21,7 @@ import argparse
 import re
 import sys
 
-from config import content, fail, save
+from tool import content, fail, save
 
 # a section's declaration: the directive, which asmsh takes in either case, and
 # its operands, which run to a blank or a comment

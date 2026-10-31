@@ -2,6 +2,8 @@
  * ev006c_amy_action */
 #include <ninja.h>
 
-static NJS_MKEY_F dat_0cb80950[2] = {
+#include "ev006c/dat_0cb80950.h"
+
+NJS_MKEY_F dat_0cb80950[2] = {
 #include "ev006c/dat_0cb80950/dat_0cb80950.inc"
 };

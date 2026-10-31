@@ -75,7 +75,7 @@ static void station_square_sky_act_end(struct task *task)
 
 /* under section HEAD, SHC writes this step and the sky's to section PHEAD,
  * which the module's link places first. 1ST_READ.BIN's stage_steps and
- * sky_steps name the two by their addresses there */
+ * sky_steps hold their addresses there */
 #pragma section HEAD
 void station_square_step(struct task *task)
 {

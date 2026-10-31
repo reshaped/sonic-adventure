@@ -300,6 +300,11 @@ static Bool mountain_door_opened(struct task_work *work)
     Float z;
     Angle ang;
 
+#ifdef GCC
+    /* GCC can't see that every path sets open: the door's init holds its
+     * kind to DOOR_FIRST or DOOR_SECOND, and the switch has a case for each */
+    open = FALSE;
+#endif
     switch (KIND(work)) {
     case DOOR_FIRST:
         if (player_get_character(0) == CHARACTER_KNUCKLES) {

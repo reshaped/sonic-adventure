@@ -3,6 +3,11 @@
 
 extern float _in_floors(float x);
 
+#ifdef GCC
+/* each C call inlines mathf.h's zam_floorf. njRoundOff's assembly calls
+ * this definition */
+#undef floorf
+#endif
 float floorf(float x)
 {
     float result;

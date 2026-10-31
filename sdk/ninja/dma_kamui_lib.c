@@ -153,7 +153,15 @@ KMINT32 kmiDMAHazardReset(void)
     start_slot[1] = 0;
     next_handle = 0;
     started_slot = SLOTS - 1;
+#ifdef GCC
+    /* repairs the read and clear past requests that STARTED_REQUEST's tag
+     * names. GCC sets started_queue as kmiInitializeDMA does, so
+     * STARTED_REQUEST names a free slot, which no request fills before the
+     * next transfer starts */
+    started_queue = 1;
+#else
     started_queue = 7;
+#endif
     for (i = 0; i < SLOTS; i++) {
         requests[0][i].state = 0;
         requests[1][i].state = DMA_SECOND_QUEUE;
@@ -303,7 +311,16 @@ KMBOOLEAN kmiQueryFinishDMA(KMDWORD handle)
     for (queue = 0; queue < QUEUES; queue++) {
         for (slot = 0; slot < SLOTS; slot++) {
             if (requests[queue][slot].handle == handle) {
+#ifdef GCC
+                /* the DMA's end interrupt clears DMA_BUSY, so each call reads
+                 * the state anew. read as plain memory, GCC took this query
+                 * for pure, and kmiWaitForFinishDMA asked it once and spun
+                 * for good where the transfer was still running */
+                if (*(volatile KMDWORD *)&requests[queue][slot].state &
+                    DMA_BUSY) {
+#else
                 if (requests[queue][slot].state & DMA_BUSY) {
+#endif
                     return FALSE;
                 }
             }

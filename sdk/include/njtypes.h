@@ -12,7 +12,17 @@
 #define NJTYPES_H
 
 typedef Sint32 Angle; /* 65536 to a full turn */
+#ifdef GCC
+/* an FMOV with FPSCR.SZ set moves 8 bytes, and takes an address error at an
+ * address that isn't 8-byte aligned. some of Ninja's and SH4ZAM's routines
+ * move a matrix that way. GCC would align a Float[16] to 4, so NJS_MATRIX
+ * takes 8. inside a structure, config/gcc.mk's -fpack-struct=4 still aligns
+ * a matrix to 4, so each layout stays SHC's. NJS_VIEW and NJS_LIGHT align
+ * theirs to 8, below */
+typedef Float NJS_MATRIX[16] __attribute__((aligned(8)));
+#else
 typedef Float NJS_MATRIX[16];
+#endif
 typedef struct {
     Float x, y;
 } NJS_POINT2;
@@ -342,6 +352,14 @@ typedef struct {
     Float cx, cy;
 } NJS_SCREEN;
 
+#ifdef GCC
+/* njSetView passes a view's matrix to njTranslate. GCC's njTranslate passes
+ * it to SH4ZAM as an shz_mat4x4_t, which must be 8-byte aligned. pack(8)
+ * lifts -fpack-struct=4's cap, so NJS_MATRIX's aligned(8) aligns the
+ * structure, and the matrix at its start, to 8. no other member aligns past
+ * 4, and the size is a multiple of 8, so no offset or size changes */
+#pragma pack(push, 8)
+#endif
 /* a view: its matrix; its position, direction and roll; and its absolute
  * position, direction and roll, from which njRotateViewXAbsolute,
  * njRotateViewYAbsolute, njRotateViewZAbsolute and njTranslateViewAbsolute
@@ -355,6 +373,9 @@ typedef struct {
     Float avx, avy, avz;
     Angle aroll;
 } NJS_VIEW;
+#ifdef GCC
+#pragma pack(pop)
+#endif
 
 typedef struct {
     Float ratten, ipd;
@@ -379,6 +400,11 @@ typedef struct {
     Angle iang, oang;
     NJS_ARGB argb;
 } NJS_LIGHT_ATTR;
+#ifdef GCC
+/* pack(8), as for NJS_VIEW: njTranslateLight passes a light's matrix to
+ * njTranslate */
+#pragma pack(push, 8)
+#endif
 typedef struct {
     NJS_MATRIX mtrx;
     NJS_POINT3 pnt;
@@ -388,6 +414,9 @@ typedef struct {
     NJS_LIGHT_CAL ltcal; /* values Ninja derives */
     NJS_LIGHT_ATTR attr; /* values the caller sets */
 } NJS_LIGHT;
+#ifdef GCC
+#pragma pack(pop)
+#endif
 
 typedef struct {
     NJS_ARGB ambient;

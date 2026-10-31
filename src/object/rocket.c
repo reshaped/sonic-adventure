@@ -179,7 +179,7 @@ static NJS_SPRITE rocket_jet_sprite = {
 };
 
 /* its smoke, EFF_REGULAR's roketthrust01 to 08 */
-static NJS_TEXLIST rocket_thrust_texlist = {
+NJS_TEXLIST rocket_thrust_texlist = {
 #include "object/rocket/rocket_thrust_texlist.inc"
 };
 static NJS_TEXANIM rocket_thrust_frames[8] = {

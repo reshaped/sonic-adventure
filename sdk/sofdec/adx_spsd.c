@@ -33,6 +33,13 @@ Sint32 nlsndStreamGetParam(void *info, Sint32 no, Sint16 ch)
     Sint32 len;
 
     len = *(Sint32 *)(hdr + SPSD_DTLEN);
+#ifdef GCC
+    /* repairs the unset nch and bits the tags below name: GCC's start at -1,
+     * the answer the function gives where it has none, so NLSND_NCH and
+     * NLSND_BPS answer -1 for a code no case names */
+    nch = -1;
+    bits = -1;
+#endif
     /* @bug uninitialized: a channel code of 3 sets no nch, so NLSND_NSMPL
      * and NLSND_NCH read R14 as the caller left it (0x8c677966, 0x8c67796e).
      * ADX_DecodeInfoSpsd keeps info in R14, so its channel count is the low

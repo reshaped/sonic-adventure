@@ -84,6 +84,12 @@ void race_path_locate(struct race_path *path, NJS_POINT3 *point,
     if (!race_get_kind(&kind)) {
         kind = 4;
     }
+#ifdef GCC
+    /* repairs the unset read the tag in the loop names. along starts at 0,
+     * how far a path's first point lies from its start, until
+     * path_find_nearest first sets it */
+    along = 0.0F;
+#endif
     for (i = 0; i < path->count; i++) {
         int allowed = race_kind_paths[kind];
         int bit;

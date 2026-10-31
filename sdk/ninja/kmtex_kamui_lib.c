@@ -1110,7 +1110,14 @@ static KMSTATUS reload_palette4(PKMSURFACEDESC surface, KMBYTE *texture,
          * before the surface */
         to = (KMDWORD)&merge[0];
         from = (KMDWORD)surface->pSurface;
+#ifdef GCC
+        /* repairs the first read the tag names: the level ends at its offset
+         * plus its size. level4_offset[level + 1] holds that end only below
+         * level 10 */
+        from += level4_offset[level] + level4_size[level] - 12;
+#else
         from += level4_offset[level + 1] - 12;
+#endif
         kmiCopyFromFrameBuffer((PKMDWORD)to, from, sizeof merge);
         in = texture + level4_size[level] - 12;
         for (i = 0; i < 12; i++) {
@@ -1118,7 +1125,12 @@ static KMSTATUS reload_palette4(PKMSURFACEDESC surface, KMBYTE *texture,
         }
         from = (KMDWORD)&merge[0];
         to = (KMDWORD)surface->pSurface;
+#ifdef GCC
+        /* repairs the second read the tag names, as above */
+        to += level4_offset[level] + level4_size[level] - 12;
+#else
         to += level4_offset[level + 1] - 12;
+#endif
         kmiPurgeCache((void *)from);
         kmiPurgeCache((void *)(from + CACHE_LINE));
         kmiCopyToFrameBuffer(to, (PKMDWORD)from, sizeof merge);

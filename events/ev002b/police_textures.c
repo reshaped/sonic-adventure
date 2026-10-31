@@ -40,6 +40,6 @@ static NJS_TEXNAME ev002b_police_textures[23] = {
 NJS_TEXLIST ev002b_police_texlist = {
 #include "ev002b/police_textures/ev002b_police_texlist.inc"
 };
-static NJS_OBJECT dat_0cb8a7d4 = {
+NJS_OBJECT dat_0cb8a7d4 = {
 #include "ev002b/police_textures/dat_0cb8a7d4.inc"
 };

@@ -4,8 +4,7 @@
 
 #include "system/task.h"
 
-/* the stage's task step. 1ST_READ.BIN's stage_steps reaches it by its
- * address, 0x0c900000, not by its name */
+/* the stage's task step. 1ST_READ.BIN's stage_steps names it */
 void chaos6_step(struct task *task);
 /* the step of a task that waits work->timer steps, then asks for music
  * work->mode, keeps it for stream_restore_music, and destroys itself. it

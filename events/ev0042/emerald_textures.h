@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev0042_emerald_texlist;
+/* the material of one node of the model ev0042_emerald_action moves */
+extern NJS_MATERIAL dat_0cb98da4[1];
 
 #endif

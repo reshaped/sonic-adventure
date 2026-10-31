@@ -132,6 +132,13 @@ KMSTATUS kmuConvertFBtoBMP(PKMDWORD pOutputData, PKMDWORD pInputData,
     KMBYTE g;
     KMBYTE b;
 
+#ifdef GCC
+    /* repairs the unset r, g and b the tag below names: for an nBpp the
+     * switch doesn't name, GCC writes black pixels */
+    r = 0;
+    g = 0;
+    b = 0;
+#endif
     for (y = nHeight - 1; y >= 0; --y) {
         in = (KMWORD *)pInputData + (y * nWidth);
         for (x = 0; x < nWidth; ++x, ++in) {
@@ -965,6 +972,12 @@ static void twiddle(KMWORD *output, struct texel *input, int size,
     int value;
     int mask;
 
+#ifdef GCC
+    /* GCC can't see that every path sets value: each caller's format is
+     * KM_PIXELFORMAT_RGB565, _ARGB4444 or _ARGB1555, which the tests below
+     * name */
+    value = 0;
+#endif
     for (y = size; y; --y) {
         column = 0;
         input = row_start;

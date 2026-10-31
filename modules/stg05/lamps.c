@@ -13,6 +13,7 @@
 #include "draw/draw.h"
 #include "draw/model.h"
 #include "draw/tree.h"
+#include "effect/glare.h" /* NOLINT(misc-include-cleaner) */
 #include "object/placement.h"
 #include "stg05/lamps.h"
 #include "system/task.h"
@@ -21,10 +22,6 @@
 extern NJS_TEXLIST obj_mountain_texlist;
 extern NJS_OBJECT mountain_lamp_1_object;
 extern NJS_OBJECT mountain_lamp_2_object;
-
-/* effect/glare.c's texlist, EFF_REGULAR's panlight. glare.c defines it
- * static, but 1ST_READ.BIN's symbols give its address */
-extern NJS_TEXLIST glare_texlist;
 
 /* TASK_TIMER(work) counts the draws into the flicker, from 0 */
 struct mountain_lamp_vars {

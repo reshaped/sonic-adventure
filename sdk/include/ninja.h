@@ -342,6 +342,12 @@ Float njScalor2(NJS_VECTOR *v);
 Float _builtin_fsrra(Float n);
 void _builtin_fsca(Angle ang, Float *sin, Float *cos);
 #endif
+#ifdef GCC
+/* GCC's builtins give FABS and FSQRT, where SH4ZAM's shz_sqrtf approximates
+ * the root by FSRRA. ninja_zam.h defines _builtin_fsrra and _builtin_fsca */
+#define _builtin_fabsf __builtin_fabsf
+#define _builtin_sqrtf __builtin_sqrtf
+#endif
 #define njAbs(n) ((Float)_builtin_fabsf((Float)(n)))
 
 /* degrees as an Angle */
@@ -1255,5 +1261,13 @@ extern Float _nj_cnk_easy_multilight_buffer_[16];
 extern NJS_TEXSURFACE _nj_framebuffer_surface0_;
 extern NJS_TEXSURFACE _nj_framebuffer_surface1_;
 void njInitSprite(void);
+#ifdef GCC
+/* port.h declares the port's own calls and state, among them the 16:9
+ * squeeze of the 2D draws. its path is relative to this header, since not
+ * every compile searches the tree's root */
+#include "../../gcc/src/system/port.h"
+
+#include <ninja_zam.h>
+#endif
 
 #endif

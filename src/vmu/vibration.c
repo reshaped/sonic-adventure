@@ -86,6 +86,13 @@ void vibration_start(int pad, int power, int freq, int time)
     int i;
     int flag;
 
+#ifdef GCC
+    /* behind a skip's curtain a request starts no rumble, but a request of
+     * power 0 still stops the pack */
+    if (event_skipping && power != 0) {
+        return;
+    }
+#endif
     if (demo_playing) {
         return;
     }

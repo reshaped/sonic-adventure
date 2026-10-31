@@ -143,9 +143,15 @@ Sint32 fhSetStatus(Sint32 status, void *buf)
      * strcpy, SHC passes them to strcpy in R4 and R5, the function runs 8 bytes
      * short, and 24 of 48 words differ */
     _builtin_strcpy(buf, text);
+#ifdef GCC
+    /* keeps the result the tag below names: fhFmWriteExec's, -1 for a
+     * failed write */
+    return fhFmWriteExec(REFRESH_PACKET, buf);
+#else
     if (fhFmWriteExec(REFRESH_PACKET, buf) == -1) {
         return -1;
     }
+#endif
     /* @hack implicit: after a successful write, R0 still holds
      * fhFmWriteExec's result, which CMP/EQ #-1,R0 at 0x8c670c4e tests. returned
      * explicitly, through a local, the function runs 12 bytes longer and 16 of

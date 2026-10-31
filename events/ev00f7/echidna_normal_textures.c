@@ -2074,7 +2074,7 @@ static NJS_MOTION ev00f7_echidna_motion_2 = {
 NJS_ACTION ev00f7_echidna_action_2 = {
 #include "ev00f7/echidna_normal_textures/ev00f7_echidna_action_2.inc"
 };
-static NJS_TEXNAME ev00f7_pachacamac_textures[21] = {
+NJS_TEXNAME ev00f7_pachacamac_textures[21] = {
     {TEXT_9, 0, 0},  {TEXT_16, 0, 0}, {TEXT_17, 0, 0}, {TEXT_18, 0, 0},
     {TEXT_19, 0, 0}, {TEXT_20, 0, 0}, {TEXT_21, 0, 0}, {TEXT_22, 0, 0},
     {TEXT_23, 0, 0}, {TEXT_24, 0, 0}, {TEXT_25, 0, 0}, {TEXT_26, 0, 0},

@@ -1,0 +1,29 @@
+# M_SBMOT.PRS: every name another image takes from it, by address.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cadd73c  dat_0cadd73c
+0x0cae0210  dat_0cae0210
+0x0cae1c44  dat_0cae1c44
+0x0cae3658  dat_0cae3658
+0x0cae4a2c  dat_0cae4a2c
+0x0cae63e0  dat_0cae63e0
+0x0cae8c14  dat_0cae8c14
+0x0caea6b8  dat_0caea6b8
+0x0caec15c  dat_0caec15c
+0x0caeec50  dat_0caeec50
+0x0caf25a4  dat_0caf25a4
+0x0caf5dc8  dat_0caf5dc8
+0x0caf883c  dat_0caf883c
+0x0cb02590  dat_0cb02590
+0x0cb025a4  tails_board_texlist
+0x0cb029c8  tails_board_object
+0x0cb02a38  dat_0cb02a38
+0x0cb02b7c  dat_0cb02b7c
+0x0cb02cd0  dat_0cb02cd0
+0x0cb02f14  dat_0cb02f14
+0x0cb03138  dat_0cb03138
+0x0cb0335c  dat_0cb0335c
+0x0cb035a0  dat_0cb035a0
+0x0cb03844  dat_0cb03844
+0x0cb039c8  dat_0cb039c8
+0x0cb0456c  dat_0cb0456c

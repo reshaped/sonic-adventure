@@ -1,5 +1,6 @@
 /* Ninja's state in Kamui's records: its vertex contexts, its vertex buffer and
- * its system setup */
+ * its system setup. Ninja's own copy of a context's header words and the
+ * buffer's write pointers */
 #ifndef NJKAMUI_H
 #define NJKAMUI_H
 #include <kamui.h>
@@ -22,5 +23,21 @@ extern KMVERTEXBUFFDESC _nj_vertex_buffer_;
  * _nj_ppSurfaceArray, the two frame buffers' surfaces */
 extern KMSYSTEMCONFIGSTRUCT _nj_SystemConfigStruct_;
 extern PKMSURFACEDESC _nj_ppSurfaceArray[2];
+/* the polygon header words the njStart functions write, and each list's write
+ * pointer in Kamui's vertex buffer. njGetkmPointer copies them from the
+ * current vertex context and the vertex buffer, and njSetkmPointer copies
+ * them back */
+struct nj_parameterkm {
+    Uint32 GLOBALPARAMBUFFER;
+    Uint32 ISPPARAMBUFFER;
+    Uint32 TSPPARAMBUFFER;
+    Uint32 TexturePARAMBUFFER;
+    Uint32 *opaque_polygon;
+    Uint32 *trans_polygon;
+    Uint32 *punchthrough_polygon;
+    Uint32 *opaque_modifier;
+    Uint32 *trans_modifier;
+};
+extern struct nj_parameterkm _nj_parameterkm_;
 
 #endif

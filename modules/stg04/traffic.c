@@ -49,6 +49,11 @@ extern NJS_ACTION highway_car_2_action;
 extern NJS_ACTION highway_car_3_action;
 /* the matrix of the car being drawn */
 extern NJS_MATRIX traffic_car_matrix;
+#ifdef GCC
+/* STG04's tables place it in bss that no source holds, after this file's.
+ * the port defines it here */
+NJS_MATRIX traffic_car_matrix;
+#endif
 
 #define CARS 9
 /* traffic_route's length */
@@ -590,6 +595,11 @@ static void traffic_car_follow(struct task *task)
     Float degrees;
 
     sample->distance = work->distance;
+#ifdef GCC
+    /* GCC can't see that every path sets delta: path_sample can't fail on
+     * traffic_route, as the comment below says */
+    delta = 0;
+#endif
     /* path_sample can't fail on traffic_route, which loops. were it to fail,
      * delta would be read unset */
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
@@ -1236,7 +1246,7 @@ static void traffic_car_collide(struct car_work *work)
                   (speed->x * sine);
         /* @hack redundant: the y term's 0, which the image adds at 0x0c905e2e;
          * without it, 39 of 151 words differ */
-        Float squared = (x * x) + (0.0F * 0.0F) + (z * z);
+        Float squared = (x * x) + (z * z) + (0.0F * 0.0F);
 
         if (squared > THROW_SQUARED) {
             traffic_car_throw_player(player, work);

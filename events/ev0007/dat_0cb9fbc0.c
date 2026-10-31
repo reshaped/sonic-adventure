@@ -3,6 +3,8 @@
  * node of dat_0cba09b4, an emerald model in the data after this file */
 #include <ninja.h>
 
+#include "ev0007/dat_0cb9fbc0.h"
+
 #define TEXT_1_LENGTH 15
 #include "ev0007/dat_0cb9fbc0/text.inc"
 
@@ -12,6 +14,6 @@ static NJS_TEXNAME dat_0cb9fbc0[1] = {
 static NJS_TEXLIST dat_0cb9fbcc = {
 #include "ev0007/dat_0cb9fbc0/dat_0cb9fbcc.inc"
 };
-static NJS_MATERIAL dat_0cb9fbd4[1] = {
+NJS_MATERIAL dat_0cb9fbd4[1] = {
 #include "ev0007/dat_0cb9fbc0/dat_0cb9fbd4.inc"
 };

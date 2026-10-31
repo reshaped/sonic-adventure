@@ -247,7 +247,7 @@ static void chaos_spark_step(struct task *task)
         njAddVector(&work->pos, &offset);
         work->scl.x = chaos_spark_scale;
         scale = ((rand() * RAND_SCALE) + 2.0F) * chaos_spark_speed *
-                (1.0F / 7.0F) * (1.0F / 3.0F);
+                ((1.0F / 7.0F) * (1.0F / 3.0F));
         speed->x = offset.x * scale;
         speed->y = offset.y * scale;
         speed->z = offset.z * scale;

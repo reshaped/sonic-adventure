@@ -585,6 +585,12 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
         }
         total = 0;
         largest = -1;
+#ifdef GCC
+        /* repairs largest_index where every size has its top bit set, so that
+         * the signed test below finds none above -1: GCC then takes the
+         * excess from the first list's size */
+        largest_index = 0;
+#endif
         for (i = 0; i < 5; i++) {
             /* @hack type: each size reached through size, which SHC keeps at
              * @R15 (0x8ce12e72), and compared signed by a read through a cast

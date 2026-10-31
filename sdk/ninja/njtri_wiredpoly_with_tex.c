@@ -70,7 +70,12 @@ void njtri_wiredpoly_with_tex(Int n, NJS_POINT3COL *p, Float **vertex)
      * 0x8c62553e in 1ST_READ.BIN); as Int last = n - 1, the two trade and 45 of
      * 550 words differ */
     --last;
+#ifdef GCC
+    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+    scale_x = _nj_screen_.dist * port_draw_aspect;
+#else
     scale_x = _nj_screen_.dist * _nj_scr_aspect_x_;
+#endif
     scale_y = _nj_screen_.dist * _nj_scr_aspect_y_;
     sq = *vertex;
     if (!(p->p[0].z == _nj_near_clip_ && p->p[last].z == _nj_near_clip_)) {

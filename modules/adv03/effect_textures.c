@@ -31,7 +31,7 @@
 #define TEXT_24_LENGTH 12
 #include "adv03/effect_textures/text.inc"
 
-static NJS_TEXNAME eff_past_textures[24] = {
+NJS_TEXNAME eff_past_textures[24] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

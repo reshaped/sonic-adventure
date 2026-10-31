@@ -27,57 +27,19 @@ and they do not alter verification.
 import argparse
 import errno
 import os
-import re
 import sys
 from pathlib import Path
 
+from bodies import bodies, has_bodies, home, placed
 from code_ranges import CATEGORIES, check_code, filled, overlap, padded, problems, route, site, unwritten
-from config import FIRST, ZEROED, Config, address, configs, content, fail, hexa, rows, save
+from config import Config, configs
+from images import ZEROED
 from link import linked, section
+from tables import hexa
+from tool import content, fail, save
 
-# a C source that includes a .inc file, a body or its text.inc or values.inc,
-# has a stub build; the Makefile's BODY_C and STUB_INC_FILES grep the same pattern
-BODY = re.compile(r'include "[A-Za-z0-9_/]*\.inc"$', re.M)
 # SHC's fill inside an object, around its pools: a NOP, 09 00, with its bytes swapped
 SHC_FILL = b'\x00\x09'
-
-
-def placed(offset, ranges):
-    """The address at which byte offset of a linked source links, the
-    linked source holding its ranges in table order."""
-    for _, start, end in ranges:
-        if offset < end - start:
-            return start + offset
-        offset -= end - start
-
-
-def bodies(source, path, held):
-    """The bodies path lists, as (offset, size, text, name) in offset order.
-    A row gives a body's address in source's home, and held is source's
-    ranges there: offset is into them joined in table order, as source's
-    linked source holds them, and text says whether the body is a text. A
-    body lies in one range, and no two share a byte."""
-    spans = []
-    for where, row in rows(path):
-        if len(row) < 4:
-            fail(f'{where}: not a row: NAME ADDRESS SIZE TYPE')
-        name, field, size, *ctype = row
-        start = address(field, where)
-        if not size.isdigit() or not int(size):
-            fail(f'{where}: {name}: {size} is no size')
-        end, before = start + int(size), 0
-        for _, low, high in held:
-            if low <= start and end <= high:
-                spans.append((before + start - low, int(size), ctype == ['text'], name))
-                break
-            before += high - low
-        else:
-            fail(f'{where}: {name}, {hexa(start)} to {hexa(end)}, lies in no one range of {source}')
-    spans.sort()
-    for first, second in zip(spans, spans[1:]):
-        if second[0] < first[0] + first[1]:
-            fail(f'{path}: {source}\'s {first[3]} and {second[3]} share bytes')
-    return spans
 
 
 def compare(source, stub, ranges, data, spans):
@@ -96,33 +58,6 @@ def compare(source, stub, ranges, data, spans):
             problem = 'holds a byte other than 0' if body else 'differs from its own'
             where = 'in a body' if body else 'outside its bodies'
             fail(f'{source}: its stub build {problem} at {hexa(placed(index, ranges))}, {where}')
-
-
-def has_bodies(source):
-    """Whether a C source imports bodies, texts or values through .inc files."""
-    path = Path(source)
-    return path.suffix == '.c' and path.exists() and BODY.search(path.read_text(errors='replace')) is not None
-
-
-def home(source, ranges, splits, images):
-    """The ranges source's linked source holds in its home, the first image
-    by name that links it, as the Makefile's home picks it for tools/data.py
-    --bodies. bodies() turns bodies.txt's addresses there into offsets into
-    those ranges joined in table order, so ranges, the source's in splits,
-    must join the same way. 1ST_READ.BIN's file holds no bss, so where it is
-    the home, another image's own bss can follow the ranges the two share."""
-    def sizes(listed):
-        return [(name, end - start) for name, start, end in listed]
-
-    for config in images:
-        held = config.held().get(source)
-        if held:
-            shared, rest = ranges[:len(held)], ranges[len(held):]
-            bss = config.path == FIRST and all(name in ZEROED for name, _, _ in rest)
-            if sizes(shared) != sizes(held) or (rest and not bss):
-                fail(f'{source}: its ranges in {config.splits} differ in sections or sizes from those in {splits}')
-            return held
-    fail(f'{source}: no splits.txt lists it')
 
 
 def length(path, data, ranges, splits):

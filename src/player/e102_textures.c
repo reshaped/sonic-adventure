@@ -5,6 +5,8 @@
  * boundary, so the material belongs to this object */
 #include <ninja.h>
 
+#include "player/e102_textures.h"
+
 #include "player/textures.h"
 
 #define TEXT_1_LENGTH 8
@@ -103,6 +105,6 @@ static NJS_TEXNAME e102effect_textures[12] = {
 NJS_TEXLIST e102effect_texlist = {
 #include "player/e102_textures/e102effect_texlist.inc"
 };
-static NJS_MATERIAL dat_8c439d1c[1] = {
+NJS_MATERIAL dat_8c439d1c[1] = {
 #include "player/e102_textures/dat_8c439d1c.inc"
 };

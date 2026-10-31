@@ -4,9 +4,8 @@
 
 #include <ninja.h>
 
-/* the list the elevator, the fountain and the door draw with.
- * 1ST_READ.BIN's alife_ss_pvms loads GARDEN00_OBJECT into it, reaching it by
- * its address, 0x0cb904d8 */
+/* the list the elevator, the fountain and the door draw with. 1ST_READ.BIN's
+ * alife_ss_pvms loads GARDEN00_OBJECT into it */
 extern NJS_TEXLIST garden_objects_texlist;
 
 #endif

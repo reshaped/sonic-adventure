@@ -4,7 +4,7 @@
 
 #include "system/texture.h"
 
-/* the list 1ST_READ.BIN's stage_pvms names for the past by its address */
+/* the list 1ST_READ.BIN's stage_pvms names for the past */
 extern struct texture_pvm past_pvms[];
 
 #endif

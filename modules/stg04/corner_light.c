@@ -15,7 +15,8 @@
 
 extern NJS_MODEL corner_light_model;
 extern NJS_OBJECT corner_light_object;
-extern NJS_TEXNAME corner_light_texname[1];
+/* OBJ_HIGHWAY2's texture names, among them the glow's */
+extern NJS_TEXNAME obj_highway2_textures[54];
 
 /* the reach of the lamp's collision record. the lamp draws only while the
  * sphere of radius CORNER_LIGHT_SIZE about its position is in view */

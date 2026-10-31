@@ -18,7 +18,7 @@
 
 /* a random angle, from 0 up to a whole turn */
 #define RANDOM_TURN()                                                          \
-    ((Angle)(rand() * RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN))
+    ((Angle)(rand() * (RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN)))
 
 /* the rings stacked up the column */
 #define RINGS 9

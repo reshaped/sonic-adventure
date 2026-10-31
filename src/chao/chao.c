@@ -962,6 +962,10 @@ static void icon_row_step(struct task *task)
     Float scale;
     int i;
 
+#ifdef GCC
+    /* the port's 16:9 squeezes the row about the screen's right edge */
+    port_wide_anchor = WIDE_RIGHT;
+#endif
     switch (work->mode) {
     case ROW_WAIT:
         if (icon_row_request) {
@@ -1026,6 +1030,9 @@ static void icon_row_step(struct task *task)
         }
         break;
     }
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 /* the row's step in a garden. it releases the row's animals, newest first,
@@ -1082,6 +1089,9 @@ static void icon_row_release(struct task *task)
             }
             icon_count--;
         }
+#ifdef GCC
+        port_wide_anchor = WIDE_RIGHT;
+#endif
         for (i = 0; i < icon_count; i++) {
             kind = animal_icons[i].kind;
             scale = animal_icons[i].scale;
@@ -1093,6 +1103,9 @@ static void icon_row_release(struct task *task)
                 njDrawSprite2D(&icon_sprite, kind, -1.0F, 0);
             }
         }
+#ifdef GCC
+        port_wide_anchor = WIDE_MIDDLE;
+#endif
         break;
     case RELEASE_END:
         task_kill(task);

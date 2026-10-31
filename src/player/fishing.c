@@ -804,6 +804,11 @@ static void fishing_hud_show(struct task *task)
     if (hud_hidden < 0) {
         return;
     }
+#ifdef GCC
+    /* 16:9 squeezes the score, the lives and the rings about the screen's
+     * left edge */
+    port_wide_anchor = WIDE_LEFT;
+#endif
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
     njTextureFilterMode(NJD_TEXTUREFILTER_POINT_SAMPLE);
     draw_set_material(1.0F, 1.0F, 1.0F, 1.0F);
@@ -827,6 +832,9 @@ static void fishing_hud_show(struct task *task)
     fishing_draw_score(fishing_score);
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
     draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
     if (stage_group() == STAGE_GROUP_FIELD) {
         rings_shown = -1;
         lives_shown = -1;
@@ -848,12 +856,23 @@ static void fishing_hud_draw(struct task *task)
     if (cart_active()) {
         return;
     }
+#ifdef GCC
+    /* the split frame's second picture replays the hud step 0 drew. this
+     * draw is the pause's: in a field it shows the rings, which play hides,
+     * and it moves the pulse of a ring count of 0, which step 0 reads */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     if (frame_step != 0) {
         return;
     }
     if (hud_hidden < 0) {
         return;
     }
+#ifdef GCC
+    port_wide_anchor = WIDE_LEFT;
+#endif
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
     njTextureFilterMode(NJD_TEXTUREFILTER_POINT_SAMPLE);
     draw_set_material(1.0F, 1.0F, 1.0F, 1.0F);
@@ -884,6 +903,9 @@ static void fishing_hud_draw(struct task *task)
     fishing_draw_score(fishing_score);
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
     draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
     if (stage_group() == STAGE_GROUP_FIELD) {
         rings_shown = -1;
         lives_shown = -1;
@@ -1103,9 +1125,17 @@ static void fishing_lure_show(struct task *task)
          * through work, 17 of 142 words differ */
         if (task->work->mode >= LURE_FLY) {
             njSetTexture(&fishing_texlist);
+#ifdef GCC
+            /* 16:9 squeezes the reel, the gauge and the line-out count about
+             * the screen's right edge */
+            port_wide_anchor = WIDE_RIGHT;
+#endif
             fishing_draw_reel();
             fishing_draw_tension();
             fishing_measure_line(&player->pos, &end);
+#ifdef GCC
+            port_wide_anchor = WIDE_MIDDLE;
+#endif
         }
     }
 }
@@ -1144,9 +1174,15 @@ static void fishing_lure_draw(struct task *task)
      * 24 of 130 words differ */
     if (task->work->mode >= LURE_FLY) {
         njSetTexture(&fishing_texlist);
+#ifdef GCC
+        port_wide_anchor = WIDE_RIGHT;
+#endif
         fishing_draw_reel();
         fishing_draw_tension();
         fishing_measure_line(&player->pos, &end);
+#ifdef GCC
+        port_wide_anchor = WIDE_MIDDLE;
+#endif
     }
 }
 
@@ -3565,6 +3601,14 @@ static void fishing_catch_draw(struct task *task)
     struct hud_number number;
 
     if (frame_step == 0) {
+#ifdef GCC
+        /* 16:9 squeezes the weight about a pivot that travels with it from
+         * the screen's right edge to the left edge, the score's pivot. its
+         * scale falls from 2 to 1 on the way, and a lost fish's stays 2 as
+         * it leaves on the right */
+        port_wide_anchor =
+            WIDE_RIGHT + ((2.0F - work->scl.x) * (WIDE_LEFT - WIDE_RIGHT));
+#endif
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_INVSRCALPHA);
@@ -3595,6 +3639,9 @@ static void fishing_catch_draw(struct task *task)
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_BOTHSRCALPHA);
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+#ifdef GCC
+        port_wide_anchor = WIDE_MIDDLE;
+#endif
     }
 }
 

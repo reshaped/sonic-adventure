@@ -419,9 +419,38 @@ void event_move_stop_all(void)
     }
 }
 
+#ifdef GCC
+/* run up to skip_owed passes, the steps the mover owes for a skip's collapsed
+ * wait. the passes stop at MOVER_IDLE or an _END mode, the modes that are
+ * multiples of 3. an idle pass does nothing. an _END pass kills the mover, so
+ * the mover's own step runs it */
+static void event_mover_pay(struct task *task)
+{
+    int i;
+
+    for (i = skip_owed; i > 0 && task->work->mode % 3 != 0; i--) {
+        event_mover_step(task);
+    }
+}
+
+/* a mover's step under GCC: the passes owed, then its own */
+static void event_mover_skip_step(struct task *task)
+{
+    event_mover_pay(task);
+    event_mover_step(task);
+}
+#endif
+
 static void event_mover_init(struct task *task)
 {
+#ifdef GCC
+    /* a mover pays from its first step, so one made under a skip pays the
+     * wait after it at once */
+    event_mover_pay(task);
+    task->step = event_mover_skip_step;
+#else
     task->step = event_mover_step;
+#endif
     task->draw = event_mover_draw;
     task->destructor = event_mover_destroy;
 }

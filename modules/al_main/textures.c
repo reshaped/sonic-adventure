@@ -4,6 +4,8 @@
  * of a string in a file */
 #include <ninja.h>
 
+#include "al_main/textures.h"
+
 #include "al_main/models.h"
 
 #define TEXT_1_LENGTH 4
@@ -385,7 +387,7 @@ static NJS_TEXNAME alife_chao_textures[221] = {
 NJS_TEXLIST alife_chao_texlist = {
 #include "al_main/textures/alife_chao_texlist.inc"
 };
-static NJS_TEXNAME alife_objects_textures[78] = {
+NJS_TEXNAME alife_objects_textures[78] = {
     {TEXT_222, 0, 0}, {TEXT_223, 0, 0}, {TEXT_224, 0, 0}, {TEXT_225, 0, 0},
     {TEXT_226, 0, 0}, {TEXT_227, 0, 0}, {TEXT_228, 0, 0}, {TEXT_229, 0, 0},
     {TEXT_230, 0, 0}, {TEXT_231, 0, 0}, {TEXT_232, 0, 0}, {TEXT_233, 0, 0},
@@ -410,7 +412,7 @@ static NJS_TEXNAME alife_objects_textures[78] = {
 NJS_TEXLIST alife_objects_texlist = {
 #include "al_main/textures/alife_objects_texlist.inc"
 };
-static NJS_TEXNAME alife_window_textures[22] = {
+NJS_TEXNAME alife_window_textures[22] = {
     {TEXT_298, 0, 0}, {TEXT_299, 0, 0}, {TEXT_278, 0, 0}, {TEXT_300, 0, 0},
     {TEXT_222, 0, 0}, {TEXT_301, 0, 0}, {TEXT_277, 0, 0}, {TEXT_302, 0, 0},
     {TEXT_303, 0, 0}, {TEXT_304, 0, 0}, {TEXT_305, 0, 0}, {TEXT_306, 0, 0},

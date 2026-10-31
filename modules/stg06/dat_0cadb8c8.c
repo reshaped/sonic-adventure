@@ -1,5 +1,5 @@
 /* an action of Sonic's and its motion. 1ST_READ.BIN's sonic_actions names the
- * action by its address */
+ * action */
 #include <ninja.h>
 
 #include "stg06/dat_0cadb8c8.h"

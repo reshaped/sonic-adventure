@@ -2381,7 +2381,7 @@ static NJS_TEXNAME ev00c7_gray_bird_textures[7] = {
 NJS_TEXLIST ev00c7_gray_bird_texlist = {
 #include "ev00c7/e102_action_7/ev00c7_gray_bird_texlist.inc"
 };
-static NJS_TEXNAME ev00c7_pink_bird_textures[7] = {
+NJS_TEXNAME ev00c7_pink_bird_textures[7] = {
     {TEXT_33, 0, 0}, {TEXT_34, 0, 0}, {TEXT_36, 0, 0}, {TEXT_40, 0, 0},
     {TEXT_42, 0, 0}, {TEXT_44, 0, 0}, {TEXT_46, 0, 0},
 };

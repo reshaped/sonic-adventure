@@ -18,6 +18,9 @@
 #include "draw/tree.h"
 #include "object/common.h"
 #include "object/placement.h"
+#ifdef GCC
+#include "object/simple.h"
+#endif
 #include "object/switch.h"
 #include "path/path.h"
 #include "path/steps.h"
@@ -695,6 +698,14 @@ static void sky_deck_init(struct task *task)
     work->mode = SKY_DECK_RUN;
     light_read_disc("PL_60B.BIN", sky_deck_palettes_above);
     light_read_disc("PL_61B.BIN", sky_deck_palettes_below);
+#ifdef GCC
+    /* repairs the unset bands and gusts: only act 0 starts the wind's task,
+     * which clears them. in a later act that a load enters, the image's
+     * sky_deck_wind_strength reads the words an earlier module left in
+     * STG06's bss (MOV.L @R3,R1 at 0x0c905cca). GCC starts every load with
+     * no wind, as act 0's task does */
+    sky_deck_wind_clear();
+#endif
     sky_deck_act_start(task);
     sky_deck_fog_color = 0xffffffff;
     sky_deck_shade = 0.0F;
@@ -803,6 +814,13 @@ void sky_deck_sky_step(struct task *task)
         sky_deck_roll = 0;
         sky_deck_pitch = 0;
         sky_deck_clouds = 0;
+#ifdef GCC
+        /* repairs the unset wait: the start sets the cloud count but not
+         * sky_deck_cloud_wait, so the image's first cloud waits on the word
+         * an earlier module left in STG06's bss (MOV.L @R4,R3 at
+         * 0x0c9008e0). GCC's first cloud comes on the sky's first run step */
+        sky_deck_cloud_wait = 0;
+#endif
         dat_0caf373c.x = dat_0caf373c.y = dat_0caf373c.z = 0.0F;
         sky_deck_timeline_rate = 0.0F;
         sky_deck_sky_mode = 0;
@@ -3667,6 +3685,11 @@ void scroll_draw(struct task *task)
     /* @bug memory: the copy reads SCROLL_UVS UVs from the model's
      * first meshset (MOV #32,R9 at 0x0c904d20, the CMP/GE at 0x0c904d5a),
      * which holds 22 or 26. it reads the data past them */
+#ifdef GCC
+    /* repairs the read the tag names: GCC copies the UVs the meshset's
+     * strips hold, a UV for each point of each strip */
+    count = meshset_count_points(model->meshsets);
+#endif
     /* @hack spelling: to, i and count set in their declarations, and the loop
      * a do, which sets the loop up in the image's order; as a for over
      * SCROLL_UVS with to set before it, 128 of 130 words differ */
@@ -3917,7 +3940,13 @@ void draft_step(Uint16 act)
     /* @bug mismatched-call: the draft reads ground_below's height from R0 as an
      * int (LDS R0,FPUL and FLOAT at 0x0c9051e4 and 0x0c9051ea), though
      * ground_below returns it in FR0. the int is whatever R0 holds */
+#ifdef GCC
+    /* repairs the height the tag names: GCC's draft reads ground_below's
+     * Float */
+    height = ground_below(x, y, z, &slope);
+#else
     height = ground_below_int(x, y, z, &slope);
+#endif
     if (y - height < LEVEL_NEAR) {
         height = 0.0F;
     }

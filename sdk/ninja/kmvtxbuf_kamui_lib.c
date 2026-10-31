@@ -338,6 +338,12 @@ KMSTATUS kmCreateTABuffer(PKMVERTEXBUFFDESC pBufferDesc, KMINT32 TABuffer)
                             options & ~kmiSystemConfig.strip_buffer, 0);
         kmiDeviceExtension.ta_busy = 1;
     } else {
+#ifdef GCC
+        /* repairs the unset status the tag below names: a call that leaves
+         * the configuration waiting returns KMSTATUS_SUCCESS, as nothing
+         * failed */
+        status = KMSTATUS_SUCCESS;
+#endif
         /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
         if (kmiAddSysConfigFlag(KMI_CONFIG_VERTEX_BUFFER) == KMI_CONFIG_ALL) {
             kmiSetSysConfigFlag(KMI_CONFIGURED);
@@ -525,6 +531,12 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
         }
         total = 0;
         largest = -1;
+#ifdef GCC
+        /* repairs largest_index where every size has its top bit set, so that
+         * the signed test below finds none above -1: GCC then takes the
+         * excess from the first list's size */
+        largest_index = 0;
+#endif
         for (i = 0; i < 5; i++) {
             /* @hack type: each size reached through size, which SHC keeps at
              * @R15 (0x8c6607a2), and compared signed through a long view of

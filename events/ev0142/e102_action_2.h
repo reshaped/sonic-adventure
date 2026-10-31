@@ -13,5 +13,7 @@ extern NJS_TEXLIST ev0142_e101_texlist;
  * calls pass, and then event_sound_fade_volume's address. ev0142_script then
  * runs 4 bytes short, and 436 of 664 words differ */
 extern NJS_ACTION ev0142_e101_action[];
+/* the texture names of the generated texlist ev0142_memory_texlist */
+extern NJS_TEXNAME ev0142_memory_textures[2];
 
 #endif

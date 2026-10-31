@@ -40,6 +40,11 @@ void player_weld(int player, NJS_OBJECT *object, NJS_MOTION *motion,
     weld = anim->welds;
     action.object = object;
     action.motion = motion;
+#ifdef GCC
+    /* GCC can't see that a weld whose kind reads the points and normals has
+     * the object_b that sets them, as in player_update_welds */
+    points_a = points_b = normals_a = normals_b = NULL;
+#endif
     switch (anim->weld_mode) {
     case PLAYER_WELDING:
         pose_action(&_unit_matrix_, &action, frame, anim->actions->nodes, NULL);

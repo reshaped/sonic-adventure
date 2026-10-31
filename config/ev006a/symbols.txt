@@ -785,7 +785,7 @@
 0x0cba2090  dat_0cba2090
 0x0cba20c4  dat_0cba20c4
 0x0cba20f8  dat_0cba20f8
-0x0cba212c  dat_0cba212c
+0x0cba212c  ev006a_bird_textures_1
 0x0cba21bc  ev006a_bird_texlist_1
 0x0cba21c4  dat_0cba21c4
 0x0cba21d8  dat_0cba21d8
@@ -999,7 +999,7 @@
 0x0cba61dc  dat_0cba61dc
 0x0cba6210  dat_0cba6210
 0x0cba6244  dat_0cba6244
-0x0cba6278  dat_0cba6278
+0x0cba6278  ev006a_bird_textures_2
 0x0cba6308  ev006a_bird_texlist_2
 0x0cba7770  dat_0cba7770
 0x0cba7b00  ev006a_bird_motion

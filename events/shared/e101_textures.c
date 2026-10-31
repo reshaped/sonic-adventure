@@ -63,6 +63,6 @@ static NJS_TEXNAME event_e101_jet_textures[6] = {
 NJS_TEXLIST event_e101_jet_texlist = {
 #include "shared/e101_textures/event_e101_jet_texlist.inc"
 };
-static NJS_MATERIAL event_e101_material[1] = {
+NJS_MATERIAL event_e101_material[1] = {
 #include "shared/e101_textures/event_e101_material.inc"
 };

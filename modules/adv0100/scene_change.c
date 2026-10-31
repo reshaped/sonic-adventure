@@ -131,6 +131,14 @@ static void scene_change_go(struct task_work *work)
     Uint8 act;
 
     stage_set_entrance(CHANGE_ENTRANCE(work));
+#ifdef GCC
+    /* repairs the unset stage and act the tag below names: an x angle that
+     * names no destination goes nowhere, as Sky Deck does for a character with
+     * no act there */
+    if ((to < 0 || to > TO_ACT_LAST) && to != TO_SKY_DECK) {
+        return;
+    }
+#endif
     if (to >= 0 && to <= TO_ACT_LAST) {
         stage = STAGE_EGG_CARRIER;
         /* @hack redundant: to & 0xf, which changes no value from 0 to

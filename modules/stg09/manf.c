@@ -125,7 +125,12 @@ static void manf_init(struct task *task)
         /* @bug memory: a count of 2 shapes from manf_shape, which is
          * one (MOV #2,R3 at 0x0c90fa9c). the record's second shape copies
          * the 52 bytes past manf_shape, counter.c's data at 0x0cb13bf8 */
+#ifdef GCC
+        /* repairs the count the tag names: GCC's flap has its one shape */
+        collision_init(task, &manf_shape, COLLISION_OBJECT, 1, 1);
+#else
         collision_init(task, &manf_shape, COLLISION_OBJECT, 1, 2);
+#endif
     }
     task->draw = manf_draw;
     task->step = manf_run;

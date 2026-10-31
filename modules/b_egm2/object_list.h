@@ -4,8 +4,8 @@
 
 #include "object/placement.h"
 
-/* the stage's object list. 1ST_READ.BIN's object_lists reaches it by its
- * address, 0x0c900258, for every act */
+/* the stage's object list. 1ST_READ.BIN's object_lists names it for every
+ * act */
 extern struct object_list egm2_object_list;
 
 #endif

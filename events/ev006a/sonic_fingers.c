@@ -1,15 +1,16 @@
 /* dat_0cb860dc, a texture list of one name, opens the object. Sonic's fingers
  * follow, then Sonic's six actions, Tails' two and Amy's four. the models those
  * actions move lie in 1ST_READ.BIN. the bird's first model comes next, then
- * dat_0cba212c and ev006a_bird_texlist_1. the bird's second model and
- * dat_0cba6278 end the object. ev006a_bird_action moves the first model, whose
- * root is dat_0cba20f8. the script plays that action with
+ * ev006a_bird_textures_1 and ev006a_bird_texlist_1. the bird's second model
+ * and ev006a_bird_textures_2 end the object. ev006a_bird_action moves the first
+ * model, whose root is dat_0cba20f8. the script plays that action with
  * ev006a_bird_texlist_1. the second model, whose root is dat_0cba6244, matches
  * the first but for five nodes. the first scales those to 1e-5, and their
- * models' radii shrink with them. dat_0cba6278 holds the texture names of
- * ev006a_bird_texlist_2, which lies in the data after this object. only
- * ev006a_textures points at that list, which the event loads from VER2_WING. no
- * word of EV006A.BIN or 1ST_READ.BIN points at dat_0cb860dc or dat_0cba6244 */
+ * models' radii shrink with them. ev006a_bird_textures_2 holds the texture
+ * names of ev006a_bird_texlist_2, which lies in the data after this object.
+ * only ev006a_textures points at that list, which the event loads from
+ * VER2_WING. no word of EV006A.BIN or 1ST_READ.BIN points at dat_0cb860dc or
+ * dat_0cba6244 */
 #include <ninja.h>
 #include <sg_xpt.h>
 
@@ -2225,7 +2226,7 @@ static NJS_OBJECT dat_0cba20c4 = {
 NJS_OBJECT dat_0cba20f8 = {
 #include "ev006a/sonic_fingers/dat_0cba20f8.inc"
 };
-static NJS_TEXNAME dat_0cba212c[12] = {
+static NJS_TEXNAME ev006a_bird_textures_1[12] = {
     {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},  {TEXT_5, 0, 0},
     {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},  {TEXT_9, 0, 0},
     {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0}, {TEXT_13, 0, 0},
@@ -2869,7 +2870,7 @@ static NJS_OBJECT dat_0cba6210 = {
 static NJS_OBJECT dat_0cba6244 = {
 #include "ev006a/sonic_fingers/dat_0cba6244.inc"
 };
-static NJS_TEXNAME dat_0cba6278[12] = {
+NJS_TEXNAME ev006a_bird_textures_2[12] = {
     {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},  {TEXT_5, 0, 0},
     {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},  {TEXT_9, 0, 0},
     {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0}, {TEXT_13, 0, 0},

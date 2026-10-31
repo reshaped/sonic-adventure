@@ -4,8 +4,7 @@
 
 #include "progress/story.h"
 
-/* the section's script, which amy_story in progress/story.c names by its
- * address in ADV03 */
+/* the section's script, in ADV03, which amy_story in progress/story.c names */
 extern struct story_script script_amy_tikal;
 
 #endif

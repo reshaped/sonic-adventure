@@ -580,7 +580,7 @@ static void rraf_fire_create(NJS_POINT3 *pos)
         if (distance > FLAME_FAR) {
             scale = FLAME_FAR_SCALE;
         } else {
-            scale = distance * (1.0F / FLAME_FAR) * FLAME_NEAR_SCALE;
+            scale = distance * ((1.0F / FLAME_FAR) * FLAME_NEAR_SCALE);
         }
         particle->scale = scale + FLAME_SCALE;
         particle->time = rand() * RAND_SCALE * 6.0F;

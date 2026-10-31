@@ -2,9 +2,14 @@
  * chase starts, then follows the tornado's lives down */
 #ifndef SHOOTING_GAUGE_H
 #define SHOOTING_GAUGE_H
+#include <ninja.h>
 #include <sg_xpt.h>
 
 struct task;
+
+/* the gauge's texlist. 1ST_READ.BIN's shooting1_pvms and shooting2_pvms
+ * name it */
+extern NJS_TEXLIST gauge_texlist;
 
 /* create a gauge units long, with every life left. units must fit a
  * Sint8. the work's pos takes x and y, or 288 and 420 where x is 0 or less.

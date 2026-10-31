@@ -81,6 +81,6 @@ static NJS_TEXNAME ev000d_tornado_textures[46] = {
 NJS_TEXLIST ev000d_tornado_texlist = {
 #include "ev000d/sonic_action_2/ev000d_tornado_texlist.inc"
 };
-static NJS_OBJECT dat_0cb86db4 = {
+NJS_OBJECT dat_0cb86db4 = {
 #include "ev000d/sonic_action_2/dat_0cb86db4.inc"
 };

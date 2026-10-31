@@ -82,9 +82,19 @@ static struct task *ev0003_fade = NULL;
 /* the plane's flight in 54 points, as seen from the side. x runs along its
  * course, and y is its height. ev0003_flight_to_world places a point in
  * Station Square */
+#ifdef GCC
+/* repairs the read the tag in ev0003_plane_step names: GCC's flight
+ * repeats its last point, so the last curve reaches that point in the
+ * direction from the one before */
+static NJS_POINT2 ev0003_flight[55] = {
+#include "ev0003/script/ev0003_flight.inc"
+    {3.8375F, -0.3136F},
+};
+#else
 static NJS_POINT2 ev0003_flight[54] = {
 #include "ev0003/script/ev0003_flight.inc"
 };
+#endif
 
 /* the puffs of smoke the plane trails. ev0003_plane_step sets rate and pos
  * before each */
@@ -145,7 +155,7 @@ static void ev0003_curve(NJS_POINT2 *points, Float along, NJS_POINT2 *out)
     scale = njSqrt(length_squared / ((bx * bx) + (by * by))) * 0.5F;
     bx *= scale;
     by *= scale;
-    blend = 1.0F + (along * along * ((along * 2.0F) - 3.0F));
+    blend = 1.0F + (((along * 2.0F) - 3.0F) * along * along);
     out->x = (blend * (x1 + (along * ax))) +
              ((1.0F - blend) * (x2 + ((1.0F - along) * bx)));
     out->y = (blend * (y1 + (along * ay))) +

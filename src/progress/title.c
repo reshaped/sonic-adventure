@@ -753,6 +753,10 @@ Sint16 title_step(void)
             if (save_isp_found()) {
                 stream_request_voice(VOICE_LEAVING);
                 stream_destroy();
+#ifdef GCC
+                /* repairs the call the tag below names: no Chao is in hand at
+                 * the title, so GCC writes no Chao's mail, only the save's */
+#else
                 /* @bug mismatched-call: save_write_chao_mail takes the Chao to
                  * write as its second argument, but the call passes only
                  * the first (JSR at 0x8c09fdae). the mail's Chao is
@@ -760,6 +764,7 @@ Sint16 title_step(void)
                 /* NOLINTBEGIN(clang-diagnostic-cast-function-type-mismatch) */
                 ((Bool (*)(int))save_write_chao_mail)(0);
                 /* NOLINTEND(clang-diagnostic-cast-function-type-mismatch) */
+#endif
                 save_write_player_mail(0);
                 game_leave();
             } else {

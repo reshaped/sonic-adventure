@@ -1358,7 +1358,14 @@ void pushed_prop_start(struct task *task, NJS_OBJECT *object,
 
 static void scroll_prop_draw(struct task *task)
 {
+#ifdef GCC
+    /* uv_scroll_move points the meshsets' vertuv here, and model.c's
+     * clipped strips read each u and v pair as one longword, which faults
+     * on an address off 4. GCC aligns this array only to its Sint16s */
+    NJS_TEX room[MOST_SCROLLED_UVS] __attribute__((aligned(4)));
+#else
     NJS_TEX room[MOST_SCROLLED_UVS];
+#endif
     struct task_work *work = task->work;
     struct uv_scroll *rows = SCROLL(work)->rows;
     Sint16 phase = work->timer;

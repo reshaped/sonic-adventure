@@ -50,7 +50,7 @@ static void egg_viper_create(struct task *stage);
 static void eggmobile3_create_floor(void);
 
 /* section HEAD puts the stage's step and its sky's at the module's start.
- * 1ST_READ.BIN's stage_steps and sky_steps reach them there by address. the
+ * 1ST_READ.BIN's stage_steps and sky_steps hold their addresses there. the
  * change of section ends eggmobile3_fog_init's code with its pool */
 #pragma section HEAD
 /* @hack spelling: EGGMOBILE3_END's call of stream_destroy, made through a

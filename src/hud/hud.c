@@ -793,7 +793,15 @@ void hud_draw(void)
     if (get_character() == CHARACTER_BIG) {
         return;
     }
+#ifdef GCC
+    /* the port's 16:9 squeezes the rings and the lives about the screen's
+     * left edge */
+    port_wide_anchor = WIDE_LEFT;
+#endif
     draw_rings_lives();
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
     if (stage_group() == STAGE_GROUP_FIELD) {
         rings_shown = -1;
         lives_shown = -1;
@@ -917,11 +925,19 @@ void hud_draw_timer(void)
     if (cart_active()) {
         return;
     }
+#ifdef GCC
+    /* the port's 16:9 squeezes the time, or a board's score, about the
+     * screen's left edge */
+    port_wide_anchor = WIDE_LEFT;
+#endif
     if (board_active() && menu_state.trial[0] == MENU_TRIAL_MINI_GAME) {
         hud_draw_board_score(score);
     } else {
         draw_time(64.0F, 33.0F);
     }
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 /* draw the time as minutes, seconds and hundredths, from x, y. in E-102's

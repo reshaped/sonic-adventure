@@ -3,11 +3,11 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "stg08/icecap02_textures.h"
 #include "stg08/yura_yura.h"
 #include "system/task.h"
 
 /* the land's materials that show the moving snow */
-extern NJS_MATERIAL dat_0c95cb4c[1];
 extern NJS_MATERIAL dat_0c977dac[1];
 extern NJS_MATERIAL dat_0c978228[1];
 extern NJS_MATERIAL dat_0c9830c8[2];

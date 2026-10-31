@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists points at this list for the stage. it reaches
- * the list by its address, 0x0c900098, not by its name */
+/* 1ST_READ.BIN's object_lists points at this list for the stage */
 extern struct object_list e101_object_list;
 
 #endif

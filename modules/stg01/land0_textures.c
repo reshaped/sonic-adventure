@@ -138,6 +138,6 @@ NJS_TEXLIST beach_land0_texlist = {
  * file, starts each object's data on 8. so the material can't start an
  * object of its own. the model's strips follow it on 8, where one file or
  * two build the same */
-static NJS_MATERIAL dat_0c9121cc[1] = {
+NJS_MATERIAL dat_0c9121cc[1] = {
 #include "stg01/land0_textures/dat_0c9121cc.inc"
 };

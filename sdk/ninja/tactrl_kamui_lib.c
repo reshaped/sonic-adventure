@@ -232,6 +232,15 @@ void kmiCreateRegionArray(KMDWORD width, KMDWORD height, KMDWORD index,
     KMDWORD tile;
     KMDWORD clipped;
 
+#ifdef GCC
+    /* GCC can't see that these are set wherever they are read. the tile loop
+     * reads dummy_list only under the two tests that set it, which nothing
+     * between changes, and each caller's order is BY_COLUMNS or BY_ROWS, which
+     * the switch that sets x and y names */
+    dummy_list = LIST_EMPTY;
+    x = 0;
+    y = 0;
+#endif
     /* @hack spelling: presort set to 1 or 0 in an if. SHC then puts the pool
      * this function shares with set_ta_registers and
      * kmiCreateDummyTranslucentObject after the if's BRA (0x8c674690). as one

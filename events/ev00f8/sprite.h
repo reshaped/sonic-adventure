@@ -5,7 +5,10 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "shared/sprite.h"
 #include "system/task.h"
+
+extern NJS_TEXLIST ev00f8_sprite_texlists[EVENT_SPRITE_TEXLISTS];
 
 Sint32 ev00f8_sprite_load_texture(NJS_TEXLIST *texlist);
 /* destroy the sprite in slot at once, if there is one, and empty the slot */

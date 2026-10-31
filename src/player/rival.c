@@ -525,6 +525,14 @@ static void rival_sonic_step(struct task *self)
                  * dz, which no path sets. SHC squares FR15, the 1.0F of FLDI1
                  * at 0x8c087caa, three times (0x8c0882a2 to 0x8c0882aa), so
                  * distance2 is 3.0F */
+#ifdef GCC
+                /* keeps the shipped strike: 3.0F is under range[2] squared,
+                 * so the airborne rival strikes once it is HOP_HEIGHT above
+                 * the player */
+                rival->player_work->collision->flags |= COLLISION_TARGET;
+                press |= JUMP_BUTTONS;
+                rival->mode = RIVAL_STRIKE;
+#else
                 /* NOLINTNEXTLINE(clang-diagnostic-uninitialized) */
                 rival->distance2 = (dx * dx) + (dy * dy) + (dz * dz);
                 if (rival->distance2 < rival->range[2] * rival->range[2]) {
@@ -532,6 +540,7 @@ static void rival_sonic_step(struct task *self)
                     press |= JUMP_BUTTONS;
                     rival->mode = RIVAL_STRIKE;
                 }
+#endif
             }
         } else {
             rival->mode = RIVAL_FACE;
@@ -597,8 +606,8 @@ static void rival_sonic_step(struct task *self)
     }
     pad_records[1].on = on;
     pad_records[1].press = press;
-    pad_stick_b.ang = ang;
-    pad_stick_b.stroke = stroke;
+    pad_sticks[1].ang = ang;
+    pad_sticks[1].stroke = stroke;
     rival->ang = ang;
     rival->heading = ang;
     rival->stroke = stroke;
@@ -978,5 +987,12 @@ static void rival_draw_hits(int hits, NJS_POINT3 *pos)
     screen_quad_init();
     njSetTexture(&hud_texlist);
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
+#ifdef GCC
+    /* the port's 16:9 squeezes the count about the screen's right edge */
+    port_wide_anchor = WIDE_RIGHT;
+#endif
     screen_quad_draw(hits, pos->x, pos->y, pos->z);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }

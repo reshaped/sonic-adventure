@@ -1,0 +1,65 @@
+# 1ST_READ.BIN's census, which tools/census.py checks. Its rows explain the
+# numbers 1ST_READ.BIN holds for RAM past its image, which ends at
+# 0x8c8fd160, and those a GCC side holds at an address a table gives a name.
+# A row is FILE START [END] COUNT, then a disposition, then the reason. The
+# disposition is one of
+#
+#   anchor NAME FROM TO  an area, a buffer or a bound that keeps its address.
+#                        NAME is the macro, symbol or field the sources name
+#                        it by. Its extent runs from FROM up to TO, and the
+#                        row's numbers lie in it or at TO, its end
+#   placed SOURCE        a name symbols.txt gives, which SOURCE defines under
+#                        GCC, so that the link places it
+#   data                 no address, whatever its bits
+#
+# The row explains the COUNT numbers FILE holds that are START, or that lie
+# from START up to END. Each lies in START's view of RAM: 0x0c, 0x8c or 0xac.
+# Each lies on START's side of the image's end too. COUNT is a decimal
+# number above 0, with no leading 0.
+#
+# file                                           start       end         count  disposition, then the reason
+# the loader's areas
+src/system/loader.h                              0x0c900000                  1  anchor  MODULE_AREA       0x0c900000  0x0cb50000  a stage's module or an overlay, which loader_read_stage_files or main.c reads there, and a pvm, which texture_load_prs_file decodes there. Its extent ends at CAMERA_AREA_0
+src/system/loader.h                              0x0cadc000                  1  anchor  TAILS_BOARD_AREA  0x0cadc000  0x0cb08000  m_sbmot.PRS, Tails' board motions, which loader_read_stage_files reads for STAGE_SUNABOARD. Its extent ends at SONIC_BOARD_AREA
+src/system/loader.h                              0x0cb08000                  1  anchor  SONIC_BOARD_AREA  0x0cb08000  0x0cb50000  s_sbmot.PRS, Sonic's board motions and his board, read beside m_sbmot.PRS. Its extent ends at CAMERA_AREA_0
+src/system/loader.h                              0x0cb50000  0x0cb68000      6  anchor  CAMERA_AREA_0     0x0cb50000  0x0cb68000  CAMERA_AREA_0 to CAMERA_AREA_5, 16 KB each, where loader_read_camera reads each act's camera file
+src/system/loader.h                              0x0cb68000  0x0cb80000      6  anchor  SET_AREA_0        0x0cb68000  0x0cb80000  SET_AREA_0 to SET_AREA_5, 16 KB each, where loader_read_set reads each act's set file
+src/system/loader.h                              0x0cc00000                  1  anchor  MOTION_AREA       0x0cc00000  0x0cca4000  the character's motion file, which loader_read_character_motions reads. Its extent ends at download.c's model buffers
+src/system/loader.h                              0x0cd00000                  1  anchor  WORK_AREA         0x0cd00000  0x0cf00000  the 2 MB workspace that loader_read_prs's input, the memory cards' file images and the flash history's work share. texture_load_prs_file reads a file into the room texture.c's FILE_ROOM gives it just below WORK_AREA, outside this extent, and decodes it to MODULE_AREA
+src/system/loader.h                              0x0cf00000                  1  anchor  WORK_AREA_END     0x0cd00000  0x0cf00000  the workspace's end. texture.c's load_prs reads a file into the room FILE_ROOM gives it just below the end, and decodes it to WORK_AREA
+src/system/loader.c                              0x0c920000                  1  anchor  FIELD_AREA        0x0c920000  0x0cb50000  ADV0100 or ADV0130, which loader_read_stage_files reads beside ADV01OBJ. Its extent ends at CAMERA_AREA_0
+src/system/loader.c                              0x0cb00000                  1  anchor  TIKAL_AREA        0x0cb00000  0x0cb50000  TIKAL_PROG, read beside B_CHAOS7 or ADV03. Its extent ends at CAMERA_AREA_0
+src/system/loader.c                              0x0cb80000                  1  anchor  EXTRA_AREA        0x0cb80000  0x0cc00000  a garden, the Chao race or one of Sky Chase's path files, read beside the stage's module. Its extent ends at MOTION_AREA
+# the game's other areas, buffers and bounds
+src/event/play.c                                 0x0cb80000                  1  anchor  EVENT_MODULE      0x0cb80000  0x0cc00000  an event, which event_load reads there once it zeroes EVENT_MODULE_SIZE bytes. Its extent ends at MOTION_AREA
+src/progress/recorder.h                          0x0cbe0000                  1  anchor  DEMO_RECORDING    0x0cbe0000  0x0cc00000  the 128 KB that recording_update records into, and that demo_advance reads a demo's recording file to
+src/progress/recorder.c                          0x0cbfffe8                  1  anchor  RECORD_LAST       0x0cbe0000  0x0cc00000  the last sample a recording fills from pad 0, in DEMO_RECORDING's 128 KB
+src/progress/recorder.c                          0x0cd60000                  1  anchor  PLAY_LAST         0x0cbe0000  0x0cd60000  the last sample a playback reads, past the recording's 128 KB
+src/stage/stage.c                                0x0cbc0000                  1  anchor  dat_8c751454      0x0cbc0000  0x0cbe0000  the 128 KB below DEMO_RECORDING. stage_reset_play points dat_8c751454 at it as play starts, and no code reads dat_8c751454
+src/sound/stream.c                               0x0cca8000                  1  anchor  STREAM_WORK       0x0cca8000  0x0cce2948  the music's stream work, MUSIC_WORK_SIZE bytes, then the voices', VOICE_WORK_SIZE bytes
+src/object/download.c                            0x0ccffd80                  1  anchor  FILE_BASE         0x0ccffd80  0x0cf00000  where an event file's offsets count from, the card file's start. It lies 640 bytes before WORK_AREA, since save_read_file leaves out the card file's own header and icon
+src/object/download.c                            0x0cd0002c                  1  anchor  FILE_SUM          0x0cd00000  0x0cf00000  the event file's ~sum, in the header that save_read_file reads to WORK_AREA
+src/object/download.c                            0x8cca4000  0x8cca8000      2  anchor  MODEL_A_BUFFER    0x8cca4000  0x8cca8000  MODEL_A_BUFFER and MODEL_B_BUFFER, 8 KB apart, where download_load_model unpacks an event file's model a or b. Their extent ends at STREAM_WORK
+src/debug/host.c                                 0x0ce00000                  1  anchor  CAPTURE_BUFFER    0x0cd00000  0x0cf00000  1 MB into WORK_AREA, where host_capture_screen has the shown frame read
+src/save/card.c                                  0x0ce00000                  1  anchor  FILE_IMAGE        0x0cd00000  0x0cf00000  1 MB into WORK_AREA, where a file's image is built clear of the data at the workspace's start
+# the names 1ST_READ.BIN's symbols.txt gives past its image
+config/1st_read/symbols.txt                      0x8c8ffc00                  1  placed  src/main.c        draw_lights, the point lights that model.src's renderer takes from its queue, which it reaches through pool words that name it. No SHC object defines it, and 1ST_READ.BIN's image ends below it
+config/1st_read/symbols.txt                      0x8c8ffe00                  1  placed  src/main.c        draw_work, the renderer's work, which it reaches through GBR and through pool words that name it. draw_model_init sets GBR from its address. No SHC object defines it, and it lies below MODULE_AREA
+# the SDK's buffers and bounds
+sdk/ninja/internal_kamui_lib.c                   0xacc00000                  1  anchor  vertex_base       0xacc00000  0xad000000  Kamui's vertex buffer where the profile gives no VertexBuffer BufferBase: 4 MB of RAM through P2, uncached
+sdk/shinobi/mpapi.c                              0x0cff0000                  1  anchor  IDLE_MEMORY       0x0cff0000  0x0d000000  the last 64 KB of RAM, the DMA table address mpdrv_exit sets on the idle bus
+sdk/shinobi/sy_g2_sys_init.c                     0x0cffffff                  1  anchor  MEMORY_LAST       0x0c000000  0x0d000000  RAM's last byte, the end of what G2 DMA may reach
+sdk/shinobi/syhw.c                               0x0cff0000                  1  anchor  IDLE_MEMORY       0x0cff0000  0x0d000000  the last 64 KB of RAM, where syHwInit starts each idle DMA's address
+# the rows --gcc alone counts: numbers a GCC side holds at a name's
+# address, in a file 1ST_READ.BIN's SHC build doesn't read or in its image
+events/ev0065/script.c                           0x0cb80008                  1  data  EVENT_SOUND_ID + 7, the id of a sound the script plays, which no code reads as an address
+events/ev00bf/script.c                           0x0cb80008                  1  data  EVENT_SOUND_ID + 7, the id of a sound the script plays, which no code reads as an address
+loader/main.c                                    0x8c010000                  1  anchor  PASSPORT_AREA     0x8c010000  0x8ce00000  where main reads sp.bin and jumps to it. It is the boot's load address for a disc's first program, below LOADER.BIN's image
+modules/movie/movie.c                            0x8c900000                  1  anchor  WORK              0x8c900000  0x8cc00000  the 3 MB from MODULE_AREA, through P1, that mwPlyCreateSofdec takes as the player's work
+modules/shooting/shooting.c                      0x0cb80000                  1  anchor  EXTRA_AREA        0x0cb80000  0x0cc00000  EXTRA_AREA as shooting_scene_file holds it. 1ST_READ.BIN's loader reads shtpath1.PRS or shtpath2.PRS there, whose first word points at the course's scenes
+# the bodies 1ST_READ.BIN's sources take from the disc
+build/gen/src/camera/layouts/camera_layouts.inc  0x0cb50000  0x0cb68000    109  anchor  CAMERA_AREA_0     0x0cb50000  0x0cb68000  camera_layouts' rows, each the address of an act's camera file in the area loader_read_camera reads it to
+build/gen/src/system/util/font_ascii.inc         0x0c8fd160  0x0d000000      2  data  the ASCII font's glyphs, rows of bits
+build/gen/src/system/util/font_wide.inc          0x0c8fd160  0x0d000000    156  data  the wide font's glyphs, rows of bits
+build/gen/src/system/util/font_wide.inc          0x8c8fd160  0x8d000000     14  data  the wide font's glyphs, rows of bits
+build/gen/src/system/util/font_wide.inc          0xac8fd160  0xad000000      1  data  the wide font's glyphs, rows of bits

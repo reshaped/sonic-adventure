@@ -253,6 +253,12 @@ void rfExecFiberServer(struct rf_server *server)
      * 0x8c11dc0a) when the setjmp at 0x8c11dc16 saves them. each longjmp
      * restores those values, so it restarts the pass at the first fiber. set
      * in the loop's head after the setjmp, 22 of 83 words differ */
+#ifdef GCC
+    /* each longjmp restarts the pass at the first fiber, as the image's
+     * restored R12 and R14 do */
+    fiber = server->fibers;
+    i = 0;
+#endif
     for (; i < server->fiber_max; i++, fiber++) {
         server->running = fiber;
         switch (fiber->state) {

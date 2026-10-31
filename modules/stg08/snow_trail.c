@@ -23,9 +23,10 @@
 #define TEXT_6_LENGTH 10
 #include "stg08/snow_trail/text.inc"
 
-/* trail_textures names snb01 to snb08, and flake_textures yuki_moto */
-extern NJS_TEXNAME trail_textures[8];
-extern NJS_TEXNAME flake_textures[1];
+/* OBJ_ICECAP2's texture names, of which the trail takes snb01 to snb08 */
+extern NJS_TEXNAME obj_icecap2_textures[60];
+/* OBJ_ICECAP's texture names, of which the flakes take the last, yuki_moto */
+extern NJS_TEXNAME obj_icecap_textures[100];
 static NJS_TEXLIST trail_texlist = {
 #include "stg08/snow_trail/trail_texlist.inc"
 };
@@ -265,8 +266,13 @@ static void trail_draw(struct task *task)
      * trail_tasks and emitter_params, which the draw reads as texlists. MOV.B
      * at 0x0c90088a loads the age, and 0x0c900898 adds it, times 8, to
      * trail_texlist's address for njSetTexture */
+#ifdef GCC
+    /* repairs the read the tag names: GCC's strip takes the one texlist */
+    njSetTexture(&trail_texlist);
+#else
     njSetTexture((NJS_TEXLIST *)((Uint32)&trail_texlist +
                                  ((Sint32)AGE(work) * sizeof(NJS_TEXLIST))));
+#endif
     njPushMatrix(NULL);
     njTranslateV(NULL, &work->pos);
     TURN_VIA(njRotateZ, work->ang.z, angle);

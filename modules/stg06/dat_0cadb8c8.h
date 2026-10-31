@@ -1,5 +1,4 @@
-/* an action of Sonic's, which 1ST_READ.BIN's sonic_actions names by its
- * address */
+/* an action of Sonic's, which 1ST_READ.BIN's sonic_actions names */
 #ifndef STG06_DAT_0CADB8C8_H
 #define STG06_DAT_0CADB8C8_H
 

@@ -21,6 +21,7 @@
 #include "event/play.h"
 #include "hud/hud.h"
 #include "main.h"
+#include "minicart/riders.h"
 #include "object/common.h"
 #include "object/item_box.h"
 #include "object/item_box_air.h"
@@ -29,6 +30,7 @@
 #include "object/ring.h"
 #include "object/savepoint.h"
 #include "player/effects.h"
+#include "player/k_mot.h"
 #include "player/knuckles.h"
 #include "player/knuckles_effects.h"
 #include "player/player.h"
@@ -96,10 +98,6 @@ enum radar_near {
     RADAR_WITHIN_30,
     RADAR_NONE /* no sprite at all */
 };
-
-/* an action in k_mot.PRS, his motion file, by its address in MOTION_AREA,
- * where the file loads */
-#define K_MOT(address) ((NJS_ACTION *)(address))
 
 /* the rows of knuckles_actions that his code sets or tests, or that a row
  * names as its next */
@@ -649,17 +647,18 @@ static struct player_action knuckles_actions[] = {
      1.0F},
     {&knuckles_spin_action, 74, PLAYER_ANIM_ONCE, ACTION_SPIN, 0.25F, 0.15F},
     {&knuckles_glide_action, 73, PLAYER_ANIM_LOOP, ACTION_HOMING, 0.5F, 1.5F},
-    {MODULE_ACTION(0x0c909958), 73, PLAYER_ANIM_LOOP, ACTION_RIDE, 0.25F,
-     0.15F},
+    {&knuckles_cart_action, 73, PLAYER_ANIM_LOOP, ACTION_RIDE, 0.25F, 0.15F},
     {&knuckles_hurt_action, 73, PLAYER_ANIM_HOLD, ACTION_ICED, 1.0F, 15.0F},
-    {K_MOT(0x0cc0ca5c), 73, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F, 0.5F},
-    {K_MOT(0x0cc436d8), 73, PLAYER_ANIM_HOLD, ACTION_CLEAR, 0.5F, 1.0F},
-    {K_MOT(0x0cc4523c), 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
-    {K_MOT(0x0cc023dc), 73, PLAYER_ANIM_ONCE, ACTION_DIG, 0.25F, 0.7F},
-    {K_MOT(0x0cc04570), 73, PLAYER_ANIM_LOOP, ACTION_DIG, 0.25F, 2.0F},
-    {K_MOT(0x0cc053d4), 73, PLAYER_ANIM_LOOP, ACTION_DIG_UP, 0.25F, 1.0F},
-    {K_MOT(0x0cc06df8), 73, PLAYER_ANIM_ONCE, ACTION_FALL, 0.125F, 1.0F},
-    {K_MOT(0x0cc023dc), 73, PLAYER_ANIM_DRIVEN, ACTION_STAND, 0.25F, 0.7F},
+    {&knuckles_drown_action, 73, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F, 0.5F},
+    {&knuckles_clear_action, 73, PLAYER_ANIM_HOLD, ACTION_CLEAR, 0.5F, 1.0F},
+    {&knuckles_clear_once_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
+     1.0F},
+    {&knuckles_dig_start_action, 73, PLAYER_ANIM_ONCE, ACTION_DIG, 0.25F, 0.7F},
+    {&knuckles_dig_action, 73, PLAYER_ANIM_LOOP, ACTION_DIG, 0.25F, 2.0F},
+    {&knuckles_dig_up_action, 73, PLAYER_ANIM_LOOP, ACTION_DIG_UP, 0.25F, 1.0F},
+    {&knuckles_dig_out_action, 73, PLAYER_ANIM_ONCE, ACTION_FALL, 0.125F, 1.0F},
+    {&knuckles_dig_start_action, 73, PLAYER_ANIM_DRIVEN, ACTION_STAND, 0.25F,
+     0.7F},
     {&knuckles_climb_action, 73, PLAYER_ANIM_LOOP_SPEED, ACTION_CLIMB, 0.25F,
      1.6F},
     {&knuckles_climb_minus_z_action, 73, PLAYER_ANIM_LOOP_PACE,
@@ -694,12 +693,18 @@ static struct player_action knuckles_actions[] = {
     {&knuckles_stand_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.0625F, 1.0F},
     {&knuckles_stand_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.0625F, 1.0F},
     {&knuckles_stand_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.0625F, 1.0F},
-    {K_MOT(0x0cc2ae4c), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
-    {K_MOT(0x0cc1b194), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F, 1.0F},
-    {K_MOT(0x0cc1e908), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
-    {K_MOT(0x0cc2008c), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
-    {K_MOT(0x0cc21ef0), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND, 0.5F, 0.5F},
-    {K_MOT(0x0cc24244), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F, 1.0F},
+    {&knuckles_lift_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+     1.0F},
+    {&knuckles_hold_run_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F,
+     1.0F},
+    {&knuckles_hold_stop_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+     1.0F},
+    {&knuckles_hold_turn_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+     1.0F},
+    {&knuckles_hold_stand_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND, 0.5F,
+     0.5F},
+    {&knuckles_hold_walk_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F,
+     1.0F},
     {&knuckles_spring_action, 73, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F, 1.0F},
     {&knuckles_fall_start_action, 73, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
      1.0F},
@@ -713,28 +718,38 @@ static struct player_action knuckles_actions[] = {
     {&knuckles_stand_action, 73, PLAYER_ANIM_ONCE, ACTION_WALK, 0.5F, 0.5F},
     {&knuckles_hang_on_action, 73, PLAYER_ANIM_LOOP, ACTION_HANG_ON, 0.5F,
      0.5F},
-    {K_MOT(0x0cc4bca8), 73, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
+    {&knuckles_pull_action, 73, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
     {&knuckles_shake_action, 73, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F, 0.5F},
-    {K_MOT(0x0cc0e560), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_SHAKE, 0.5F, 0.5F},
-    {K_MOT(0x0cc10284), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE, 0.5F, 0.5F},
-    {K_MOT(0x0cc11f18), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 0.5F},
+    {&knuckles_hold_shake_start_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_SHAKE,
+     0.5F, 0.5F},
+    {&knuckles_hold_shake_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE, 0.5F,
+     0.5F},
+    {&knuckles_hold_shake_end_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 0.5F},
     {&knuckles_grip_action, 73, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F, 1.0F},
     {&knuckles_grip_hold_action, 73, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F, 1.0F},
-    {K_MOT(0x0cc12d5c), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F, 1.0F},
-    {K_MOT(0x0cc13e00), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL, 0.5F, 1.0F},
-    {K_MOT(0x0cc15124), 73, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F, 1.0F},
-    {K_MOT(0x0cc18ae0), 73, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
+    {&knuckles_hold_jump_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F,
+     1.0F},
+    {&knuckles_hold_fall_start_action, 73, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL,
+     0.5F, 1.0F},
+    {&knuckles_hold_fall_action, 73, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F,
+     1.0F},
+    {&knuckles_hold_hard_landing_action, 73, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_STAND, 0.5F, 1.0F},
     {&knuckles_throw_at_target_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
      1.0F},
     {&knuckles_throw_action, 73, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
     {&knuckles_throw_at_target_action, 73, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
      1.0F},
     {&knuckles_throw_action, 73, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {K_MOT(0x0cc2ae4c), 73, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F, 1.0F},
-    {K_MOT(0x0cc5861c), 73, PLAYER_ANIM_DRIVEN, ACTION_HANG_GO, 1.0F, 0.3F},
-    {K_MOT(0x0cc4f380), 73, PLAYER_ANIM_LOOP, ACTION_HANG_AT_32, 0.25F, 0.25F},
-    {K_MOT(0x0cc4d874), 73, PLAYER_ANIM_LOOP, ACTION_HANG_AT_0, 0.25F, 0.25F},
-    {K_MOT(0x0cc27b28), 73, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F, 0.5F},
+    {&knuckles_lift_action, 73, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F, 1.0F},
+    {&knuckles_hang_go_action, 73, PLAYER_ANIM_DRIVEN, ACTION_HANG_GO, 1.0F,
+     0.3F},
+    {&knuckles_hang_at_32_action, 73, PLAYER_ANIM_LOOP, ACTION_HANG_AT_32,
+     0.25F, 0.25F},
+    {&knuckles_hang_at_0_action, 73, PLAYER_ANIM_LOOP, ACTION_HANG_AT_0, 0.25F,
+     0.25F},
+    {&knuckles_ledge_action, 73, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F, 0.5F},
     {&knuckles_spring_action, 73, PLAYER_ANIM_LOOP, ACTION_PANEL_JUMP, 0.25F,
      1.0F},
     {&knuckles_stand_action, 73, PLAYER_ANIM_LOOP, ACTION_PANEL_WAIT, 0.25F,
@@ -742,9 +757,10 @@ static struct player_action knuckles_actions[] = {
     {&knuckles_grip_action, 73, PLAYER_ANIM_ONCE, ACTION_ROCKET, 0.125F, 1.0F},
     {&knuckles_grip_hold_action, 73, PLAYER_ANIM_LOOP, ACTION_ROCKET, 0.125F,
      1.0F},
-    {K_MOT(0x0cc489a4), 73, PLAYER_ANIM_LOOP, ACTION_ROCKET_ALONG, 0.125F,
+    {&knuckles_rocket_along_action, 73, PLAYER_ANIM_LOOP, ACTION_ROCKET_ALONG,
+     0.125F, 1.0F},
+    {&knuckles_rocket_up_action, 73, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP, 0.125F,
      1.0F},
-    {K_MOT(0x0cc46d80), 73, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP, 0.125F, 1.0F},
 };
 
 /* his body's shape, his punches' fist, and two shapes knuckles_set_shapes
@@ -5670,6 +5686,10 @@ static Bool knuckles_look_create(Sint8 player, NJS_OBJECT **nodes)
      * MOV #96,R0 at 0x8c0d13a8 loads as the last store's offset, so the
      * function returns 96. its one caller drops the result, so with return
      * TRUE, 7 of 46 words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+    return TRUE;
+#endif
 }
 /* NOLINTEND(clang-diagnostic-return-type) */
 
@@ -5795,6 +5815,15 @@ static void knuckles_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
+#ifdef GCC
+            /* repairs angles[1] and [2], which the shipped code leaves
+             * unset with no task, or a task with no work. the BRA at
+             * 0x8c0d170c skips to the aims, which read them at 0x8c0d180c
+             * and 0x8c0d1814. 0, as the default case sets them, looks
+             * ahead */
+            angles[1] = 0;
+            angles[2] = 0;
+#endif
             if (event->look_task == NULL ||
                 (target = event->look_task->work) == NULL) {
                 event->look = 0;
@@ -6065,6 +6094,10 @@ static void knuckles_icon_step(struct task *task)
         return;
     }
     alpha = 1.0F;
+#ifdef GCC
+    /* 16:9 squeezes the icon about the screen's right edge */
+    port_wide_anchor = WIDE_RIGHT;
+#endif
     switch (work->mode) {
     case ICON_WAIT:
         if (++TASK_TIMER(work) >= ICON_FLIGHT_STEPS) {
@@ -6105,6 +6138,9 @@ static void knuckles_icon_step(struct task *task)
         }
         break;
     }
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 /* start an icon for each piece he takes, counting them in ang.x, until
@@ -6181,7 +6217,16 @@ static void knuckles_taken_icon_step(struct task *task)
     progress = TASK_TIMER(work) * ICON_FLIGHT_SHARE;
     work->scl.x = (progress * (ICON_ENTRY_X - work->pos.x)) + work->pos.x;
     work->scl.y = (progress * progress * (ICON_Y - work->pos.y)) + work->pos.y;
+#ifdef GCC
+    /* 16:9 squeezes the sprite about a pivot that travels with it. the
+     * pivot moves from the screen's middle, the radar's pivot, to the
+     * screen's right edge, the pivot knuckles_icon_step gives the icon */
+    port_wide_anchor = progress * WIDE_RIGHT;
+#endif
     knuckles_draw_radar_sprite(&work->scl, 3, 0.5F, 0.5F);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 /* keep pauses off. after FINISH_STEPS, put player 0 at
@@ -6251,6 +6296,11 @@ static void knuckles_radar_step(struct task *task)
     }
     work->tick++;
     best = 800.0F;
+#ifdef GCC
+    /* GCC can't see that best falls to 400 or below only where the loop
+     * sets best_piece */
+    best_piece = 0;
+#endif
     piece = knuckles_pieces;
     for (i = 0; i < 3; i++, piece++) {
         if (!piece->taken) {

@@ -271,6 +271,12 @@ void screen_quad_draw(int texture, Float x, Float y, Float z)
         right = x;
         bottom = y;
         break;
+#ifdef GCC
+    default:
+        /* repairs a place past QUAD_BOTTOM_RIGHT, where the image leaves the
+         * corners unset: GCC's draws nothing */
+        return;
+#endif
     }
     /* NOLINTEND(bugprone-integer-division) */
     depth = 1.0F / z;
@@ -378,6 +384,12 @@ void screen_quad_draw_sized(int texture, Float x, Float y, Float z, Float width,
         right = x;
         bottom = y;
         break;
+#ifdef GCC
+    default:
+        /* repairs a place past QUAD_BOTTOM_RIGHT, as screen_quad_draw's
+         * default does */
+        return;
+#endif
     }
     depth = 1.0F / z;
     screen_corners[0].x = left;
@@ -487,6 +499,12 @@ void screen_quad_draw_scaled(int texture, Float x, Float y, Float z,
         right = x;
         bottom = y;
         break;
+#ifdef GCC
+    default:
+        /* repairs a place past QUAD_BOTTOM_RIGHT, as screen_quad_draw's
+         * default does */
+        return;
+#endif
     }
     /* NOLINTEND(bugprone-integer-division) */
     depth = 1.0F / z;
@@ -712,6 +730,13 @@ static void screen_viewer_step(struct task *task)
     /* @bug memory: with no texlist (BT/S at 0x8c083834), nothing sets
      * memory. its register, R4, still holds &pad_press_repeat[player] from
      * 0x8c08380a, and the reads from here on load through it (0x8c083870) */
+#ifdef GCC
+    /* repairs the unset memory the tag names: with no texlist the viewer
+     * draws no texture, so GCC prints no texture's fields either */
+    if (texlist == NULL) {
+        return;
+    }
+#endif
     index = memory->globalIndex;
     surface = &memory->texinfo.texsurface;
     width = surface->nWidth;

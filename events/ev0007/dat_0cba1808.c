@@ -5,6 +5,8 @@
  * file */
 #include <ninja.h>
 
+#include "ev0007/dat_0cba1808.h"
+
 #define TEXT_1_LENGTH 11
 #include "ev0007/dat_0cba1808/text.inc"
 
@@ -17,6 +19,6 @@ static NJS_MOTION dat_0cba1808 = {
 static NJS_ACTION dat_0cba1814 = {
 #include "ev0007/dat_0cba1808/dat_0cba1814.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

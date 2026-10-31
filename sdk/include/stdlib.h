@@ -2,6 +2,12 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
+#ifdef GCC
+/* stddef.h's size_t, unsigned int, which GCC's built-in functions and
+ * SH4ZAM's headers declare with. the unsigned long below would conflict */
+#include <stddef.h>
+#define SIZE_T_DEFINED
+#endif
 #ifndef SIZE_T_DEFINED
 #define SIZE_T_DEFINED
 typedef unsigned long size_t;

@@ -1034,6 +1034,6 @@ static NJS_TEXNAME ev0062_ver2_wing_textures[12] = {
 NJS_TEXLIST ev0062_ver2_wing_texlist = {
 #include "ev0062/amy_action/ev0062_ver2_wing_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb92004[1] = {
+NJS_MATERIAL dat_0cb92004[1] = {
 #include "ev0062/amy_action/dat_0cb92004.inc"
 };

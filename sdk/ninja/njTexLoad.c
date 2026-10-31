@@ -143,6 +143,11 @@ Sint32 njCreateTextureSurface(NJS_TEXSURFACE *surface, Sint32 width,
     default:
         return -1;
     }
+#ifdef GCC
+    /* GCC can't see that the pixel format switch sets bpp for every surface
+     * that isn't palettized, the only one whose size reads it */
+    bpp = 0;
+#endif
     if (!(surface->fSurfaceFlags & KM_SURFACEFLAGS_PALETTIZED)) {
         switch (format) {
         case KM_TEXTURE_ARGB1555:
@@ -226,7 +231,19 @@ Sint32 njCreateTextureSurface(NJS_TEXSURFACE *surface, Sint32 width,
          * the caller's R12, which bpp's register still holds (pushed at
          * 0x8c66b458, read by MUL.L R12,R5 at 0x8c66b620). LOADER.BIN has the
          * same at 0x8ce1ee14, 0x8ce1ed40 and 0x8ce1ef08 */
+#ifdef GCC
+        /* repairs the unset bpp the tag names: GCC sizes a palettized
+         * surface at 4 or 8 bits a texel, by its pixel format */
+        if (!(surface->fSurfaceFlags & KM_SURFACEFLAGS_PALETTIZED)) {
+            surface->TextureSize = width * height * bpp;
+        } else if (surface->PixelFormat == KM_PIXELFORMAT_PALETTIZED_4BPP) {
+            surface->TextureSize = width * height / 2;
+        } else {
+            surface->TextureSize = width * height;
+        }
+#else
         surface->TextureSize = width * height * bpp;
+#endif
     }
     return 1;
 }

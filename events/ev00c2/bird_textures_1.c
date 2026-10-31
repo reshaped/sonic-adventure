@@ -662,7 +662,7 @@ static NJS_OBJECT dat_0cbaf0a0 = {
 static NJS_OBJECT dat_0cbaf0d4 = {
 #include "ev00c2/bird_textures_1/dat_0cbaf0d4.inc"
 };
-static NJS_OBJECT dat_0cbaf108 = {
+NJS_OBJECT dat_0cbaf108 = {
 #include "ev00c2/bird_textures_1/dat_0cbaf108.inc"
 };
 static NJS_TEXNAME dat_0cbaf13c[12] = {
@@ -673,6 +673,6 @@ static NJS_TEXNAME dat_0cbaf13c[12] = {
 NJS_TEXLIST ev00c2_bird_texlist_2 = {
 #include "ev00c2/bird_textures_1/ev00c2_bird_texlist_2.inc"
 };
-static NJS_MATERIAL dat_0cbaf1d4[1] = {
+NJS_MATERIAL dat_0cbaf1d4[1] = {
 #include "ev00c2/bird_textures_1/dat_0cbaf1d4.inc"
 };

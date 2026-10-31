@@ -7,5 +7,8 @@
 
 extern NJS_ACTION ev0013_amy_action;
 extern NJS_TEXLIST ev0013_bird_texlist;
+/* the material of a node of the bird's model. the node's other parts start the
+ * data after this object */
+extern NJS_MATERIAL dat_0cb8e54c[1];
 
 #endif

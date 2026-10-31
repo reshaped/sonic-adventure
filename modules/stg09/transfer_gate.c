@@ -20,14 +20,10 @@
 
 extern NJS_OBJECT transfer_gate_slot_object;
 extern NJS_OBJECT transfer_gate_card_object;
-extern NJS_MESHSET transfer_gate_slot_sign_meshset_0;
-extern NJS_MESHSET transfer_gate_slot_sign_meshset_1;
+extern NJS_MESHSET transfer_gate_slot_sign_meshsets[13];
 extern NJS_MESHSET transfer_gate_slot_lights_meshset;
-extern NJS_MESHSET transfer_gate_card_sign_meshset_0;
-extern NJS_MESHSET transfer_gate_card_sign_meshset_1;
-extern NJS_MESHSET transfer_gate_card_sign_meshset_2;
-extern NJS_MESHSET transfer_gate_card_lights_meshset_0;
-extern NJS_MESHSET transfer_gate_card_lights_meshset_1;
+extern NJS_MESHSET transfer_gate_card_sign_meshsets[11];
+extern NJS_MESHSET transfer_gate_card_lights_meshsets[4];
 
 /* a gate starts only within about 700 units of the camera and player 0, and
  * is destroyed otherwise. RANGE is that distance squared */
@@ -213,7 +209,14 @@ static void transfer_gate_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct transfer_gate_kind *kind = VARS(work)->kind;
+#ifdef GCC
+    /* uv_scroll_move points the meshsets' vertuv here, and model.c's
+     * clipped strips read each u and v pair as one longword, which faults
+     * on an address off 4. GCC aligns this array only to its Sint16s */
+    NJS_TEX room[LIGHT_UVS] __attribute__((aligned(4)));
+#else
     NJS_TEX room[LIGHT_UVS];
+#endif
     Angle ang;
 
     if (placement_try_leave_by(task, RANGE)) {

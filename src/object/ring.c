@@ -439,6 +439,13 @@ static void lost_ring_step(struct task *task)
             work->pos.z += work->scl.z * LOST_RING(work)->speed;
         } else {
             LOST_RING(work)->slow += 0.08F;
+#ifdef GCC
+            /* repairs the unset rest_x and rest_z the tag below names: GCC
+             * starts them at 0, so a lying ring's collision sits on the ring
+             * as it is drawn */
+            rest_x = 0.0F;
+            rest_z = 0.0F;
+#endif
             /* NOLINTBEGIN(clang-diagnostic-sometimes-uninitialized) */
             if (LOST_RING(work)->slow < 2.4F) {
                 work->pos.x += work->scl.x * (0.3F / LOST_RING(work)->slow);

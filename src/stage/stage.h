@@ -334,5 +334,13 @@ void stage_place_player(struct task_work *work);
 void stage_set_next_exit(void);
 Bool stage_paused(void);
 Bool stage_playing(void);
+#ifdef GCC
+/* TRUE in play, and in the fade from black that opens it, where play runs */
+Bool stage_in_play(void);
+/* TRUE zeroes the limit of stage_run_action's frame: a frame whose second
+ * step ends with it TRUE takes one more step. a cone moving over a floor
+ * sets it, and each frame starts with it FALSE */
+extern Bool stage_limit_cleared;
+#endif
 
 #endif

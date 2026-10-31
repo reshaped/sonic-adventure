@@ -1,0 +1,7 @@
+# S_SBMOT.PRS, Sonic's board motions, and his board
+#
+# section  start       end
+D          0x0cb08000  0x0cb47e3c
+#
+# source                  section  start       end
+gen/s_sbmot/d_0cb08000.c  D        0x0cb08000  0x0cb47e3c

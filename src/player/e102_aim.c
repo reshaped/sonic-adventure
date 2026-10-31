@@ -441,6 +441,11 @@ static void beam_step(struct task *task)
     Float blueness;
     Float x;
 
+#ifdef GCC
+    /* GCC can't see that work->mode is always one of the cases: task_create
+     * zeroes it to BEAM_START, and only this function sets it */
+    brightness = 0;
+#endif
     switch (work->mode) {
     case BEAM_START:
         e102->beam_length = BEAM(work)->length = BEAM_LENGTH;

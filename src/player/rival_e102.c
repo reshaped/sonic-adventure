@@ -511,8 +511,8 @@ static void rival_e102_step(struct task *task)
     }
     pad_records[1].on = on;
     pad_records[1].press = press;
-    pad_stick_b.ang = ang;
-    pad_stick_b.stroke = stroke;
+    pad_sticks[1].ang = ang;
+    pad_sticks[1].stroke = stroke;
     rival->ang = ang;
     rival->heading = ang;
     rival->stroke = stroke;

@@ -94,7 +94,13 @@ static void ev0050_car_step(struct task *task)
      * int (LDS R0,FPUL and FLOAT at 0x0cb838e2 and 0x0cb838ea), though
      * ground_below returns it in FR0. the car's height under EVENT_GROUND,
      * plus 3, and its shadow's less SHADOW_LIFT, are whatever R0 holds */
+#ifdef GCC
+    /* repairs the height the tag names: GCC reads the Float ground_below
+     * returns */
+    under.y = ground_below(x, y, z, &slope);
+#else
     under.y = ground_below_int(x, y, z, &slope);
+#endif
     if (flags & EVENT_GROUND) {
         work->pos.y = under.y - 3.0F;
     }

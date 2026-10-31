@@ -127,6 +127,6 @@ NJS_TEXLIST highway_land0_texlist = {
  * multiple of 8. these start 4 bytes past one, right after the texlist, so
  * this file holds them. the model's strips after them start on a multiple
  * of 8, so another file can hold them */
-static NJS_MATERIAL dat_0c91aec4[11] = {
+NJS_MATERIAL dat_0c91aec4[11] = {
 #include "stg04/land0_textures/dat_0c91aec4.inc"
 };

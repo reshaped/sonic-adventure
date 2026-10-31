@@ -16,7 +16,7 @@
 /* the sign's base, whose child is the middle part. the middle part's sibling
  * is the upper part */
 extern NJS_OBJECT card_sign_object;
-extern NJS_MESHSET card_sign_base_meshset;
+extern NJS_MESHSET card_sign_base_meshsets[6];
 extern NJS_MESHSET card_sign_middle_meshset;
 extern NJS_MESHSET card_sign_upper_meshset;
 

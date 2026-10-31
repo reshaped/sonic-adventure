@@ -370,6 +370,8 @@
 0x0c91d590  icon_textures
 0x0c91d638  icon_tints
 0x0c91d654  alife_icon_texlist
+0x0c91d660  dat_0c91d660
+0x0c91d674  dat_0c91d674
 0x0c922420  dat_0c922420
 0x0c928a80  dat_0c928a80
 0x0c92f118  dat_0c92f118
@@ -610,6 +612,7 @@
 0x0ca4afc4  alife_begg_egg_bottom_object
 0x0ca4b408  alife_begg_egg_top_object
 0x0ca4ba94  alife_cocoon_object
+0x0ca4c188  alife_ball_object
 0x0ca4c8c4  alife_drum_model
 0x0ca4cc08  dat_0ca4cc08
 0x0ca4f768  alife_trumpet_model
@@ -654,6 +657,7 @@
 0x0ca550a0  dat_0ca550a0
 0x0ca55adc  alife_flower_object
 0x0ca5654c  alife_white_flower_object
+0x0ca56728  dat_0ca56728
 0x0ca59088  banb_held_action
 0x0ca5a03c  goma_chao_held_action
 0x0ca5aff0  goma_held_action

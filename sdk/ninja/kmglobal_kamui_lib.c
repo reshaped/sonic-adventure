@@ -242,6 +242,11 @@ KMSTATUS kmSetAutoSortMode(KMBOOLEAN fEnable)
             kmiDeviceExtension.presort = TRUE;
         }
     }
+#ifdef GCC
+    /* repairs the unset status the tag below names: GCC returns
+     * KMSTATUS_SUCCESS, as nothing fails */
+    status = KMSTATUS_SUCCESS;
+#endif
     /* @bug uninitialized: no path sets status, and every path returns the
      * stack pointer, R15 (MOV R15,R0 in RTS's slot, at 0x8c621bc8 in
      * 1ST_READ.BIN and 0x8ce0fa46 in LOADER.BIN) */

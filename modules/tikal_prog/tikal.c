@@ -880,6 +880,11 @@ static Bool tikal_look_create(Sint8 player, NJS_OBJECT **nodes)
      * of look.eye1, which MOV #96,R0 at 0x0cb010dc loads for the store above.
      * the one caller discards the result, so return TRUE does the same. with
      * return TRUE, 7 of 46 words differ */
+#ifdef GCC
+    /* keeps the shipped play: a made task returns TRUE, which the one caller
+     * discards as it does the image's 96 */
+    return TRUE;
+#endif
 }
 /* NOLINTEND(clang-diagnostic-return-type) */
 

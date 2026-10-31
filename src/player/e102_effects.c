@@ -248,7 +248,7 @@ void e102_hover_dust(struct task_work *work, Float ground)
 
     if (height > 0.0F && height < 30.0F) {
         Angle ang =
-            (Angle)(rand() * RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN);
+            (Angle)(rand() * (RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN));
         Float speed = (21.0F - height) * 0.25F;
 
         e102_dust.scale = 0.5F + (speed * 0.1F);
@@ -270,7 +270,7 @@ void e102_landing_dust(struct task_work *work, struct task_motion *motion)
 
     for (i = 0; i < LANDING_PUFFS; i++) {
         Angle ang =
-            (Angle)(i * (2 * NJD_PI / LANDING_PUFFS) * ANGLE_PER_RADIAN);
+            (Angle)(i * ((2 * NJD_PI / LANDING_PUFFS) * ANGLE_PER_RADIAN));
 
         speed = _builtin_fabsf(motion->speed.y) * LANDING_SPEED;
         e102_dust.scale = 0.5F + (speed * 0.1F);

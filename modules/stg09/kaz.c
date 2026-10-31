@@ -506,6 +506,11 @@ static void kaz_a_run(struct task *task)
     if (!frame_step) {
         return;
     }
+#ifdef GCC
+    /* GCC can't see that kaz_a_pose sets both points: pose_action always
+     * returns TRUE */
+    first = second = (NJS_POINT3){0.0F, 0.0F, 0.0F};
+#endif
     kaz_a_pose(VARS(work)->frame, &first, &second);
     shapes = kaz_a_shapes;
     destination = VECTOR_FLOATS(&work->collision->shapes[0].center);

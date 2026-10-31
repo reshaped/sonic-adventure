@@ -4,6 +4,19 @@
         .IMPORT     __INIT
         .EXPORT     _START_SYS
         .EXPORT     _crt0
+        .EXPORT     _jump_to_init
+; the bounds strt2.c and sbinit.c read
+        .EXPORT     __D_ROM
+        .EXPORT     __D_BGN
+        .EXPORT     __D_END
+        .EXPORT     __B_BGN
+        .EXPORT     __B_END
+        .EXPORT     __DSGLH_BGN
+        .EXPORT     __DSG_ROM
+        .EXPORT     __DSG_BGN
+        .EXPORT     __DSG_END
+        .EXPORT     __BSG_BGN
+        .EXPORT     __BSG_END
 
         .SECTION    DSGLH,DATA,ALIGN=4
 
@@ -42,7 +55,7 @@ ccr_address:
 ccr_defined_bits:
         .DATA.L     H'000089AF          ; every bit CCR defines
 jump_to_init_address:
-        .DATA.L     jump_to_init
+        .DATA.L     _jump_to_init
 ; the start record's ID, which ovMdlEntryTbl finds at the module's offset
 ; 0x30. the library handles follow it, up to the end record
         .SDATA      "Lib Handle Start"
@@ -57,7 +70,7 @@ jump_to_init_address:
 
 ; void jump_to_init(void)
 ; @asm open: every instruction is one SHC writes for C
-jump_to_init:
+_jump_to_init:
         MOV.L       init_address,R0
         JMP         @R0
         NOP
@@ -67,24 +80,34 @@ init_address:
 
         .SECTION    C,DATA,ALIGN=4
 
+; Uint8 *_D_ROM
+; D's start, the data _INITSCT copies into R through R32
 __D_ROM:
         .DATA.L     (STARTOF D)
 __D32_ROM:
         .DATA.L     (STARTOF D32)
+; Uint8 *_D_BGN
+; R's start, where _INITSCT's copy from D starts
 __D_BGN:
         .DATA.L     (STARTOF R)
 __D4_END:
         .DATA.L     (STARTOF R)+(SIZEOF R)
 __D32_BGN:
         .DATA.L     (STARTOF R32)
+; Uint8 *_D_END
+; R32's end, where _INITSCT's copy from D stops
 __D_END:
         .DATA.L     (STARTOF R32)+(SIZEOF R32)
+; Uint8 *_B_BGN
+; B's start, where _INITSCT's zeroing of B through B32 starts
 __B_BGN:
         .DATA.L     (STARTOF B)
 __B4_END:
         .DATA.L     (STARTOF B)+(SIZEOF B)
 __B32_BGN:
         .DATA.L     (STARTOF B32)
+; Uint8 *_B_END
+; B32's end, where _INITSCT's zeroing of B through B32 stops
 __B_END:
         .DATA.L     (STARTOF B32)+(SIZEOF B32)
 
@@ -97,6 +120,8 @@ __B_END:
 
         .SECTION    CSG,DATA,ALIGN=4
 
+; OVMDL _DSGLH_BGN
+; DSGLH's start, the program's module, whose libraries _INITLIBH enters
 __DSGLH_BGN:
         .DATA.L     (STARTOF DSGLH)
 __DSGLH_END:
@@ -105,24 +130,35 @@ __DSGLE_BGN:
         .DATA.L     (STARTOF DSGLE)
 __DSGLE_END:
         .DATA.L     (STARTOF DSGLE)+(SIZEOF DSGLE)
+; Uint8 *_DSG_ROM
+; DSG's start, the data _INITSCT copies into RSG through RSG32
 __DSG_ROM:
         .DATA.L     (STARTOF DSG)
 __DSG32_ROM:
         .DATA.L     (STARTOF DSG32)
+; Uint8 *_DSG_BGN
+; RSG's start, where _INITSCT's copy from DSG starts
 __DSG_BGN:
         .DATA.L     (STARTOF RSG)
 __DSG4_END:
         .DATA.L     (STARTOF RSG)+(SIZEOF RSG)
 __DSG32_BGN:
         .DATA.L     (STARTOF RSG32)
+; Uint8 *_DSG_END
+; RSG32's end, where _INITSCT's copy from DSG stops
 __DSG_END:
         .DATA.L     (STARTOF RSG32)+(SIZEOF RSG32)
+; Uint8 *_BSG_BGN
+; BSG's start, where _INITSCT's zeroing of BSG through BSG32 starts
 __BSG_BGN:
         .DATA.L     (STARTOF BSG)
 __BSG4_END:
         .DATA.L     (STARTOF BSG)+(SIZEOF BSG)
 __BSG32_BGN:
         .DATA.L     (STARTOF BSG32)
+; Uint8 *_BSG_END
+; BSG32's end, where _INITSCT's zeroing of BSG through BSG32 stops. sbinit.c
+; puts the heap in the address region that end lies in
 __BSG_END:
         .DATA.L     (STARTOF BSG32)+(SIZEOF BSG32)
 

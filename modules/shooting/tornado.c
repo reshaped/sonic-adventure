@@ -231,6 +231,17 @@ void shooting_player_step(struct task *task)
         shooting_flight.charge = 0;
         shooting_flight.alpha = 0.0F;
         shooting_flight.phase = 0;
+#ifdef GCC
+        /* repairs TORNADO_FLY's first step, whose tornado_draw and
+         * tornado_fly read shooting_flight.pos before anything sets it
+         * (FMOV @(R0,R14) at 0x0c901b9c, 0x0c901ba0 and 0x0c901ba4 in the
+         * draw, and at 0x0c901df2, 0x0c901e08 and 0x0c901e24 in the move).
+         * SHOOTING's file ends before its bss, so the image reads what RAM
+         * held there. GCC's position starts at 0 */
+        shooting_flight.pos.x = 0.0F;
+        shooting_flight.pos.y = 0.0F;
+        shooting_flight.pos.z = 0.0F;
+#endif
         work->scl.x = -2.0F;
         work->scl.z = -4.0F;
         TORNADO_FRAME(work) = 0.0F;

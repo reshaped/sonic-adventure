@@ -19,8 +19,7 @@
 #include "system/util.h"
 
 extern NJS_OBJECT gold_heap_object;
-extern NJS_MESHSET gold_heap_meshset_0;
-extern NJS_MESHSET gold_heap_meshset_1;
+extern NJS_MESHSET gold_heap_meshsets[5];
 
 /* the heap starts only within about 600 of the camera or player 0, and
  * destroys itself otherwise. placement_try_leave_by takes the range
@@ -215,7 +214,14 @@ static void gold_heap_run(struct task *task)
 static void gold_heap_draw(struct task *task)
 {
     struct task_work *work = task->work;
+#ifdef GCC
+    /* uv_scroll_move points the meshsets' vertuv here, and model.c's
+     * clipped strips read each u and v pair as one longword, which faults
+     * on an address off 4. GCC aligns this array only to its Sint16s */
+    NJS_TEX room[100] __attribute__((aligned(4)));
+#else
     NJS_TEX room[100];
+#endif
     Float height = VARS(work)->height;
     Float phase;
     Angle ang;

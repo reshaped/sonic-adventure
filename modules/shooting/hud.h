@@ -2,8 +2,13 @@
  * hit */
 #ifndef SHOOTING_HUD_H
 #define SHOOTING_HUD_H
+#include <ninja.h>
 
 #include "system/task.h"
+
+/* the score's texlist. 1ST_READ.BIN's shooting1_pvms and shooting2_pvms
+ * name it */
+extern NJS_TEXLIST score_texlist;
 
 /* the hud's step. its first step gives the tornado 5 lives on a new gauge.
  * it also clears the score, the combo and the targets hit */

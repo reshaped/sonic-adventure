@@ -315,6 +315,9 @@
 0x0c916ec0  camera_demo_draw
 0x0c916fc0  camera_demo_mark
 0x0c917000  camera_demo_make
+0x0c9180ac  twinkle_act0_land
+0x0c919b64  twinkle_act1_land
+0x0c91a77c  twinkle_act2_land
 0x0c91a7a0  twinkle_land1_textures
 0x0c91abc0  twinkle_land1_texlist
 0x0c91b1b4  cycle_object_0

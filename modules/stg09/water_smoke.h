@@ -7,7 +7,7 @@
 #include "effect/dust.h"
 #include "effect/pools.h"
 
-/* 1ST_READ.BIN's casino_pools names it by its address */
+/* 1ST_READ.BIN's casino_pools names it */
 extern struct particle_pool_spec water_smoke_pool;
 
 /* each create takes its puff from water_smoke_pool. it makes none when the

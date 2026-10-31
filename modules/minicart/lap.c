@@ -26,6 +26,13 @@ static const NJS_SPRITE lap_digit = {
  * draws over it */
 void lap_draw(Sint8 lap)
 {
+#ifdef GCC
+    /* the port's 16:9 squeezes the lap about the screen's right edge */
+    port_wide_anchor = WIDE_RIGHT;
+#endif
     njDrawSprite2D((NJS_SPRITE *)&lap_label, 0, -2.001F, NJD_SPRITE_ALPHA);
     njDrawSprite2D((NJS_SPRITE *)&lap_digit, lap, -2.0F, NJD_SPRITE_ALPHA);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }

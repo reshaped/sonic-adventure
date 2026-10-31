@@ -68,12 +68,21 @@ static const Uint8 mode_item_textures[] = {
     TITLE_OPTIONS,
     TITLE_INTERNET,
 };
+#ifdef GCC
+/* keeps the value the tag in mode_select_run names: ITEM_BACK's row, the
+ * fifth, holds MENU_MODE_ADVENTURE */
+static const int mode_item_modes[] = {
+    MENU_MODE_ADVENTURE, MENU_MODE_TRIAL,     MENU_MODE_OPTIONS,
+    MENU_MODE_INTERNET,  MENU_MODE_ADVENTURE,
+};
+#else
 static const int mode_item_modes[] = {
     MENU_MODE_ADVENTURE,
     MENU_MODE_TRIAL,
     MENU_MODE_OPTIONS,
     MENU_MODE_INTERNET,
 };
+#endif
 
 static struct task *mode_select_task;
 

@@ -17,6 +17,10 @@
 #include "system/task.h"
 #include "system/util.h"
 
+#ifdef GCC
+#include "stage/stage.h"
+#include "vmu/vibration.h"
+#else
 /* @hack type: int, not stage.h's Uint16, so SHC compares the result without
  * extending it, as at 0x0c91176a and 0x0c911a8c. as stage.h declares it,
  * summed over telepot_step, telepot_destroy and telepot_run, 209 of 482 words
@@ -27,6 +31,7 @@ extern int stage_get_stage_act(void);
  * 104 of telepot_run's 372 words differ */
 /* NOLINTNEXTLINE(clang-diagnostic-strict-prototypes) */
 extern void vibration_start();
+#endif
 
 /* the teleporter's root model and its one child, and the meshsets whose
  * UVs scroll */
@@ -54,11 +59,11 @@ extern NJS_OBJECT rlt_object;
 extern NJS_OBJECT yukh_object;
 extern NJS_MESHSET yukh_meshsets[];
 extern NJS_OBJECT rlti_object;
-extern NJS_MESHSET rlti_meshsets[];
+extern NJS_MESHSET rlti_meshsets[3];
 extern NJS_OBJECT kb_b_object;
-extern NJS_MESHSET kb_b_meshsets[];
+extern NJS_MESHSET kb_b_meshsets[3];
 extern NJS_OBJECT kb_r_object;
-extern NJS_MESHSET kb_r_meshsets[];
+extern NJS_MESHSET kb_r_meshsets[3];
 extern NJS_OBJECT kb_1_object;
 extern NJS_MESHSET kb_1_meshsets[];
 extern NJS_OBJECT kb_2_object;
@@ -70,14 +75,14 @@ extern NJS_MESHSET kb_4_meshsets[];
 extern NJS_OBJECT tdenki_object;
 extern NJS_MESHSET tdenki_meshsets[];
 extern NJS_OBJECT sdfuti_r_object;
-extern NJS_MESHSET sdfuti_r_meshsets[];
+extern NJS_MESHSET sdfuti_r_meshsets[2];
 extern NJS_OBJECT sdfuti_b_object;
-extern NJS_MESHSET sdfuti_b_meshsets[];
+extern NJS_MESHSET sdfuti_b_meshsets[2];
 extern NJS_OBJECT map2f_object;
 extern NJS_OBJECT cfo_object;
-extern NJS_MATERIAL cfo_materials[];
+extern NJS_MATERIAL cfo_materials[5];
 extern NJS_OBJECT mizu_a_object;
-extern NJS_MESHSET mizu_a_meshsets[];
+extern NJS_MESHSET mizu_a_meshsets[2];
 extern NJS_OBJECT mizu_b_object;
 extern NJS_MESHSET mizu_b_meshsets[];
 extern NJS_OBJECT sy_a_object;
@@ -85,7 +90,7 @@ extern NJS_OBJECT sy_b_object;
 extern NJS_OBJECT shwrl_object;
 extern NJS_OBJECT shwhd_object;
 extern NJS_OBJECT neokab_object;
-extern NJS_MESHSET neokab_meshsets[];
+extern NJS_MESHSET neokab_meshsets[2];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */
@@ -573,8 +578,15 @@ static void telepot_run(struct task *task)
              * gets three. its time, R7 at the JSR at 0x0c911a04, is slot_count
              * as placement_editing left it (MOV.W at 0x8c04551e): 1 until the
              * set editor changes it */
+#ifdef GCC
+            /* keeps the shake the tag names: the image's three arguments,
+             * and a time of 1, which slot_count holds while the set editor
+             * stays shut */
+            vibration_start(2, 50, 0, 1);
+#else
             /* NOLINTNEXTLINE(clang-diagnostic-deprecated-non-prototype) */
             vibration_start(2, 50, 0);
+#endif
             sound_play_for(SE_HOLD, (int)work, 1, 0, 5);
             player_set_speed(0, 0.0F, 0.0F, 0.0F);
             player_motion[0]->accel.y += player_get(0)->consts.gravity + 0.1F;
@@ -649,11 +661,18 @@ static void telepot_run(struct task *task)
 static void telepot_draw(struct task *task)
 {
     struct task_work *work = task->work;
+#ifdef GCC
+    /* uv_scroll_move points the meshsets' vertuv here, and model.c's
+     * clipped strips read each u and v pair as one longword, which faults
+     * on an address off 4. GCC aligns this array only to its Sint16s */
+    NJS_TEX room[100] __attribute__((aligned(4)));
+#else
     /* @hack type: room for 72 UVs past the 28 the two rows use, which
      * makes the image's 412-byte frame (0x0c911bd6). room fills it from
      * offset 12. as room[28], the code runs 160 bytes short, count
      * unmeasured */
     NJS_TEX room[100];
+#endif
     int start;
     Float fade;
 

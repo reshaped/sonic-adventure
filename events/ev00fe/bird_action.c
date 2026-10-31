@@ -16,6 +16,6 @@ static NJS_MOTION ev00fe_bird_motion = {
 NJS_ACTION ev00fe_bird_action = {
 #include "ev00fe/bird_action/ev00fe_bird_action.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

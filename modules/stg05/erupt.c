@@ -332,7 +332,7 @@ static void erupt_glow(struct task *task, struct task_work *work,
          * differ */
         motion->color.x = 0.0F + (TASK_TIMER(work) * (2.0F / GLOW_STEPS));
         motion->color.y =
-            0.0F + (TASK_TIMER(work) * (1.0F / GLOW_STEPS) * 0.4F);
+            0.0F + (TASK_TIMER(work) * ((1.0F / GLOW_STEPS) * 0.4F));
         motion->color.z = motion->color.y;
         break;
     }

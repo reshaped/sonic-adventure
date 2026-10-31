@@ -57,15 +57,15 @@ static NJS_TEXNAME ev00fa_tornado_textures[28] = {
 NJS_TEXLIST ev00fa_tornado_texlist = {
 #include "ev00fa/sonic_action_1/ev00fa_tornado_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb9390c[2] = {
+NJS_MATERIAL dat_0cb9390c[2] = {
 #include "ev00fa/sonic_action_1/dat_0cb9390c.inc"
 };
-static Sint16 dat_0cb93934[12] = {
+Sint16 dat_0cb93934[12] = {
 #include "ev00fa/sonic_action_1/dat_0cb93934.inc"
 };
-static Sint16 dat_0cb9394c[8] = {
+Sint16 dat_0cb9394c[8] = {
 #include "ev00fa/sonic_action_1/dat_0cb9394c.inc"
 };
-static Sint16 dat_0cb9395c[30] = {
+Sint16 dat_0cb9395c[30] = {
 #include "ev00fa/sonic_action_1/dat_0cb9395c.inc"
 };

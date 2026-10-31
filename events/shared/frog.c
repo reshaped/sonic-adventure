@@ -341,6 +341,10 @@ struct task *event_frog_create(void)
     /* @hack implicit: no return, so R0 still holds task_create's result
      * (MOV R0,R4 at 0x0cb80ef0 in EV00DF), which the callers take; returned
      * explicitly, the function runs 2 bytes long and 8 of 14 words differ */
+#ifdef GCC
+    /* keeps the value the tag names: task_create's result */
+    return task;
+#endif
 } /* NOLINT(clang-diagnostic-return-type) */
 
 void event_frog_kill(void)

@@ -21,15 +21,15 @@ static NJS_TEXNAME event_claw_textures[7] = {
 NJS_TEXLIST event_claw_texlist = {
 #include "shared/claw_textures/event_claw_texlist.inc"
 };
-static NJS_MATERIAL event_claw_materials[4] = {
+NJS_MATERIAL event_claw_materials[4] = {
 #include "shared/claw_textures/event_claw_materials.inc"
 };
-static Sint16 event_claw_strips_0[20] = {
+Sint16 event_claw_strips_0[20] = {
 #include "shared/claw_textures/event_claw_strips_0.inc"
 };
-static Sint16 event_claw_strips_1[23] = {
+Sint16 event_claw_strips_1[23] = {
 #include "shared/claw_textures/event_claw_strips_1.inc"
 };
-static Sint16 event_claw_strips_2[31] = {
+Sint16 event_claw_strips_2[31] = {
 #include "shared/claw_textures/event_claw_strips_2.inc"
 };

@@ -17,6 +17,6 @@ static NJS_MOTION ev0088_eggman_motion = {
 NJS_ACTION ev0088_eggman_action = {
 #include "ev0088/eggman_action/ev0088_eggman_action.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

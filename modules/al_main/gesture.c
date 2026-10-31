@@ -102,7 +102,12 @@ void fun_0c9145a0(struct task_work *work, struct alife_chao *chao)
     /* @bug uninitialized: no path sets chance. its tests read FR15, which
      * holds case 1's 0.3 (FCMP/GT FR15,FR15 at 0x0c914762 and 0x0c9147c2),
      * so gestures 2 and 3 always play SE_VOICE_2 */
+#ifdef GCC
+    /* keeps the value the tag names: FR15's 0.3 */
+    Float chance = 0.3F;
+#else
     Float chance;
+#endif
 
     switch (work->submode) {
     case 0:

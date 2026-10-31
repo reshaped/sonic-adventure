@@ -20,12 +20,9 @@
 extern NJS_OBJECT billboard_board_object;
 extern NJS_OBJECT billboard_cracked_object;
 extern NJS_OBJECT billboard_lamp_object;
-/* the board's textures with each of its five posters */
-extern NJS_TEXNAME billboard_post01_texnames[3];
-extern NJS_TEXNAME billboard_post07_texnames[3];
-extern NJS_TEXNAME billboard_poster2_texnames[3];
-extern NJS_TEXNAME billboard_poster3_texnames[3];
-extern NJS_TEXNAME billboard_poster4_texnames[3];
+/* OBJ_HIGHWAY2's texture names, among them the board's with each of its five
+ * posters */
+extern NJS_TEXNAME obj_highway2_textures[54];
 
 /* the billboard stands BOARD_RISE above its set entry's position and
  * BOARD_BACK along z, which its heading doesn't turn */

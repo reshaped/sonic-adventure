@@ -75,7 +75,7 @@ static struct collision_shape shots_shapes[SHOT_SHAPES] = {
 static NJS_TEXNAME shots_textures[1] = {
     {TEXT_1, 0, 0},
 };
-static NJS_TEXLIST shots_texlist = {
+NJS_TEXLIST shots_texlist = {
 #include "stg06/shots/shots_texlist.inc"
 };
 static NJS_TEXANIM shots_texanim[1] = {

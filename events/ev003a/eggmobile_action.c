@@ -36,7 +36,7 @@ static NJS_MOTION ev003a_eggmobile_motion = {
 NJS_ACTION ev003a_eggmobile_action = {
 #include "ev003a/eggmobile_action/ev003a_eggmobile_action.inc"
 };
-static NJS_TEXNAME ev003a_egg_carrier_textures[21] = {
+NJS_TEXNAME ev003a_egg_carrier_textures[21] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

@@ -160,12 +160,24 @@ static void wheel_keep(struct character_select *work)
  * in R8 (0x8c903176, 0x8c90317a). through menu_state, &menu_state takes R9,
  * the function runs 32 bytes short, the functions after it move, and 402 of
  * 421 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a byte inside menu_state */
+#define menu_story (menu_state.story)
+#else
 extern Uint8 menu_story;
+#endif
 /* @hack spelling: menu_state.trial[0] declared under a name of its own, for
  * character_select_run. through menu_state, SHC keeps preview_kill's address
  * in R9 and 10 in R8 in place of 1 and 2, the function runs 4 bytes short,
  * the functions after it move, and 289 of 421 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a byte inside menu_state */
+#define menu_trial (menu_state.trial[0])
+#else
 extern Uint8 menu_trial;
+#endif
 
 static void character_select_run(struct character_select *work)
 {

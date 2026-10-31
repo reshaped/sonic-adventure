@@ -7,7 +7,7 @@
 #include "system/task.h"
 
 /* the sky's step, at the module's first byte, whose address 1ST_READ.BIN's
- * sky_steps names */
+ * sky_steps holds */
 void egg_carrier_sky_step(struct task *task);
 /* the clouds' step. the field task creates its task in acts 0 to 2, on the
  * deck, while the Egg Carrier flies */

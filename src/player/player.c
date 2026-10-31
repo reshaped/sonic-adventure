@@ -4,6 +4,14 @@
 #include <sg_xpt.h>
 #include <stdlib.h>
 
+#include "adv00/station_square.h"
+#include "adv0100/death_zones.h"
+#include "adv0130/egg_carrier_inside.h"
+#include "adv02/death_zones.h"
+#include "adv03/past.h"
+#include "al_garden00/death_zones.h"
+#include "al_garden01/death_zones.h"
+#include "al_garden02/death_zones.h"
 #include "camera/camera.h"
 #include "collision/collision.h"
 #include "collision/invisible.h"
@@ -22,6 +30,7 @@
 #include "event/event.h"
 #include "event/play.h"
 #include "hud/hud.h"
+#include "minicart/death_zones.h"
 #include "object/common.h"
 #include "object/panel.h"
 #include "path/path.h"
@@ -33,7 +42,18 @@
 #include "sound/sound.h"
 #include "sound/stream.h"
 #include "stage/stage.h"
-#include "system/loader.h"
+#include "stg01/death_zones.h"
+#include "stg02/death_zones.h"
+#include "stg03/death_zones.h"
+#include "stg04/death_zones.h"
+#include "stg05/mountain.h"
+#include "stg06/death_zones.h"
+#include "stg07/death_zones.h"
+#include "stg08/death_zones.h"
+#include "stg08/snow_trail.h"
+#include "stg09/death_zones.h"
+#include "stg10/final.h"
+#include "stg12/death_zones.h"
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/util.h"
@@ -128,26 +148,20 @@ static struct character_constants character_constants[CHARACTER_COUNT] = {
 };
 /* clang-format on */
 
-/* a stage's lists of zones, at the address they take once its module is
- * loaded */
-#define ZONES(address) ((struct death_zone **)(address))
-
 struct death_zone **death_zones[STAGE_COUNT] = {
     NULL,
-    ZONES(0x0cab1338), /* Emerald Coast */
-    ZONES(0x0ca14600), /* Windy Valley */
-    ZONES(0x0c9c3b68), /* Twinkle Park */
-    ZONES(0x0ca34010), /* Speed Highway */
-    ZONES(0x0ca39fb4), /* Red Mountain */
-    ZONES(0x0c91f938), /* Sky Deck */
-    ZONES(0x0c90cdf8), /* Lost World */
-    ZONES(0x0ca511ec), /* Ice Cap */
-    ZONES(0x0cb17564), /* Casinopolis */
-    ZONES(0x0cb003e0), /* Final Egg */
+    beach_death_zones, /* Emerald Coast */
+    windy_death_zones, /* Windy Valley */
+    twinkle_death_zones, /* Twinkle Park */
+    highway_death_zones, /* Speed Highway */
+    mountain_death_zones, /* Red Mountain */
+    sky_deck_death_zones, /* Sky Deck */
+    ruin_death_zones, /* Lost World */
+    icecap_death_zones, /* Ice Cap */
+    casino_death_zones, /* Casinopolis */
+    final_death_zones, /* Final Egg */
     NULL,
-    ZONES(0x0ca91520), /* Hot Shelter */
-    NULL,
-    NULL,
+    shelter_death_zones, /* Hot Shelter */
     NULL,
     NULL,
     NULL,
@@ -159,22 +173,24 @@ struct death_zone **death_zones[STAGE_COUNT] = {
     NULL,
     NULL,
     NULL,
-    ZONES(0x0cb2edd8), /* Station Square */
     NULL,
     NULL,
-    ZONES(0x0cae7418), /* the Egg Carrier */
+    station_square_death_zones, /* Station Square */
     NULL,
     NULL,
-    ZONES(0x0c9cdaf0), /* inside the Egg Carrier */
-    ZONES(0x0cb20104), /* the Mystic Ruins */
-    ZONES(0x0c9ca070), /* the Past */
-    ZONES(0x0c900230), /* Twinkle Circuit */
+    outside_death_zones, /* the Egg Carrier */
+    NULL,
+    NULL,
+    inside_death_zones, /* inside the Egg Carrier */
+    mystic_ruins_death_zones, /* the Mystic Ruins */
+    past_death_zones, /* the Past */
+    cart_death_zones, /* Twinkle Circuit */
     NULL,
     NULL,
     NULL,
-    ZONES(0x0cb9356c), /* Station Square's garden */
-    ZONES(0x0cb9032c), /* the Egg Carrier's */
-    ZONES(0x0cb9ba24), /* the Mystic Ruins' */
+    station_square_garden_death_zones, /* Station Square's garden */
+    egg_carrier_garden_death_zones, /* the Egg Carrier's */
+    mystic_ruins_garden_death_zones, /* the Mystic Ruins' */
     NULL,
 };
 
@@ -5298,6 +5314,10 @@ static int ball_slide_along_walls(struct task_work *work,
         work->ang.y =
             (int)(atan2f(line.line.vz, line.line.vx) * ANGLE_PER_RADIAN) &
             0xffff;
+#ifdef GCC
+        /* the turn test's distance, for the return below */
+        ang = angle_distance(motion->aim.y, work->ang.y);
+#endif
         if (angle_distance(motion->aim.y, work->ang.y) > 0x6000) {
             work->ang.y += 0x8000;
         }
@@ -5309,6 +5329,13 @@ static int ball_slide_along_walls(struct task_work *work,
      * 0x8c07a5e4). angle_distance gives the distance from motion->aim.y to
      * work->ang.y. up to 0x6000, R0 keeps that distance. past 0x6000, R0 keeps
      * work->ang.y once the half turn, 0x8000, is added */
+#ifdef GCC
+    /* keeps the value the tag names: the turn test's distance, or past 0x6000
+     * the turned heading. callers test the result for 0 and for
+     * PLAYER_CRASHED. the distance can be 0, PLAYER_CRASHED's 2 or another
+     * value, so no one constant takes its place */
+    return ang > 0x6000 ? work->ang.y : ang;
+#endif
 } /* NOLINT(clang-diagnostic-return-type) */
 
 static int pinball_slide_along_walls(struct task_work *work,
@@ -7510,6 +7537,11 @@ void player_update_welds(struct task_work *work, struct task_motion *motion,
 
     anim = &record->anim;
     weld = anim->welds;
+#ifdef GCC
+    /* GCC can't see that a weld whose kind reads the points and normals,
+     * WELD_BOTH, WELD_TO_A or WELD_TO_B, has the object_b that sets them */
+    points_a = points_b = normals_a = normals_b = NULL;
+#endif
     switch (anim->weld_mode) {
     case PLAYER_WELD_MAKE:
         for (; weld->base != NULL; weld++) {
@@ -8042,10 +8074,6 @@ void player_kick_dust(struct task_work *work, struct task_motion *motion,
 #define SE_BOARD_ICE 237
 #define SE_BOARD_SAND_RUN 691
 
-/* icecap_board_spray, in Ice Cap's module, STG08, at this offset into the
- * module area. the call runs whatever module is loaded there */
-#define ICECAP_BOARD_SPRAY ((void (*)(int player))(MODULE_AREA + 0xb20))
-
 void player_board_spray(struct task_work *work, struct task_motion *motion,
                         struct player *record)
 {
@@ -8066,7 +8094,7 @@ void player_board_spray(struct task_work *work, struct task_motion *motion,
     if (speed > 3.0F && record->anim.state == PLAYER_ANIM_DRIVEN) {
         if (record->ground_flags & (WORLD_GRIP_LEAST | WORLD_GRIP_LOW)) {
             if ((Float)rand() * RAND_SCALE > 0.95F) {
-                ICECAP_BOARD_SPRAY((Sint8)PLAYER_VARS(work)->player);
+                icecap_board_spray((Sint8)PLAYER_VARS(work)->player);
             }
             sound_play_for(SE_BOARD_ICE, (int)work, 1, 0, 2);
         } else if (record->ground_flags & WORLD_SAND) {
@@ -8229,6 +8257,11 @@ void death_zone_step(struct task *task)
     if (!acts) {
         return;
     }
+    /* @bug memory: in Twinkle Park's act 3, which act1_near_step's
+     * stage_change_act(1) makes of act 2 when Amy is near mirrors_gate with
+     * the stage task still in act 1's mode, as after an act change in place,
+     * this reads one past twinkle_death_zones' three entries, the fill word
+     * at 0x0c9c3b74, which is 0 (MOV.L @(R0,R4),R14 at 0x8c080530) */
     zone = acts[act];
     if (zone == NULL || zone->object == NULL) {
         return;
@@ -8399,6 +8432,13 @@ static void player_drown_step(struct task *task)
             case CHARACTER_BIG:
                 voice = VOICE_DROWN_BIG;
                 break;
+#ifdef GCC
+            default:
+                /* repairs the unset voice the tag below names: E-102, Eggman
+                 * and Tikal have no drown voice, so GCC's drown plays none */
+                stream_stop_music();
+                return;
+#endif
             }
             /* @bug uninitialized: no case sets voice for E-102, Eggman or
              * Tikal. R4 then still holds the work player_set_mode loaded
@@ -9350,9 +9390,15 @@ void player_give_speed_up(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081f04), which the test after it makes needless; without it,
      * 27 of 30 words differ */
+#ifdef GCC
+    /* repairs the read past player_work the tag names: GCC gives player 0
+     * the speed up for any player past the last slot */
+    if (player > PLAYER_COUNT - 1) {
+#else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
+#endif
         player = 0;
     }
     task = task_create(TASK_EXTRA, 2, player_speed_up_start);
@@ -9374,11 +9420,19 @@ void player_give_magnetic_barrier(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081f8c), which the test after it makes needless; without it,
      * 43 of 49 words differ */
+#ifdef GCC
+    /* repairs the read the tag names: GCC's player past the last slot
+     * falls back to player 0, and reads neither table past its end */
+    if (player > PLAYER_COUNT - 1) {
+        player = 0;
+    }
+#else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
         player = 0;
     }
+#endif
     record = player_records[player];
     if (record != NULL) {
         if ((record->effects & PLAYER_MAGNETIC_BARRIER) == 0) {
@@ -9405,11 +9459,19 @@ void player_give_barrier(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081fee), which the test after it makes needless; without it,
      * 43 of 49 words differ */
+#ifdef GCC
+    /* repairs the read the tag names, as player_give_magnetic_barrier
+     * does */
+    if (player > PLAYER_COUNT - 1) {
+        player = 0;
+    }
+#else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
         player = 0;
     }
+#endif
     record = player_records[player];
     if (record != NULL) {
         if ((record->effects & PLAYER_BARRIER) == 0) {
@@ -9436,11 +9498,19 @@ void player_give_invincibility(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c082050), which the test after it makes needless; without it,
      * 49 of 53 words differ */
+#ifdef GCC
+    /* repairs the read the tag names, as player_give_magnetic_barrier
+     * does */
+    if (player > PLAYER_COUNT - 1) {
+        player = 0;
+    }
+#else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
         player = 0;
     }
+#endif
     record = player_records[player];
     if (record != NULL && !(record->effects & PLAYER_INVINCIBLE)) {
         task = task_create(TASK_WORK, 2, invincibility_start);

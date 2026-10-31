@@ -2,6 +2,8 @@
  * ev0168_tails_action_0 */
 #include <ninja.h>
 
-static NJS_MKEY_F dat_0cb82660[19] = {
+#include "ev0168/dat_0cb82660.h"
+
+NJS_MKEY_F dat_0cb82660[19] = {
 #include "ev0168/dat_0cb82660/dat_0cb82660.inc"
 };

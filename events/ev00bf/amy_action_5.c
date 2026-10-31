@@ -1972,6 +1972,6 @@ NJS_TEXLIST ev00bf_bird_texlist_2 = {
 };
 /* the material of dat_0cb990dc, the model of one of ev00bf_bird_action_7's
  * nodes. those nodes follow this file's data */
-static NJS_MATERIAL dat_0cb99034[1] = {
+NJS_MATERIAL dat_0cb99034[1] = {
 #include "ev00bf/amy_action_5/dat_0cb99034.inc"
 };

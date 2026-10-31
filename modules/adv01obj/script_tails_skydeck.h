@@ -4,7 +4,8 @@
 
 #include "progress/story.h"
 
-/* tails_story in progress/story.c lists it by address */
+/* the section's script, in ADV01OBJ, which tails_story in progress/story.c
+ * names */
 extern struct story_script script_tails_skydeck;
 
 #endif

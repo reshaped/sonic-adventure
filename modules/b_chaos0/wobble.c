@@ -17,6 +17,28 @@ extern NJS_POINT3 *chaos0_wobble_rest;
 /* each wobbling point's distance from the z axis, times RADIUS_ANGLE, in
  * wobble_indices' order */
 extern Angle *chaos0_wobble_radii;
+#ifdef GCC
+/* B_CHAOS0's tables place these three in bss that no source holds. the
+ * port defines them here */
+struct task_motion *chaos0_wobble_motion;
+NJS_POINT3 *chaos0_wobble_rest;
+Angle *chaos0_wobble_radii;
+/* a light's settings, which the tables place after chaos0_wobble_radii.
+ * ten records at 0x0c95f5c8, in the generated data, point at them in turn.
+ * the records name them "Iabg", "Oabg", "Red", "Green", "Blue", "Spec",
+ * "Defuse", "Ambient", "Near" and "Far". no code reads the records or the
+ * settings */
+Float chaos0_light_inner_angle;
+Float chaos0_light_outer_angle;
+Float chaos0_light_red;
+Float chaos0_light_green;
+Float chaos0_light_blue;
+Float chaos0_light_specular;
+Float chaos0_light_diffuse;
+Float chaos0_light_ambient;
+Float chaos0_light_near;
+Float chaos0_light_far;
+#endif
 
 /* the attrflags chaos0_blink gives the node's first material while frames
  * is even */

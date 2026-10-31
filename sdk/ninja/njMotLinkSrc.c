@@ -2,6 +2,9 @@
  * that njMakeMotionLink and njMakeShapeLink make, and their tables */
 #include <ninja.h>
 #include <sg_xpt.h>
+#ifdef GCC
+#include "ninja/njmotion_zam.h"
+#endif
 
 /* an Angle's full turn, and half of it */
 enum { TURN = 65536, HALF_TURN = TURN / 2 };
@@ -154,6 +157,7 @@ static void weighted_sum_angles(Angle *a, Angle *b, Angle *c, Angle *d,
                                 Angle *out);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
+#ifndef GCC
 /* clang-format off */
 #ifndef __clang__
 /* set out to wa * a + wb * b + wc * c + wd * d, where a to d are three Floats
@@ -255,6 +259,7 @@ static void weighted_sum_angles(Angle *a, Angle *b, Angle *c, Angle *d,
 }
 #endif
 /* clang-format on */
+#endif
 
 /* interpolate key index's three values along a Catmull-Rom spline, into out.
  * the spline runs through the key before it, the key and the two after it, and
@@ -683,6 +688,7 @@ static Float link_sample_shape(NJS_MKEY_P *keys, Uint32 index, Uint32 count,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float w);
 
+#ifndef GCC
 /* clang-format off */
 #ifndef __clang__
 /* returns x * x + y * y + z * z + w * w, by one FIPR. SHC expands the body at
@@ -699,6 +705,7 @@ static Float squared_length(Float x, Float y, Float z, Float w)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* blend a and b, t of the way to b, into out. out is scaled to unit length by
  * FSRRA's approximate 1 / sqrt. a blend whose squared length is not above

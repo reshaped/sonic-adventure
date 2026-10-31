@@ -1,9 +1,17 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* set m to S * m, where S scales by v's x, y and z. a null m selects the
  * current matrix, in XMTRX */
+#ifdef GCC
+/* ninja_zam.h defines no njScaleV macro, so every call reaches this
+ * definition */
+void njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
+{
+    zam_njScaleV(m, v);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629578 follows the
  * body's own return at 0x8c629574 */
 #pragma inline_asm(njScaleV)
@@ -99,3 +107,4 @@ void njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
 }
 #endif
 /* clang-format on */
+#endif

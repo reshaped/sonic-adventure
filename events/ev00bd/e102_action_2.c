@@ -22,7 +22,7 @@ static NJS_MOTION ev00bd_e102_motion_2 = {
 NJS_ACTION ev00bd_e102_action_2 = {
 #include "ev00bd/e102_action_2/ev00bd_e102_action_2.inc"
 };
-static NJS_TEXNAME dat_0cb885cc[7] = {
+NJS_TEXNAME dat_0cb885cc[7] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0}, {TEXT_4, 0, 0},
     {TEXT_5, 0, 0}, {TEXT_6, 0, 0}, {TEXT_7, 0, 0},
 };

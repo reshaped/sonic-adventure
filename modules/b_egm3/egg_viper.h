@@ -146,9 +146,18 @@ extern Sint32 egg_viper_energy_time;
  * left them. SHC lays out three objects in turn: nodes 0 to 46, node 47, and
  * nodes 48 on. the walk from egg_viper_matrices writes on past its end into the
  * other two */
+#ifdef GCC
+/* GCC's build defines nodes 0 to 50 as one array. egg_viper_tree_matrices'
+ * writes of nodes 47 to 50 and node_pos's read of node 48 then stay inside
+ * it. egg_viper_node_matrices is a pointer, not an array of 16 */
+extern NJS_MATRIX egg_viper_matrices[51];
+#define egg_viper_anchor_matrix (egg_viper_matrices[47])
+#define egg_viper_node_matrices (&egg_viper_matrices[48])
+#else
 extern NJS_MATRIX egg_viper_matrices[47];
 extern NJS_MATRIX egg_viper_anchor_matrix; /* node 47, which segment 0 trails */
 extern NJS_MATRIX egg_viper_node_matrices[16];
+#endif
 /* the boss's angle about y as its task starts, which its creator sets */
 extern Angle egg_viper_start_ang;
 /* the boss sets egg_viper_camera_next to move the camera on to the next

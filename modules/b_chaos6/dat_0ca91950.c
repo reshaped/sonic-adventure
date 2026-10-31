@@ -5,7 +5,7 @@
 
 #include "b_chaos6/dat_0ca91950.h"
 
-extern Uint32 dat_0ca9193c[];
+extern NJS_MATERIAL dat_0ca9193c[];
 
 static Sint16 dat_0ca91950[6] = {
 #include "b_chaos6/dat_0ca91950/dat_0ca91950.inc"

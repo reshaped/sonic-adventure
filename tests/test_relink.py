@@ -5,9 +5,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import config
+import images
 import link
 import relink
+import shc_object
 from config import Config
 from support import MODULE, tree
 from test_link import END, HEADER, entries, record, section, srecord
@@ -21,10 +22,11 @@ def header(kind, module):
     return record(0x86, b'@\0\4\0 \0\6' + name + b'\x04C_SH261023223641')
 
 
-def definition(name, value, absolute=False):
-    # a definition entry: the section's number, an attribute, the value and the name
-    head = b'\0\0\x40\x04' if absolute else b'\0\0\x20'
-    return head + value.to_bytes(4, 'big') + bytes([len(name)]) + name.encode()
+def definition(name, value, absolute=False, section=0, size=4):
+    # a definition entry: the section's number, an attribute, the value's size for a name defined at an address, the
+    # value and the name
+    head = section.to_bytes(2, 'big') + (bytes([shc_object.ABSOLUTE, size]) if absolute else bytes([0x20]))
+    return head + value.to_bytes(size, 'big') + bytes([len(name)]) + name.encode()
 
 
 def obj(module, sections, takes=(), defines=()):
@@ -83,50 +85,6 @@ SPLICED = (bytes(range(1, 0x21)) + bytes(range(0x41, 0x59)) + b'\xff' * 8 + byte
            + bytes(range(0xC1, 0xD1)))
 
 
-class Order(unittest.TestCase):
-    def test_keeps_each_section_in_its_rows_order(self):
-        with tree(IMAGE):
-            self.assertEqual(relink.order(Config('img')), ORDER)
-
-    def test_keeps_table_order_where_no_section_orders_two_objects(self):
-        # a.c places no bss, so no section orders a.c and c.c: a.c, first in the table, links first
-        files = dict(IMAGE, **{'config/img/splits.txt': SPLITS.replace('modules/img/a.c  B  0x0c900080  0x0c900088\n',
-                                                                        '')})
-        with tree(files):
-            self.assertEqual(relink.order(Config('img')), ['modules/img/a.c', 'modules/img/c.c', 'modules/img/b.c',
-                                                           'modules/two/a.c'])
-
-    def test_rejects_sections_that_order_two_objects_both_ways(self):
-        # P places a.c before b.c, and D b.c's data before a.c's
-        splits = ('P  0x0c900000  0x0c900040\nD  0x0c900040  0x0c900050\n'
-                  'modules/img/a.c  P  0x0c900000  0x0c900020\nmodules/img/a.c  D  0x0c900048  0x0c900050\n'
-                  'modules/img/b.c  P  0x0c900020  0x0c900040\nmodules/img/b.c  D  0x0c900040  0x0c900048\n')
-        with tree(dict(IMAGE, **{'config/img/splits.txt': splits})), self.assertRaises(SystemExit) as failed:
-            relink.order(Config('img'))
-        message = str(failed.exception)
-        self.assertIn("config/img/splits.txt: no one order of the objects keeps each section in its rows' order: ",
-                      message)
-        self.assertIn('modules/img/a.c goes before modules/img/b.c in P', message)
-        self.assertIn('modules/img/b.c goes before modules/img/a.c in D', message)
-
-
-def definitions(*parts):
-    with tree({'x.obj': obj('x', {}, defines=parts)}):
-        return relink.definitions(Path('x.obj'))
-
-
-class Definitions(unittest.TestCase):
-    def test_reads_each_name_defined_in_a_section_or_at_an_address(self):
-        self.assertEqual(definitions(definition('_a_init', 0x40), definition('_main', 0x8C0101A0, absolute=True),
-                                     definition('_b', 8)), {'_a_init', '_main', '_b'})
-
-    def test_rejects_definitions_that_dont_parse(self):
-        for cut in (definition('_a_init', 0)[:-1], definition('_main', 0x8C0101A0, absolute=True)[:5]):
-            with self.subTest(cut=cut), self.assertRaisesRegex(SystemExit, r"x\.obj: the definitions at 0x[0-9a-f]+ "
-                                                                           r"don't parse"):
-                definitions(definition('_b', 8), cut)
-
-
 class Renamed(unittest.TestCase):
     def test_names_the_module_apart_in_both_headers(self):
         with tree({'a.obj': OBJECTS['modules/two/a.c']}):
@@ -134,9 +92,9 @@ class Renamed(unittest.TestCase):
             Path('1.obj').write_bytes(data)
             # each record keeps its size and sums to 0xff, and the object keeps its sections and the names it takes
             self.assertEqual(len(data), len(OBJECTS['modules/two/a.c']))
-            heads = [body for _, kind, body in link.runs(Path('1.obj')) if kind in relink.HEADERS]
-            self.assertEqual(link.section_table(Path('1.obj')), link.section_table(Path('a.obj')))
-            self.assertEqual(link.references(Path('1.obj')), {'_a_init'})
+            heads = [body for _, kind, body in shc_object.runs(Path('1.obj')) if kind in relink.HEADERS]
+            self.assertEqual(shc_object.section_table(Path('1.obj')), shc_object.section_table(Path('a.obj')))
+            self.assertEqual(shc_object.references(Path('1.obj')), {'_a_init'})
         self.assertEqual([head.count(b'\x011') for head in heads], [1, 1])
         self.assertEqual([head.count(b'\x01a') for head in heads], [0, 0])
 
@@ -172,7 +130,7 @@ class Renamed(unittest.TestCase):
 
 
 def declared():
-    return {source: link.section_table(Path('build', source).with_suffix('.obj')) for source in OBJECTS}
+    return {source: shc_object.section_table(Path('build', source).with_suffix('.obj')) for source in OBJECTS}
 
 
 STARTS = {'P': 0x0C900000, 'D': 0x0C900060, 'B': 0x0C900070}
@@ -230,7 +188,7 @@ class Reserved(unittest.TestCase):
         config.splits = Path('config/movie/splits.txt')
         with mock.patch.object(Config, 'extents', lambda config: (('PSGSFD00', 0x8CEB0BE0, 0x8CEB25D2),)), \
                 self.assertRaisesRegex(SystemExit, r"config/movie/splits\.txt: the whole link's PSGSFD00 runs to "
-                                                   r'0x8ceb25d4, past 0x8ceb25d2, where tools/config\.py ends it'):
+                                                   r'0x8ceb25d4, past 0x8ceb25d2, where tools/images\.py ends it'):
             relink.tails(config, {'PSGSFD00': [(0x19F4, 4, True)]}, {'PSGSFD00': 0x8CEB0BE0})
 
     def test_reserves_from_a_start_rounded_up_to_4(self):
@@ -597,7 +555,7 @@ class Main(unittest.TestCase):
         # as 1ST_READ.BIN's extents give RSG and RSG32 at B's start: the empty C, which no row places, starts at its
         # extent ahead of B, and B's pieces end at 0x0c900088, short of its extent's end
         extents = (('C', 0x0C900070, 0x0C900070), ('B', 0x0C900070, 0x0C9000A0))
-        with mock.patch.dict(config.EXTENTS, {config.CONFIG / 'img': extents}):
+        with mock.patch.dict(images.EXTENTS, {images.CONFIG / 'img': extents}):
             ran, assembled, out, image = self.relink('--verbose')
         commands = next(stdin for tool, *_, stdin in ran if tool == 'lnk.exe').splitlines()
         self.assertIn('start P(0c900000),D(0c900060),C,B(0c900070)', commands)

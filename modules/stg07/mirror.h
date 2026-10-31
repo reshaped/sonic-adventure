@@ -2,8 +2,13 @@
  * O HOGHASIRA, and the room's fog */
 #ifndef STG07_MIRROR_H
 #define STG07_MIRROR_H
+#include <sg_xpt.h>
 
 #include "system/task.h"
+
+/* the fog's color. 1ST_READ.BIN's frame_vsync passes it to njSetFogColor
+ * each frame of act 1 */
+extern Uint32 ruin_fog_color;
 
 /* the object list's steps */
 void mirror_step(struct task *task);

@@ -99,9 +99,21 @@ static NJS_COLOR event_orbs_glow_uvs[4] = {
  * njSimpleDrawModel reads a normal for each point, so its last 3 reads run
  * past this array, into the meshset and the first point (the reads at
  * 0x8c62bba8 or 0x8c62bd64 in 1ST_READ.BIN) */
+#ifdef GCC
+/* repairs the read the tag names: GCC's glow holds a normal for each of its
+ * 4 points, its one normal four times. its material ignores the light, so
+ * no normal changes how it draws */
+static NJS_VECTOR event_orbs_glow_normals[4] = {
+#include "shared/orbs/event_orbs_glow_normals.inc"
+    {0.0F, 1.0F, 0.0F},
+    {0.0F, 1.0F, 0.0F},
+    {0.0F, 1.0F, 0.0F},
+};
+#else
 static NJS_VECTOR event_orbs_glow_normals[1] = {
 #include "shared/orbs/event_orbs_glow_normals.inc"
 };
+#endif
 static NJS_MESHSET event_orbs_glow_meshsets[1] = {
 #include "shared/orbs/event_orbs_glow_meshsets.inc"
 };

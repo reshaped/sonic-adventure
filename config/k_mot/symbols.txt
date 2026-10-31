@@ -1,0 +1,30 @@
+# K_MOT.PRS: every name another image takes from it, by address.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cc023dc  knuckles_dig_start_action
+0x0cc04570  knuckles_dig_action
+0x0cc053d4  knuckles_dig_up_action
+0x0cc06df8  knuckles_dig_out_action
+0x0cc0ca5c  knuckles_drown_action
+0x0cc0e560  knuckles_hold_shake_start_action
+0x0cc10284  knuckles_hold_shake_action
+0x0cc11f18  knuckles_hold_shake_end_action
+0x0cc12d5c  knuckles_hold_jump_action
+0x0cc13e00  knuckles_hold_fall_start_action
+0x0cc15124  knuckles_hold_fall_action
+0x0cc18ae0  knuckles_hold_hard_landing_action
+0x0cc1b194  knuckles_hold_run_action
+0x0cc1e908  knuckles_hold_stop_action
+0x0cc2008c  knuckles_hold_turn_action
+0x0cc21ef0  knuckles_hold_stand_action
+0x0cc24244  knuckles_hold_walk_action
+0x0cc27b28  knuckles_ledge_action
+0x0cc2ae4c  knuckles_lift_action
+0x0cc436d8  knuckles_clear_action
+0x0cc4523c  knuckles_clear_once_action
+0x0cc46d80  knuckles_rocket_up_action
+0x0cc489a4  knuckles_rocket_along_action
+0x0cc4bca8  knuckles_pull_action
+0x0cc4d874  knuckles_hang_at_0_action
+0x0cc4f380  knuckles_hang_at_32_action
+0x0cc5861c  knuckles_hang_go_action

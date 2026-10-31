@@ -1765,7 +1765,12 @@ void _njEasyDrawModel(NJS_MODEL *model)
         if (center.z - r > _nj_far_clip_) {
             return;
         }
+#ifdef GCC
+        /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+        projection_x = _nj_screen_.dist * port_draw_aspect;
+#else
         projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
+#endif
         projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
         inverse_z = 1.0F / (center.z + r);
         bound = (projection_x * (center.x - r) * inverse_z) + _nj_screen_.cx;
@@ -1930,7 +1935,12 @@ void njSetEasyLight(Float x, Float y, Float z)
     calc.light_direction.x = x;
     calc.light_direction.y = y;
     calc.light_direction.z = z;
+#ifdef GCC
+    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+    calc.projection_x = _nj_screen_.dist * port_draw_aspect;
+#else
     calc.projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
+#endif
     calc.projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
     calc.center_x = _nj_screen_.cx;
     calc.center_y = _nj_screen_.cy;
@@ -1948,6 +1958,13 @@ void njSetEasyLightColor(Float r, Float g, Float b)
     light_tint.g = g;
     light_tint.b = b;
 }
+
+#ifdef GCC
+NJS_VECTOR *port_easy_light(void)
+{
+    return &calc.light_direction;
+}
+#endif
 
 /* draw obj as njEasyDrawObject does, inside the caller's own njGetkmPointer
  * and njSetkmPointer */

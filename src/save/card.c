@@ -158,6 +158,64 @@ static NJS_LIGHT source_lights[LIGHT_SOURCES];
 static NJS_LIGHT light_main;
 /* the sources in use, as the last editor pass counted them */
 static int source_count;
+#ifdef GCC
+/* the statics from light_sources to dat_8c6b9168, in the order the image's
+ * bss holds them. light_write_sources and light_read_card_sources copy
+ * SOURCES_DATA bytes from light_sources on. light_read_disc_sources reads
+ * whole sectors to it. each runs past the sources into the statics after
+ * them. the bytes a sources file holds past its sources give the light its
+ * turn, color and strengths, light_ry to light_ambient. GCC's bss doesn't
+ * keep the statics' order, so under GCC they are the members of one
+ * object. each member has its static's name, and a macro below takes that
+ * name to the member. SL_10B.BIN's turn, 0x5a0 and 0x5a4 bytes in, is
+ * 0xac00 and 0x1000 */
+struct sources_file {
+    struct light_source light_sources[LIGHT_SOURCES];
+    Angle light_ry;
+    Angle light_rz;
+    Float light_r, light_g, light_b;
+    Float light_specular, light_diffuse, light_ambient;
+    Float source_range, source_rate, source_r, source_g, source_b;
+    int source_list[LIGHT_SOURCES];
+    int source_list_count;
+    char dat_8c6b9168[4096];
+} sources_file;
+_Static_assert(__builtin_offsetof(struct sources_file, light_ry) == 0x5a0,
+               "the turn starts 0x5a0 into the file");
+_Static_assert(__builtin_offsetof(struct sources_file, dat_8c6b9168) == 0x650,
+               "dat_8c6b9168 starts 0x650 into the file");
+#define light_sources (sources_file.light_sources)
+#define light_ry (sources_file.light_ry)
+#define light_rz (sources_file.light_rz)
+#define light_r (sources_file.light_r)
+#define light_g (sources_file.light_g)
+#define light_b (sources_file.light_b)
+#define light_specular (sources_file.light_specular)
+#define light_diffuse (sources_file.light_diffuse)
+#define light_ambient (sources_file.light_ambient)
+#define source_range (sources_file.source_range)
+#define source_rate (sources_file.source_rate)
+#define source_r (sources_file.source_r)
+#define source_g (sources_file.source_g)
+#define source_b (sources_file.source_b)
+#define source_list (sources_file.source_list)
+#define source_list_count (sources_file.source_list_count)
+/* ADV02's Mystic Ruins sets light_ry and light_rz by name, and STG09's
+ * mirror ball reads and sets light_ry. the symbols below put those names at
+ * their members of sources_file. sources_file has external linkage so that
+ * GCC expects code outside card.c to read and write it, as the modules do
+ * through those names */
+__asm__("\t.global\t_light_ry\n"
+        "\t.type\t_light_ry, @object\n"
+        "\t.size\t_light_ry, 4\n"
+        "\t.set\t_light_ry, %a0\n"
+        "\t.global\t_light_rz\n"
+        "\t.type\t_light_rz, @object\n"
+        "\t.size\t_light_rz, 4\n"
+        "\t.set\t_light_rz, %a1\n"
+        :
+        : "i"(&light_ry), "i"(&light_rz));
+#else
 /* the act's sources, then its light's turn, color and strengths */
 static struct light_source light_sources[LIGHT_SOURCES];
 static Angle light_ry;
@@ -182,6 +240,7 @@ static int source_list_count;
  * light_sources, a one-sector sources file fills 2048 bytes: the 0x650 up
  * to this array, and its first 0x1b0 */
 static char dat_8c6b9168[4096];
+#endif
 /* buInit's work, for one drive of a 128 KB card */
 static char card_library_work[BUM_WORK_SIZE(BUD_CAPACITY_128KB, 1)];
 /* each drive's record, which card_complete and card_progress keep */
@@ -654,6 +713,11 @@ static int save_commit(void)
     /* @bug uninitialized: with no card mounted, the function returns no value.
      * R0 keeps the NOTICE_SHOW that MOV #4,R0 at 0x8c0114d8 loads for
      * card_notice's store, so it returns 4 */
+#ifdef GCC
+    /* repairs the missing return the tag names: with no card mounted, GCC
+     * returns -1, as for a failed request */
+    return -1;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1140,7 +1204,13 @@ int light_write_sources(int stage, int act)
     name_text = (char *)&name;
     name = file;
     image = card_buffer;
+#ifdef GCC
+    /* the file's SOURCES_DATA bytes run past light_sources into the members
+     * of sources_file after it, so GCC's data points at the whole object */
+    data = (char *)&sources_file;
+#else
     data = (char *)light_sources;
+#endif
     number = ((Uint16)stage << 3) | (Uint16)act;
     digit = (number >> 5) & 31;
     place = name_text + 10;
@@ -1216,7 +1286,13 @@ static int light_read_card_sources(int stage, int act)
     char *place;
 
     from = card_buffer;
+#ifdef GCC
+    /* the copy's SOURCES_DATA bytes run past light_sources into the members
+     * of sources_file after it, so GCC's to points at the whole object */
+    to = (char *)&sources_file;
+#else
     to = (char *)light_sources;
+#endif
     /* @hack spelling: the stage and act in two statements, which pack them in
      * R6 (EXTU.W R4,R6 at 0x8c012206 to OR R5,R6 at 0x8c012216); as one
      * statement, R4 and R5 take them and 12 of 128 words differ */
@@ -1464,6 +1540,11 @@ static void light_editor_step(void)
     if (0) {
         light_editor_mode = EDIT_OFF;
     }
+#ifdef GCC
+    /* repairs the unset rows the tag after the switch names: the palette,
+     * file and host modes have none, so GCC's row goes back to 0 */
+    rows = 0;
+#endif
     /* NOLINTBEGIN(clang-diagnostic-sometimes-uninitialized) */
     switch (light_editor_mode) {
     case EDIT_PALETTE:
@@ -2546,7 +2627,13 @@ Bool light_read_disc_sources(Uint16 stage, int act)
     char *dest;
     Bool result;
 
+#ifdef GCC
+    /* the read's whole sectors run past light_sources into the members of
+     * sources_file after it, so GCC's dest points at the whole object */
+    dest = (char *)&sources_file;
+#else
     dest = (char *)light_sources;
+#endif
     if (stage <= 9) {
         name[3] = stage + '0';
     } else {

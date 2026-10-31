@@ -627,6 +627,13 @@ Sint32 sfply_ResetHn(struct sfd_handle *hn)
     Sint32 refeed;
     Sint32 err;
 
+#ifdef GCC
+    /* GCC can't see that refeed and len are set wherever they are read: the
+     * second test of work and refeed reads them only where the first has set
+     * both */
+    refeed = 0;
+    len = 0;
+#endif
     prm = hn->prm;
     work = hn->work;
     if (work == NULL) {

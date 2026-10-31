@@ -5,8 +5,8 @@
 
 #include "system/task.h"
 
-/* the stage's step and its sky's. 1ST_READ.BIN's stage_steps and sky_steps
- * reach them by their addresses, 0x0c900000 and 0x0c900040 */
+/* the stage's step and its sky's, which 1ST_READ.BIN's stage_steps and
+ * sky_steps name */
 void eggmanrobo_step(struct task *task);
 void eggmanrobo_sky_step(struct task *task);
 

@@ -48,7 +48,9 @@ struct start_robot_record {
 
 enum start_robot_mode { START_ROBOT_WAIT, START_ROBOT_SLIDE, START_ROBOT_GONE };
 
-extern NJS_MATERIAL robot_flag;
+/* the robot's model's materials, the flag's at FLAG_MATERIAL */
+#define FLAG_MATERIAL 7
+extern NJS_MATERIAL robot_materials[];
 extern NJS_ACTION start_robot_action;
 
 static void start_robot_init(struct task *task, void *arg);
@@ -65,7 +67,7 @@ static const struct task_desc start_robot_desc = {
     start_robot_draw,
     NULL};
 static const struct flag_textures start_robot_flags[1] = {
-    {&robot_flag, {MIN_HATA5, MIN_HATA6}}};
+    {&robot_materials[FLAG_MATERIAL], {MIN_HATA5, MIN_HATA6}}};
 
 void start_robot_step(struct task *task)
 {

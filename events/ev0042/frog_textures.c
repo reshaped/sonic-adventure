@@ -31,6 +31,6 @@ static NJS_TEXNAME ev0042_frog_textures[8] = {
 NJS_TEXLIST ev0042_frog_texlist = {
 #include "ev0042/frog_textures/ev0042_frog_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb92dcc[1] = {
+NJS_MATERIAL dat_0cb92dcc[1] = {
 #include "ev0042/frog_textures/dat_0cb92dcc.inc"
 };

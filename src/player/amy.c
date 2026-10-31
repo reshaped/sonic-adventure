@@ -18,9 +18,11 @@
 #include "enemy/zero_handle.h"
 #include "event/event.h"
 #include "event/play.h"
+#include "minicart/riders.h"
 #include "object/common.h"
 #include "object/panel.h"
 #include "object/ring.h"
+#include "player/a_mot.h"
 #include "player/amy.h"
 #include "player/amy_bird.h"
 #include "player/amy_drum.h"
@@ -212,10 +214,6 @@ enum amy_action_index {
 
 #define SE_THROW 1175
 #define SE_PUSH_START 1176
-
-/* an action in a_mot.PRS, her motion file, by the address it has once the
- * file is loaded at MOTION_AREA */
-#define A_MOT(address) ((NJS_ACTION *)(address))
 
 /* her fields, as elements of record->own's arrays */
 
@@ -480,6 +478,10 @@ extern NJS_OBJECT amy_thumb_minus_z[];
 extern NJS_OBJECT amy_hammer;
 extern NJS_OBJECT amy_long_hammer;
 extern NJS_OBJECT amy_feather_object;
+/* the root of the drum's tree, which a_mot.PRS's amy_drum_carry_action and
+ * amy_drum_take_action pose. no function names it. the declaration gives its
+ * type to the definition in 1ST_READ.BIN's generated data */
+extern NJS_OBJECT amy_drum_object;
 
 extern NJS_ACTION amy_stand_action;
 extern NJS_ACTION amy_fidget_start_action;
@@ -643,12 +645,13 @@ static struct player_action amy_actions[] = {
     {&amy_turn_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F, 1.0F},
     {&amy_push_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_PUSH, 0.125F, 3.0F},
     {&amy_stand_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_PUSH, 0.25F, 1.0F},
-    {A_MOT(0x0cc4a520), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HURT, 0.25F, 1.0F},
-    {A_MOT(0x0cc4ed44), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 1.0F},
-    {A_MOT(0x0cc57f48), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_DOWN_LAND, 0.25F,
+    {&amy_hurt_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HURT, 0.25F, 1.0F},
+    {&amy_hurt_land_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F,
      1.0F},
-    {A_MOT(0x0cc59fdc), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_DOWN_LAND, 0.25F,
+    {&amy_down_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_DOWN_LAND, 0.25F,
      1.0F},
+    {&amy_down_land_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_DOWN_LAND,
+     0.25F, 1.0F},
     {&amy_stop_action, AMY_NODES, PLAYER_ANIM_LOOP, 28, 0.25F, 1.0F},
     {&amy_stand_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_UPDRAFT, 0.0625F,
      1.0F},
@@ -656,33 +659,34 @@ static struct player_action amy_actions[] = {
      1.0F},
     {&amy_stand_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.0625F,
      1.0F},
-    {A_MOT(0x0cc8a0e0), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON_SLOW,
+    {&amy_hang_on_slow_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON_SLOW,
      0.0625F, 0.2F},
-    {A_MOT(0x0cc3a1a8), AMY_NODES, PLAYER_ANIM_ONCE, 34, 0.25F, 1.0F},
-    {A_MOT(0x0cc3cb8c), AMY_NODES, PLAYER_ANIM_DRIVEN, 34, 0.25F, 1.0F},
-    {A_MOT(0x0cc8fca0), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_BALANCE, 0.25F,
+    {&amy_handle_action, AMY_NODES, PLAYER_ANIM_ONCE, 34, 0.25F, 1.0F},
+    {&dat_0cc3cb8c, AMY_NODES, PLAYER_ANIM_DRIVEN, 34, 0.25F, 1.0F},
+    {&amy_balance_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_BALANCE,
+     0.25F, 1.0F},
+    {&amy_balance_action, AMY_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_BALANCE,
+     0.25F, 0.8F},
+    {&amy_drown_action, AMY_NODES, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F, 0.5F},
+    {&amy_take_drum_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_RAISE_DRUM,
+     1.0F, 1.0F},
+    {&amy_raise_drum_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F,
      1.0F},
-    {A_MOT(0x0cc93434), AMY_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_BALANCE, 0.25F,
-     0.8F},
-    {A_MOT(0x0cc119ec), AMY_NODES, PLAYER_ANIM_HOLD, ACTION_DROWN, 1.0F, 0.5F},
-    {A_MOT(0x0cc12e80), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_RAISE_DRUM, 1.0F,
-     1.0F},
-    {A_MOT(0x0cc15aa4), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F, 1.0F},
-    {A_MOT(0x0cc18708), AMY_NODES, PLAYER_ANIM_LOOP, 40, 1.0F, 1.0F},
-    {A_MOT(0x0cc15aa4), AMY_NODES, PLAYER_ANIM_DRIVEN, ACTION_SET_DRUM, 1.0F,
-     1.0F},
+    {&dat_0cc18708, AMY_NODES, PLAYER_ANIM_LOOP, 40, 1.0F, 1.0F},
+    {&amy_raise_drum_action, AMY_NODES, PLAYER_ANIM_DRIVEN, ACTION_SET_DRUM,
+     1.0F, 1.0F},
     {&amy_clear_action, AMY_NODES, PLAYER_ANIM_HOLD, ACTION_CLEAR, 1.0F, 0.5F},
-    {A_MOT(0x0cc31728), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+    {&amy_lift_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
      1.0F},
-    {A_MOT(0x0cc26e98), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F,
+    {&amy_hold_run_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F,
      1.0F},
-    {A_MOT(0x0cc33d9c), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     1.0F},
-    {A_MOT(0x0cc35490), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     1.0F},
-    {A_MOT(0x0cc27bec), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND, 0.5F,
-     0.5F},
-    {A_MOT(0x0cc2a600), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F,
+    {&amy_hold_stop_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 1.0F},
+    {&amy_hold_turn_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 1.0F},
+    {&amy_hold_stand_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND,
+     0.5F, 0.5F},
+    {&amy_hold_walk_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F,
      1.0F},
     {&amy_jump_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F, 1.0F},
     {&amy_fall_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
@@ -692,75 +696,81 @@ static struct player_action amy_actions[] = {
      1.0F},
     {&amy_fall_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_SPRING, 0.25F, 1.0F},
     {&amy_jump_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_SPRING, 0.5F, 1.0F},
-    {A_MOT(0x0cc8a0e0), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON, 0.5F,
-     0.5F},
-    {A_MOT(0x0cc7feb4), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
-    {A_MOT(0x0cc7c070), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F, 0.5F},
-    {A_MOT(0x0cc1a18c), AMY_NODES, PLAYER_ANIM_ONCE, 59, 0.5F, 0.5F},
-    {A_MOT(0x0cc1beb0), AMY_NODES, PLAYER_ANIM_LOOP, 59, 0.5F, 0.5F},
-    {A_MOT(0x0cc1dac4), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
-     0.5F},
-    {A_MOT(0x0cc8b234), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F, 1.0F},
-    {A_MOT(0x0cc8caf8), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F, 1.0F},
-    {A_MOT(0x0cc1ed28), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F,
+    {&amy_hang_on_slow_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HANG_ON,
+     0.5F, 0.5F},
+    {&amy_pull_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
+    {&amy_shake_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F, 0.5F},
+    {&amy_hold_shake_action, AMY_NODES, PLAYER_ANIM_ONCE, 59, 0.5F, 0.5F},
+    {&dat_0cc1beb0, AMY_NODES, PLAYER_ANIM_LOOP, 59, 0.5F, 0.5F},
+    {&amy_hold_shake_end_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 0.5F},
+    {&amy_grip_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F,
      1.0F},
-    {A_MOT(0x0cc1fe7c), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL, 0.5F,
+    {&amy_grip_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F, 1.0F},
+    {&amy_hold_jump_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F,
      1.0F},
-    {A_MOT(0x0cc216f0), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F,
+    {&amy_hold_fall_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL,
+     0.5F, 1.0F},
+    {&amy_hold_fall_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F,
      1.0F},
-    {A_MOT(0x0cc23f34), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F,
+    {&amy_hold_land_fast_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 1.0F},
+    {&amy_throw_at_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
      1.0F},
-    {A_MOT(0x0cc84758), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
-    {A_MOT(0x0cc8864c), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
-    {A_MOT(0x0cc84758), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {A_MOT(0x0cc8864c), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {A_MOT(0x0cc31728), AMY_NODES, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F, 1.0F},
-    {A_MOT(0x0cc2deb4), AMY_NODES, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F,
+    {&amy_throw_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
+    {&amy_throw_at_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
+     1.0F},
+    {&amy_throw_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
+    {&amy_lift_action, AMY_NODES, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F, 1.0F},
+    {&amy_ledge_action, AMY_NODES, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 1.0F,
      0.5F},
     {&amy_jump_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_PANEL_JUMP, 0.25F,
      1.0F},
     {&amy_stand_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_PANEL_WAIT, 0.25F,
      1.0F},
-    {A_MOT(0x0cc66ff0), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_CAUGHT, 0.25F,
+    {&amy_caught_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_CAUGHT, 0.25F,
      1.0F},
-    {MODULE_ACTION(0x0c90818c), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_RIDE, 0.25F,
-     1.0F},
-    {A_MOT(0x0cc8b234), AMY_NODES, PLAYER_ANIM_ONCE, 78, 0.125F, 1.0F},
-    {A_MOT(0x0cc8caf8), AMY_NODES, PLAYER_ANIM_LOOP, 78, 0.125F, 1.0F},
-    {A_MOT(0x0cc5d7e4), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_ALONG,
+    {&amy_cart_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_RIDE, 0.25F, 1.0F},
+    {&amy_grip_start_action, AMY_NODES, PLAYER_ANIM_ONCE, 78, 0.125F, 1.0F},
+    {&amy_grip_action, AMY_NODES, PLAYER_ANIM_LOOP, 78, 0.125F, 1.0F},
+    {&amy_rocket_along_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_ALONG,
      0.125F, 1.0F},
-    {A_MOT(0x0cc5bb70), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP, 0.125F,
-     1.0F},
-    {A_MOT(0x0cc025dc), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER, 0.25F,
-     1.0F},
-    {A_MOT(0x0cc052c0), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_SPIN_START, 0.25F,
-     1.0F},
-    {A_MOT(0x0cc077c4), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 1.0F},
-    {A_MOT(0x0cc09318), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_SPIN_WIND_UP, 0.25F,
-     1.0F},
-    {A_MOT(0x0cc605e8), AMY_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_SPIN_WIND_UP,
+    {&amy_rocket_up_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_ROCKET_UP,
+     0.125F, 1.0F},
+    {&amy_hammer_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER,
      0.25F, 1.0F},
-    {A_MOT(0x0cc60f8c), AMY_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_SPIN, 0.25F,
+    {&amy_hammer_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_SPIN_START, 0.25F,
      1.0F},
-    {A_MOT(0x0cc66ff0), AMY_NODES, PLAYER_ANIM_LOOP, ACTION_DIZZY, 0.25F, 0.5F},
-    {A_MOT(0x0cc6ae84), AMY_NODES, PLAYER_ANIM_LOOP_SPEED, ACTION_DIZZY_WALK,
-     0.25F, 3.0F},
-    {A_MOT(0x0cc6ca18), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP, 0.25F,
+    {&amy_hammer_end_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F,
      1.0F},
-    {A_MOT(0x0cc70bfc), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP_2,
+    {&amy_spin_start_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_SPIN_WIND_UP,
      0.25F, 1.0F},
-    {A_MOT(0x0cc75a24), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP_3,
+    {&amy_spin_wind_up_action, AMY_NODES, PLAYER_ANIM_LOOP_PACE,
+     ACTION_SPIN_WIND_UP, 0.25F, 1.0F},
+    {&amy_spin_action, AMY_NODES, PLAYER_ANIM_LOOP_PACE, ACTION_SPIN, 0.25F,
+     1.0F},
+    {&amy_caught_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_DIZZY, 0.25F,
+     0.5F},
+    {&amy_dizzy_walk_action, AMY_NODES, PLAYER_ANIM_LOOP_SPEED,
+     ACTION_DIZZY_WALK, 0.25F, 3.0F},
+    {&amy_hammer_jump_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP,
      0.25F, 1.0F},
-    {A_MOT(0x0cc77d38), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP_4,
+    {&amy_hammer_leap_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP_2,
      0.25F, 1.0F},
-    {A_MOT(0x0cc7a5ac), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_HAMMER_LEAP_2,
+    {&amy_hammer_leap_2_action, AMY_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HAMMER_LEAP_3, 0.25F, 1.0F},
+    {&amy_hammer_leap_3_action, AMY_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HAMMER_LEAP_4, 0.25F, 1.0F},
+    {&amy_hammer_leap_4_action, AMY_NODES, PLAYER_ANIM_ONCE,
+     ACTION_HAMMER_LEAP_2, 0.25F, 1.0F},
+    {&amy_hammer_jump_land_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND,
      0.25F, 1.0F},
-    {A_MOT(0x0cc73ac0), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 1.0F},
-    {A_MOT(0x0cc39094), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_AIR_HAMMER_FALL,
-     0.25F, 1.0F},
+    {&amy_air_hammer_action, AMY_NODES, PLAYER_ANIM_ONCE,
+     ACTION_AIR_HAMMER_FALL, 0.25F, 1.0F},
     {&amy_fall_action, AMY_NODES, PLAYER_ANIM_LOOP, ACTION_AIR_HAMMER_FALL,
      0.25F, 1.0F},
-    {A_MOT(0x0cc73ac0), AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND, 0.25F, 1.0F},
+    {&amy_hammer_jump_land_action, AMY_NODES, PLAYER_ANIM_ONCE, ACTION_STAND,
+     0.25F, 1.0F},
 };
 
 /* her body, and her hammer, which strikes only as she swings it */
@@ -4802,6 +4812,10 @@ static Bool amy_look_create(Sint8 player, NJS_OBJECT **nodes)
      * and R0 keeps 96 from MOV #96,R0 (0x8c0e7652). the one caller reads no
      * result. with return TRUE, SHC loads 1 into R0 and 7 of 51 words
      * differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+    return TRUE;
+#endif
 }
 /* NOLINTEND(clang-diagnostic-return-type) */
 
@@ -4927,6 +4941,15 @@ static void amy_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
+#ifdef GCC
+            /* repairs angles[1] and [2], which the shipped code leaves
+             * unset with no task, or a task with no work: the BRA at
+             * 0x8c0e79cc skips the default case's stores to the aims, which
+             * read them at 0x8c0e7acc and 0x8c0e7ad4. 0, as the default case
+             * sets them, looks ahead */
+            angles[1] = 0;
+            angles[2] = 0;
+#endif
             if (event->look_task == NULL ||
                 (target = event->look_task->work) == NULL) {
                 event->look = 0;
@@ -5173,13 +5196,19 @@ static Bool amy_draw_drum(struct task_work *work, struct task_motion *motion,
                           struct player *record)
 {
     NJS_ACTION *action;
+    NJS_ACTION *drum;
     Bool carried = FALSE;
     Float frame;
     NJS_POINT3 pos;
     NJS_VECTOR offset;
 
+    /* @hack spelling: the drum's action held in drum, set ahead of the tests,
+     * which has SHC load it into R4 before them (MOV.L @(0x8c0e80c4),R4 at
+     * 0x8c0e8056) and copy it to action in each branch that takes it. as
+     * action = &amy_drum_take_action in each, 44 of 191 words differ */
+    drum = &amy_drum_take_action;
     if (work->mode == AMY_TAKE_DRUM) {
-        action = A_MOT(0x0cc93b9c);
+        action = drum;
         if (record->anim.action == ACTION_RAISE_DRUM ||
             record->anim.action == ACTION_SET_DRUM) {
             frame = record->anim.frame;
@@ -5191,14 +5220,14 @@ static Bool amy_draw_drum(struct task_work *work, struct task_motion *motion,
                 1.0F;
         }
     } else if (work->mode == AMY_SET_DRUM) {
-        action = A_MOT(0x0cc93b9c);
+        action = drum;
         frame = DRUM_FRAME(record);
     } else if (HAS_DRUM(record) == TRUE) {
         frame = record->anim.frame;
         while (frame >= 32.0F) {
             frame -= 32.0F;
         }
-        action = A_MOT(0x0cc93698);
+        action = &amy_drum_carry_action;
         carried = TRUE;
     } else {
         return FALSE;

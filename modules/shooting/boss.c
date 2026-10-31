@@ -235,6 +235,11 @@ static void boss_draw(struct task *task)
     int pose;
     int i;
 
+#ifdef GCC
+    /* GCC can't see that every path sets pose: the boss draws only in the
+     * modes past BOSS_INIT, which the switch has cases for */
+    pose = 0;
+#endif
     switch (work->mode) {
     case BOSS_FLY:
         pose = 0;
@@ -365,6 +370,13 @@ static Bool boss_follow(struct task *task)
      * 0x0c90868a), not the boss's, which is BOSS_BEHIND less. over the
      * tornado's first BOSS_BEHIND points, the read (FMOV.S @R2 at
      * 0x0c9086a6) falls up to BOSS_BEHIND points before shooting_path */
+#ifdef GCC
+    /* repairs the read the tag names: GCC holds the boss at the course's
+     * first point until the tornado is BOSS_BEHIND points along */
+    if (point < 0) {
+        point = 0;
+    }
+#endif
     if (shooting_path_index >= 0 && shooting_path_index < COURSE_POINTS) {
         work->pos.x = shooting_path[point].x;
         work->pos.y = shooting_path[point].y;

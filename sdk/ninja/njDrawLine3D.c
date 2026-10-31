@@ -49,7 +49,12 @@ void njDrawLine3D(NJS_POINT3COL *p, Int n, Uint32 attr)
     NJS_COLOR clip_tex[2];
 
     screen = &_nj_screen_;
+#ifdef GCC
+    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+    scale_x = screen->dist * port_draw_aspect;
+#else
     scale_x = screen->dist * _nj_scr_aspect_x_;
+#endif
     scale_y = screen->dist * _nj_scr_aspect_y_;
     view.p = view_p;
     view.col = view_col;

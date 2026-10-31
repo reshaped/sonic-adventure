@@ -493,6 +493,22 @@ static void editor_place(struct task_work *work)
     } else if (!(per_info[0]->on & AXIS_BUTTONS)) {
         cursor_move(work);
     } else {
+#ifdef GCC
+        /* repairs the accesses past x: edit_pos, edit_ang and edit_scl
+         * index y and z from the pointer they get. SHC's calls form it from
+         * x alone, and GCC's from the whole vector, at the same address */
+        switch (sub_mode) {
+        case SUB_POSITION:
+            edit_pos((Float *)&work->pos, slot_tasks[0]);
+            break;
+        case SUB_ROTATION:
+            edit_ang((Angle *)&work->ang, slot_tasks[0]);
+            break;
+        case SUB_SCALE:
+            edit_scl((Float *)&work->scl, slot_tasks[0]);
+            break;
+        }
+#else
         switch (sub_mode) {
         case SUB_POSITION:
             edit_pos(&work->pos.x, slot_tasks[0]);
@@ -504,6 +520,7 @@ static void editor_place(struct task_work *work)
             edit_scl(&work->scl.x, slot_tasks[0]);
             break;
         }
+#endif
     }
     debug_draw_axes(work);
 }
@@ -621,6 +638,20 @@ static void editor_multi(struct task_work *work)
     } else if (!(per_info[0]->on & AXIS_BUTTONS)) {
         cursor_move(work);
     } else if (slot_tasks[0] != NULL) {
+#ifdef GCC
+        /* repairs the accesses past x, as editor_place's calls do */
+        switch (sub_mode) {
+        case SUB_POSITION:
+            edit_pos((Float *)&work->pos, slot_tasks[0]);
+            break;
+        case SUB_ROTATION:
+            edit_ang((Angle *)&work->ang, slot_tasks[0]);
+            break;
+        case SUB_SCALE:
+            edit_scl((Float *)&work->scl, slot_tasks[0]);
+            break;
+        }
+#else
         switch (sub_mode) {
         case SUB_POSITION:
             edit_pos(&work->pos.x, slot_tasks[0]);
@@ -632,6 +663,7 @@ static void editor_multi(struct task_work *work)
             edit_scl(&work->scl.x, slot_tasks[0]);
             break;
         }
+#endif
     }
     debug_draw_axes(work);
     multi_line_up(work);
@@ -847,6 +879,11 @@ static void set_take(struct task_work *work)
     int i;
 
     best = TAKE_RANGE;
+#ifdef GCC
+    /* GCC can't see that best falls below TAKE_RANGE only where the loop
+     * sets nearest */
+    nearest = NULL;
+#endif
     for (i = 0; i < placement_count; i++) {
         struct placement *placement;
         int id;
@@ -961,6 +998,10 @@ static void edit_vector(Float value[3], NJS_POINT3 *to)
         }
         /* one of AXIS_BUTTONS is held, as the test above found, so one of
          * these tests sets axis */
+#ifdef GCC
+        /* GCC can't see that every path sets axis */
+        axis = &value[0];
+#endif
         if (per_info[0]->on & PDD_DGT_TX) {
             axis = &value[0];
         } else if (per_info[0]->on & PDD_DGT_TY) {
@@ -1002,6 +1043,10 @@ static void edit_angles(Angle value[3], struct angles *to)
             }
         }
         /* as in edit_vector, one of these tests sets axis */
+#ifdef GCC
+        /* GCC can't see that every path sets axis */
+        axis = &value[0];
+#endif
         if (per_info[0]->on & PDD_DGT_TX) {
             axis = &value[0];
         } else if (per_info[0]->on & PDD_DGT_TY) {

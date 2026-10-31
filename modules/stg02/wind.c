@@ -425,6 +425,13 @@ void windy_path_leaf_step(struct task *task)
     if (PATH_LEAF(work)->phase) {
         int count = PATH_LEAF(work)->path->count;
         index = count * PATH_LEAF(work)->phase / 20;
+#ifdef GCC
+        /* repairs the reads the tag names: GCC's index stops at count - 2,
+         * so points[index + 1] is at most the last point */
+        if (index > count - 2) {
+            index = count - 2;
+        }
+#endif
     } else {
         index = 0;
     }
@@ -639,6 +646,11 @@ static Float leaf_push(struct task_work *work, NJS_VECTOR *push)
     Float distance;
     Uint8 i;
 
+#ifdef GCC
+    /* GCC can't see that the loop sets *push wherever it lowers nearest, the
+     * one case in which the scaling below reads it */
+    push->x = push->y = push->z = 0.0F;
+#endif
     /* @bug memory: the loop steps player from player 0's work by its own
      * size, so the second pass reads the 64 bytes after that work, not player
      * 1's: MOV.L @R6,R6 at 0x0c907e40 loads player_work[0], and ADD #64,R6 at
@@ -653,9 +665,19 @@ static Float leaf_push(struct task_work *work, NJS_VECTOR *push)
          * reload at 0x0c907ee6, y and z forwarded at 0x0c907ed8 and 0x0c907eec.
          * stored in statements of their own, the function is 8 bytes longer,
          * windy_leaf_blower_step after it moves, and 89 of 97 words differ */
+#ifdef GCC
+        /* keeps SHC's distance: C leaves the tag's spelling undefined, so GCC
+         * sets each difference before its square, as SHC's code does */
+        delta.x = work->pos.x - player->pos.x;
+        delta.y = work->pos.y - player->pos.y;
+        delta.z = work->pos.z - player->pos.z;
+        distance =
+            (delta.x * delta.x) + (delta.y * delta.y) + (delta.z * delta.z);
+#else
         distance = ((delta.x = work->pos.x - player->pos.x) * delta.x) +
                    ((delta.y = work->pos.y - player->pos.y) * delta.y) +
                    ((delta.z = work->pos.z - player->pos.z) * delta.z);
+#endif
         if (distance < nearest) {
             nearest = distance;
             push->x = delta.x;

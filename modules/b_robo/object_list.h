@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists points at this list for act 0 alone. it
- * reaches the list by its address, 0x0c900110, not by its name */
+/* 1ST_READ.BIN's object_lists points at this list for act 0 alone */
 extern struct object_list eggmanrobo_object_list;
 
 #endif

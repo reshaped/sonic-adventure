@@ -20,7 +20,7 @@
 extern struct land_table casino_act0_land;
 extern NJS_OBJECT casino_water_object;
 extern NJS_MATERIAL casino_water_materials[];
-extern NJS_MATERIAL casino_act0_land_137_materials[];
+extern NJS_MATERIAL casino_act0_land_137_materials[2];
 extern NJS_MATERIAL casino_act1_land_13_materials[];
 extern NJS_MATERIAL casino_act1_land_14_materials[];
 extern NJS_MATERIAL casino_act1_land_16_materials[];

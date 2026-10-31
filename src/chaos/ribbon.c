@@ -200,6 +200,23 @@ static void ribbon_bead_step(struct task *task)
         /* @hack implicit: knot stepped twice and read in one expression, which
          * SHC does left to right; sequenced, through a copy of knot and a
          * partial sum, 132 of 412 words differ */
+#ifdef GCC
+        {
+            /* repairs the read the @bug memory tag above names: where the
+             * third knot lies past the strand's last point, GCC takes that
+             * last point. in each fight's data, path[count] is the first
+             * point of the path that follows, and after the last path, the
+             * strands' first 12 bytes */
+            const NJS_POINT3 *third =
+                index + 2 < ribbon_strands[bead->strand].count
+                    ? &knot[2]
+                    : &bead->path[ribbon_strands[bead->strand].count - 1];
+
+            pos.x = (knot[0].x * w0) + (knot[1].x * w1) + (third->x * w2);
+            pos.y = (knot[0].y * w0) + (knot[1].y * w1) + (third->y * w2);
+            pos.z = (knot[0].z * w0) + (knot[1].z * w1) + (third->z * w2);
+        }
+#else
         /* NOLINTNEXTLINE(clang-diagnostic-unsequenced) */
         pos.x = (knot++->x * w0) + (knot++->x * w1) + (knot->x * w2);
         knot -= 2;
@@ -211,6 +228,7 @@ static void ribbon_bead_step(struct task *task)
          * knot += 2 after, 113 of 412 words differ */
         /* NOLINTNEXTLINE(clang-diagnostic-unsequenced) */
         pos.z = (knot++->z * w0) + (knot++->z * w1) + (knot->z * w2);
+#endif
     }
     {
         Float offset = bead->swell * bead->sway;

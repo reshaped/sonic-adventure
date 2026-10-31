@@ -48,7 +48,7 @@ static struct hud_number score_digits = {NUMBER_SCALED | NUMBER_CLAMPED |
                                          1.0F,
                                          0xffffffff};
 static NJS_TEXNAME score_textures[1] = {{TEXT_1, 0, 0}};
-static NJS_TEXLIST score_texlist = {
+NJS_TEXLIST score_texlist = {
 #include "shooting/hud/score_texlist.inc"
 };
 static NJS_TEXANIM score_label_frame[1] = {
@@ -115,12 +115,19 @@ static void shooting_hud_init(void)
 static void shooting_hud_draw(struct task *task)
 {
     rings_shown = -1;
+#ifdef GCC
+    /* the port's 16:9 squeezes the score about the screen's left edge */
+    port_wide_anchor = WIDE_LEFT;
+#endif
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_ONE);
     njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
     draw_set_material(1.0F, 1.0F, 1.0F, 1.0F);
     njDrawSprite2D(&score_label, 0, -100.0F,
                    NJD_SPRITE_COLOR | NJD_SPRITE_ALPHA);
     hud_draw_number(&score_digits);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 static void shooting_hud_destroy(struct task *task)

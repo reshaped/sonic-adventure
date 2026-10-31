@@ -214,7 +214,14 @@
 0x0c92bbb8  person_draw
 0x0c92bd0a  person_destroy
 0x0c92bd56  person_shadow
+0x0c92ce4c  inside_act0_land
+0x0c92dfb0  inside_act1_land
+0x0c92e9d4  inside_act2_land
+0x0c92f5bc  inside_act3_land
+0x0c92ffac  inside_act4_land
+0x0c930648  inside_act5_land
 0x0c9cd1b8  egg_carrier_inside_object_kinds
+0x0c9cdaf0  inside_death_zones
 0x0c9ce4ec  station_object
 0x0c9ce874  station_solid_object
 0x0c9cebcc  station_button_object

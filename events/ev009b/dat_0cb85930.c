@@ -3,6 +3,8 @@
  * this file holds the sky emerald's texlist */
 #include <ninja.h>
 
+#include "ev009b/dat_0cb85930.h"
+
 #define TEXT_1_LENGTH 14
 #include "ev009b/dat_0cb85930/text.inc"
 
@@ -15,6 +17,6 @@ static NJS_MOTION dat_0cb85930 = {
 static NJS_ACTION dat_0cb8593c = {
 #include "ev009b/dat_0cb85930/dat_0cb8593c.inc"
 };
-static NJS_TEXNAME ev009b_sky_emerald_textures[1] = {
+NJS_TEXNAME ev009b_sky_emerald_textures[1] = {
     {TEXT_1, 0, 0},
 };

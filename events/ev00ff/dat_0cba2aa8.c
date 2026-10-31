@@ -2,6 +2,8 @@
  * an object file starts with them, after events/shared/white.c's data */
 #include <ninja.h>
 
-static NJS_MATERIAL dat_0cba2aa8[12] = {
+#include "ev00ff/dat_0cba2aa8.h"
+
+NJS_MATERIAL dat_0cba2aa8[12] = {
 #include "ev00ff/dat_0cba2aa8/dat_0cba2aa8.inc"
 };

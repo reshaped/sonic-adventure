@@ -7,5 +7,10 @@
 #include "event/play.h"
 
 #pragma section HEAD
+#ifdef GCC
+/* only the head's record in the memory contract names it, so GCC keeps it as
+ * used */
+static struct event_module EVENT_HEAD __attribute__((used));
+#endif
 static struct event_module EVENT_HEAD = {EVENT_ENTRY, EVENT_TEXTURES};
 #pragma section

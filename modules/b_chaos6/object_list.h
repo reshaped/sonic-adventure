@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists reaches this list for acts 0 and 1 by its
- * address, 0x0c900368, not by its name */
+/* 1ST_READ.BIN's object_lists names this list for acts 0 and 1 */
 extern struct object_list chaos6_object_list;
 
 #endif

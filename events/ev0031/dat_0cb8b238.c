@@ -2,6 +2,8 @@
  * ev0031_prop_object, the prop's model */
 #include <ninja.h>
 
+#include "ev0031/dat_0cb8b238.h"
+
 #define TEXT_1_LENGTH 6
 #define TEXT_2_LENGTH 6
 #define TEXT_3_LENGTH 6
@@ -31,6 +33,6 @@ static NJS_TEXNAME dat_0cb8b238[17] = {
 static NJS_TEXLIST dat_0cb8b304 = {
 #include "ev0031/dat_0cb8b238/dat_0cb8b304.inc"
 };
-static NJS_MATERIAL dat_0cb8b30c[1] = {
+NJS_MATERIAL dat_0cb8b30c[1] = {
 #include "ev0031/dat_0cb8b238/dat_0cb8b30c.inc"
 };

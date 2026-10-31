@@ -11,6 +11,13 @@ double cos(double x);
 #ifdef __clang__
 #define _builtin_sqrtf __builtin_sqrtf
 #endif
+#ifdef GCC
+#define _builtin_sqrtf __builtin_sqrtf
+/* C99's INFINITY and isinf, by GCC's builtins: SH4ZAM's shz_complex.inl.h
+ * reads both */
+#define INFINITY __builtin_inff()
+#define isinf(x) __builtin_isinf(x)
+#endif
 #define sqrt _builtin_sqrtf
 
 #endif

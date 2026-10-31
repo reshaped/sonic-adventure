@@ -26,6 +26,14 @@ static char driver_notice[621] = {
 /* the pointer itself is volatile: kmiInitializeDriver stores it, then reads
  * it back for memset's argument (0x8c6633ca) */
 volatile struct kmi_device_extension *volatile kmiHardwareResource = 0;
+#ifdef GCC
+/* 1ST_READ.BIN's tables place the two in BSG, between kmvtxbuf_kamui_lib.c's
+ * bss and dma_kamui_lib.c's, where no source holds them. the port defines
+ * them here, as LOADER.BIN's internal_workaround_for_sh_lnk.c defines its
+ * own */
+volatile struct kmi_device_extension kmiDeviceExtension;
+struct kmi_version_info kmiVersionInfo;
+#endif
 
 KMSTATUS kmiInitTimer(void)
 {

@@ -52,6 +52,20 @@
 
 extern Sint8 texture_buffer[];
 extern NJS_MATRIX matrix_stack[];
+#ifdef GCC
+/* 1ST_READ.BIN's tables place the two in B32, the bss whose objects start
+ * on a 32-byte boundary, where no source holds them. the port defines them
+ * here, on a 32-byte boundary too */
+Sint8 texture_buffer[TEXTURE_BUFFER_SIZE] __attribute__((aligned(32)));
+NJS_MATRIX matrix_stack[MATRIX_DEPTH] __attribute__((aligned(32)));
+/* draw_lights holds model.src's MOST_LIGHTS point lights of LT_SIZE bytes,
+ * and draw_work its work, which ends with the three halfwords at ENV_INDEX,
+ * byte 472. 1ST_READ.BIN's tables name both past its image, and
+ * config/1st_read/census.txt places them in this source. GCC's renderer,
+ * which replaces model.src, reads neither */
+Uint32 draw_lights[96];
+Uint32 draw_work[120];
+#endif
 /* the address main reads LOADER.BIN to, and LOADER.BIN's entry */
 extern char loader_buffer[];
 extern void loader_entry(void);
@@ -351,7 +365,11 @@ int game_mode_step(void)
              * never returns, so that SHC jumps to syBtExit last (0x8c057354);
              * with return 0, the jump becomes a call and 65 of 812 words
              * differ */
+#ifdef GCC
+            return 0;
+#else
             return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
             /* @hack redundant: a break after the return, whose deleted jump
              * has the next case load its first scratch value into R3
              * (0x8c057358), not R2; without it, 49 of 812 words differ */

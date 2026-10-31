@@ -269,6 +269,11 @@ static int first_crossing_cars;
 static int second_crossing_cars;
 static enum light traffic_light;
 static int light_time; /* the steps LIGHT_FIRST or LIGHT_SECOND has held */
+#ifdef GCC
+/* where the car's first search of its road this step stopped, which its
+ * later searches start from. car_step empties it */
+static struct path_mark car_mark;
+#endif
 
 /* TRUE once the story of player 0's character lets the cars drive */
 static Bool traffic_open(void)
@@ -572,7 +577,11 @@ static void car_follow_road(struct task *task)
             distances[i] += length;
         }
         samples[i].distance = distances[i];
+#ifdef GCC
+        path_sample_from(road, &samples[i], &car_mark);
+#else
         path_sample(road, &samples[i]);
+#endif
     }
     here = &samples[1];
     dx = samples[1].pos_copy.x - samples[0].pos_copy.x;
@@ -708,7 +717,11 @@ static void car_drive(struct task *task)
                 along -= length;
             }
             samples[i].distance = along;
+#ifdef GCC
+            path_sample_from(road, &samples[i], &car_mark);
+#else
             path_sample(road, &samples[i]);
+#endif
         }
         first.x = samples[1].pos_copy.x - samples[0].pos_copy.x;
         first.y = 0.0F;
@@ -756,7 +769,11 @@ static void car_drive(struct task *task)
             along -= length;
         }
         front.distance = along;
+#ifdef GCC
+        path_sample_from(road, &front, &car_mark);
+#else
         path_sample(road, &front);
+#endif
         if (player_in_range(&front.pos_copy, WATCH_RADIUS) ||
             (work->flags & COLLISION_TOUCHING)) {
             aim = 0.0F;
@@ -1138,6 +1155,9 @@ static void car_step(struct task *task)
     motion->last_pos.y = work->pos.y;
     motion->last_pos.z = work->pos.z;
     car_draw(task);
+#ifdef GCC
+    car_mark.index = -1;
+#endif
     car_follow_road(task);
     car_carry(task);
     car_collide(task);

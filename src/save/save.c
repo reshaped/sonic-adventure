@@ -391,6 +391,11 @@ static void unpack_event_flags(struct save *save)
     int i;
     int bits;
 
+#ifdef GCC
+    /* GCC can't see that the first pass, at i 0, sets bits before the
+     * test reads it */
+    bits = 0;
+#endif
     for (i = 0; i < FLAG_COUNT; i++) {
         if (i % 8 == 0) {
             /* NOLINTNEXTLINE(bugprone-signed-char-misuse) */
@@ -410,6 +415,11 @@ static void unpack_events_played(struct save *save)
     int i;
     int bits;
 
+#ifdef GCC
+    /* GCC can't see that the first pass sets bits, as in
+     * unpack_event_flags */
+    bits = 0;
+#endif
     for (i = 0; i < EVENT_COUNT; i++) {
         if (i % 8 == 0) {
             /* NOLINTNEXTLINE(bugprone-signed-char-misuse) */

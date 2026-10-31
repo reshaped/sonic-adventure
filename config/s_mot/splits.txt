@@ -1,0 +1,7 @@
+# S_MOT.PRS, Sonic's motions
+#
+# section  start       end
+D          0x0cc00000  0x0cc774a0
+#
+# source                section  start       end
+gen/s_mot/d_0cc00000.c  D        0x0cc00000  0x0cc774a0

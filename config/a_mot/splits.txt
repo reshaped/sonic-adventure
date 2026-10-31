@@ -1,0 +1,7 @@
+# A_MOT.PRS, Amy's motions
+#
+# section  start       end
+D          0x0cc00000  0x0cc93ba4
+#
+# source                section  start       end
+gen/a_mot/d_0cc00000.c  D        0x0cc00000  0x0cc93ba4

@@ -50,6 +50,11 @@ void njChangeGlobal(void);
 void njSetCurrentContext(Int n);
 void njInitContext(KMVERTEXCONTEXT *context);
 void njExeEORFunction(void);
+#ifdef GCC
+/* the 32 Floats after _nj_cnk_easy_multilight_buffer_ in njGlobal.c's
+ * block, which njInitGlobal's GCC side fills by name */
+extern Float _nj_cnk_easy_multilight_buffer_dst_[32];
+#endif
 
 const Uint32 _nj_version = 0x00060068;
 char *copyright = "SEGA Ninja Library";
@@ -216,6 +221,12 @@ void njInitSystem(Int mode, Int frame, Int count)
     } else {
         anti_alias = FALSE;
     }
+#ifdef GCC
+    /* repairs the unset bpp the tag below names: for a format no case lists,
+     * GCC passes -1, which kmSetDisplayMode rejects, setting no display
+     * mode */
+    bpp = (KMBPPMODE)-1;
+#endif
     switch (frame) {
     case NJD_FRAMEBUFFER_MODE_RGB565:
         bpp = KM_DSPBPP_RGB565;
@@ -338,6 +349,12 @@ void njChangeSystem(Int mode, Int frame, Int count)
     } else {
         anti_alias = FALSE;
     }
+#ifdef GCC
+    /* repairs the unset bpp the tag below names: for a format no case lists,
+     * GCC passes -1, which kmSetDisplayMode rejects, setting no display
+     * mode */
+    bpp = (KMBPPMODE)-1;
+#endif
     switch (frame) {
     case NJD_FRAMEBUFFER_MODE_RGB565:
         bpp = KM_DSPBPP_RGB565;
@@ -439,10 +456,23 @@ void njInitGlobal(void)
          * in _nj_cnk_easy_multilight_buffer_dst_ (0x8c657980 in 1ST_READ.BIN).
          * the store after the loop puts 3 in dst's first word as index 16
          * (0x8c65798c) */
+#ifdef GCC
+        /* the copy's last 32 Floats go to _nj_cnk_easy_multilight_buffer_dst_
+         * by name, where the tag says the image's land. the 3 then goes over
+         * dst's first word, as in the image */
+        for (i = 0; i < 16; i++) {
+            _nj_cnk_easy_multilight_buffer_[i] = lights[i];
+        }
+        for (i = 0; i < 32; i++) {
+            _nj_cnk_easy_multilight_buffer_dst_[i] = lights[16 + i];
+        }
+        *(Sint32 *)&_nj_cnk_easy_multilight_buffer_dst_[0] = 3;
+#else
         for (i = 0; i < 48; i++) {
             _nj_cnk_easy_multilight_buffer_[i] = lights[i];
         }
         *(Sint32 *)&_nj_cnk_easy_multilight_buffer_[16] = 3;
+#endif
     }
     vsync_handle = 0;
 }

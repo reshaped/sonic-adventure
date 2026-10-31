@@ -186,6 +186,6 @@ static NJS_VECTOR dat_0c964c94[44] = {
 static NJS_MODEL dat_0c964ea4 = {
 #include "stg07/ruin02_textures/dat_0c964ea4.inc"
 };
-static NJS_OBJECT dat_0c964ecc = {
+NJS_OBJECT dat_0c964ecc = {
 #include "stg07/ruin02_textures/dat_0c964ecc.inc"
 };

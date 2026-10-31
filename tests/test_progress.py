@@ -100,8 +100,14 @@ class Progress(unittest.TestCase):
 
     def test_requires_every_program(self):
         progress.PROGRAMS = 3
-        with tree(SEAM), self.assertRaisesRegex(SystemExit, 'config/ has 2 images, and progress expects 3'):
+        with tree(SEAM), self.assertRaisesRegex(SystemExit, 'config/ has 2 binaries, and progress expects 3'):
             progress.survey()
+
+    def test_surveys_no_motion_file(self):
+        # hero's only section, D, holds no code, so hero is a motion file
+        files = dict(SEAM, **{'config/hero/splits.txt': 'D  0x0cc00000  0x0cc00100\n', 'config/hero/symbols.txt': ''})
+        with tree(files):
+            self.assertEqual([config.name for config in progress.survey()], ['1st_read', 'mod'])
 
     def test_routes_each_source_by_its_build(self):
         patched, grafted, inline = {'sdk/p.c', 'sdk/g.c'}, {'sdk/g.c'}, {'sdk/p.c', 'sdk/g.c', 'sdk/i.c'}
@@ -233,10 +239,10 @@ BLOCK = [
     '| Stages | 1 | 240 | 14.1% | 85.9% |',
     '| **All** | **2** | **1,558,104** | **99.9%** | **0.1%** |',
     '',
+    '*[Accounting](TOOLCHAIN.md#accounting) explains the percentages.*',
+    '',
     'Most of the assembly was handwritten in the original, not compiled from C. Compiler analysis and original symbol '
     'names already provide [evidence](TAGS.md#assembly) of handwritten origins for 8.9% of its instructions and data.',
-    '',
-    'See [Accounting](TOOLCHAIN.md#accounting) for methodology.',
 ]
 
 
@@ -296,14 +302,20 @@ class Numbers(unittest.TestCase):
             yield root
 
     def test_writes_the_numbers_between_the_markers_alone(self):
-        # a.c counts the same in INLINE_C alone, and with PATCHED_C or GRAFTED_C too
+        # a.c counts the same in INLINE_C alone and in PATCHED_C or GRAFTED_C, where C's heading takes a mark and the
+        # note under the table counts it
         a = 'modules/mod/a.c'
-        for routes in (NUMBERS, ['--patched', a, '--grafted', '--inline', a], ['--patched', '--grafted', a, '--inline', a]):
+        marked = [*BLOCK[:2], BLOCK[2].replace('| C |', '| C\\* |'), *BLOCK[3:9],
+                  "*\\*SHC's assembly for 1 of the C sources matches once [shckit](https://github.com/reshaped/shckit) "
+                  'patches it ([Patched R10](TOOLCHAIN.md#patched-r10)). '
+                  '[Accounting](TOOLCHAIN.md#accounting) explains the percentages.*', *BLOCK[10:]]
+        for routes, block in ((NUMBERS, BLOCK), (['--patched', a, '--grafted', '--inline', a], marked),
+                              (['--patched', '--grafted', a, '--inline', a], marked)):
             with self.subTest(routes=routes), self.built():
                 progress.MEASURED.clear()
                 progress.main(['--write', *routes])
                 self.assertEqual(Path('README.md').read_text(),
-                                 '# Title\n\nAbove.\n\n<!-- progress -->\n' + ''.join(f'{line}\n' for line in BLOCK) +
+                                 '# Title\n\nAbove.\n\n<!-- progress -->\n' + ''.join(f'{line}\n' for line in block) +
                                  '<!-- /progress -->\n\nBelow.\n')
 
     def test_floors_c_and_gives_assembly_the_rest_with_the_fill_left_out(self):

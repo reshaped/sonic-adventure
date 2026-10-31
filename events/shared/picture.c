@@ -30,6 +30,36 @@ static NJS_SPRITE event_picture_sprite = {
 #include "shared/picture/event_picture_sprite.inc"
 };
 
+#ifdef GCC
+/* a picture nearer than this depth is a still. the events draw stills in
+ * front of their scenes, at -1 to -5, and backdrops behind them, at -700 to
+ * -1001 */
+#define STILL_LIMIT (-10.0F)
+
+/* a band of black from x0 to x1, down the screen, at the picture's alpha
+ * and depth */
+static void event_picture_band(struct picture_work *work, Float x0, Float x1)
+{
+    NJS_POINT2 points[4];
+    NJS_COLOR colors[4];
+    NJS_POINT2COL band;
+    int i;
+
+    points[0].x = points[3].x = x0;
+    points[1].x = points[2].x = x1;
+    points[0].y = points[1].y = 0.0F;
+    points[2].y = points[3].y = 480.0F;
+    for (i = 0; i < 4; i++) {
+        colors[i].color = (Uint32)(work->alpha * 255.0F) << 24;
+    }
+    band.p = points;
+    band.col = colors;
+    band.tex = NULL;
+    band.num = 4;
+    njDrawPolygon2D(&band, 4, work->depth, NJD_FILL | NJD_TRANSPARENT);
+}
+#endif
+
 static void event_picture_destroy(struct task *task)
 {
 }
@@ -49,7 +79,30 @@ static void event_picture_draw(struct task *task)
     njSetConstantMaterial(&color);
     event_picture_sprite.tlist = work->texlist;
     event_picture_texanim.texid = work->texture;
+#ifdef GCC
+    /* under the port's 16:9 a picture keeps its shape. a still that covers
+     * the scene squeezes about the middle, and black bands drawn past its
+     * left and right edges squeeze onto the screen's sides. outside
+     * pillarbox, a backdrop or a still whose color adds to the scene's fills
+     * the screen. it keeps x and scales y by 4/3 about the middle, so a band
+     * at its top and bottom falls off the screen */
+    if (port_wide_squeezes() && work->depth > STILL_LIMIT &&
+        work->blend[NJD_DESTINATION_COLOR] != NJD_COLOR_BLENDING_ONE) {
+        njDrawSprite2D(&event_picture_sprite, 0, work->depth, work->attr);
+        event_picture_band(work, -320.0F, 0.0F);
+        event_picture_band(work, 640.0F, 960.0F);
+        return;
+    }
+    port_wide_cover = TRUE;
+    if (!port_wide_squeezes()) {
+        event_picture_sprite.sy = 1.0F / port_draw_aspect;
+    }
+#endif
     njDrawSprite2D(&event_picture_sprite, 0, work->depth, work->attr);
+#ifdef GCC
+    event_picture_sprite.sy = 1.0F;
+    port_wide_cover = FALSE;
+#endif
 }
 
 /* while steps are left, move alpha 1 / steps of the way to its target.

@@ -805,6 +805,12 @@ static void snake_create_segments(struct task *task)
     } else if (RADIUS(work) > RADIUS_MAX) {
         RADIUS(work) = RADIUS_MAX;
     }
+#ifdef GCC
+    /* repairs the unset distance the tag in the loop names: GCC's starts at
+     * 0. the lead's spacing is 0, so the lead starts where the snake stands.
+     * each other segment starts its spacing behind the one ahead */
+    distance = 0.0F;
+#endif
     for (i = 0; i < SEGMENT_COUNT; i++) {
         child = task_create_child(TASK_WORK, snake_segment_step, task);
         if (child != NULL) {
@@ -817,7 +823,7 @@ static void snake_create_segments(struct task *task)
             segment->pos.x = work->pos.x - (njCos(work->ang.y) * distance);
             segment->pos.y =
                 work->pos.y +
-                (njSin((Angle)(i * (2.0F * NJD_PI / 8) * ANGLE_PER_RADIAN)) *
+                (njSin((Angle)(i * ((2.0F * NJD_PI / 8) * ANGLE_PER_RADIAN))) *
                  12.0F);
             segment->pos.z = work->pos.z - (njSin(work->ang.y) * distance);
             segment->ang.x = work->ang.x;

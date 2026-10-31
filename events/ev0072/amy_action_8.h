@@ -14,5 +14,8 @@ extern NJS_ACTION ev0072_bird_ver4_action_2;
 extern NJS_TEXLIST ev0072_wing_p_texlist;
 extern NJS_ACTION ev0072_wing_action;
 extern NJS_TEXLIST ev0072_wing_t_texlist;
+/* the material of the generated model at 0x0cbc3d3c, one of the models in
+ * dat_0cbc6dac's tree */
+extern NJS_MATERIAL dat_0cbc3c94[1];
 
 #endif

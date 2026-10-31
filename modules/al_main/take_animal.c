@@ -232,6 +232,21 @@ void alife_take_animal(struct task_work *work, struct alife_chao *chao)
              * sound_play's address: 0x68. for a Chao of any type but
              * CHAO_CHAOS, status_give_parts then reads row 104 of
              * child_part_objects or adult_part_objects, which hold 15 rows */
+#ifdef GCC
+            /* repairs the unset kind the tag names: where held or its task
+             * is null, GCC's Chao takes nothing from the animal */
+            if (entry->held && entry->held->task) {
+                entry->held->task->motion->speed = rotated;
+                kind = entry->held->task->work->tick;
+                if (chao->record->type != CHAO_CHAOS) {
+                    status_give_parts(work, chao, kind);
+                }
+                status_give_skills(work, chao, kind);
+                status_lean(work, chao, kind);
+                status_add_minimal(work, chao, kind);
+            }
+            entry->held = NULL;
+#else
             /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
             if (entry->held) {
                 /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
@@ -248,6 +263,7 @@ void alife_take_animal(struct task_work *work, struct alife_chao *chao)
             status_give_skills(work, chao, kind);
             status_lean(work, chao, kind);
             status_add_minimal(work, chao, kind);
+#endif
             {
                 NJS_POINT3 center;
                 NJS_VECTOR velocity = {0.0F, 0.3F, 0.0F};

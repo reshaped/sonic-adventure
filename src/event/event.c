@@ -392,8 +392,17 @@ static void mouth_set_script(struct task_work *work, int number)
          * scripts, so f to z, 31 to 51, and any other byte from 31 to 127
          * read past its end (MOV.L @(R0,R14),R4 at 0x8c04ecb2), and a word
          * there that isn't null is read as a key (MOV.B @R4,R3 at
-         * 0x8c04ecb8) */
+         * 0x8c04ecb8). the 736 texts the events pass event_talk_start hold
+         * only capitals, a to c and '0', so no path reaches a number past
+         * 28 */
+#ifdef GCC
+        /* repairs the read the tag names: GCC takes a number past the table
+         * as a null script */
+        script =
+            number < EVENT_MOUTH_SCRIPTS ? event_mouth_scripts[number] : NULL;
+#else
         script = event_mouth_scripts[number];
+#endif
         if (number == 0 || script == NULL || script->steps == 0) {
             if (rand() * RAND_SCALE < 0.75F) {
                 script = event_mouth_scripts[0];

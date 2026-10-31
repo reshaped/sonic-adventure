@@ -323,7 +323,14 @@ static void crane_platform_step(struct task *task)
              * the sibling 0x30 bytes into the 8-byte NJS_ACTION, past its end
              * (MOV.L @(48,R2),R1 at 0x0c900eba). the copy's sibling is then
              * 0x00020004, the word the image holds at 0x0ca4021c */
+#ifdef GCC
+            /* repairs the read past the action the tag names: GCC's copy
+             * takes the action's object's sibling, as it takes its model and
+             * child */
+            object->sibling = VARS(work)->model.action->object->sibling;
+#else
             object->sibling = VARS(work)->model.object->sibling;
+#endif
             world_add(PLATFORM_WORLD_FLAGS, task, object);
             force[0].speed.x = 0.0F;
             force[0].speed.y = 0.0F;

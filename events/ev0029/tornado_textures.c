@@ -1,6 +1,8 @@
 /* the texture names of ev0029_tornado_texlist */
 #include <ninja.h>
 
+#include "ev0029/tornado_textures.h"
+
 #define TEXT_1_LENGTH 13
 #define TEXT_2_LENGTH 13
 #define TEXT_3_LENGTH 10
@@ -43,7 +45,7 @@
 #define TEXT_40_LENGTH 13
 #include "ev0029/tornado_textures/text.inc"
 
-static NJS_TEXNAME ev0029_tornado_textures[40] = {
+NJS_TEXNAME ev0029_tornado_textures[40] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

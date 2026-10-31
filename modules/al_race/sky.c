@@ -80,8 +80,8 @@ static NJS_TEXLIST sky_texlist = {
 #include "al_race/sky/sky_texlist.inc"
 };
 
-/* in the HEAD section, which opens AL_RACE: 1ST_READ.BIN's sky_steps names
- * race_sky_step by its address there, 0x0cb80000 */
+/* in the HEAD section, which opens AL_RACE: 1ST_READ.BIN's sky_steps holds
+ * race_sky_step's address there, 0x0cb80000 */
 #pragma section HEAD
 void race_sky_step(struct task *task)
 {

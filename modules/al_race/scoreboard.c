@@ -642,10 +642,19 @@ void standings_draw(struct race_standings *standings, struct racer *racers,
     if (frame_step) {
         return;
     }
+#ifdef GCC
+    /* the port's 16:9 squeezes the board about the screen's left edge */
+    port_wide_anchor = WIDE_LEFT;
+#endif
     njSetTexture(&dat_0cbc089c);
     sprite.p.z = 0.0F;
     sprite.tlist = &dat_0cbc089c;
     sprite.tanim = lane_frames;
+#ifdef GCC
+    /* GCC can't see that every path sets pointer: lanes holds each lane
+     * once, so the loop meets the lane the race follows */
+    pointer = 0;
+#endif
     for (i = 0; i < RACE_LANES; i++) {
         finished = 0;
         draw_set_material(1.0F, 1.0F, 1.0F, 1.0F);
@@ -700,6 +709,9 @@ void standings_draw(struct race_standings *standings, struct racer *racers,
     njDrawSprite2D(&sprite, i, -2.0F,
                    NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR | NJD_SPRITE_ANGLE);
     draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+#ifdef GCC
+    port_wide_anchor = WIDE_MIDDLE;
+#endif
 }
 
 void standings_draw_marker(struct race_standings *standings, int marker_lane,

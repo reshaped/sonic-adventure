@@ -23,8 +23,8 @@
 extern NJS_OBJECT fountain_object;
 extern NJS_OBJECT fountain_spout_object;
 extern NJS_OBJECT fountain_spray_object;
-/* the water's four frames */
-extern NJS_TEXNAME fountain_texnames[4];
+/* OBJ_HIGHWAY2's texture names, among them the water's four frames */
+extern NJS_TEXNAME obj_highway2_textures[54];
 
 /* the fountain's range for placement_try_leave_by, squared */
 #define FOUNTAIN_RANGE (1010.0F * 1010.0F)

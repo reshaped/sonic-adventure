@@ -1,0 +1,27 @@
+# E_MOT.PRS: every name another image takes from it, by address.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cc0194c  e102_hold_jump_start_action
+0x0cc02e30  e102_hold_jump_action
+0x0cc049a4  e102_hold_fall_start_action
+0x0cc06148  e102_hold_fall_action
+0x0cc07d0c  e102_hold_hard_landing_action
+0x0cc0cb78  e102_hold_water_start_action
+0x0cc0f6b4  e102_hold_skate_to_water_action
+0x0cc10be0  e102_hold_water_skate_action
+0x0cc13464  e102_lift_action
+0x0cc16378  e102_hold_walk_action
+0x0cc1926c  e102_hold_run_action
+0x0cc1c220  e102_hold_skate_start_action
+0x0cc1d944  e102_hold_skate_action
+0x0cc23a1c  e102_hold_skate_turn_action
+0x0cc27300  e102_ledge_action
+0x0cc29324  dat_0cc29324
+0x0cc2b7c8  dat_0cc2b7c8
+0x0cc2e3ec  dat_0cc2e3ec
+0x0cc30570  dat_0cc30570
+0x0cc32df4  dat_0cc32df4
+0x0cc35bb8  dat_0cc35bb8
+0x0cc3774c  e102_hold_shake_start_action
+0x0cc39190  e102_hold_shake_action
+0x0cc3ae74  e102_hold_shake_end_action

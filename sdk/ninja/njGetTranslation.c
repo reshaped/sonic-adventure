@@ -1,9 +1,16 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* set *p to the translation of m, its last row. a null m selects the current
  * matrix, in XMTRX */
+#ifdef GCC
+#undef njGetTranslation
+void njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
+{
+    zam_njGetTranslation(m, p);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c61749c follows the
  * body's own return at 0x8c617498 */
 #pragma inline_asm(njGetTranslation)
@@ -30,3 +37,4 @@ void njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
 }
 #endif
 /* clang-format on */
+#endif

@@ -16,7 +16,7 @@ events/ev002a/script.c               C        0x0cb80908  0x0cb80a82
 events/ev002a/script.c               D        0x0cb80a88  0x0cb80a9c
 events/shared/fade.c                  P        0x0cb80778  0x0cb80904
 events/shared/fade.c                  D        0x0cb949d0  0x0cb949f0
-# position keys of a node of ev002a_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80b90, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt, so in C it could stay static only if the row is its object's
+# position keys of a node of ev002a_sonic_action_0's motion: it starts on 8, past the 4 bytes of 0xff after script.c's data, where that object's next item would start on 4, as another object's would: those 4 bytes are the linker's fill, as the fill rule takes them, or a last word of script.c's object. nothing with code links between script.c and fade.c, so its object holds data alone, or is script.c's, were that word its. angle keys meet it on 8 with no fill at 0x0cb80b90, so the bytes don't say how far its object runs: the generated row from there may be its. that row's motion data names it through symbols.txt
 events/ev002a/dat_0cb80aa0.c          D        0x0cb80aa0  0x0cb80b90
 #
 # generated data ranges

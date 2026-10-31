@@ -13,5 +13,7 @@ extern NJS_ACTION ev0160_echidna_action_0;
 extern NJS_ACTION ev0160_echidna_action_1;
 extern NJS_ACTION ev0160_echidna_action_2;
 extern NJS_TEXLIST ev0160_pachacamac_texlist;
+/* the sibling of the generated object at 0x0cb9cab0 */
+extern NJS_OBJECT dat_0cb9ca7c;
 
 #endif

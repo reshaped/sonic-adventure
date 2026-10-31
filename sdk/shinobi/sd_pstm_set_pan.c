@@ -92,7 +92,13 @@ SDE_ERR sdPstmSetPan(SDPSTM handle, const Sint8 target_ch, const Sint8 pan,
          * pans[1], and the command sends the low byte of whatever its frame
          * slot holds (MOV.L @(4,R4),R3 at 0x8c67747e, MOV.B R3,@R1 at
          * 0x8c677482) */
+#ifdef GCC
+        /* repairs the unset pan the tag names: on a port of one channel,
+         * GCC sends pans[0], the pan of its one channel */
+        stream_pan_command.params[5] = stream->use_ch == 1 ? pans[0] : pans[1];
+#else
         stream_pan_command.params[5] = pans[1];
+#endif
         stream_pan_command.params[6] = fade_time;
         stream_pan_command.params[7] = fade_time >> 8;
         break;

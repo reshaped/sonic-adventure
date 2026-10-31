@@ -663,6 +663,11 @@ static int seq_complete_page(void)
      * return without writing R0 again. the R0 seq_menu tests is 12, from
      * njSetConstantMaterial's MOV #12,R0 (0x8c6298a2). a return of 0 would
      * make the branch a call */
+#ifdef GCC
+    /* repairs the missing return the tag names: GCC returns 0, and seq_menu
+     * stays on the page, as it does on the 12 the image returns */
+    return 0;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 

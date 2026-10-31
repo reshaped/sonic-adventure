@@ -5,6 +5,9 @@
  * njCameraMotionOld. tools/graft.py adds them to this file's assembly */
 #include <ninja.h>
 #include <sg_xpt.h>
+#ifdef GCC
+#include "ninja/njmotion_zam.h"
+#endif
 
 /* a key of one angle at keyframe, as the roll and the angle of view hold
  * them */
@@ -264,6 +267,7 @@ static void weighted_sum(Float *a, Float *b, Float *c, Float *d, Float wa,
                          Float wb, Float wc, Float wd, Float *out);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
+#ifndef GCC
 /* clang-format off */
 #ifndef __clang__
 /* out[i] = wa * a[i] + wb * b[i] + wc * c[i] + wd * d[i] for i from 0 to 2,
@@ -300,6 +304,7 @@ static void weighted_sum(Float *a, Float *b, Float *c, Float *d, Float wa,
 }
 #endif
 /* clang-format on */
+#endif
 
 /* set out[0] to out[2] to key index's three values on the Catmull-Rom spline
  * through the key before it, it and the two after, at linear_camera_vector's

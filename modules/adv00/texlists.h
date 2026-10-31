@@ -4,6 +4,7 @@
 #include <ninja.h>
 
 /* ADV00 holds these texlists, which are valid only while it is loaded */
+extern NJS_TEXLIST obj_ss_texlist;
 extern NJS_TEXLIST ss_bg_texlist;
 extern NJS_TEXLIST ss_train_texlist;
 extern NJS_TEXLIST ss_dentou_texlist;

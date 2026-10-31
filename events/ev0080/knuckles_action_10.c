@@ -245,6 +245,6 @@ static NJS_TEXNAME event_clouds_textures[3] = {
 NJS_TEXLIST event_clouds_texlist = {
 #include "ev0080/knuckles_action_10/event_clouds_texlist.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_5, 0, 0},
 };

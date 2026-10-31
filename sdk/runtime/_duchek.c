@@ -1,5 +1,5 @@
 /* 0 for a finite double, 1 for a NaN, 2 for an infinity */
-int _duchek(double value)
+int _duchek(long double value)
 {
     /* the high word is the second in memory */
     /* @hack type: value's words read through an unsigned long cursor, in the

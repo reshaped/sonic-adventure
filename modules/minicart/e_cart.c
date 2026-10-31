@@ -487,18 +487,36 @@ static const struct draw_override cart_wheels[] = {
  * (0x8c05a4aa, 0x8c05a4ba, 0x8c05a4c8). it reads on through
  * cart_e102_wheels to cart_smoke_speed's x, whose 0.0F ends the scan as a
  * null object would */
+#ifdef GCC
+/* repairs the read the tag names: GCC's table ends with a null row */
+static const struct draw_override cart_big_wheels[3] = {
+    {&cart_big_wheel_a_object, cart_wheel_draw},
+    {&cart_big_wheel_b_object, cart_wheel_draw},
+    {NULL, NULL},
+};
+#else
 static const struct draw_override cart_big_wheels[2] = {
     {&cart_big_wheel_a_object, cart_wheel_draw},
     {&cart_big_wheel_b_object, cart_wheel_draw},
 };
+#endif
 /* @bug memory: no null row ends the table. draw_object reads past
  * its end for each of the eight other nodes of E-102's tree with a model
  * (0x8c05a4ba, 0x8c05a4c8). it reads cart_smoke_speed's x, whose 0.0F ends
  * the scan as a null object would */
+#ifdef GCC
+/* repairs the read the tag names: GCC's table ends with a null row */
+static const struct draw_override cart_e102_wheels[3] = {
+    {&cart_e102_wheel_a_object, cart_wheel_draw},
+    {&cart_e102_wheel_b_object, cart_wheel_draw},
+    {NULL, NULL},
+};
+#else
 static const struct draw_override cart_e102_wheels[2] = {
     {&cart_e102_wheel_a_object, cart_wheel_draw},
     {&cart_e102_wheel_b_object, cart_wheel_draw},
 };
+#endif
 /* the speed of a damaged cart's smoke */
 static const NJS_VECTOR cart_smoke_speed = {0.0F, 1.0F, 0.0F};
 

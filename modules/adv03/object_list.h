@@ -4,8 +4,8 @@
 
 #include "object/placement.h"
 
-/* the past's object list. 1ST_READ.BIN's object_lists reaches it by its
- * address, 0x0c9002f0, for each of the past's three acts */
+/* the past's object list. 1ST_READ.BIN's object_lists names it for each of the
+ * past's three acts */
 extern struct object_list past_object_list;
 
 #endif

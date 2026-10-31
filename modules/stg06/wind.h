@@ -24,6 +24,11 @@ void sky_deck_wind_gust_set(struct task *task);
 void sky_deck_wind_gust_remove(struct task *task);
 /* how hard the wind blows at x and z, from 0 to 256 */
 Float sky_deck_wind_strength(Float x, Float z);
+#ifdef GCC
+/* zero the wind's bands and gusts, so that no band lives and no gust has an
+ * owner */
+void sky_deck_wind_clear(void);
+#endif
 /* add the wind's lift at player 0 to its accel.y, then cap accel.y at the
  * lift */
 void sky_deck_wind_lift_player(void);

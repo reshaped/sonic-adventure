@@ -4,8 +4,7 @@
 
 #include "collision/world.h"
 
-/* 1ST_READ.BIN's world_lands reaches this table by its address, 0x0c958840,
- * not by its name */
+/* 1ST_READ.BIN's world_lands names this table */
 extern struct land_table eggmobile3_land;
 
 #endif

@@ -13,6 +13,6 @@ static NJS_TEXNAME ev00de_emerald_sky_textures[1] = {
 NJS_TEXLIST ev00de_emerald_sky_texlist = {
 #include "ev00de/emerald_sky_textures/ev00de_emerald_sky_texlist.inc"
 };
-static NJS_MATERIAL dat_0cba46bc[1] = {
+NJS_MATERIAL dat_0cba46bc[1] = {
 #include "ev00de/emerald_sky_textures/dat_0cba46bc.inc"
 };

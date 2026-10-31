@@ -4,8 +4,7 @@
 
 #include "collision/world.h"
 
-/* the land of the stage's act 0. 1ST_READ.BIN's world_lands reaches it by
- * its address, 0x0c900260 */
+/* the land of the stage's act 0. 1ST_READ.BIN's world_lands names it */
 extern struct land_table chaos4_land;
 
 #endif

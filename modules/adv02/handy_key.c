@@ -321,6 +321,12 @@ static void handy_key_update(struct task *task)
             }
             VARS(work)->held = TRUE;
         } else if (VARS(work)->held == TRUE) {
+#ifdef GCC
+            /* GCC can't see that nearest is set wherever it is read:
+             * nearest_distance falls from FAR to LOCK_REACH or below only where
+             * the loop sets nearest too */
+            nearest = -1;
+#endif
             nearest_distance = FAR;
             for (i = 0; i < KEY_KINDS; i++) {
                 if (lock_slots[i].lock != NULL) {

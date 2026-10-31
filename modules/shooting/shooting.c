@@ -18,6 +18,7 @@
 #include "shooting/furniture.h"
 #include "shooting/hud.h"
 #include "shooting/kirai.h"
+#include "shooting/object_list.h"
 #include "shooting/renzako.h"
 #include "shooting/reticle.h"
 #include "shooting/rocket.h"
@@ -102,9 +103,7 @@ static struct object_kind shooting_object_kinds[] = {
 
 #define KINDS (sizeof(shooting_object_kinds) / sizeof(shooting_object_kinds[0]))
 
-/* the object list of both acts, which 1ST_READ.BIN's object_lists names
- * by its address */
-static struct object_list shooting_object_list = {KINDS, shooting_object_kinds};
+struct object_list shooting_object_list = {KINDS, shooting_object_kinds};
 
 /* where 1ST_READ.BIN's loader reads shtpath1.PRS or shtpath2.PRS, whose
  * first word points at the course's scenes */

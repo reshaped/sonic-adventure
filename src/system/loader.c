@@ -616,7 +616,15 @@ int loader_read_prs(char *name, void *dest)
 
     result = loader_read(name, WORK_AREA);
     if (result >= 0) {
+#ifdef GCC
+        /* the instruction cache fills from RAM, but the operand cache copies
+         * back, holding the decoder's stores until their lines are written
+         * back. so the decoded bytes go back to RAM before syCacheICI, and
+         * code in dest runs as decoded */
+        syCacheOCWB(dest, prs_decompress(WORK_AREA, dest));
+#else
         prs_decompress(WORK_AREA, dest);
+#endif
     }
     syCacheICI();
     return result;

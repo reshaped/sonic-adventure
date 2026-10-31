@@ -80,12 +80,17 @@ import sys
 from pathlib import Path
 
 from code_ranges import writers
-from config import KEPT, ZEROED, Config, aligned, content, fail, hexa, images, named, reasons, rows, save
-from link import define, dos, grouped, place, records, references, runs, section, section_table, stoppable, symbols
+from config import Config, order
+from images import ZEROED, images
+from kept import KEPT, reasons
+from link import define, dos, grouped, place, section, symbols
+from shc_object import definitions, records, references, section_table
+from tables import aligned, hexa, named, rows
+from tool import content, fail, save, stoppable
 
-# the kinds of SHC object record relink reads beside link.py's: the two
-# headers that name the object's module, and its definitions
-HEADERS, DEFINITIONS = (0x04, 0x06), 0x14
+# the kinds of SHC object record relink reads beside tools/shc_object.py's:
+# the two headers that name the object's module
+HEADERS = (0x04, 0x06)
 # the shift test's two shifts past an image's base. Each is a multiple of
 # 32, the most an object of the tree aligns a section to, so the image keeps
 # its layout, and relink fails on an object that aligns one to more. Each is
@@ -103,57 +108,6 @@ LEAST = 4
 # defined. A name past 32 characters takes a line of its own, and its
 # address the next
 EXPORTED = re.compile(r"^_(\w+)\s+H'([0-9A-F]{8})\s+\w+\r?$", re.M)
-
-
-def order(config):
-    """The image's sources in the order relink gives lnk their objects: in
-    each section, in the order its rows place them, and otherwise in table
-    order. Where the sections' orders form a cycle, fail, naming each step
-    of it and the section that takes it."""
-    rank = {source: index for index, source in enumerate(config.sources())}
-    # for each source, the sources whose objects go before it, each with a
-    # section that puts it there
-    before, last = {source: {} for source in rank}, {}
-    for source, name, _, _ in sorted(config.placements, key=lambda row: row[2]):
-        if last.get(name, source) != source:
-            before[source].setdefault(last[name], name)
-        last[name] = source
-    found, done = [], set()
-    while len(found) < len(rank):
-        ready = [source for source in rank if source not in done and before[source].keys() <= done]
-        if not ready:
-            # follow the waiting sources back until one repeats
-            chain = [next(source for source in rank if source not in done)]
-            while chain.count(chain[-1]) < 2:
-                chain.append(next(earlier for earlier in before[chain[-1]] if earlier not in done))
-            cycle = chain[chain.index(chain[-1]):]
-            fail(f'{config.splits}: no one order of the objects keeps each section in its rows\' order: '
-                 + ', '.join(f'{earlier} goes before {later} in {before[later][earlier]}'
-                             for later, earlier in zip(cycle, cycle[1:])))
-        source = min(ready, key=rank.get)
-        found.append(source)
-        done.add(source)
-    return found
-
-
-def definitions(obj):
-    """The names the object defines, as it spells them: a C name with its
-    leading underscore."""
-    # an entry is the section's number in 2 bytes, an attribute, the value,
-    # in 4 bytes or, where bit 0x40 of the attribute is set, in as many as
-    # the byte after it gives, then the name's length and the name
-    names = set()
-    for start, kind, body in runs(obj):
-        if kind != DEFINITIONS:
-            continue
-        at = 0
-        while at < len(body):
-            length = at + (4 + body[at + 3] if at + 3 < len(body) and body[at + 2] & 0x40 else 7)
-            if length >= len(body) or (end := length + 1 + body[length]) > len(body):
-                fail(f'{obj}: the definitions at {start:#x} don\'t parse')
-            names.add(body[length + 1:end].decode('latin-1'))
-            at = end
-    return names
 
 
 def renamed(obj, old, new):
@@ -226,7 +180,7 @@ def tails(config, pieces, starts):
                 at = aligned(at, alignment) + size
         if at > end:
             fail(f'{config.splits}: the whole link\'s {name} runs to {hexa(at)}, past {hexa(end)}, '
-                 f'where tools/config.py ends it')
+                 f'where tools/images.py ends it')
         if at < end:
             found.append((name, at, end, pieces[name][0][2]))
     return found

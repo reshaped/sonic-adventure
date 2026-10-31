@@ -1,6 +1,7 @@
 /* the tornado's reticle, and the locks it puts on targets */
 #ifndef SHOOTING_RETICLE_H
 #define SHOOTING_RETICLE_H
+#include <ninja.h>
 #include <sg_xpt.h>
 
 #include "system/task.h"
@@ -10,6 +11,10 @@
  * tornado. reticle_target is the candidate nearest the tornado. with none,
  * it is the reticle's child, which sits 1000 ahead of the camera */
 extern struct task *reticle_target;
+
+/* the locks' texlist. 1ST_READ.BIN's shooting1_pvms and shooting2_pvms
+ * name it */
+extern NJS_TEXLIST lock_texlist;
 
 /* the most locks at once */
 #define LOCKS 6

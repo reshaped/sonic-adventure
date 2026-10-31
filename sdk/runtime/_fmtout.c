@@ -8,6 +8,14 @@
 
 #include "runtime/print.h"
 
+#ifdef GCC
+/* the tables place errno.h's _errno in bss no source holds, in 1ST_READ.BIN
+ * after vmsapi.c's and in LOADER.BIN after mpgbl.c's. GCC's side defines it
+ * here, in a source both images link. the events' runtime sets
+ * 1ST_READ.BIN's */
+volatile int _errno;
+#endif
+
 /* FPSCR's double-precision mode bit */
 #define FPSCR_PR 0x80000
 
@@ -49,6 +57,13 @@ int _fmtout(int mode, int (*put)(int c, FILE *stream), void *destination,
     struct output_cursor *output = &output_storage;
     struct format_parts *parts = &parts_storage;
 
+#ifdef GCC
+    /* GCC can't see that text and length are set wherever they are read: of
+     * the conversions that set neither, %n skips the output that reads them,
+     * and an unknown one sets PRINT_STOP, which skips it too */
+    text = buffer;
+    length = 0;
+#endif
     output->mode = PRINT_TO_STREAM;
     output->destination = NULL;
     output->count = 0;
@@ -408,6 +423,11 @@ static void integer_text(long value, char *text, int conversion,
      * and the zero R9 (0x8c1233e2, 0x8c1233e4); stored through text, the two
      * trade and 14 of 257 words differ */
     *start = '\0';
+#ifdef GCC
+    /* GCC can't see that every path sets radix: each caller's conversion is
+     * one of the letters the switch below names */
+    radix = 10;
+#endif
     switch (conversion) {
     case 'd':
     case 'i':

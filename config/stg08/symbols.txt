@@ -982,9 +982,8 @@
 0x0ca58194  icecap_bridge_rope_model
 0x0ca58308  icecap_bridge_post_model
 0x0ca58364  obj_icecap_textures
-0x0ca58808  flake_textures
 0x0ca58814  obj_icecap_texlist
-0x0ca588dc  trail_textures
+0x0ca5881c  obj_icecap2_textures
 0x0ca58aec  icecap_pom_texlist
 0x0ca58af4  alpha_water_texlist
 0x0ca58b04  h_nadd_texlist
@@ -1157,6 +1156,12 @@
 0x0caa4938  dat_0caa4938
 0x0caa4960  icecap_sky_object_2
 0x0caa4998  dat_0caa4998
+0x0caa6454  dat_0caa6454
+0x0caa7d08  dat_0caa7d08
+0x0caaaaac  dat_0caaaaac
+0x0caad820  dat_0caad820
+0x0caaee64  dat_0caaee64
+0x0cab0ae8  dat_0cab0ae8
 0x0cab0af0  big_plank_shape
 0x0cab0b28  snowfall_texlist
 0x0cab0b30  snowfall_texanim

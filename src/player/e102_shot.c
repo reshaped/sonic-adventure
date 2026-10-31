@@ -166,19 +166,39 @@ static struct collision_shape shot_shape = {
  * which has shot_trail_draw load red's, green's and blue's own addresses (pool
  * words at 0x8c0dd44c to 0x8c0dd454). as an NJS_ARGB, SHC reaches them from its
  * address, and 113 of 114 words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's four are the members of one
+ * NJS_ARGB */
+static NJS_ARGB shot_trail_color = {1.0F, 0.0F, 0.0F, -1.0F};
+#define shot_trail_material shot_trail_color.a
+#define shot_trail_red shot_trail_color.r
+#define shot_trail_green shot_trail_color.g
+#define shot_trail_blue shot_trail_color.b
+#else
 static Float shot_trail_material = 1.0F;
 static Float shot_trail_red = 0.0F;
 static Float shot_trail_green = 0.0F;
 static Float shot_trail_blue = -1.0F;
+#endif
 static NJS_ARGB shot_flash_material = {1.0F, 0.0F, 0.0F, -1.0F};
 /* @hack type: the blast's NJS_ARGB as four floats, read through the first,
  * which has shot_blast_step load red's, green's and blue's own addresses (pool
  * words at 0x8c0dd7a8 to 0x8c0dd7b0). as an NJS_ARGB, SHC reaches them from its
  * address, and 24 of 137 words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's four are the members of one
+ * NJS_ARGB */
+static NJS_ARGB shot_blast_color = {1.0F, 1.0F, 1.0F, 1.0F};
+#define shot_blast_material shot_blast_color.a
+#define shot_blast_red shot_blast_color.r
+#define shot_blast_green shot_blast_color.g
+#define shot_blast_blue shot_blast_color.b
+#else
 static Float shot_blast_material = 1.0F;
 static Float shot_blast_red = 1.0F;
 static Float shot_blast_green = 1.0F;
 static Float shot_blast_blue = 1.0F;
+#endif
 
 /* the lock-on in his list whose target is nearest to work, or NULL for
  * none. it counts only lock-ons with a target still there and no shot at
@@ -739,6 +759,13 @@ void e102_shoot(struct task *task, struct player *record, struct e102 *e102)
     /* the lock-ons and the shots list themselves again next step */
     e102->lockon_count = e102->shot_count = 0;
 }
+
+#ifdef GCC
+struct task_work *e102_shot_shooter(struct task *task)
+{
+    return task->destructor == shot_destroy ? SHOT(task)->player : NULL;
+}
+#endif
 
 void e102_release_shot(struct task *shot, NJS_VECTOR *speed)
 {

@@ -11,6 +11,7 @@
 0x0c900448  chaos7_event_ray
 0x0cb00000  tikal_player_step
 0x0cb019d8  tikal_texlist
+0x0cb099dc  tikal_object
 0x0cb2d478  dat_0cb2d478
 0x0cb80000  ev00fd_head
 0x0cb80008  ev00fd_script

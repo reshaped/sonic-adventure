@@ -18,6 +18,6 @@ static NJS_MOTION ev0008_tails_motion_3 = {
 NJS_ACTION ev0008_tails_action_3 = {
 #include "ev0008/tails_action_3/ev0008_tails_action_3.inc"
 };
-static NJS_TEXNAME ev0008_emerald_textures[1] = {
+NJS_TEXNAME ev0008_emerald_textures[1] = {
     {TEXT_1, 0, 0},
 };

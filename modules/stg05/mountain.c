@@ -49,11 +49,18 @@ extern NJS_COLOR cloud_uvs[];
 extern NJS_OBJECT dat_0ca754a8;
 extern NJS_TEXLIST dat_0caaeea0;
 extern NJS_ACTION dat_0caaed9c;
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and each one
+ * names a byte inside stage_clears */
+#define sonic_mountain_clear (stage_clears[CHARACTER_SONIC][STAGE_MOUNTAIN])
+#define tails_mountain_clear (stage_clears[CHARACTER_TAILS][STAGE_MOUNTAIN])
+#else
 /* @hack spelling: stage_clears' entries for Sonic and Tails as bytes of their
  * own, which fun_0c913a20 loads through R3 and R2 (0x0c913a34, 0x0c913a36);
  * read from the array, the two trade and 5 of 144 words differ */
 extern Sint8 sonic_mountain_clear;
 extern Sint8 tails_mountain_clear;
+#endif
 
 static const struct angles mountain_no_slope = {0, 0, 0};
 

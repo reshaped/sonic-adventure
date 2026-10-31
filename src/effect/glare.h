@@ -3,6 +3,10 @@
 #define EFFECT_GLARE_H
 #include <ninja.h>
 
+/* the glow's texlist, of one texture, EFF_REGULAR's panlight. STG05's lamps
+ * draw their own glow sprite from it */
+extern NJS_TEXLIST glare_texlist;
+
 /* draw the glow of the light at pos, which shines along the unit vector
  * dir, in color. let back be the level direction out of the camera's back,
  * and d dir's part along back. the glow's alpha is 0 unless the light lies

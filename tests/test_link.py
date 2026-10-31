@@ -40,23 +40,6 @@ def entries(*names):
     return b''.join(b'\xc0' + bytes([len(name)]) + name for name in names)
 
 
-# an object as R32 writes one: three references, the second split across two
-# records, then a definition and data
-ENTRIES = entries(b'_task_create', b'_njSin', b'_ab')
-OBJECT = [record(0x80, bytes(30)), record(0x88, b'@' + bytes(18)),
-          record(0x0C, ENTRIES[:15]), record(0x8C, ENTRIES[15:]),
-          record(0x94, b'\0\3\x20' + bytes(4) + b'\x07_a_init'),
-          record(0x9C, b'\x80' + bytes(4) + b'\x05_abcd\0'),
-          record(0xFF)]
-# where the run of references starts
-RUN = len(OBJECT[0] + OBJECT[1])
-
-
-def references(*parts):
-    with tree({'x.obj': b''.join(parts)}):
-        return link.references(Path('x.obj'))
-
-
 class SRecords(unittest.TestCase):
     def rejects(self, pattern, *lines):
         with self.assertRaisesRegex(SystemExit, pattern):
@@ -96,62 +79,6 @@ class SRecords(unittest.TestCase):
 
     def test_rejects_an_end_record_with_more_than_its_address(self):
         self.rejects(r'x\.mot:2: S9 with bytes after its 2-byte address', HEADER, 'S904000000FB')
-
-
-class Records(unittest.TestCase):
-    def test_gives_each_record_at_its_offset_to_the_end(self):
-        with tree({'x.obj': b''.join(OBJECT)}):
-            found = list(link.records(Path('x.obj')))
-        self.assertEqual(found, [(len(b''.join(OBJECT[:index])), record) for index, record in enumerate(OBJECT)])
-
-
-class References(unittest.TestCase):
-    def rejects(self, pattern, *parts):
-        with self.assertRaisesRegex(SystemExit, pattern):
-            references(*parts)
-
-    def test_reads_the_symbols_an_object_references(self):
-        self.assertEqual(references(*OBJECT), {'_task_create', '_njSin', '_ab'})
-
-    def test_reads_a_symbol_that_spans_records(self):
-        run = [record(0x0C, ENTRIES[:4]), record(0x0C, ENTRIES[4:20]), record(0x8C, ENTRIES[20:])]
-        self.assertEqual(references(*run, record(0xFF)), {'_task_create', '_njSin', '_ab'})
-
-    def test_ignores_a_symbol_spelled_outside_its_references(self):
-        # the definition and the data spell _a_init and _abcd after their lengths
-        self.assertEqual(references(*OBJECT[:2], *OBJECT[4:]), set())
-        self.assertEqual(references(*OBJECT[:2], record(0x8C, entries(b'_abcd')), *OBJECT[4:]), {'_abcd'})
-
-    def test_rejects_a_truncated_record(self):
-        end = len(b''.join(OBJECT[:-1]))
-        self.rejects(rf'x\.obj: the record at {end:#x} is cut short', *OBJECT[:-1], OBJECT[-1][:-1])
-        self.rejects(rf'x\.obj: the record at {end:#x} is cut short', *OBJECT[:-1], b'\xff')
-
-    def test_rejects_a_bad_size(self):
-        self.rejects(rf'x\.obj: the record at {RUN:#x} has size 2', *OBJECT[:2], b'\x0c\x02', *OBJECT[3:])
-        longer = bytes([0x0C, OBJECT[2][1] + 1]) + OBJECT[2][2:]
-        self.rejects(rf'x\.obj: the record at {RUN:#x} fails its checksum', *OBJECT[:2], longer, *OBJECT[3:])
-        self.rejects(rf'x\.obj: the record at {RUN:#x} is cut short', *OBJECT[:2], b'\x0c\xff', *OBJECT[3:5])
-
-    def test_rejects_a_wrong_checksum(self):
-        wrong = OBJECT[2][:-1] + bytes([OBJECT[2][-1] ^ 1])
-        self.rejects(rf'x\.obj: the record at {RUN:#x} fails its checksum', *OBJECT[:2], wrong, *OBJECT[3:])
-
-    def test_rejects_a_run_another_kind_breaks(self):
-        broken = len(OBJECT[0] + OBJECT[1] + OBJECT[2])
-        self.rejects(rf'x\.obj: the record at {broken:#x} breaks a run of kind 0x0c', *OBJECT[:3], *OBJECT[4:])
-
-    def test_rejects_references_that_dont_parse(self):
-        for run in (b'\x80\x02_a', entries(b'_ab')[:-1], b'\xc0'):
-            self.rejects(rf"x\.obj: the references at {RUN:#x} don't parse", *OBJECT[:2], record(0x8C, run), OBJECT[-1])
-
-    def test_rejects_what_isnt_an_object(self):
-        self.rejects(r'x\.obj: no end record', *OBJECT[:-1])
-        self.rejects(r'x\.obj: no end record')
-        end = len(b''.join(OBJECT))
-        self.rejects(rf'x\.obj: bytes follow its end, at {end:#x}', *OBJECT, b'\0')
-        self.rejects(r'x\.obj: the record at 0x0 is cut short', HEADER.encode())
-        self.rejects(r'x\.obj: the record at 0x0 has size 0', bytes(4))
 
 
 class Names(unittest.TestCase):
@@ -202,32 +129,7 @@ def obj(size, alignment):
     return b''.join([record(0x80, bytes(30)), record(0x88, section(b'P', size, alignment)), record(0xFF)])
 
 
-class Sections(unittest.TestCase):
-    def table(self, *parts):
-        with tree({'x.obj': b''.join([record(0x80, bytes(30)), *parts, record(0xFF)])}):
-            return link.section_table(Path('x.obj'))
-
-    def test_reads_each_sections_size_alignment_and_kind(self):
-        self.assertEqual(self.table(record(0x88, section(b'P', 0x520, 32)),
-                                    record(0x88, section(b'D', 0xC0, 8, data=True))),
-                         {'P': (0x520, 32, True), 'D': (0xC0, 8, False)})
-        self.assertEqual(self.table(record(0x88, section(b'PSG', 0xB6C, 4) + section(b'CSG', 0x92, 8, data=True))),
-                         {'PSG': (0xB6C, 4, True), 'CSG': (0x92, 8, False)})
-
-    def test_rejects_a_cut_entry(self):
-        with self.assertRaisesRegex(SystemExit, r"x\.obj: the sections at 0x21 don't parse"):
-            self.table(record(0x88, section(b'P', 0x520, 32)[:-1]))
-
-    def test_rejects_a_section_named_twice(self):
-        with self.assertRaisesRegex(SystemExit, r'x\.obj: the sections at 0x21 name P again'):
-            self.table(record(0x88, section(b'P', 0x520, 32) + section(b'P', 0x40, 4)))
-
-    def test_rejects_an_alignment_not_a_power_of_two(self):
-        for alignment in (0, 3):
-            with self.subTest(alignment=alignment), self.assertRaisesRegex(
-                    SystemExit, rf'x\.obj: the sections at 0x21 align P to {alignment}, not a power of two'):
-                self.table(record(0x88, section(b'P', 0x520, alignment)))
-
+class Section(unittest.TestCase):
     def test_reads_the_object_or_else_its_stub(self):
         with tree({'build/modules/mod/built.obj': obj(0x40, 32), 'build/stub/modules/mod/built.obj': obj(0x40, 32),
                    'build/stub/modules/mod/stubbed.obj': obj(0x60, 32)}):
@@ -252,7 +154,7 @@ class Sections(unittest.TestCase):
                 link.section('modules/mod/tied.c', 'P')
 
 
-# extents as tools/config.py gives them: DSGLH and B with their ends, D with its
+# extents as tools/images.py gives them: DSGLH and B with their ends, D with its
 # start alone, D32 and R, empty, at one address, and RSG and RSG32, empty, where
 # B starts
 EXTENTS = (('DSGLH', 0x8C010000, 0x8C010080), ('D', 0x8C1755E0, None), ('D32', 0x8C6143E0, 0x8C6143E0),
@@ -354,7 +256,7 @@ class Layout(unittest.TestCase):
             link.layout('a.c', [('P', 0x0CB80008, 0x0CB80018)], (), declared)
 
     def test_rejects_an_object_longer_than_its_extent(self):
-        with self.assertRaisesRegex(SystemExit, r'a\.c: its B runs past 0x8c7dd484, where tools/config\.py ends B'):
+        with self.assertRaisesRegex(SystemExit, r'a\.c: its B runs past 0x8c7dd484, where tools/images\.py ends B'):
             link.layout('a.c', [('B', 0x8C688100, 0x8C7DD488)], EXTENTS, {'B': (0x155388, 4, False)})
 
 

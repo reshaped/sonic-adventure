@@ -212,8 +212,17 @@ static void land_fade_draw(struct task *task)
                 }
             }
         }
+#ifdef GCC
+        /* the fade advances in this draw. the second picture's pass draws
+         * again and leaves it, so it fades as at 30 fps */
+        if (!frame_redrawing) {
+            fade_alphas[i] += change;
+            fade_alphas[i] = CLAMP(fade_alphas[i], FADE_LEAST, 1.0F);
+        }
+#else
         fade_alphas[i] += change;
         fade_alphas[i] = CLAMP(fade_alphas[i], FADE_LEAST, 1.0F);
+#endif
         color.a = fade_alphas[i];
         njSetConstantMaterial(&color);
         draw_tree(entry->object);

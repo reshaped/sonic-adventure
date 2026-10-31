@@ -272,6 +272,11 @@ Sint32 ovMdlExec(OVMDL ovmdl)
      * 0x8ce07178 in LOADER.BIN) leaves the module's own R0 as the result;
      * returned explicitly, the call builds the address in R0, not R2, and adds
      * a NOP, and 7 of 7 words differ in each image */
+#ifdef GCC
+    /* keeps the result the tag names: the module's own */
+    return ((Sint32 (*)(void))((Uint32)ovmdl | P2))();
+#else
     ((Sint32 (*)(void))((Uint32)ovmdl | P2))();
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 import sums
-from support import tree
+from support import MOTION, tree
 
 HASH = '0' * 64
 # the images config/ describes: 1ST_READ.BIN, and MOD.PRS, which decodes to MOD.BIN
@@ -29,6 +29,19 @@ class Sums(unittest.TestCase):
     def test_rejects_an_original_config_doesnt_describe(self):
         with self.assertRaisesRegex(SystemExit, r'orig/SONICADV/OLD\.PRS: in SHA256SUMS, and config/ describes no such file'):
             check([f'{HASH}  orig/1ST_READ.BIN', f'{HASH}  orig/SONICADV/OLD.PRS'], ['orig/1ST_READ.BIN'])
+
+    def test_holds_no_build_file_to_a_motion_files_line(self):
+        # make rebuilds no motion file, an image without code: no build/ file takes orig/SONICADV/X_MOT.PRS's hash,
+        # and its line is expected only where build/expected.txt lists it
+        binaries = [f'{HASH}  orig/1ST_READ.BIN', f'{HASH}  orig/SONICADV/MOD.PRS']
+        rebuilt = [f'{HASH}  build/1ST_READ.BIN', f'{HASH}  build/SONICADV/MOD.PRS']
+        for lines, expected in (([*binaries, f'{HASH}  orig/SONICADV/X_MOT.PRS'], 'orig/SONICADV/X_MOT.PRS\n'),
+                                (binaries, '')):
+            with self.subTest(expected=expected), \
+                    tree(dict(IMAGES, **MOTION, **{'SHA256SUMS': ''.join(f'{line}\n' for line in lines),
+                                                   'build/expected.txt': expected})):
+                sums.main(['build/expected.txt', 'build/sums.txt'])
+                self.assertEqual(Path('build/sums.txt').read_text().splitlines(), [*lines, *rebuilt])
 
     def test_rejects_a_line_out_of_form(self):
         with self.assertRaisesRegex(SystemExit, r'SHA256SUMS:2: not a hash, two spaces and a path'):

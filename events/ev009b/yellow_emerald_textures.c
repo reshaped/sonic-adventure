@@ -15,6 +15,6 @@ static NJS_TEXNAME ev009b_yellow_emerald_textures[1] = {
 NJS_TEXLIST ev009b_yellow_emerald_texlist = {
 #include "ev009b/yellow_emerald_textures/ev009b_yellow_emerald_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb8692c[1] = {
+NJS_MATERIAL dat_0cb8692c[1] = {
 #include "ev009b/yellow_emerald_textures/dat_0cb8692c.inc"
 };

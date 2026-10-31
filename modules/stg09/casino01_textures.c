@@ -175,6 +175,6 @@ static NJS_TEXNAME casino01_textures[131] = {
 NJS_TEXLIST casino01_texlist = {
 #include "stg09/casino01_textures/casino01_texlist.inc"
 };
-static NJS_MATERIAL dat_0c927ddc[9] = {
+NJS_MATERIAL dat_0c927ddc[9] = {
 #include "stg09/casino01_textures/dat_0c927ddc.inc"
 };

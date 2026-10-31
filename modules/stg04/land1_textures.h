@@ -4,8 +4,8 @@
 #include <ninja.h>
 
 /* world_load_act loads this texlist from HIGHWAY02, the pvm act 1's land names.
- * 1ST_READ.BIN's highway_act_pvms reaches it too, by its address, 0x0c99cf48,
- * but texture_load_act refuses highway's acts */
+ * 1ST_READ.BIN's highway_act_pvms names it too, but texture_load_act refuses
+ * highway's acts */
 extern NJS_TEXLIST highway_land1_texlist;
 
 #endif

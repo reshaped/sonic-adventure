@@ -24,7 +24,7 @@ the tables don't give, fails the link.
 
 Each of the object's sections starts at its first range. A section that
 holds bytes and has no range fails the link. An empty section with no range
-starts at the extent tools/config.py gives it, if any, and lnk places one
+starts at the extent tools/images.py gives it, if any, and lnk places one
 with neither. Sections that start at one address start there in the
 extents' order, then any the extents don't give. Where a section starts at
 its extent's start and the extent has an end, the link reserves the rest of
@@ -45,7 +45,11 @@ import sys
 from collections import Counter
 from pathlib import Path, PureWindowsPath
 
-from config import ZEROED, Config, aligned, configs, content, fail, hexa, named, save
+from config import Config, configs
+from images import ZEROED
+from shc_object import references, section_table
+from tables import aligned, hexa, named
+from tool import content, fail, save, stoppable
 
 WIBO = os.environ.get('WIBO', 'tools/wibo-i686')
 R32 = Path(os.environ.get('R32', 'tools/shc-v5.0r32'))
@@ -61,8 +65,6 @@ SRECORD = re.compile(r'S[0-9](?:[0-9A-F]{2})+')
 # S3 write their data starting at it. S7 to S9, the end records, hold the
 # start address alone.
 ADDRESS_WIDTH = {0: 2, 1: 2, 2: 3, 3: 4, 7: 4, 8: 3, 9: 2}
-# SHC object record kinds: sections, external references and end of object
-SECTIONS, REFERENCES, END = 0x08, 0x0C, 0x7F
 # the section tables that section() has read, by object path
 OBJECTS = {}
 # second names a source declares extern for one of its own functions, so
@@ -174,96 +176,6 @@ def srecords(path):
     return written
 
 
-def records(obj):
-    """Each of the object's records, as (offset, bytes), in file order
-    through the record that ends the object. A record fails where it is cut
-    short, holds under 3 bytes or has a wrong checksum. Bytes after the end
-    record fail too, as does an object without one."""
-    # a record is a kind byte, a size byte that counts the whole record, the
-    # body, and a checksum byte that brings the record's sum to 0xff. Bit
-    # 0x80 of the kind ends a run of records, and the run of kind END ends
-    # the object.
-    data = content(obj)
-    at = 0
-    while at < len(data):
-        if at + 2 > len(data) or at + data[at + 1] > len(data):
-            fail(f'{obj}: the record at {at:#x} is cut short')
-        record = data[at:at + data[at + 1]]
-        if len(record) < 3:
-            fail(f'{obj}: the record at {at:#x} has size {len(record)}')
-        if sum(record) & 0xFF != 0xFF:
-            fail(f'{obj}: the record at {at:#x} fails its checksum')
-        yield at, record
-        at += len(record)
-        if record[0] == 0x80 | END:
-            if at < len(data):
-                fail(f'{obj}: bytes follow its end, at {at:#x}')
-            return
-    fail(f'{obj}: no end record')
-
-
-def runs(obj):
-    """Each run of records of one kind, as (offset, kind, body): the offset
-    of the run's first record, the kind without bit 0x80, and the bodies of
-    the run's records joined. A record of another kind inside a run fails."""
-    # a bytearray grows in place, where bytes would copy the run so far at each record
-    start, kind, body = 0, None, bytearray()
-    for at, record in records(obj):
-        this = record[0] & 0x7F
-        if kind not in (None, this):
-            fail(f'{obj}: the record at {at:#x} breaks a run of kind {kind:#04x}')
-        kind = this
-        body += record[2:-1]
-        if record[0] & 0x80:
-            yield start, kind, bytes(body)
-            start, kind, body = at + len(record), None, bytearray()
-
-
-def references(obj):
-    """The names of the object's external references, as it spells them: a C
-    name with its leading underscore. A references run that doesn't parse
-    fails."""
-    # an entry is 0xc0, the name's length and the name, and may cross a
-    # record boundary within the run
-    names = set()
-    for start, kind, body in runs(obj):
-        if kind != REFERENCES:
-            continue
-        at = 0
-        while at < len(body):
-            if at + 2 > len(body) or body[at] != 0xC0 or (end := at + 2 + body[at + 1]) > len(body):
-                fail(f'{obj}: the references at {start:#x} don\'t parse')
-            names.add(body[at + 2:end].decode('latin-1'))
-            at = end
-    return names
-
-
-def section_table(obj):
-    """The object's sections by name, each as (size, alignment, code). A
-    sections run that doesn't parse fails, as do a name the table gives twice
-    and an alignment not a power of two."""
-    # a section entry is 16 bytes of attributes, size and alignment, then the
-    # name's length and the name. The size is the big-endian 32-bit word at
-    # offset 5, the alignment the one at 9, and bit 0x10 of byte 13 marks
-    # data, not code.
-    found = {}
-    for start, kind, body in runs(obj):
-        if kind != SECTIONS:
-            continue
-        at = 0
-        while at < len(body):
-            if at + 17 > len(body) or (end := at + 17 + body[at + 16]) > len(body):
-                fail(f'{obj}: the sections at {start:#x} don\'t parse')
-            name, alignment = body[at + 17:end].decode('latin-1'), int.from_bytes(body[at + 9:at + 13], 'big')
-            if name in found:
-                fail(f'{obj}: the sections at {start:#x} name {name} again')
-            if not alignment or alignment & (alignment - 1):
-                fail(f'{obj}: the sections at {start:#x} align {name} to {alignment}, not a power of two')
-            found[name] = (int.from_bytes(body[at + 5:at + 9], 'big'), alignment, not body[at + 13] & 0x10)
-            at = end
-    return found
-
-
 def section(source, name):
     """The (size, alignment, code) that source's object declares for the
     section called name. size includes the bytes the object leaves
@@ -371,7 +283,7 @@ def layout(source, ranges, extents, declared):
         # lnk starts the reserved space on the section's alignment, after the object's bytes
         after = aligned(start + size, alignment)
         if end < start + size:
-            fail(f'{source}: its {name} runs past {hexa(end)}, where tools/config.py ends {name}')
+            fail(f'{source}: its {name} runs past {hexa(end)}, where tools/images.py ends {name}')
         if after < end:
             reserved.append((name, end - after, alignment, code))
     return grouped(starts, extents), reserved
@@ -496,17 +408,6 @@ def main(argv):
     # the tools allow one dot in a file name
     syms = define(out.with_name(out.stem + '_syms.src'), exported(names, references(obj), ranges), reserved)
     save(out, joined(config, source, place([obj, syms], starts, out)))
-
-
-def stoppable():
-    """Have a hangup, ^\\ or TERM raise SystemExit with status 128 plus the
-    signal's number, as ^C raises KeyboardInterrupt. run() then stops its
-    tool on any of them. Each reaches this process, in make's process group,
-    but not the session that run() starts a tool in. A signal ignored at the
-    start, as under nohup, stays ignored."""
-    for number in (signal.SIGHUP, signal.SIGQUIT, signal.SIGTERM):
-        if signal.getsignal(number) != signal.SIG_IGN:
-            signal.signal(number, lambda received, _: sys.exit(128 + received))
 
 
 if __name__ == '__main__':

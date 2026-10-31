@@ -6,6 +6,8 @@
  * ev001b_sonic_fingers. only the words that point into the image differ */
 #include <ninja.h>
 
+#include "ev0023/dat_0cb83368.h"
+
 #define TEXT_1_LENGTH 10
 #include "ev0023/dat_0cb83368/text.inc"
 
@@ -15,6 +17,6 @@ static NJS_TEXNAME dat_0cb83368[1] = {
 static NJS_TEXLIST dat_0cb83374 = {
 #include "ev0023/dat_0cb83368/dat_0cb83374.inc"
 };
-static NJS_MATERIAL dat_0cb8337c[3] = {
+NJS_MATERIAL dat_0cb8337c[3] = {
 #include "ev0023/dat_0cb83368/dat_0cb8337c.inc"
 };

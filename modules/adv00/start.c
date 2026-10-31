@@ -43,8 +43,8 @@ static struct station_square_start *station_square_starts[] = {
 };
 
 /* under section HEAD, SHC writes the function to section PHEAD, which the
- * module's link places first. 1ST_READ.BIN's stage_place_player calls it by its
- * address there */
+ * module's link places first. 1ST_READ.BIN's stage_place_player calls it
+ * there */
 #pragma section HEAD
 void station_square_place_player(struct task_work *work)
 {

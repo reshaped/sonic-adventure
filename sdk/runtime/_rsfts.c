@@ -34,4 +34,9 @@ int _rsfts(unsigned char *bytes, int n, short bits)
      * to the epilogue, and RTS at 0x8c127a48 returns R0 as the caller left it
      * (0x8ce05b2e and 0x8ce05b70 in LOADER.BIN). no caller passes 8 or reads
      * the result */
+#ifdef GCC
+    /* repairs the missing result the tag names: GCC returns 0, as for a
+     * shift that moves no set bit out */
+    return 0;
+#endif
 } /* NOLINT(clang-diagnostic-return-type) */

@@ -265,6 +265,11 @@ static void mountain_spider_a_init(struct task *task)
         /* @bug uninitialized: on a miss, no path sets bottom: the BT at
          * 0x0c90efb0 skips the hit's load at 0x0c90efb4, and the FSUB at
          * 0x0c90efbe subtracts FR4 as polygon_cast_segment leaves it */
+#ifdef GCC
+        /* repairs the unset bottom the tag names: a miss takes the cast's
+         * end, 1000 below, so the drop passes 80 */
+        bottom = query->pos.y + query->dir.y;
+#endif
         /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
         if (polygon_cast_segment(query, NULL)) {
             bottom = query->hit.y;

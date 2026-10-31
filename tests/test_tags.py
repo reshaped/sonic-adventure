@@ -67,7 +67,7 @@ void outline(void)
 
 /* @asm opcode: cache-line, OCBI @R4 at 0x0c900004, in host, invalidates a line */
 #pragma inline_asm(expanded)
-static void expanded(void)
+static void expanded(void *line)
 {
         OCBI        @R4
 }
@@ -76,7 +76,7 @@ static void expanded(void)
 
 void host(void)
 {
-    expanded();
+    expanded(0);
 }
 '''
 
@@ -229,6 +229,11 @@ class Tags(unittest.TestCase):
                          r'#pragma inline_asm\(<function>\(size=<n>\)\)$',
                          C.replace('#pragma inline_asm(expanded)', spelling))
 
+    def test_wants_a_function_below_each_pragma_inline_asm(self):
+        headless = C + '/* @asm open: nothing */\n#pragma inline_asm(none)\n'
+        self.rejects(rf'(?m)a\.c:{line(headless, "#pragma inline_asm(none)")}: #pragma inline_asm\(none\), with no '
+                     r'function after it$', headless)
+
     def test_wants_no_tag_but_above_an_inline_body(self):
         self.rejects(r'a\.c:22: an @asm tag not directly above a #pragma inline_asm',
                      C.replace('void host(void)', '/* @asm open: x */\nvoid host(void)'))
@@ -247,21 +252,21 @@ class Tags(unittest.TestCase):
         # an expanded body's addresses are its callers', directly or through macros, and its tag needn't name them
         self.rejects(r'a\.c:13: 0x0c900014 is outside its function', C.replace('0x0c900004', '0x0c900014'))
         bare = C.replace(', in host,', ',')
-        macros = '#define EXPAND() \\\n    expanded()\n#define TWICE() \\\n    EXPAND()\n'
-        for call in ('expanded', 'EXPAND', 'TWICE'):
-            check(bare.replace('    expanded();', f'    {call}();') + macros)
+        macros = '#define EXPAND() \\\n    expanded(0)\n#define TWICE() \\\n    EXPAND()\n'
+        for call in ('expanded(0)', 'EXPAND()', 'TWICE()'):
+            check(bare.replace('    expanded(0);', f'    {call};') + macros)
         # but not a function that calls a host
         self.rejects(r'a\.c:13: 0x0c900008 is outside its function',
                      C.replace('0x0c900004', '0x0c900008') + '\nvoid outer(void)\n{\n    host();\n}\n')
         # nor one that calls a longer name, or names the body only in a comment or a literal
         self.rejects(r'a\.c:13: 0x0c900004 is outside its function',
-                     bare.replace('    expanded();', '    unexpanded();'))
+                     bare.replace('    expanded(0);', '    unexpanded(0);'))
         for mention in ('/* unlike expanded(), this reads no line */', 'static const char *s = "expanded()";'):
             self.rejects(r'a\.c:13: 0x0c900008 is outside its function',
                          bare.replace('0x0c900004', '0x0c900008') + f'\nvoid outer(void)\n{{\n    {mention}\n}}\n')
         # a macro goes on past a comment that runs across its lines
-        check(bare.replace('    expanded();', '    EXPAND();') +
-              '#define EXPAND() \\\n    /* the body, \\\n     * expanded */ \\\n    expanded()\n')
+        check(bare.replace('    expanded(0);', '    EXPAND();') +
+              '#define EXPAND() \\\n    /* the body, \\\n     * expanded */ \\\n    expanded(0)\n')
         # an address in capitals too
         self.rejects(r'a\.c:4: 0x0c900020 is outside its function', C.replace('0x0c900014', '0X0C900020'))
         # an address may lie in another function of its source that the tag names, but not in another source's
@@ -514,11 +519,10 @@ class Tags(unittest.TestCase):
                                             'invalidates a line\n; @asm opcode: cache-line, at 0x0c900046\n'))
 
     def test_wants_no_assembly_tag_above_a_label_that_starts_no_function(self):
-        # c_tail, which the tables don't name and no .EXPORT exports, and c_data, before data
-        for label in ('c_tail', '_c_data'):
-            src = SRC.replace(f'\n{label}:', f'\n; @asm open: x\n{label}:')
-            self.rejects(rf'(?m)c\.src:{line(src, "; @asm open: x")}: an @asm tag above {label}, which starts no '
-                         r'function$', src=src)
+        # c_tail, which the tables don't name and no .EXPORT exports, starts code but no function
+        src = SRC.replace('\nc_tail:', '\n; @asm open: x\nc_tail:')
+        self.rejects(rf'(?m)c\.src:{line(src, "; @asm open: x")}: an @asm tag above c_tail, which starts no function$',
+                     src=src)
 
     def test_wants_each_assembly_address_in_its_label_s_function(self):
         self.rejects(r'c\.src:8: 0x0c900050 is outside its function', src=SRC.replace('0x0c900044', '0x0c900050'))
@@ -528,10 +532,19 @@ class Tags(unittest.TestCase):
         # a label the tables don't name lies in the function of the last label above it they name
         check(src=TAIL)
         self.rejects(r'c\.src:13: 0x0c900054 is outside its function', src=TAIL.replace('0x0c900048', '0x0c900054'))
+        # but a label in a run with a label they name lies in that label's function: c_next_entry in c_next's, not
+        # c_entry's
+        check(src=SRC.replace('_c_next:\n', 'c_next_entry:\n_c_next:\n')
+              .replace('; @asm open: every instruction', '; @asm open: at 0x0c900050, every instruction'))
         # a function runs past a second name at its address
         self.assertEqual(review(symbols=TABLES['config/mod/symbols.txt'] + '0x0c900040  c_start\n'), [NEXT])
         # and a hex number of fewer than 8 digits is no address
         check(src=SRC.replace('invalidates a line', 'invalidates the line at VBR + 0x100'))
+
+    def test_wants_an_assembly_tag_above_a_label_that_starts_code(self):
+        # _c_data labels a .DATA.L, which starts no code
+        self.rejects(rf'(?m)c\.src:{line(SRC, "; Uint32 c_data") + 1}: an @asm tag above _c_data, a label that starts '
+                     'no code$', src=SRC.replace('; Uint32 c_data\n', '; Uint32 c_data\n; @asm open: a datum\n'))
 
     def test_wants_an_address_in_an_assembly_tag(self):
         self.rejects(r'c\.src:8: @asm opcode cites no address', src=SRC.replace(' at 0x0c900044', ''))
@@ -601,6 +614,275 @@ class Tags(unittest.TestCase):
     def test_lists_and_still_checks_each_tag(self):
         with self.assertRaisesRegex(SystemExit, r'c\.src:8: 0x0c900050 is outside its function'):
             review(src=SRC.replace('0x0c900044', '0x0c900050'))
+
+
+# c.src with an abi tag above c_next_entry, a label of c_next's run that the tables don't name and no .EXPORT exports
+ENTRY = SRC.replace('; @asm open: every instruction is one SHC writes for C\n_c_next:\n',
+                    '; @asm abi: stack-written, its RTS at 0x0c900050 returns\nc_next_entry:\n_c_next:\n')
+
+
+def abi(*contracts, c=C, src=ENTRY):
+    """Run tags --abi over modules/mod/a.c and modules/mod/c.src, which hold c and src, with each of contracts as a
+    --contract."""
+    with tree(dict(TABLES, **{'modules/mod/a.c': c, 'modules/mod/c.src': src})):
+        tags.main(['--abi', *(f'--contract={name}' for name in contracts), 'modules/mod/a.c', 'modules/mod/c.src'])
+
+
+# a.c with outline's body tagged abi
+ABI = C.replace("/* @asm epilogue: dead-return, SHC's unreachable RTS at 0x0c900014 follows\n * the body's own return "
+                "at 0x0c900010 */", '/* @asm abi: stack-written, its RTS at 0x0c900010 returns */')
+
+
+class Contracts(unittest.TestCase):
+    def test_names_each_abi_function_no_contract_names(self):
+        # c_next_entry's tag is c_next's, the function its run of labels starts, for --abi as for the address it cites
+        with self.assertRaisesRegex(SystemExit, rf'(?m)modules/mod/c\.src:{line(ENTRY, "c_next_entry:")}: c_next: '
+                                                r'its @asm tag is abi, and no --contract names it$'):
+            abi()
+        abi('c_next')
+        # an exported label's is its own
+        with self.assertRaisesRegex(SystemExit, rf'(?m)modules/mod/c\.src:{line(TAIL, "c_tail:")}: c_tail: '
+                                                r'its @asm tag is abi, and no --contract names it$'):
+            abi(src=TAIL)
+        abi('c_tail', src=TAIL)
+        # and a body's is its function's
+        with self.assertRaisesRegex(SystemExit, rf'(?m)modules/mod/a\.c:{line(ABI, "#pragma inline_asm(outline)")}: '
+                                                r'outline: its @asm tag is abi, and no --contract names it$'):
+            abi('c_next', c=ABI)
+        abi('c_next', 'outline', c=ABI)
+
+    def test_names_each_contract_that_names_no_abi_function(self):
+        # outline's tag is epilogue and its body is call-safe. gone names nothing in either file
+        for name in ('outline', 'gone'):
+            with self.subTest(name), self.assertRaisesRegex(
+                    SystemExit, rf'(?m): {name}: --contract names no function whose @asm tag is abi or that may not '
+                                r'be call-safe$'):
+                abi('c_next', name)
+
+    def test_still_checks_each_tag(self):
+        with self.assertRaisesRegex(SystemExit, r'c\.src:8: 0x0c900050 is outside its function'):
+            abi('c_next', src=ENTRY.replace('0x0c900044', '0x0c900050'))
+        # an abi tag above a datum's label is no function's, and fails as any tag there does
+        tagged = ENTRY.replace('; Uint32 c_data\n', '; Uint32 c_data\n; @asm abi: stack-written, at 0x0c900058\n')
+        with self.assertRaisesRegex(SystemExit, r'c\.src:\d+: an @asm tag above _c_data, a label that starts no code'):
+            abi('c_next', src=tagged)
+
+    def test_wants_no_abi_tag_above_a_block_gcc_compiles(self):
+        tagged = BLOCKS.replace('/* @asm open: 8 bytes', '/* @asm abi: stack-written, 8 bytes')
+        check(tagged)
+        with self.assertRaisesRegex(SystemExit, rf'(?m)a\.c:{line(tagged, "#pragma asm")}: a #pragma asm block whose '
+                                                r'@asm tag is abi, which GCC compiles and no --contract can name$'):
+            abi('c_next', c=tagged)
+        # but takes one on the shipped side of a GCC guard
+        abi('c_next', c=tagged.replace('/* @asm abi', '#ifndef GCC\n/* @asm abi').replace(
+            '        ;\n#pragma endasm\n', '        ;\n#pragma endasm\n#endif\n'))
+
+    def test_reads_only_the_images_that_place_its_sources(self):
+        # other's splits.txt holds a line that isn't a row, which reading the image would fail on
+        with tree(dict(TABLES, **{'config/other/splits.txt': 'not a row\n', 'modules/mod/a.c': C,
+                                  'modules/mod/c.src': ENTRY})):
+            tags.main(['--abi', '--contract=c_next', 'modules/mod/a.c', 'modules/mod/c.src'])
+
+
+# ABI with its bodies in the #else of an #ifdef GCC whose other side defines outline in C
+GUARDED = ('#ifdef GCC\nvoid outline(void)\n{\n}\n#else\n' +
+           ABI.replace('#endif\n/* clang-format on */\n', '#endif\n/* clang-format on */\n#endif\n'))
+
+
+def walk(*body, head='static void walk(Uint32 *line)', host='    walk(0);\n'):
+    """a.c with one inline body, walk, and a C function, host. walk's head is head and its lines are body, where a line
+    that ends in : is a label. host's statements are host."""
+    lines = ''.join(f'{line}\n' if line.endswith(':') else f'        {line}\n' for line in body)
+    return ('/* clang-format off */\n#ifndef __clang__\n/* @asm open: a walk */\n#pragma inline_asm(walk)\n'
+            f'{head}\n{{\n{lines}}}\n#endif\n/* clang-format on */\n\nint host(void)\n{{\n{host}}}\n')
+
+
+class CallSafety(unittest.TestCase):
+    def unsafe(self, c, why):
+        """Check that --abi fails on c's body, walk, for why, and passes with a contract for it."""
+        with self.assertRaisesRegex(SystemExit, rf'(?m)a\.c:4: walk: {why}, and no --contract names it$'):
+            abi('c_next', c=c)
+        abi('c_next', 'walk', c=c)
+
+    def test_names_a_body_that_reads_a_register_no_argument_passes(self):
+        c = walk('MOV.L @R4,R1', 'OR R12,R1', 'OCBI @R1')
+        self.unsafe(c, rf'it reads R12 at line {line(c, "OR R12")}, which no argument passes')
+        # the one float argument takes FR4 alone. No argument passes FR5, T, or a register only one path sets
+        c = walk('FMOV.S FR4,@R4', 'FMOV.S FR5,@R4', head='static void walk(Uint32 *line, Float scale)')
+        self.unsafe(c, rf'it reads FR5 at line {line(c, "FMOV.S FR5")}, which no argument passes')
+        c = walk('BT ?done', 'NOP', '?done:')
+        self.unsafe(c, rf'it reads T at line {line(c, "BT")}, which no argument passes')
+        c = walk('TST R4,R4', 'BT ?read', 'MOV #1,R1', '?read:', 'MOV.L R1,@R4')
+        self.unsafe(c, rf'it reads R1 at line {line(c, "MOV.L R1")}, which no argument passes')
+        # but a push only saves a register, and SR and the other bank are the machine's. FR0 names the other bank
+        # after an FRCHG, and with SZ set, an FMOV of FR1 moves XD0, a pair of it
+        abi('c_next', c=walk('MOV.L R12,@-R15', 'MOV.L @R15+,R12', 'STC SR,R0', 'FRCHG', 'FMOV.S FR0,@R4', 'FRCHG',
+                             'FSCHG', 'FMOV FR1,@R4', 'FSCHG'))
+        # R16 names no register: asmsh reads it as a symbol, here a load's label
+        abi('c_next', c=walk('MOV.L R16,R1', 'MOV.L R1,@R4'))
+        # with SZ set, an FMOV of FR2 moves DR2, which no argument passes
+        c = walk('FSCHG', 'FMOV FR2,@R4', 'FSCHG')
+        self.unsafe(c, rf'it reads FR2 at line {line(c, "FMOV FR2")}, which no argument passes')
+        # and one in a case a BRAF jumps to, where the host ends on the call
+        c = walk('MOVA ?T,R0', 'BRAF R0', 'NOP', '?T:', 'MOV R12,R1', 'MOV.L R1,@R4', host='    return walk(0);\n')
+        self.unsafe(c, rf'it reads R12 at line {line(c, "MOV R12")}, which no argument passes')
+
+    def test_names_a_body_that_reads_a_register_a_call_can_change(self):
+        c = walk('MOV R4,R6', 'MOV.L #_f,R1', 'STS.L PR,@-R15', 'JSR @R1', 'NOP', 'LDS.L @R15+,PR', 'MOV.L R0,@R6')
+        self.unsafe(c, rf'it reads R6 at line {line(c, "MOV.L R0")}, which the call at line {line(c, "JSR")} can '
+                       'change')
+        # the RTS that tools/inline.py writes after the body reads PR
+        lost = walk('MOV.L #_f,R1', 'JSR @R1', 'NOP')
+        self.unsafe(lost, rf'its return reads PR, which the call at line {line(lost, "JSR")} can change')
+        # but a register the callee keeps still holds the body's value after the call
+        abi('c_next', c=c.replace('MOV R4,R6', 'MOV.L R8,@-R15\n        MOV R4,R8').replace(
+            'MOV.L R0,@R6', 'MOV.L R0,@R8\n        MOV.L @R15+,R8'))
+
+    def test_names_a_body_that_returns_with_a_kept_register_changed(self):
+        self.unsafe(walk('MOV.L @R4,R8'), 'it returns with R8 changed, which its GCC callers keep')
+        # or popped from a slot that doesn't hold its whole value at entry. These slots hold R9, a word of R8, R8 once
+        # changed, and R8 where one path stores over it through R15
+        for body in (('MOV.L R9,@-R15', 'MOV #0,R8', 'MOV.L @R15+,R8'),
+                     ('MOV.W R8,@-R15', 'MOV #0,R8', 'MOV.W @R15+,R8'),
+                     ('MOV #0,R8', 'MOV.L R8,@-R15', 'MOV.L @R15+,R8'),
+                     ('MOV.L R8,@-R15', 'TST R4,R4', 'BT ?pop', 'MOV.L R4,@R15', '?pop:', 'MOV.L @R15+,R8')):
+            with self.subTest(body=body):
+                self.unsafe(walk(*body), 'it returns with R8 changed, which its GCC callers keep')
+        # R15 too, moved by a push, an ADD, or a copy or a pop into it. With SZ set, an FMOV.S pushes a pair. Each
+        # spells R15 as R15 or SP, in any case
+        for body in (('MOV.L R4,@-R15',), ('ADD #-4,R15',), ('MOV R4,R15',), ('MOV.L R4,@-R15', 'MOV.L @R15+,R15'),
+                     ('FSCHG', 'FMOV.S FR0,@-R15', 'FSCHG', 'MOV.L @R15+,R0'), ('ADD #-4,SP',), ('MOV.L R4,@-sp',)):
+            with self.subTest(body=body):
+                self.unsafe(walk(*body), 'it returns with R15 changed, which its GCC callers keep')
+        # a pop past the body's entry
+        c = walk('MOV.L @R15+,R1', 'NOP')
+        self.unsafe(c, rf"it takes R15 above its entry at line {line(c, 'MOV.L')}, into its caller's frame")
+        # and FPSCR's FR and SZ bits, at a return or a call
+        for bit, swap in (('FR', 'FRCHG'), ('SZ', 'FSCHG')):
+            with self.subTest(bit=bit):
+                self.unsafe(walk(swap), rf"it returns with FPSCR's {bit} bit set, which GCC's code takes clear")
+                c = walk('MOV.L #_f,R1', swap, 'STS.L PR,@-R15', 'JSR @R1', 'NOP', 'LDS.L @R15+,PR', swap)
+                self.unsafe(c, rf"its call at line {line(c, 'JSR')} runs with FPSCR's {bit} bit set, which GCC's code "
+                               'takes clear')
+        # but not where the body puts each back
+        abi('c_next', c=walk('ADD #-8,R15', 'MOV.L R4,@R15', 'ADD #H\'8,R15', 'FRCHG', 'FRCHG'))
+        abi('c_next', c=walk('MOV.L R8,@-R15', 'ADD #-4,R15', 'MOV #0,R8', 'ADD #4,R15', 'MOV.L @R15+,R8'))
+        abi('c_next', c=walk('FSCHG', 'FMOV.S FR0,@-R15', 'FSCHG', 'ADD #8,R15'))
+        abi('c_next', c=walk('ADD #-8,SP', 'MOV.L R4,@(4,SP)', 'ADD #8,R15'))
+
+    def test_names_a_body_that_leaves_where_its_host_goes_on(self):
+        on = '    walk(0);\n    return 1;\n'
+        c = walk('TST R4,R4', 'BF ?push', 'RTS', 'MOV #0,R0', '?push:', 'MOV #1,R0', host=on)
+        self.unsafe(c, rf'its RTS at line {line(c, "RTS")} leaves it, and host goes on past its call')
+        out = walk('BRA _elsewhere', 'NOP', host=on)
+        self.unsafe(out, rf'its BRA _elsewhere at line {line(out, "BRA")} leaves it, and host goes on past its call')
+        # a jump to the body's own P2 alias, a BRAF and an RTE
+        for body, statement in (
+                (('MOVA ?UNCACHED,R0', 'MOV.L ?P2_BASE,R1', 'OR R0,R1', 'JMP @R1', 'NOP', '.ALIGN 4', '?P2_BASE:',
+                  ".DATA.L H'A0000000", '?UNCACHED:'), 'JMP @R1'),
+                (('BRAF R4', 'NOP'), 'BRAF R4'), (('RTE', 'NOP'), 'RTE')):
+            with self.subTest(statement=statement):
+                jump = walk(*body, host=on)
+                self.unsafe(jump, rf'its {statement} at line {line(jump, statement)} leaves it, and host goes on past '
+                                  'its call')
+        # through a macro too
+        self.unsafe(c.replace(on, '    WALK();\n') + '#define WALK() walk(0)\n',
+                    rf'its RTS at line {line(c, "RTS")} leaves it, and host goes on past its call')
+        # and where GCC's side of a guard goes on, though the shipped side returns the call's value
+        guarded = c.replace(f'int host(void)\n{{\n{on}}}\n', f'#ifdef GCC\nint host(void)\n{{\n{on}}}\n#else\n'
+                            'int host(void)\n{\n    return walk(0);\n}\n#endif\n')
+        self.unsafe(guarded, rf'its RTS at line {line(c, "RTS")} leaves it, and host goes on past its call')
+        # but not where its host returns the call's value, or ends on the call
+        for host in ('    return walk(0);\n', '    if (1) {\n        return walk(0);\n    }\n    walk(0);\n'):
+            with self.subTest(host):
+                abi('c_next', c=c.replace(on, host))
+
+    def test_fails_on_a_body_it_can_t_read(self):
+        # a call to a label of the body, and a write to FPSCR, among them
+        for statement, pattern in (('MAC.L @R4+,@R5+', r'MAC\.L @R4\+,@R5\+'), ('BSRF R4', 'BSRF R4'),
+                                   ('BSR ?self', r'BSR \?self'), ('LDS R4,FPSCR', 'LDS R4,FPSCR')):
+            with self.subTest(statement=statement):
+                c = walk('?self:', statement, 'NOP')
+                with self.assertRaisesRegex(SystemExit, rf"(?m)a\.c:{line(c, statement)}: walk: {pattern}, which "
+                                                        r"--abi doesn't read$"):
+                    abi('c_next', 'walk', c=c)
+        # a delayed branch whose slot it can't place: a return or a call that ends the body, a slot under a label or a
+        # directive, and a slot that branches or returns
+        for body, statement in ((('NOP', 'RTS'), 'RTS'), (('MOV.L #_f,R1', 'JSR @R1'), 'JSR @R1'),
+                                (('BRA ?next', '?next:', 'NOP'), 'BRA ?next'),
+                                (('BRA ?next', '.ALIGN 4', 'NOP', '?next:', 'NOP'), 'BRA ?next'),
+                                (('BRA ?next', 'BT ?next', '?next:', 'NOP'), 'BRA ?next'),
+                                (('BRA ?next', 'RTS', 'NOP', '?next:', 'NOP'), 'BRA ?next')):
+            with self.subTest(body=body):
+                c = walk(*body)
+                with self.assertRaisesRegex(SystemExit, rf"(?m)a\.c:{line(c, statement)}: walk: "
+                                                        rf"{re.escape(statement)}, whose slot --abi can't place$"):
+                    abi('c_next', 'walk', c=c)
+        # one no path reaches
+        c = walk('RTS', 'NOP', 'MOV #1,R1')
+        with self.assertRaisesRegex(SystemExit, rf"(?m)a\.c:{line(c, 'MOV #1')}: walk: MOV #1,R1, which no path of "
+                                                r"--abi's reaches$"):
+            abi('c_next', 'walk', c=c)
+        # and where two paths meet with FR, SZ or R15 apart
+        for apart in ('FSCHG', 'ADD #-4,R15'):
+            with self.subTest(apart=apart):
+                c = walk('TST R4,R4', 'BT ?done', apart, '?done:', 'NOP')
+                with self.assertRaisesRegex(SystemExit, rf"(?m)a\.c:{line(c, '?done:') + 1}: walk: two paths meet "
+                                                        r"here with FPSCR's FR or SZ bits or R15 apart, which --abi "
+                                                        r"can't read$"):
+                    abi('c_next', 'walk', c=c)
+        # one run names each instruction --abi doesn't read, beside the tags' problems. A --contract may name the body
+        c = walk('MAC.L @R4+,@R5+', 'BSRF R4', 'NOP') + '/* @bug typo: a shipped bug */\n'
+        with self.assertRaises(SystemExit) as raised:
+            abi('c_next', 'walk', c=c)
+        for pattern in (rf"(?m)a\.c:{line(c, 'MAC.L')}: walk: MAC\.L @R4\+,@R5\+, which --abi doesn't read$",
+                        rf"(?m)a\.c:{line(c, 'BSRF')}: walk: BSRF R4, which --abi doesn't read$",
+                        rf'(?m)a\.c:{line(c, "/* @bug")}: not @bug <kind>: <text>'):
+            self.assertRegex(str(raised.exception.code), pattern)
+        self.assertNotIn('--contract names no function', str(raised.exception.code))
+
+    def test_fails_on_a_parameter_it_can_t_place(self):
+        # a float typedef it doesn't know, a long long and a variadic tail, whatever --contract names
+        for head, parameter in (('Uint32 *line, KMFLOAT scale', 'KMFLOAT scale'),
+                                ('Uint32 *line, long long n', 'long long n'), ('Uint32 *line, ...', '...')):
+            with self.subTest(head=head), self.assertRaisesRegex(
+                    SystemExit, rf"(?m)a\.c:5: walk: its parameter {re.escape(parameter)}, which --abi can't place$"):
+                abi('c_next', 'walk', c=walk('OCBI @R4', head=f'static void walk({head})'))
+        # but places floats and integers as C and the SDK spell them, in any order, and a pointer past R7 on the stack
+        abi('c_next', c=walk('FMOV.S FR4,@R4', 'FMOV.S FR5,@R4', 'MOV.L R5,@R4',
+                             head='static void walk(Uint32 *line, const Float a, double b, Sint32 n)'))
+        abi('c_next', c=walk('MOV.L @R15,R1', 'MOV.L R7,@R1',
+                             head='static void walk(Uint32 *line, Int a, Int b, Int c, Uint32 *out)'))
+
+    def test_reads_bodies_only_under_abi(self):
+        # a plain run and --review check tags alone
+        c = walk('MAC.L @R4+,@R5+', 'NOP')
+        check(c)
+        self.assertEqual(review(c), ['modules/mod/a.c:4: #pragma inline_asm(walk): a walk', NEXT])
+
+    def test_reads_no_body_on_the_shipped_side_of_a_gcc_guard(self):
+        c = walk('MOV.L @R4,R1', 'OR R12,R1', 'OCBI @R1')
+        abi('c_next', c=c.replace('#ifndef __clang__\n', '#ifndef __clang__\n#ifndef GCC\n').replace(
+            '#endif\n', '#endif\n#endif\n'))
+
+
+class Guards(unittest.TestCase):
+    def test_takes_no_contract_for_a_body_on_the_shipped_side_of_a_gcc_guard(self):
+        abi('c_next', c=GUARDED)
+        with self.assertRaisesRegex(SystemExit, r'(?m): outline: --contract names no function whose @asm tag is abi '
+                                                r'or that may not be call-safe$'):
+            abi('c_next', 'outline', c=GUARDED)
+        # SHC still compiles the body, so it still takes its tag
+        untagged = GUARDED.replace('/* @asm abi: stack-written, its RTS at 0x0c900010 returns */\n', '')
+        with self.assertRaisesRegex(SystemExit, rf'(?m)a\.c:{line(untagged, "#pragma inline_asm(outline)")}: '
+                                                r'#pragma inline_asm\(outline\) has no @asm tag$'):
+            abi('c_next', c=untagged)
+
+    def test_names_a_source_whose_assembly_is_on_the_shipped_side_of_a_gcc_guard(self):
+        # SHC compiles that side, so its route still takes the source through assembly
+        with tree({'modules/mod/a.c': GUARDED}), contextlib.redirect_stdout(io.StringIO()) as out:
+            tags.main(['--inline', 'modules/mod/a.c'])
+        self.assertEqual(out.getvalue(), 'modules/mod/a.c\n')
 
 
 if __name__ == '__main__':

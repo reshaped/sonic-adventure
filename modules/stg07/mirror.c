@@ -30,7 +30,11 @@
 /* @hack type: int, not stage.h's Uint16, so SHC compares the result without
  * extending it, as at 0x0c9093b6. as stage.h declares it, 51 of 143 words
  * differ */
+#ifdef GCC
+#include "stage/stage.h"
+#else
 extern int stage_get_stage_act(void);
+#endif
 
 extern NJS_OBJECT mirror_stand_object;
 extern NJS_MODEL mirror_glass_model;
@@ -195,9 +199,7 @@ static struct collision_shape hoghasira_shape = {
     17.0F, 60.0F, 17.0F, {0}, 0, NULL,
 };
 /* clang-format on */
-/* the fog's color. 1ST_READ.BIN's frame_vsync passes it to njSetFogColor
- * each frame of act 1 */
-static Uint32 ruin_fog_color;
+Uint32 ruin_fog_color;
 /* no word in the image or in 1ST_READ.BIN points at these */
 static Uint8 dat_0ca6722c[12];
 /* where the stand a player aims from stands. mirror_step writes it, and no

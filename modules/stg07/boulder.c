@@ -187,8 +187,14 @@ static void boulder_roll(struct task *task)
     /* @hack redundant: an else after the return, which loads the collision
      * record into R3 for the hit's test (MOV.L @(56,R14),R3 at 0x0c902300);
      * without it, R2 takes it and 2 of 368 words differ */
+#ifdef GCC
+    /* keeps the shipped play: stage << 8 | act fits a Uint16, so stage.h's
+     * return compares the same */
+    if (stage_get_stage_act() != VARS(work)->stage_act) {
+#else
     /* NOLINTNEXTLINE(clang-diagnostic-cast-function-type-mismatch) */
     if (((int (*)(void))stage_get_stage_act)() != VARS(work)->stage_act) {
+#endif
         task_destroy_children(task);
         return;
     } else {

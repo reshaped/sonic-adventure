@@ -718,6 +718,12 @@ void sound_slot_stop(int slot)
  * sends volume to its port as it is */
 static void sound_slot_set_volume(int volume, int slot)
 {
+#ifdef GCC
+    /* a skip sends the least volume, so the queue runs on unheard */
+    if (event_skipping) {
+        volume = VOLUME_LEAST;
+    }
+#endif
     if (slot >= SLOT_CHANNELS) {
         /* @hack spelling: the port as the slot's index among the sequence
          * slots plus SEQUENCE_PORT_FIRST, which SHC indexes from
@@ -938,6 +944,12 @@ static int sound_slot_alloc(int priority, int se)
     int found;
     int i;
 
+#ifdef GCC
+    /* the split frame's second picture plays no sound */
+    if (frame_redrawing) {
+        return -1;
+    }
+#endif
     found = -1;
     if (se == 0 || se == 66 || se == 67 || se == 124 || se == 161 ||
         se == 160 || se == 239 || se == 553 || se == 554 || se == 1059 ||
@@ -1008,6 +1020,11 @@ int sound_play(int se, int id, int priority, int volume)
     /* @hack spelling: an accepted request returns the 44 left in R0, the offset
      * of pos.z, which MOV #44,R0 at 0x8c0992be loads for the store above. no
      * caller reads the result, so with return slot, 12 of 49 words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1056,6 +1073,11 @@ int sound_play_at(int se, int id, int priority, int volume, Float x, Float y,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0993b8). no caller reads the result, so with return slot, 81 of 101
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1082,6 +1104,11 @@ int sound_play_held(int se, int id, int priority, int volume)
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c099456). no caller reads the result, so with return slot, 12 of 49
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1091,6 +1118,12 @@ static int sound_slot_find(int se, int id)
     int i;
     int found;
 
+#ifdef GCC
+    /* the split frame's second picture refreshes no sound */
+    if (frame_redrawing) {
+        return -1;
+    }
+#endif
     found = -1;
     for (i = 0; i < SLOT_TEST; i++) {
         if (sound_slots[i].id == id) {
@@ -1132,6 +1165,11 @@ int sound_play_for(int se, int id, int priority, int volume, int updates)
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0995d8). no caller reads the result, so with return slot, 6 of 60
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1182,6 +1220,11 @@ int sound_play_at_for(int se, int id, int priority, int volume, Float x,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0996e4). no caller reads the result, so with return slot, 8 of 107
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1227,6 +1270,11 @@ int sound_play_around(int se, int id, int priority, int volume, Float x,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0997f0). no caller reads the result, so with return slot, 6 of 103
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is slot, the one the request
+     * took */
+    return slot;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 

@@ -4,6 +4,7 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "ev00e2/dat_0cba35d8.h" /* NOLINT(misc-include-cleaner) */
 #include "ev00e2/tornado_textures.h"
 
 #define TEXT_1_LENGTH 14
@@ -36,7 +37,6 @@
 #define TEXT_28_LENGTH 15
 #include "ev00e2/tornado_textures/text.inc"
 
-extern NJS_OBJECT dat_0cba35d8;
 extern NJS_MDATA2 dat_0cbaee48[];
 
 static NJS_MOTION dat_0cbaef38 = {
@@ -57,15 +57,15 @@ static NJS_TEXNAME ev00e2_tornado_textures[28] = {
 NJS_TEXLIST ev00e2_tornado_texlist = {
 #include "ev00e2/tornado_textures/ev00e2_tornado_texlist.inc"
 };
-static NJS_MATERIAL dat_0cbaf0a4[2] = {
+NJS_MATERIAL dat_0cbaf0a4[2] = {
 #include "ev00e2/tornado_textures/dat_0cbaf0a4.inc"
 };
-static Sint16 dat_0cbaf0cc[12] = {
+Sint16 dat_0cbaf0cc[12] = {
 #include "ev00e2/tornado_textures/dat_0cbaf0cc.inc"
 };
-static Sint16 dat_0cbaf0e4[8] = {
+Sint16 dat_0cbaf0e4[8] = {
 #include "ev00e2/tornado_textures/dat_0cbaf0e4.inc"
 };
-static Sint16 dat_0cbaf0f4[30] = {
+Sint16 dat_0cbaf0f4[30] = {
 #include "ev00e2/tornado_textures/dat_0cbaf0f4.inc"
 };

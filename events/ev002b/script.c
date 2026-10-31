@@ -43,7 +43,14 @@ extern NJS_ACTION sonic_jump_land_action;
  * 0x0cb80114, and 0xff5e into R10 at 0x0cb8010e. as one NJS_TEXLIST passed as
  * &event_sprite_explosion_texlist, the two trade registers, and 8 of
  * ev002b_script's 3838 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a texlist inside event_sprite_texlists */
+#define event_sprite_explosion_texlist                                         \
+    (&event_sprite_texlists[EVENT_SPRITE_EXPLOSION])
+#else
 extern NJS_TEXLIST event_sprite_explosion_texlist[];
+#endif
 
 extern NJS_ACTION ev002b_police_action_0;
 extern NJS_ACTION ev002b_police_action_1;

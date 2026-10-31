@@ -1,0 +1,11 @@
+# The declarations whose types tools/decls.py finds disagree with their
+# name's definition or another declaration of it, where GCC's code still
+# gives the image's value or the game never runs the code. A row gives the
+# name, the file that declares it, and why. It admits that file's
+# declaration in every image that links it.
+#
+# name                         file                           reason
+__0ShinobiVersion              sdk/shinobi/strt2.c            GCC aligns the array on 4 (.align 2), as SHC does, so _INIT's load of its first word (MOV.L @R1,R1) can't fault. Nothing writes the string, so the const of its bytes, which the declared pointer lacks, changes no value. _INIT then loads the byte at the word's address (MOV.B @R1,R1), the read _INIT's @bug tag describes
+menus_set_character_number     modules/advertise/trial.c      the call passes story_characters' Uint16 zero-extended. GCC's set_character_number stores R4's low half (MOV.W R4,@R1), the Sint16 a prototyped call would pass
+menus_set_stage_act            modules/advertise/trial.c      the call passes choice's Uint8 stage and act zero-extended, as GCC's stage_set_stage_act takes them. stage_set_stage_act stores each one's low half (MOV.W R4,@R2 and MOV.W R5,@R1)
+mwmng_error_register_args      modules/movie/sdk/mwsfdsub.c   mwPlySfdCreate makes the call only for a work_size below the 0x2f1160 bytes it lays out, and the game passes movie.c's WORK_SIZE, 0x300000, so the call never runs. Its @bug tag gives the format the image reads

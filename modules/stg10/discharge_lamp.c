@@ -452,11 +452,26 @@ static void discharge_lamp_run(struct task *task)
         }
         if (TASK_TIMER(work) < BLAST_END && rand() * RAND_SCALE < 0.1F) {
             njPushMatrix(&_unit_matrix_);
+#ifdef GCC
+            /* C leaves the arguments' order open, so z's rand() is drawn
+             * before the call. SHC draws it first, then x's (JSR at
+             * 0x0c9017b0 for z and 0x0c9017d8 for x) */
+            {
+                Float z = work->pos.z +
+                          (((rand() * (1.0F / 16384.0F)) - 1.0F) * 10.0F);
+
+                translate(NULL,
+                          work->pos.x +
+                              (((rand() * (1.0F / 16384.0F)) - 1.0F) * 10.0F),
+                          work->pos.y + VARS(work)->bob, z);
+            }
+#else
             translate(
                 NULL,
                 work->pos.x + (((rand() * (1.0F / 16384.0F)) - 1.0F) * 10.0F),
                 work->pos.y + VARS(work)->bob,
                 work->pos.z + (((rand() * (1.0F / 16384.0F)) - 1.0F) * 10.0F));
+#endif
             TURN_VIA(njRotateY, work->ang.y, ang);
             TURN_VIA(njRotateX, state->tilt_x, ang);
             TURN_VIA(njRotateZ, state->tilt_z, ang);

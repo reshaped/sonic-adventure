@@ -34,8 +34,15 @@ void card_open(void)
     memset(advertise_card_drives, 0, sizeof(advertise_card_drives));
     card_ready = FALSE;
     buInit(BUD_CAPACITY_1MB, BUD_USE_DRIVE_ALL, work, card_open_done);
+#ifdef GCC
+    /* card_open_done sets card_ready from the card's server, so each pass
+     * reads it anew. read as plain memory, GCC tested it once */
+    while (!*(volatile Bool *)&card_ready) {
+    }
+#else
     while (!card_ready) {
     }
+#endif
 }
 
 void card_close(void)

@@ -16,6 +16,6 @@ static NJS_MOTION ev0160_pachacamac_motion = {
 NJS_ACTION ev0160_pachacamac_action = {
 #include "ev0160/pachacamac_action/ev0160_pachacamac_action.inc"
 };
-static NJS_TEXNAME ev0160_emerald_blue_textures[1] = {
+NJS_TEXNAME ev0160_emerald_blue_textures[1] = {
     {TEXT_1, 0, 0},
 };

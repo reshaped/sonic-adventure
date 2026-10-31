@@ -7,5 +7,7 @@
 
 extern NJS_ACTION ev000d_sonic_action_2;
 extern NJS_TEXLIST ev000d_tornado_texlist;
+/* the sibling of the generated object at 0x0cb86de8 */
+extern NJS_OBJECT dat_0cb86db4;
 
 #endif

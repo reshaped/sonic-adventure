@@ -1,0 +1,54 @@
+# 1ST_READ.BIN's kernel: the functions its draws call for each node, model
+# and meshset, grouped by the step of a draw that calls them. tools/ld.py
+# lays them out first in the image's code, within the SH-4's 8 KB
+# instruction cache, so that no two of their lines take one set of it. In
+# SEGA's order of objects their lines can collide, and which collide moves
+# with any code ahead of them. A row is SOURCE FUNCTION, SOURCE as the
+# image's tables place it, so model.c's functions take src/draw/model.src.
+# A row places the section that holds FUNCTION, so matrix_load_parent's
+# places all of cache.src's code, its one P section. The near clip, which
+# only a model with some points no farther than view.near takes, stays
+# where its object lies.
+
+# a walk of the land list or an object's nodes, and the matrices of each
+src/draw/model.src        draw_models_begin
+src/draw/model.src        take_constant_attr
+sdk/ninja/njkm.c          njGetkmPointer
+sdk/ninja/njPushMatrix.c  njPushMatrix
+sdk/ninja/njTranslate.c   njTranslate
+sdk/ninja/njTranslateV.c  njTranslateV
+sdk/ninja/njRotateXYZ.c   njRotateXYZ
+sdk/ninja/njRotateX.c     njRotateX
+sdk/ninja/njRotateY.c     njRotateY
+sdk/ninja/njRotateZ.c     njRotateZ
+sdk/ninja/njScale.c       njScale
+sdk/ninja/njScaleV.c      njScaleV
+# a model: its view test, then its points, projected and shaded
+src/draw/model.src        draw_model
+src/draw/model.src        draw_model_nested
+src/draw/model.src        draw_model_unculled
+src/draw/model.src        model_in_view
+src/draw/model.src        model_off_screen
+src/draw/model.src        any_past_near
+src/draw/model.src        set_meshes_header
+src/draw/model.src        project_and_shade
+src/draw/model.src        project_points
+src/draw/model.src        shade_points
+# each meshset: its header, then its strips
+src/draw/model.src        draw_meshes
+sdk/ninja/njkm.c          njSetkmModelAttr
+src/draw/model.src        set_texture
+src/draw/model.src        set_point_alpha
+sdk/ninja/njkm.c          njStartVertexTexTrans
+sdk/ninja/njkm.c          njStartVertexTexOpaque
+sdk/ninja/njkm.c          njStartVertexNonTexTrans
+sdk/ninja/njkm.c          njStartVertexNonTexOpaque
+src/draw/model.src        strips_untextured
+src/draw/model.src        strips_textured
+src/draw/model.src        strips_env
+sdk/ninja/njkm.c          njEndVertex
+# back up the walk
+src/system/cache.src      matrix_load_parent
+sdk/ninja/njPopMatrix.c   njPopMatrix
+sdk/ninja/njkm.c          njSetkmPointer
+src/draw/model.src        draw_models_end

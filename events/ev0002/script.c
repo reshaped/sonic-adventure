@@ -121,8 +121,14 @@ static void ev0002_puddle_kill(void)
              * passes the task's work too, in R5, which task_kill never
              * reads (MOV.L @(32,R4),R5 at 0x0cb80086, before the JSR at
              * 0x0cb8008a) */
+#ifdef GCC
+            /* repairs the call the tag names: GCC calls task_kill with the
+             * task alone, as declared */
+            task_kill(task);
+#else
             /* NOLINTNEXTLINE(clang-diagnostic-cast-function-type-mismatch) */
             ((void (*)(struct task *, void *))task_kill)(task, work);
+#endif
             ev0002_puddle = NULL;
         }
     }

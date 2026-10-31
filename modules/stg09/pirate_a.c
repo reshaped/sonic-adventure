@@ -89,9 +89,18 @@ static struct fragments_spec pirate_a_fragments = {
  * 0x0c920264, for x, y and z). shadow_draw_at reads all three through x's
  * address. as one NJS_POINT3, SHC reaches y and z from x's address, and 40
  * of 162 words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's three are the members of one
+ * NJS_POINT3 */
+static NJS_POINT3 pirate_a_shadow;
+#define pirate_a_shadow_x pirate_a_shadow.x
+#define pirate_a_shadow_y pirate_a_shadow.y
+#define pirate_a_shadow_z pirate_a_shadow.z
+#else
 static Float pirate_a_shadow_x;
 static Float pirate_a_shadow_y;
 static Float pirate_a_shadow_z;
+#endif
 
 static void pirate_a_destroy(struct task *task);
 static void pirate_a_run(struct task *task);

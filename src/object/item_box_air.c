@@ -146,6 +146,13 @@ static struct draw_override item_box_air_burst_overrides[] = {
     {&item_box_air_lower, item_box_air_lower_draw},
     {NULL, NULL},
 };
+#ifdef GCC
+/* clang-format off */
+static const struct collision_shape item_box_air_burst_shape = {
+    SHAPE_SPHERE | SHAPE_OFF, 0, 0, {0.0F, 0.0F, 0.0F}, 0.0F, 0.0F, 0.0F, {0},
+    0, NULL};
+/* clang-format on */
+#endif
 
 /* the sprite of a collected item's face, whose texture shown_draw_item
  * sets */
@@ -398,9 +405,18 @@ static void item_box_air_wait(struct task *task)
              * draw overrides as the burst's one shape (MOV.L at 0x8c061298),
              * and the shape's 52 bytes are the table's 16 and the 36 after
              * it */
+#ifdef GCC
+            /* repairs the read the tag names: GCC's burst takes a shape that
+             * touches nothing. the image's touches nothing either: its kind
+             * is the low four bits of item_box_air_panel's address, 0xc,
+             * which no check takes */
+            collision_init(task, &item_box_air_burst_shape, COLLISION_OBJECT, 1,
+                           1);
+#else
             collision_init(task,
                            (struct collision_shape *)item_box_air_overrides,
                            COLLISION_OBJECT, 1, 1);
+#endif
         } else {
             collision_register(work);
         }
@@ -432,6 +448,15 @@ void item_show(enum item_kind kind)
     /* @bug memory: shown.count goes untested against SHOWN_COUNT
      * (MOV.L R4,@R3 at 0x8c06132a). a 21st item on show writes past
      * shown.items, into the bss after it */
+#ifdef GCC
+    /* repairs the stores the tag names, which in a stage with panels
+     * overwrite their live tasks. GCC's row takes no item past its last, but
+     * enters again, as the image's does on each item */
+    if (shown.count >= SHOWN_COUNT) {
+        shown.state = SHOWN_ENTER;
+        return;
+    }
+#endif
     shown.items[shown.count].kind = kind;
     shown.items[shown.count].x = SHOWN_START_X;
     shown.items[shown.count].scale = SHOWN_SCALE;

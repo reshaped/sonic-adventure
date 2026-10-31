@@ -1,0 +1,33 @@
+# EV009F.PRS: each definition of its gen/ ranges, by address.
+# A definition is a kind or a C type, with [COUNT] for an array. Both
+# builds write each row (TOOLCHAIN.md#generated-ranges).
+#
+# address   definition
+0x0cb81168  mkey_f[2]
+0x0cb81188  mkey_a[24]
+0x0cb81308  mkey_a[24]
+0x0cb81488  mkey_a[24]
+0x0cb81608  mkey_a[28]
+0x0cb817c8  mkey_a[28]
+0x0cb81988  mkey_a[24]
+0x0cb81b08  mkey_a[29]
+0x0cb81cd8  mkey_a[2]
+0x0cb81cf8  mkey_a[29]
+0x0cb81ec8  mkey_a[28]
+0x0cb82088  mkey_a[29]
+0x0cb82258  mkey_a[2]
+0x0cb82278  mkey_a[2]
+0x0cb82298  mkey_a[2]
+0x0cb822b8  mkey_a[2]
+0x0cb822d8  mkey_a[29]
+0x0cb824a8  mkey_a[29]
+0x0cb82678  mkey_a[29]
+0x0cb82848  mkey_a[23]
+0x0cb829b8  mkey_a[2]
+0x0cb829d8  mkey_a[2]
+0x0cb829f8  mkey_a[25]
+0x0cb82b88  mkey_a[29]
+0x0cb82d58  mkey_a[30]
+0x0cb82f38  mdata2[73]
+0x0cb833c8  motion
+0x0cb833d4  action

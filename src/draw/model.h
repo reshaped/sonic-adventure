@@ -13,7 +13,9 @@
  * is draw_unlit_offsets, which follows draw_palettes */
 #define DRAW_PALETTES 8
 #define DRAW_PALETTE_ENTRIES 256
+#ifndef GCC
 extern Uint32 draw_palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2];
+#endif
 /* the palette the player characters shade from. other characters and some
  * objects take it too */
 #define DRAW_PLAYER_PALETTE 2
@@ -21,7 +23,28 @@ extern Uint32 draw_palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2];
  * index. they are 0 until a stage's module fills them, or until a palettes
  * file longer than draw_palettes runs on over them, as light.h says */
 #define DRAW_UNLIT_OFFSETS 512
+#ifdef GCC
+/* the most points a model may have. the largest in the game's images has
+ * 1900 */
+#define DRAW_MOST_POINTS 2048
+/* draw_palettes, then draw_unlit_offsets, as one object. C defines no read
+ * past an array's end, so model.c reads the palettes through words, which
+ * spans both arrays. the draws read an unlit point's offset color by the
+ * point's index, so unlit_offsets holds one for each point a model may have.
+ * those from DRAW_UNLIT_OFFSETS on stay 0 */
+union draw_colors {
+    struct {
+        Uint32 palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2];
+        Uint32 unlit_offsets[DRAW_MOST_POINTS];
+    };
+    Uint32 words[DRAW_PALETTES * DRAW_PALETTE_ENTRIES * 2 + DRAW_MOST_POINTS];
+};
+extern union draw_colors draw_colors;
+#define draw_palettes (draw_colors.palettes)
+#define draw_unlit_offsets (draw_colors.unlit_offsets)
+#else
 extern Uint32 draw_unlit_offsets[DRAW_UNLIT_OFFSETS];
+#endif
 /* the counts debug_page 2 shows. the frame timer's setup zeroes them, and
  * nothing counts into them */
 #define DRAW_DEBUG_COUNTS 20

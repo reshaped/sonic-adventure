@@ -57,8 +57,14 @@ enum lock_texanim { TEXANIM_RETICLE, TEXANIM_FULL, TEXANIM_LOCK };
 #define CENTER_Y 240.0F
 /* the reticle's bounds, 80 pixels in from each edge of the 640 by 480
  * screen */
+#ifdef GCC
+/* the bounds lie 80 pixels in from each edge of port.h's window */
+#define RETICLE_LEFT (CENTER_X - ((CENTER_X - 80.0F) / port_view_aspect))
+#define RETICLE_RIGHT (CENTER_X + ((560.0F - CENTER_X) / port_view_aspect))
+#else
 #define RETICLE_LEFT 80.0F
 #define RETICLE_RIGHT 560.0F
+#endif
 #define RETICLE_TOP 80.0F
 #define RETICLE_BOTTOM 400.0F
 
@@ -91,7 +97,7 @@ static NJS_TEXNAME lock_textures[3] = {
     {TEXT_2, 0, 0},
     {TEXT_3, 0, 0},
 };
-static NJS_TEXLIST lock_texlist = {
+NJS_TEXLIST lock_texlist = {
 #include "shooting/reticle/lock_texlist.inc"
 };
 static NJS_TEXANIM lock_frames[3] = {

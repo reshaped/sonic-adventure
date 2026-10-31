@@ -5,6 +5,8 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "ev009d/dat_0cb8c520.h"
+
 #define TEXT_1_LENGTH 16
 #include "ev009d/dat_0cb8c520/text.inc"
 
@@ -119,6 +121,6 @@ static NJS_TEXNAME dat_0cb8d458[1] = {
 static NJS_TEXLIST dat_0cb8d464 = {
 #include "ev009d/dat_0cb8c520/dat_0cb8d464.inc"
 };
-static NJS_MATERIAL dat_0cb8d46c[1] = {
+NJS_MATERIAL dat_0cb8d46c[1] = {
 #include "ev009d/dat_0cb8c520/dat_0cb8d46c.inc"
 };

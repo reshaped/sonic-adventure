@@ -77,6 +77,17 @@ struct choice {
 };
 
 extern Uint16 message_window_memory[];
+#ifdef GCC
+/* the message window's texture, in pixels: WINDOW_WIDTH by MESSAGE_HEIGHT,
+ * each rounded up to a power of two as bitmap_init rounds them */
+#define MESSAGE_TEXTURE_PIXELS (512 * 64)
+/* the texture's pixels, then 16 more, so that it takes the 0x10020 bytes
+ * 1ST_READ.BIN's tables give it. the tables place it in B32, the bss whose
+ * objects start on a 32-byte boundary, where no source holds it. the port
+ * defines it here, on a 32-byte boundary too */
+Uint16 message_window_memory[MESSAGE_TEXTURE_PIXELS + 16]
+    __attribute__((aligned(32)));
+#endif
 
 static void bitmap_print_centered(struct bitmap *bitmap, const char *text);
 static void bitmap_print_block(struct bitmap *bitmap, const char *text);
@@ -100,7 +111,13 @@ static const Sint8 font_widths[ASCII_GLYPHS] = {
 Sint8 messages_shown;
 static Sint8 pages_active;
 static struct bitmap *texture_queue[QUEUE_SIZE];
+#ifdef GCC
+/* the split frame reads it: a frame with a bitmap waiting after step 0
+ * shows one picture */
+int texture_queue_count;
+#else
 static int texture_queue_count;
+#endif
 static Uint32 saved_attr_and;
 static Uint32 saved_attr_or;
 static Uint32 saved_control_3d;
@@ -947,6 +964,11 @@ void bitmap_flush_queue(void)
          * they hold, and stores its texlist into them (0x8c058c26,
          * 0x8c058c28) */
         for (i = 0; i < texture_queue_count; ++i, ++bitmap) {
+#ifdef GCC
+            /* repairs the step the tag names: each pass takes the queue's
+             * next bitmap */
+            bitmap = texture_queue[i];
+#endif
             if (bitmap->texlist.textures != NULL) {
                 njReleaseTexture(&bitmap->texlist);
             }
@@ -989,6 +1011,10 @@ Angle angle_approach(Angle from, Angle to, Angle step)
     return (Uint16)to;
 }
 
+#ifdef GCC
+#undef angle_difference
+#undef angle_distance
+#endif
 /* @hack spelling: angle_difference expanded where angle_unwrap calls it
  * (EXTU.W and SUB at 0x8c058cf2 to 0x8c058cfc); called, angle_unwrap saves
  * R13, R14 and PR, and 30 of 30 words differ */
@@ -1063,6 +1089,10 @@ Bool draw_on_screen(struct task_work *work)
     njProjectScreen(NULL, &work->pos, &point);
     njPopMatrix(1);
     distance = njDistanceP2P(&camera_work->pos, &work->pos);
+#ifdef GCC
+    /* keeps the value the tag below names: a margin of 0 */
+    margin = 0.0F;
+#endif
     /* @bug uninitialized: at distance 0, the BT at 0x8c058df4 skips the
      * division that sets margin. the FADD at 0x8c058e02 then reads FR4 as
      * njDistanceP2P left it, holding the squared distance, 0 */
@@ -1070,6 +1100,10 @@ Bool draw_on_screen(struct task_work *work)
     if (distance != 0.0F) {
         margin = 3000.0F / distance;
     }
+#ifdef GCC
+    /* x as port.h's window holds it, so that 16:9 widens the test */
+    point.x = port_view_x(point.x);
+#endif
     across = (point.x + margin) / (SCREEN_WIDTH + (2.0F * margin));
     if (across < 0.0F || across > 1.0F) {
         return FALSE;
@@ -1653,6 +1687,13 @@ int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
              * any, up's floats when ang isn't null. when the hit is the
              * nearest, offset takes that (0x8c059c8a to 0x8c059c98,
              * 0x8c059cb6 to 0x8c059cc2), and ang adds offset */
+#ifdef GCC
+            /* repairs the unset turn the tag names: an owner without a
+             * force turns nothing, as an object without an owner does */
+            turn.x = 0;
+            turn.y = 0;
+            turn.z = 0;
+#endif
             if (owner != NULL) {
                 force = owner->force;
                 if (force != NULL) {

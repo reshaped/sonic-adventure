@@ -11,7 +11,13 @@
  * (0x8c61bb5c), as syCacheOCBP and syCacheOCWB do. as volatile, syCache.c's
  * code runs 4 bytes longer and 62 of the 759 words of the seven functions
  * that use CCR differ, in each image */
+#ifdef GCC
+/* GCC makes each access to CCR that the C writes, in the C's order, only
+ * through a volatile lvalue */
+#define CCR (*(volatile Uint32 *)0xff00001cUL)
+#else
 #define CCR (*(Uint32 *)0xff00001cUL)
+#endif
 #define CCR_ICI 0x800 /* invalidate the instruction cache */
 #define CCR_OCI 0x8 /* invalidate the operand cache */
 /* the numbers of CCR's mode bits. with CCR_ORA_BIT set, the operand cache
@@ -98,6 +104,7 @@ static void prefetch_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
+#ifndef GCC
 /* go on at the next instruction through its uncached P2 alias */
 /* @asm open: no inspect rule reads its JMP to its own P2 alias */
 #pragma inline_asm(enter_p2)
@@ -113,6 +120,7 @@ static void enter_p2(void)
         .DATA.L     H'A0000000
 ?UNCACHED:
 }
+#endif
 
 /* invalidate the operand cache lines over size bytes from address. address
  * must be line-aligned, and size above 0 */
@@ -132,6 +140,7 @@ static void invalidate_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
+#ifndef GCC
 /* invalidate each line of entries 0 to 255 whose address lies from first to
  * last. a line's address is its tag with its entry's offset bits. with
  * keeps_ram set, entries 128 to 255 are RAM, and the walk stops after 127 */
@@ -281,6 +290,7 @@ static void invalidate_high_entries(Uint32 first, Uint32 last, Uint32 keeps_ram)
         MOV.L       @R15+,R10
         MOV.L       @R15+,R11
 }
+#endif
 
 /* write back and invalidate the operand cache lines over size bytes from
  * address. address must be line-aligned, and size above 0 */
@@ -300,6 +310,7 @@ static void purge_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
+#ifndef GCC
 /* write back and invalidate each line of entries 0 to 255 whose address lies
  * from first to last, as invalidate_low_entries finds them */
 /* @asm opcode: cache-line, OCBP @R1 at 0x8c61bdee, in syCacheOCBP, writes back
@@ -448,6 +459,7 @@ static void purge_high_entries(Uint32 first, Uint32 last, Uint32 keeps_ram)
         MOV.L       @R15+,R10
         MOV.L       @R15+,R11
 }
+#endif
 
 /* write back the operand cache lines over size bytes from address. address
  * must be line-aligned, and size above 0 */
@@ -467,6 +479,7 @@ static void write_back_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
+#ifndef GCC
 /* write back each line of entries 0 to 255 whose address lies from first to
  * last, as invalidate_low_entries finds them */
 /* @asm opcode: cache-line, OCBWB @R1 at 0x8c61c012, in syCacheOCWB, writes back
@@ -616,6 +629,7 @@ static void write_back_high_entries(Uint32 first, Uint32 last, Uint32 keeps_ram)
         MOV.L       @R15+,R11
 }
 #endif
+#endif
 /* clang-format on */
 
 void syCachePREF_s(void *address, Uint32 size)
@@ -635,8 +649,14 @@ void syCachePREF_s(void *address, Uint32 size)
 void syCacheInit_P2_(Uint32 form)
 {
     syCachePurgeAll();
+#ifdef GCC
+    /* one store of form with CCR_ICI set, which SHC makes of the #else
+     * side's two */
+    CCR = form | CCR_ICI;
+#else
     CCR = form;
     CCR = (CCR & ~CCR_ICI) | CCR_ICI;
+#endif
     CCR = (CCR & ~CCR_OCI) | CCR_OCI;
 }
 
@@ -649,6 +669,76 @@ void syCacheOCI_P2_(void)
 {
     CCR |= CCR_OCI;
 }
+
+#ifdef GCC
+/* code at its P2 address runs uncached */
+#define P2(address) ((Uint32)(address) | 0xa0000000UL)
+/* the bits of a line's address that its tag holds, 10 to 28 */
+#define TAG_ADDRESS 0x1ffffc00UL
+
+/* what walk_entries does to each line it finds: OCBI, OCBP or OCBWB */
+enum line_op { INVALIDATE, PURGE, WRITE_BACK };
+/* walk_entries' and clear_tags' types. their callers cast P2(walk_entries) or
+ * P2(clear_tags) to one and call through it uncached */
+typedef void entry_walk(Uint32 first, Uint32 last, enum line_op op);
+typedef void tag_clear(void);
+
+/* eight NOPs, for a program in P2 that has read or written the cache's
+ * address array. the SH7750 manual asks it to run eight instructions or more
+ * before it branches to cached code. the image's syCachePurgeAll ends its
+ * uncached stretch on these. always inlined, they run in the P2 function
+ * before its return */
+static inline __attribute__((always_inline)) void settle_pipeline(void)
+{
+    __asm__ volatile(".rept 8\n\tnop\n\t.endr" : : : "memory");
+}
+
+/* apply op to each line the operand cache keeps whose address lies from
+ * first to last, for syCacheOCBI, syCacheOCBP and syCacheOCWB. the walk
+ * reads the address array, so its callers call it at its P2 address. it
+ * calls nothing. noinline keeps GCC from splitting part of the walk into a
+ * function of its own, which the walk would call at a cached address. it
+ * returns to cached code, so it ends on settle_pipeline. the image's walks
+ * return without settle_pipeline's NOPs, so they are GCC's addition */
+static __attribute__((noinline)) void walk_entries(Uint32 first, Uint32 last,
+                                                   enum line_op op)
+{
+    Uint32 keeps_ram;
+    Uint32 entry;
+    Uint32 line;
+
+    keeps_ram = (CCR >> CCR_ORA_BIT) & 1;
+    for (entry = 0; entry < OPERAND_ENTRIES; entry++) {
+        if (keeps_ram && entry % HALF_ENTRIES >= CACHED_ENTRIES) {
+            continue;
+        }
+        /* a line's address is its tag's address bits and its entry's
+         * offset within the half, with index mode on or off. this repairs
+         * the addresses that the image's walks over entries 256 to 511 form
+         * in index mode. each walk ORs the entry's whole offset into the
+         * address, which sets bit 13. index mode selects an entry by bit 25
+         * in place of bit 13, so a line in those entries may clear bit 13.
+         * OCBI, OCBP and OCBWB compare the address's bits 10 to 28 with the
+         * entry's tag, so the walk misses such a line. each walk also ORs in
+         * R12, as its @bug uninitialized tag names. the movie player runs in
+         * index mode, from mwPlyInitSofdec to mwPlyFinishSofdec in
+         * modules/movie/sdk/mwsfd.c */
+        line = (OPERAND_TAG(entry) & TAG_ADDRESS) |
+               (entry % HALF_ENTRIES * LINE_SIZE);
+        if (line < first || line > last) {
+            continue;
+        }
+        if (op == INVALIDATE) {
+            __asm__ volatile("ocbi @%0" : : "r"(line) : "memory");
+        } else if (op == PURGE) {
+            __asm__ volatile("ocbp @%0" : : "r"(line) : "memory");
+        } else {
+            __asm__ volatile("ocbwb @%0" : : "r"(line) : "memory");
+        }
+    }
+    settle_pipeline();
+}
+#endif
 
 void syCacheOCBI(void *address, Sint32 size)
 {
@@ -674,6 +764,10 @@ void syCacheOCBI(void *address, Sint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
+#ifdef GCC
+        last = ((Uint32)address + size - 1) & LINE_MASK;
+        ((entry_walk *)P2(walk_entries))(first, last, INVALIDATE);
+#else
         enter_p2();
         last = ((Uint32)address + size - 1) & LINE_MASK;
         keeps_ram = (CCR >> CCR_ORA_BIT) & 1;
@@ -684,6 +778,7 @@ void syCacheOCBI(void *address, Sint32 size)
         } else {
             invalidate_high_entries(first, last, keeps_ram);
         }
+#endif
         set_imask(saved_mask);
     }
 }
@@ -711,6 +806,10 @@ void syCacheOCBP(void *address, Sint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
+#ifdef GCC
+        last = ((Uint32)address + size - 1) & LINE_MASK;
+        ((entry_walk *)P2(walk_entries))(first, last, PURGE);
+#else
         enter_p2();
         last = ((Uint32)address + size - 1) & LINE_MASK;
         keeps_ram = (CCR >> CCR_ORA_BIT) & 1;
@@ -721,6 +820,7 @@ void syCacheOCBP(void *address, Sint32 size)
         } else {
             purge_high_entries(first, last, keeps_ram);
         }
+#endif
         set_imask(saved_mask);
     }
 }
@@ -747,6 +847,10 @@ void syCacheOCWB(void *address, Uint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
+#ifdef GCC
+        last = ((Uint32)address + size - 1) & LINE_MASK;
+        ((entry_walk *)P2(walk_entries))(first, last, WRITE_BACK);
+#else
         enter_p2();
         last = ((Uint32)address + size - 1) & LINE_MASK;
         keeps_ram = (CCR >> CCR_ORA_BIT) & 1;
@@ -757,6 +861,7 @@ void syCacheOCWB(void *address, Uint32 size)
         } else {
             write_back_high_entries(first, last, keeps_ram);
         }
+#endif
         set_imask(saved_mask);
     }
 }
@@ -780,6 +885,7 @@ void syCacheMOVCAL(void *address, Uint32 value)
         NOP
 }
 
+#ifndef GCC
 /* eight NOPs, for the pipeline after the purge */
 /* expanded into syCachePurgeAll at 0x8c61c238, after the BRA at 0x8c61c220 over
  * syCachePurgeAll's pool */
@@ -797,7 +903,28 @@ static void settle_pipeline(void)
         NOP
 }
 #endif
+#endif
 /* clang-format on */
+
+#ifdef GCC
+/* write back and invalidate each line the operand cache keeps, by a store
+ * of 0 to its entry's tag, for syCachePurgeAll. it runs from P2, calls
+ * nothing, ends on settle_pipeline and is noinline, for the reasons
+ * walk_entries gives */
+static __attribute__((noinline)) void clear_tags(void)
+{
+    Uint32 keeps_ram;
+    Uint32 entry;
+
+    keeps_ram = (CCR >> CCR_ORA_BIT) & 1;
+    for (entry = 0; entry < OPERAND_ENTRIES; entry++) {
+        if (!keeps_ram || entry % HALF_ENTRIES < CACHED_ENTRIES) {
+            OPERAND_TAG(entry) = 0;
+        }
+    }
+    settle_pipeline();
+}
+#endif
 
 void syCachePurgeAll(void)
 {
@@ -806,6 +933,10 @@ void syCachePurgeAll(void)
 
     saved_mask = get_imask();
     set_imask(IMASK_ALL);
+#ifdef GCC
+    ((tag_clear *)P2(clear_tags))();
+    set_imask(saved_mask);
+#else
     enter_p2();
     if (((CCR >> CCR_ORA_BIT) & 1) == 1) {
         for (entry = 0; entry < CACHED_ENTRIES; entry++) {
@@ -822,6 +953,7 @@ void syCachePurgeAll(void)
     }
     set_imask(saved_mask);
     settle_pipeline();
+#endif
 }
 
 void syCacheAllocCacheRAM(void **address, Sint32 pages)

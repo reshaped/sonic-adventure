@@ -11,9 +11,9 @@
 #include "system/util.h"
 
 extern NJS_OBJECT barrier_object;
-/* the barrier's textures with its lamps lit one way, then the other */
-extern NJS_TEXNAME barrier_1_texnames[5];
-extern NJS_TEXNAME barrier_2_texnames[5];
+/* OBJ_HIGHWAY2's texture names, among them the barrier's with its lamps lit
+ * one way, then the other */
+extern NJS_TEXNAME obj_highway2_textures[54];
 
 #define BARRIER_WORLD_FLAGS WORLD_SMALL
 

@@ -9,8 +9,7 @@
 
 /* E_SNOWMAN's texlist, which icecap_pvms loads */
 extern NJS_TEXLIST e_snowman_texlist;
-/* the snow puffs' pool, which 1ST_READ.BIN's icecap_pools names by its
- * address */
+/* the snow puffs' pool, which 1ST_READ.BIN's icecap_pools names */
 extern struct particle_pool_spec snowman_snow_pool;
 
 /* the step icecap_object_list names for E SMAN */

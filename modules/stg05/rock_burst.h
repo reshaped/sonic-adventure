@@ -2,6 +2,7 @@
  * Rock, which kills itself on its first step */
 #ifndef STG05_ROCK_BURST_H
 #define STG05_ROCK_BURST_H
+#include <ninja.h>
 
 #include "effect/pools.h"
 #include "system/task.h"
@@ -9,6 +10,9 @@
 /* the pool of the rocks' dust, which 1ST_READ.BIN's mountain_pools names
  * for particle_create_pools to make as the stage starts */
 extern struct particle_pool_spec rock_burst_dust_pool;
+/* the dust's texlist. 1ST_READ.BIN's mountain_pvms names it, for
+ * MOUNTAIN_STEAM's textures */
+extern NJS_TEXLIST rock_burst_dust_texlist;
 
 /* the step mountain_object_list names for Ex Rock. its task destroys itself
  * on its next step, and its placement makes no more */

@@ -1,0 +1,7 @@
+# K_MOT.PRS, Knuckles' motions
+#
+# section  start       end
+D          0x0cc00000  0x0cc5a5c8
+#
+# source                section  start       end
+gen/k_mot/d_0cc00000.c  D        0x0cc00000  0x0cc5a5c8

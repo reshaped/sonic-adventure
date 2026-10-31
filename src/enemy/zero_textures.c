@@ -3,6 +3,7 @@
 #include <ninja.h>
 
 #include "enemy/zero.h"
+#include "enemy/zero_textures.h"
 
 #define TEXT_1_LENGTH 11
 #define TEXT_2_LENGTH 7
@@ -123,6 +124,6 @@ static NJS_MKEY_A dat_8c5e84dc[28] = {
 static NJS_MDATA2 dat_8c5e869c[48] = {
 #include "enemy/zero_textures/dat_8c5e869c.inc"
 };
-static NJS_MOTION zero_hit_behind_motion = {
+NJS_MOTION zero_hit_behind_motion = {
 #include "enemy/zero_textures/zero_hit_behind_motion.inc"
 };

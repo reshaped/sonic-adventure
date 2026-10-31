@@ -97,6 +97,19 @@ SYE_G2_ERR syG2DmaGetEndCounter(SYE_G2_DMA_TYPE type, Uint32 *counter);
 
 /* a channel's G2 DMA registers, in the system bus's register area */
 struct g2_dma_registers {
+#ifdef GCC
+    /* G2_DMA_CHANNEL_REGISTERS and syG2DmaEndIntrruptHandler cast away the
+     * volatile of sygG2WrkPtr->registers. GCC can drop or reorder a store
+     * through the plain pointer, so each register is volatile itself */
+    volatile Uint32 device;
+    volatile Uint32 memory;
+    volatile Uint32 length;
+    volatile Uint32 direction;
+    volatile Uint32 trigger;
+    volatile Uint32 enable;
+    volatile Uint32 start;
+    volatile Uint32 suspend;
+#else
     Uint32 device;
     Uint32 memory;
     Uint32 length;
@@ -105,6 +118,7 @@ struct g2_dma_registers {
     Uint32 enable;
     Uint32 start;
     Uint32 suspend;
+#endif
 };
 
 /* @hack type: G2_DMA_CHANNEL_REGISTERS casts sygG2WrkPtr->registers, a

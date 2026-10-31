@@ -1062,6 +1062,11 @@ KMSTATUS kmRenderTexture(PKMSURFACEDESC pTextureSurface)
      * pointer, which the image stores (MOV.L R15,@R3 at 0x8c61f7a0); set
      * explicitly, to &saved_tag, the function is 4 bytes longer and 50 of 742
      * words differ */
+#ifdef GCC
+    /* sets stack to the stack pointer, the value stack_pointer is declared
+     * to hold and the image stores */
+    stack = (KMDWORD)__builtin_stack_address();
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-uninitialized) */
     kmiDeviceExtension.stack_pointer = stack;
     return KMSTATUS_SUCCESS;
@@ -1116,7 +1121,13 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &vertex_timeout, loaded for the
          * wait's compare (0x8c61f856); returned explicitly, 187 of 237 words
          * differ and kmSetFramebufferTexture starts 20 bytes early */
+#ifdef GCC
+        /* repairs the return the tag names: GCC's is -1, kmRenderTexture's
+         * when its wait for the tile accelerator gives up */
+        return (KMSTATUS)-1;
+#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
     }
     kmiDeviceExtension.vsync_count = 0;
     timeout = 0;
@@ -1137,7 +1148,13 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8c61f88c); returned explicitly, 72 of 237 words
          * differ, and a pool word */
+#ifdef GCC
+        /* repairs the return the tag names: GCC's is -2, kmRenderTexture's
+         * when its wait for an earlier render gives up */
+        return (KMSTATUS)-2;
+#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
     }
     kmiDeviceExtension.texture_render = 1;
     saved_clip_x = kmiDeviceExtension.fb_clip_x;
@@ -1175,7 +1192,13 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8c61f924); returned explicitly, 78 of 237 words
          * differ, and 18 pool words */
+#ifdef GCC
+        /* repairs the return the tag names: GCC's is -3, kmRenderTexture's
+         * when its wait for its own render gives up */
+        return (KMSTATUS)-3;
+#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
     }
     slot &= 1;
     kmiWriteRegister(SOFT_RESET, RESET_TA);

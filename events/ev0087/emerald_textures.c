@@ -44,6 +44,6 @@ static NJS_MKEY_F dat_0cba9204[2] = {
 static NJS_MDATA3 dat_0cba9224[5] = {
 #include "ev0087/emerald_textures/dat_0cba9224.inc"
 };
-static NJS_MOTION dat_0cba929c = {
+NJS_MOTION dat_0cba929c = {
 #include "ev0087/emerald_textures/dat_0cba929c.inc"
 };

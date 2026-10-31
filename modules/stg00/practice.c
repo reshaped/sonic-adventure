@@ -44,9 +44,8 @@ static void practice_act_step(struct task *task)
     (void)task->work;
 }
 
-/* under section HEAD, SHC writes this step to section PHEAD, which the
- * module's link places first. 1ST_READ.BIN's stage_steps names it by its
- * address there */
+/* under section HEAD, SHC writes this step to section PHEAD, which the module's
+ * link places first. 1ST_READ.BIN's stage_steps holds its address there */
 #pragma section HEAD
 void practice_step(struct task *task)
 {

@@ -29,6 +29,20 @@ struct path {
     void (*step)(struct task *task);
 };
 
+/* an act's paths, keyed by its STAGE_ACT */
+struct path_list {
+    Sint32 stage_act;
+    struct path **paths; /* ended by a null */
+};
+
+/* a row for each act whose paths path_create_tasks reads, then a row whose
+ * stage_act is 0xffff */
+extern struct path_list path_lists[];
+/* the paths path_lists' first row gives STAGE_PRACTICE's act 2, ended by a
+ * null. no function names them. the declaration gives their type to the
+ * definition in 1ST_READ.BIN's generated data */
+extern struct path *practice_act2_paths[];
+
 struct path_vars {
     /* a count of steps for each of players 0 and 1. a path task that
      * doesn't hold the player counts the steps since it let the player go,
@@ -96,6 +110,23 @@ Bool path_create_manager(void);
  * long. returns TRUE, or FALSE with the sample left alone when the distance
  * is off a path that stops */
 Bool path_sample(struct path *path, struct path_sample *sample);
+#ifdef GCC
+/* where path_sample's search of one path stopped: the distance it searched
+ * for, as wrapped, the point it stopped at and the lengths before that point
+ * summed. an index below 0 holds no search */
+struct path_mark {
+    Float distance;
+    Float sum;
+    int index;
+};
+
+/* path_sample, but a search for a distance at or past mark's starts at mark's
+ * point. no point before it can stop such a search, so the sample is the
+ * same. a mark that holds no search takes this one's stop. a mark serves one
+ * path alone */
+Bool path_sample_from(struct path *path, struct path_sample *sample,
+                      struct path_mark *mark);
+#endif
 /* set *index to the point that starts the segment holding distance, and
  * return TRUE. a distance past the points' lengths summed sets count, after
  * reading one point past the last */

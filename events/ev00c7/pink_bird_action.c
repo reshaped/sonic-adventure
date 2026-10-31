@@ -18,6 +18,6 @@ static NJS_MOTION ev00c7_pink_bird_motion = {
 NJS_ACTION ev00c7_pink_bird_action = {
 #include "ev00c7/pink_bird_action/ev00c7_pink_bird_action.inc"
 };
-static NJS_TEXNAME ev00c7_picture_textures[1] = {
+NJS_TEXNAME ev00c7_picture_textures[1] = {
     {TEXT_1, 0, 0},
 };

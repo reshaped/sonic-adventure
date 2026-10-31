@@ -107,6 +107,11 @@ void adxf_wait_1ms(void)
     Sint32 i;
 
     for (i = 0; i < 50000; i++) {
+#ifdef GCC
+        /* GCC deletes an empty loop. the asm keeps each pass, so the wait
+         * takes as long as the shipped loop */
+        __asm__ volatile("");
+#endif
     }
 }
 

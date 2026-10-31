@@ -142,6 +142,11 @@ Bool mwGscGdIsComplete(struct gsc_stream *hn)
     /* @bug uninitialized: the query's error goes unchecked. with hn->gdfs
      * null, mwGscGdGetGdfsStat writes no stat, and the switch reads the word
      * the stack held (MOV.L @R15,R0 at 0x8ced18f4) */
+#ifdef GCC
+    /* repairs the unset stat the tag names: where the query writes none,
+     * GCC's is GDD_STAT_UNDEF, so a stream with no gdfs isn't complete */
+    stat = GDD_STAT_UNDEF;
+#endif
     mwGscGdGetGdfsStat(hn, &stat);
     /* @hack spelling: a switch of one case, which tests stat with CMP/EQ #1 and
      * branches (BF and BRA at 0x8ced18f8, 0x8ced18fa); as an if, 9 of 14

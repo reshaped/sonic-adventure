@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_ACTION ev0052_sonic_action_2;
+/* the texture names of the generated texlist event_clouds_texlist */
+extern NJS_TEXNAME event_clouds_textures[3];
 
 #endif

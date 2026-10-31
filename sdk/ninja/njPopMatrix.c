@@ -1,12 +1,19 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* pop n matrices: move the current matrix pointer down n slots, and load the
  * matrix there into XMTRX as the current matrix. returns TRUE, or FALSE,
  * popping nothing, when n equals the stack depth. it pops wherever the depth
  * less n, taken unsigned, is at least 1, so an n above the depth pops too:
  * the depth goes negative, and the pointer moves below the stack's base */
+#ifdef GCC
+#undef njPopMatrix
+Bool njPopMatrix(Uint32 n)
+{
+    return zam_njPopMatrix(n);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c628ac4 follows the
  * body's own return at 0x8c628abc */
 #pragma inline_asm(njPopMatrix)
@@ -46,3 +53,4 @@ Bool njPopMatrix(Uint32 n)
 }
 #endif
 /* clang-format on */
+#endif

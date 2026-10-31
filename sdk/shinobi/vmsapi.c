@@ -540,9 +540,18 @@ Sint32 buMountDisk(Sint32 drive, void *addr, Sint32 size)
 {
     Sint32 result = vmsfs_setwork(drive, addr, size);
 
+#ifdef GCC
+    /* keeps the result the tag below names: buMount's, or vmsfs_setwork's
+     * where it fails */
+    if (result == BUD_ERR_OK) {
+        return buMount(drive);
+    }
+    return result;
+#else
     if (result == BUD_ERR_OK) {
         buMount(drive);
     }
+#endif
     /* @hack implicit: R0 still holds vmsfs_setwork's result where it
      * fails (MOV R0,R4 at 0x8c11b3da), and buMount's where SHC makes the
      * call the function's tail (BRA at 0x8c11b3e4); returned explicitly, 9

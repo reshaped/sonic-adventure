@@ -33,7 +33,6 @@ static NJS_TEXNAME final_pom_textures[POM_FRAMES] = {
 static NJS_TEXANIM final_pom_frames[POM_FRAMES] = {
 #include "stg10/pom/final_pom_frames.inc"
 };
-static NJS_TEXLIST final_pom_texlist;
 static struct particle_anim final_pom_anim = {
     &final_pom_texlist, final_pom_frames, POM_FRAMES,
     NJD_COLOR_BLENDING_SRCALPHA, NJD_COLOR_BLENDING_ONE};
@@ -49,7 +48,7 @@ static struct dust_params final_pom_params = {
     {0.0F, 0.0F, 0.0F},
     {1.0F, 1.0F, 1.0F, 1.0F},
 };
-static NJS_TEXLIST final_pom_texlist = {
+NJS_TEXLIST final_pom_texlist = {
 #include "stg10/pom/final_pom_texlist.inc"
 };
 

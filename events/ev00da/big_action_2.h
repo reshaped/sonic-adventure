@@ -6,5 +6,7 @@
 
 extern NJS_ACTION ev00da_big_action_2;
 extern NJS_TEXLIST ev00da_frog_texlist;
+/* the material belongs to Froggy's model, in the data after this object */
+extern NJS_MATERIAL dat_0cb8ac84[1];
 
 #endif

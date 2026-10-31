@@ -25,9 +25,21 @@ struct heap_block {
 
 /* the heap: HEAP_SIZE bytes of blocks, then the end block's header */
 extern Uint8 heap_arena[];
+#ifdef GCC
+/* 1ST_READ.BIN's tables place it in B32, the bss whose objects start on a
+ * 32-byte boundary, where no source holds it. the port defines it here, on
+ * a 32-byte boundary too */
+Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]
+    __attribute__((aligned(32)));
+#endif
 
 static struct heap_block *heap_free_list;
 static int dat_8c7a7de4; /* heap_init sets it to 0, and no code reads it */
+#ifdef GCC
+/* nothing reads the pool's start again, so GCC keeps it as used, as the
+ * image keeps it, for a probe of the running game to name each task by */
+static struct task *task_pool __attribute__((used));
+#endif
 static struct task *task_pool;
 static struct task *task_free_list;
 static struct task *task_levels[TASK_LEVELS];
@@ -192,6 +204,10 @@ void task_destroy(struct task *task)
     struct task *next;
     struct task *prev;
 
+#ifdef GCC
+    /* the split frame forgets what task drew, since its slot goes free */
+    present_forget(task);
+#endif
     if (task->destructor != NULL) {
         task->destructor(task);
     }
@@ -278,7 +294,12 @@ void task_step_level(int level)
             next = task->next;
             task_current_root_step = step;
             if (step != NULL) {
+#ifdef GCC
+                /* keys the step's draws to task, for the split frame */
+                present_run(task, step);
+#else
                 step(task);
+#endif
             }
             task_current_root_step = NULL;
             task = next;
@@ -298,9 +319,15 @@ void task_draw_level(int level)
     for (task = task_levels[level]; task != NULL; task = next) {
         draw = task->draw;
         next = task->next;
+#ifdef GCC
+        /* present_draw takes a task with no callback too: the second
+         * picture may replay the draws its step made */
+        present_draw(task, draw);
+#else
         if (draw != NULL) {
             draw(task);
         }
+#endif
         if (task->child != NULL) {
             task_draw_children(task);
         }
@@ -316,9 +343,15 @@ void task_draw_children(struct task *task)
     for (child = task->child; child != NULL; child = next) {
         draw = child->draw;
         next = child->next;
+#ifdef GCC
+        /* present_draw takes a task with no callback too: the second
+         * picture may replay the draws its step made */
+        present_draw(child, draw);
+#else
         if (draw != NULL) {
             draw(child);
         }
+#endif
         if (child->child != NULL) {
             task_draw_children(child);
         }
@@ -813,6 +846,12 @@ void task_step_children(struct task *task)
 
     for (child = task->child; child != NULL; child = next) {
         next = child->next;
+#ifdef GCC
+        /* keys the step's draws to child. the second picture's pass, which
+         * draws the children itself, steps none */
+        present_run(child, child->step);
+#else
         child->step(child);
+#endif
     }
 }

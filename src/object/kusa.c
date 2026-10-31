@@ -197,9 +197,9 @@ static void kusa_leaf_start(struct task *task, struct task_work *work,
     force->speed.x = speed->x + (roll[0] * 5.0F) - 2.5F;
     force->speed.y = speed->y;
     force->speed.z = speed->z + (roll[2] * 5.0F) - 2.5F;
-    work->ang.x = (Angle)(roll[0] * 360.0F * ANGLE_PER_DEGREE);
-    work->ang.y = (Angle)(roll[1] * 360.0F * ANGLE_PER_DEGREE);
-    work->ang.z = (Angle)(roll[2] * 360.0F * ANGLE_PER_DEGREE);
+    work->ang.x = (Angle)(roll[0] * (360.0F * ANGLE_PER_DEGREE));
+    work->ang.y = (Angle)(roll[1] * (360.0F * ANGLE_PER_DEGREE));
+    work->ang.z = (Angle)(roll[2] * (360.0F * ANGLE_PER_DEGREE));
     force->turn.x = work->ang.x >> 6;
     force->turn.y = work->ang.y >> 6;
     force->turn.z = work->ang.z >> 6;

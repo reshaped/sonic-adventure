@@ -3341,6 +3341,6 @@ NJS_TEXLIST ev004b_emerald_texlist = {
 };
 /* the material of dat_0cbafd18, one of the four models in
  * ev004b_emerald_object's tree, which ev004b_emerald_action moves */
-static NJS_MATERIAL dat_0cbaf734[1] = {
+NJS_MATERIAL dat_0cbaf734[1] = {
 #include "ev004b/bird_textures/dat_0cbaf734.inc"
 };

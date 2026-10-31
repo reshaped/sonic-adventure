@@ -10,6 +10,9 @@
 #include "camera/camera.h"
 #include "draw/draw.h"
 #include "stage/stage.h"
+#ifdef GCC
+#include "system/frame.h"
+#endif
 #include "system/task.h"
 #include "system/util.h"
 
@@ -243,6 +246,14 @@ void chaos6_sky_step(struct task *task)
         work->mode = SKY_RUN;
         break;
     case SKY_RUN:
+#ifdef GCC
+        /* the second picture's pass draws the sky by chaos6_sky_draw. step
+         * 1 of a split frame draws none, so that the picture adds the sheet
+         * once */
+        if (frame_split && frame_step == 1) {
+            break;
+        }
+#endif
         switch (stage_act & 0xff) {
         case 0:
             chaos6_sky_draw_dome(work);

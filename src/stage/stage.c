@@ -6,11 +6,33 @@
 #include <stdlib.h>
 
 #include "adv00/start.h"
+#include "adv00/station_square.h"
+#include "adv0100/egg_carrier.h"
+#include "adv0100/sky.h"
+#include "adv0130/egg_carrier_inside.h"
 #include "adv01obj/start.h"
 #include "adv02/mystic_ruins.h"
 #include "adv02/start.h"
+#include "adv03/past.h"
 #include "adv03/start.h"
+#include "al_garden00/garden.h"
+#include "al_garden01/garden.h"
+#include "al_garden02/garden.h"
 #include "al_main/card.h"
+#include "al_race/race.h"
+#include "al_race/sky.h"
+#include "b_chaos0/chaos0.h"
+#include "b_chaos2/chaos2.h"
+#include "b_chaos4/chaos4.h"
+#include "b_chaos6/chaos6.h"
+#include "b_chaos6/sky.h"
+#include "b_chaos7/chaos7.h"
+#include "b_e101/e101.h"
+#include "b_e101_r/e101_r.h"
+#include "b_egm1/eggmobile1.h"
+#include "b_egm2/eggmobile2.h"
+#include "b_egm3/eggmobile3.h"
+#include "b_robo/eggmanrobo.h"
 #include "camera/camera.h"
 #include "chao/chao.h"
 #include "collision/collision.h"
@@ -28,6 +50,8 @@
 #include "hud/menu.h"
 #include "hud/overlay.h"
 #include "main.h"
+#include "minicart/cart.h"
+#include "minicart/sky.h"
 #include "object/capsule.h"
 #include "object/common.h"
 #include "object/download.h"
@@ -52,11 +76,25 @@
 #include "progress/recorder.h"
 #include "save/card.h"
 #include "save/save.h"
+#include "sboard/sky.h"
+#include "sboard/sunaboard.h"
+#include "shooting/shooting.h"
 #include "shooting/tornado.h"
 #include "sound/sound.h"
 #include "sound/stream.h"
 #include "stage/stage.h"
+#include "stg00/practice.h"
+#include "stg01/beach.h"
+#include "stg02/windy.h"
+#include "stg03/twinkle.h"
+#include "stg04/highway.h"
+#include "stg05/mountain.h"
+#include "stg06/sky_deck.h"
+#include "stg07/ruin.h"
+#include "stg08/icecap.h"
 #include "stg09/casino.h"
+#include "stg10/final.h"
+#include "stg12/shelter.h"
 #include "system/bitmap.h"
 #include "system/frame.h"
 #include "system/history.h"
@@ -119,9 +157,6 @@
  * while play_time's bits under this mask are 0. play_time counts steps, so
  * a frame of more than one step can skip past a multiple of 256 */
 #define CARD_CHECK_MASK 0xff
-
-/* a step in the stage's module, at its address once loaded */
-#define MODULE_STEP(address) ((void (*)(struct task *))(address))
 
 /* what a stage does each frame, from its title card to its end */
 enum stage_mode {
@@ -671,49 +706,49 @@ static struct return_point *return_point = NULL;
 
 /* each stage's task step, in its module, or NULL */
 static void (*stage_steps[STAGE_COUNT])(struct task *task) = {
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c907c46),
-    MODULE_STEP(0x0c90ba20),
-    MODULE_STEP(0x0c912bca),
-    MODULE_STEP(0x0c900502),
-    MODULE_STEP(0x0c90bb68),
-    MODULE_STEP(0x0c90ec32),
-    MODULE_STEP(0x0c900ae0),
-    MODULE_STEP(0x0c900000),
+    practice_step,
+    beach_step,
+    windy_step,
+    twinkle_step,
+    highway_step,
+    mountain_step,
+    sky_deck_step,
+    ruin_step,
+    icecap_step,
+    casino_step,
+    final_step,
     NULL,
-    MODULE_STEP(0x0c900000),
-    NULL,
-    NULL,
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900080),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900060),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c9200a0),
+    shelter_step,
     NULL,
     NULL,
-    MODULE_STEP(0x0c9224a0),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900000),
-    MODULE_STEP(0x0c900120),
-    MODULE_STEP(0x0c900ae0),
-    MODULE_STEP(0x0c900e60),
-    MODULE_STEP(0x0c900040),
-    MODULE_STEP(0x0cb80000),
-    MODULE_STEP(0x0cb80000),
-    MODULE_STEP(0x0cb80000),
-    MODULE_STEP(0x0cb80040),
+    chaos0_step,
+    chaos2_step,
+    chaos4_step,
+    chaos6_step,
+    chaos7_step,
+    eggmobile1_step,
+    eggmobile2_step,
+    eggmobile3_step,
+    eggmanrobo_step,
+    e101_step,
+    e101_r_step,
+    station_square_step,
+    station_square_step,
+    station_square_step,
+    egg_carrier_step,
+    NULL,
+    NULL,
+    egg_carrier_inside_step,
+    mystic_ruins_step,
+    past_step,
+    cart_step,
+    shooting_act1_step,
+    shooting_act2_step,
+    sunaboard_step,
+    station_square_garden_step,
+    egg_carrier_garden_step,
+    mystic_ruins_garden_step,
+    alife_race_step,
 };
 
 static struct back_color back_colors[STAGE_COUNT] = {
@@ -723,48 +758,48 @@ static struct back_color back_colors[STAGE_COUNT] = {
 /* each stage's sky task step, in its module, or NULL */
 static void (*sky_steps[STAGE_COUNT])(struct task *task) = {
     NULL,
-    MODULE_STEP(0x0c90025e),
-    MODULE_STEP(0x0c900120),
-    MODULE_STEP(0x0c9085c2),
-    MODULE_STEP(0x0c90c12e),
-    MODULE_STEP(0x0c91360c),
-    MODULE_STEP(0x0c9006ba),
-    MODULE_STEP(0x0c90bbc8),
-    MODULE_STEP(0x0c90f780),
+    beach_sky_step,
+    windy_sky_step,
+    twinkle_sky_step,
+    highway_sky_step,
+    mountain_sky_step,
+    sky_deck_sky_step,
+    ruin_sky_step,
+    icecap_sky_step,
     NULL,
-    MODULE_STEP(0x0c900414),
+    final_sky_step,
     NULL,
-    MODULE_STEP(0x0c900374),
-    NULL,
-    NULL,
-    MODULE_STEP(0x0c900060),
-    MODULE_STEP(0x0c9000e0),
-    MODULE_STEP(0x0c900060),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c900080),
-    MODULE_STEP(0x0c904f20),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c9000e0),
-    MODULE_STEP(0x0c900040),
-    MODULE_STEP(0x0c900040),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c920000),
+    shelter_sky_step,
     NULL,
     NULL,
-    MODULE_STEP(0x0c920000),
-    MODULE_STEP(0x0c9000a0),
-    MODULE_STEP(0x0c9000c0),
-    MODULE_STEP(0x0c900000),
+    chaos0_sky_step,
+    chaos2_sky_step,
+    chaos4_sky_step,
+    chaos6_sky_step,
+    chaos7_sky_step,
+    eggmobile1_sky_step,
+    eggmobile2_sky_step,
+    eggmobile3_sky_step,
+    eggmanrobo_sky_step,
+    e101_sky_step,
+    e101_r_sky_step,
+    station_square_sky_step,
+    station_square_sky_step,
+    station_square_sky_step,
+    egg_carrier_sky_step,
     NULL,
     NULL,
-    MODULE_STEP(0x0c900000),
+    egg_carrier_inside_sky_step,
+    mystic_ruins_sky_step,
+    past_sky_step,
+    cart_sky_step,
+    NULL,
+    NULL,
+    sunaboard_sky_step,
     NULL,
     NULL,
     NULL,
-    MODULE_STEP(0x0cb80000),
+    race_sky_step,
 };
 
 static struct stage_exit sonic_exits[] = {
@@ -786,6 +821,12 @@ static struct stage_exit sonic_exits[] = {
     {0, STAGE_EGGMOBILE3, STAGE_MYSTIC_RUINS, 0, 0, 0, 0, 0},
     {0, STAGE_SHOOTING1, STAGE_STATION_SQUARE, 4, 0, 0, 0, 0},
     {0, STAGE_SHOOTING2, STAGE_EGG_CARRIER, 0, 0, 0, 0, 0},
+#ifdef GCC
+    /* keeps Sonic's exit from Sand Hill: Tails' row, which the image's walk
+     * reads on to, as the tag in stage_set_next_exit_from says. GCC's walk
+     * ends at EXIT_END, so this row copies Tails' */
+    {0, STAGE_SUNABOARD, STAGE_PAST, 0, 0, STAGE_MYSTIC_RUINS, 2, 1},
+#endif
     {0, EXIT_END, 0, 0, 0, 0, 0, 0},
 };
 
@@ -892,6 +933,9 @@ int bonus_points;
 int trial_count;
 Float shoot_hit_rate;
 int hints_used;
+#ifdef GCC
+Bool stage_limit_cleared;
+#endif
 struct trial_time trial_times[TRIAL_TIMES];
 struct mirror_list mirrors;
 NJS_VECTOR scratch_vector;
@@ -2516,6 +2560,11 @@ static int stage_run_action(void)
     press0 = per_info[0]->press;
     press1 = per_info[1]->press;
     extra = 0;
+#ifdef GCC
+    /* each frame starts with its limit uncleared, as the image loads
+     * 1900 into FR15 for each frame (0x8c051b1a) */
+    stage_limit_cleared = FALSE;
+#endif
     /* @hack spelling: 1900 through limit, which SHC keeps in FR15 for the
      * loop (MOVA at 0x8c051b0a); compared as a constant, 80 of 87 words
      * differ */
@@ -2525,6 +2574,19 @@ static int stage_run_action(void)
     for (frame_step = 0, limit = ACTION_LIMIT;
          frame_step < frame_step_count + extra;) {
         stage_run_step();
+#ifdef GCC
+        present_step();
+        /* keeps the shipped extra step a cone moving over a floor gives a
+         * frame at 30 fps. in the image, cone_run's slope z lands on the FR15
+         * that holds limit. a floor's z is an angle within half a turn: as a
+         * Float, one of 0 or more is 0 or a denormal, which the FPU takes
+         * for 0 under FPSCR.DN, and a negative one is a NaN. the FCMP/GT at
+         * 0x8c051b2c finds neither over the time, so the frame takes its
+         * extra step, as GCC's does with a limit of 0.0F */
+        if (stage_limit_cleared) {
+            limit = 0.0F;
+        }
+#endif
         if (frame_step == 1 && timer_elapsed() >= limit) {
             extra++;
         }
@@ -2537,6 +2599,10 @@ static int stage_run_action(void)
     }
     per_info[0]->press = press0;
     per_info[1]->press = press1;
+#ifdef GCC
+    /* a split frame's second picture, which the hud draws over */
+    present_second();
+#endif
     hud_draw();
     hud_draw_timer();
     return 0;
@@ -2563,6 +2629,9 @@ static int stage_run_field(void)
     for (frame_step = 0, limit = FIELD_LIMIT;
          frame_step < frame_step_count + extra;) {
         stage_run_step();
+#ifdef GCC
+        present_step();
+#endif
         if (frame_step == 1 && timer_elapsed() >= limit) {
             extra++;
         }
@@ -2575,6 +2644,10 @@ static int stage_run_field(void)
     }
     per_info[0]->press = press0;
     per_info[1]->press = press1;
+#ifdef GCC
+    /* a split frame's second picture, which the hud draws over */
+    present_second();
+#endif
     hud_draw();
     return 0;
 }
@@ -2932,6 +3005,11 @@ static void stage_create_players(void)
     Sint16 i;
 
     player_clear_slots();
+#ifdef GCC
+    /* GCC can't see that character_current is one of the six playable, as
+     * the comment above says it must be: the test for each sets task */
+    task = NULL;
+#endif
     for (i = 0; i < 2; i++) {
         if (i == 0) {
             if (character_current == CHARACTER_SONIC) {
@@ -3233,6 +3311,11 @@ void stage_place_player(struct task_work *work)
         } else if (stage_current == STAGE_PAST) {
             past_place_player(work);
         } else {
+#ifdef GCC
+            /* GCC can't see that the player's character is one of the six
+             * playable, the cases, as stage_create_players gives it */
+            start = NULL;
+#endif
             /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
             switch (PLAYER_VARS(work)->character) {
             case CHARACTER_SONIC:
@@ -3313,9 +3396,18 @@ static void stage_set_next_exit_from(Uint16 stage, Uint16 act)
     /* @bug memory: for a stage its list lacks, the walk reads on past EXIT_END,
      * the list's end (CMP/EQ R9,R0 at 0x8c052e80, R9 0xffff). it tests for
      * 0xffff, which no Uint8 stage equals, so it ends only at the stage's
-     * exit */
+     * exit. D holds the lists in the characters' order, so it reads on into
+     * the next character's, as Sonic's Sand Hill takes Tails' row at
+     * 0x8c1b4bd0, and past big_exits' into the data after them */
     /* NOLINTNEXTLINE(clang-diagnostic-tautological-*) */
     while (entry->stage != 0xffff) {
+#ifdef GCC
+        /* repairs the read past the list the tag names: GCC's walk ends at
+         * EXIT_END */
+        if (entry->stage == EXIT_END) {
+            break;
+        }
+#endif
         if (entry->stage == stage) {
             if (stage_clears[character_current][stage] == 1) {
                 stage_next = entry->first_stage;
@@ -3392,6 +3484,11 @@ static Bool stage_set_next_boss(void)
         act_next = 0;
         return FALSE;
     }
+#ifdef GCC
+    /* GCC can't see that character_current is one of the six playable, the
+     * cases */
+    walk = NULL;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
     switch (character_current) {
     case CHARACTER_SONIC:
@@ -3435,3 +3532,10 @@ Bool stage_playing(void)
 {
     return stage_mode == STAGE_PLAY;
 }
+
+#ifdef GCC
+Bool stage_in_play(void)
+{
+    return stage_mode == STAGE_PLAY || stage_mode == STAGE_FADE_IN;
+}
+#endif

@@ -1,0 +1,7 @@
+# E_MOT.PRS, E-102's motions
+#
+# section  start       end
+D          0x0cc00000  0x0cc3ae7c
+#
+# source                section  start       end
+gen/e_mot/d_0cc00000.c  D        0x0cc00000  0x0cc3ae7c

@@ -13,6 +13,6 @@ static NJS_TEXNAME ev0032_emerald_textures[1] = {
 NJS_TEXLIST ev0032_emerald_texlist = {
 #include "ev0032/emerald_textures/ev0032_emerald_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb8553c[1] = {
+NJS_MATERIAL dat_0cb8553c[1] = {
 #include "ev0032/emerald_textures/dat_0cb8553c.inc"
 };

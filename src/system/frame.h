@@ -5,7 +5,11 @@
 
 /* the vsyncs to a frame, and the vsyncs left in the frame running */
 extern int frame_interval;
+#ifdef GCC
+extern volatile int frame_countdown;
+#else
 extern int frame_countdown;
+#endif
 /* the steps to a frame, and the step running, from 0 */
 extern int frame_step_count;
 extern int frame_step;
@@ -30,5 +34,11 @@ void frame_vsync(void);
 /* fun_8c054be0 and fun_8c054be4 each return at once */
 void fun_8c054be0(void);
 void fun_8c054be4(void);
+
+#ifdef GCC
+/* port.h, by its path from here: a game source's compile doesn't search
+ * the tree's root */
+#include "../../gcc/src/system/port.h"
+#endif
 
 #endif

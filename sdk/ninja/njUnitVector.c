@@ -1,8 +1,15 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
+/* scale v to unit length and return its former length */
+#ifdef GCC
+#undef njUnitVector
+Float njUnitVector(NJS_VECTOR *v)
+{
+    return zam_njUnitVector(v);
+}
+#else
 /* clang-format off */
 #ifndef __clang__
-/* scale v to unit length and return its former length */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c62984c follows the
  * body's own return at 0x8c629848 */
 #pragma inline_asm(njUnitVector)
@@ -27,3 +34,4 @@ Float njUnitVector(NJS_VECTOR *v)
 }
 #endif
 /* clang-format on */
+#endif

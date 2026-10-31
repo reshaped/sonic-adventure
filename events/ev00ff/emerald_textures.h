@@ -14,5 +14,7 @@ extern NJS_ACTION ev00ff_gather_action_3;
 extern NJS_ACTION ev00ff_gather_action_4;
 extern NJS_ACTION ev00ff_gather_action_5;
 extern NJS_ACTION ev00ff_gather_action_6;
+/* the texture names of the generated texlist ev00ff_bird_texlist */
+extern NJS_TEXNAME ev00ff_bird_textures[7];
 
 #endif

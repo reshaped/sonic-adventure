@@ -2,6 +2,7 @@
 #include <ninja.h>
 
 #include "stg02/e103.h"
+#include "stg02/e103_textures.h"
 
 #define TEXT_1_LENGTH 10
 #define TEXT_2_LENGTH 9
@@ -65,6 +66,6 @@ NJS_TEXLIST windy_e103_texlist = {
 /* the material of the first model after it, E-103's. SHC starts each object's
  * data on a multiple of 8. the material starts right after the texlist, 4
  * bytes past one, so it is this file's */
-static NJS_MATERIAL dat_0c9ec72c[1] = {
+NJS_MATERIAL dat_0c9ec72c[1] = {
 #include "stg02/e103_textures/dat_0c9ec72c.inc"
 };

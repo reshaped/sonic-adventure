@@ -4,8 +4,8 @@
 
 #include "runtime/print.h"
 
-extern int _xti(double value, int digits, unsigned char *integer, int *scale,
-                signed char *sign);
+extern int _xti(long double value, int digits, unsigned char *integer,
+                int *scale, signed char *sign);
 extern void _its(unsigned char *value, char *digits, int n);
 
 static void round_digits(char *digits, int position);
@@ -13,7 +13,7 @@ static void round_digits(char *digits, int position);
 void _xtostr(va_list *arguments, char *text, int conversion,
              struct format_parts *parts)
 {
-    double value;
+    long double value;
     int scale;
     signed char sign;
     unsigned char magnitude[8];
@@ -36,7 +36,13 @@ void _xtostr(va_list *arguments, char *text, int conversion,
     int i;
     int j;
 
+#ifdef GCC
+    /* a float argument arrives as a double, which is float under
+     * -m4-single-only. GCC compiles va_arg of float to a trap */
+    value = va_arg(*arguments, double);
+#else
     value = va_arg(*arguments, float);
+#endif
     /* @hack redundant: a square of value that never runs; without it, the
      * argument fetch's cursor and mask take R5 and R7 for R7 and R6, its frame
      * words and conversion's frame word move, the reversal keeps length / 2 in

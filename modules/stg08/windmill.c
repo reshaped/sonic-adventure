@@ -22,7 +22,7 @@ extern NJS_OBJECT windmill_object;
 #define BLADE_SWELL_DEGREES 0.5F
 #define SWELL_STEPS 260.0F
 #define SWELL(step)                                                            \
-    njAbs(njSin((Angle)((step) * (360.0F / SWELL_STEPS) * ANGLE_PER_DEGREE)))
+    njAbs(njSin((Angle)((step) * ((360.0F / SWELL_STEPS) * ANGLE_PER_DEGREE))))
 #define BLADE_TURN(work) ((work)->ang.z)
 
 static void windmill_destroy(struct task *task);

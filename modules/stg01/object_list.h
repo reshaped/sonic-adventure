@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists reaches this list by its address,
- * 0x0caa92d8, for acts 0 to 2 */
+/* 1ST_READ.BIN's object_lists names this list for acts 0 to 2 */
 extern struct object_list beach_object_list;
 
 #endif

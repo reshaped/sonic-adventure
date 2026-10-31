@@ -21,21 +21,15 @@
 extern NJS_ACTION cowgirl_action;
 /* the action's node PLATFORM_NODE, whose model the platform's copy takes */
 extern NJS_OBJECT cowgirl_platform_object;
-extern NJS_MESHSET cowgirl_meshset_0;
-extern NJS_MESHSET cowgirl_meshset_1;
-extern NJS_MESHSET cowgirl_meshset_2;
-extern NJS_MESHSET cowgirl_meshset_3;
-extern NJS_MESHSET cowgirl_meshset_4;
-extern NJS_MESHSET cowgirl_meshset_5;
-extern NJS_MESHSET cowgirl_meshset_6;
-extern NJS_MESHSET cowgirl_meshset_7;
-extern NJS_MESHSET cowgirl_meshset_8;
-extern NJS_MESHSET cowgirl_meshset_9;
-extern NJS_MESHSET cowgirl_meshset_10;
-extern NJS_MESHSET cowgirl_meshset_11;
-extern NJS_MESHSET cowgirl_meshset_12;
-extern NJS_MESHSET cowgirl_meshset_13;
-extern NJS_MESHSET cowgirl_meshset_14;
+/* the meshsets of the action's nodes, the platform's last */
+extern NJS_MESHSET cowgirl_node0_meshsets[14];
+extern NJS_MESHSET cowgirl_node1_meshsets[3];
+extern NJS_MESHSET cowgirl_node2_meshsets[3];
+extern NJS_MESHSET cowgirl_node3_meshsets[10];
+extern NJS_MESHSET cowgirl_node4_meshsets[7];
+extern NJS_MESHSET cowgirl_node5_meshsets[5];
+extern NJS_MESHSET cowgirl_node7_meshsets[3];
+extern NJS_MESHSET cowgirl_platform_meshsets[12];
 
 /* the task destroys itself beyond about 800 of the camera and player 0.
  * placement_try_leave_by takes the range squared */
@@ -75,8 +69,8 @@ struct cowgirl_vars {
 #define STRUCK(work) ((work)->tick)
 
 /* COWGIRL_SHIFTED rows for each phase from 1. each phase shows the texture
- * half further along in u than the phase before, and cowgirl_meshset_14's a
- * quarter */
+ * half further along in u than the phase before, and the first of
+ * cowgirl_node7_meshsets a quarter */
 static struct uv_shift cowgirl_shifts[COWGIRL_PHASES * COWGIRL_SHIFTED] = {
 #include "stg09/cowgirl/cowgirl_shifts.inc"
 };

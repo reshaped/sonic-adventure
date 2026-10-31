@@ -220,6 +220,11 @@ static struct clear_flag knuckles_clear_flags[] = {
     {STAGE_CHAOS2, FLAG_KNUCKLES_CLEAR_CHAOS2},
     {STAGE_CHAOS4, FLAG_KNUCKLES_CLEAR_CHAOS4},
     {STAGE_CHAOS6, FLAG_KNUCKLES_CLEAR_CHAOS6},
+#ifdef GCC
+    /* repairs the end the tag names: Knuckles' walk stops at his own rows,
+     * and a stage of Amy's sets no flag of hers */
+    {-1, -1},
+#endif
 };
 
 static struct clear_flag amy_clear_flags[] = {

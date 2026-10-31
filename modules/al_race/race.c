@@ -37,7 +37,7 @@ static void alife_race_run(struct task *task);
 static void alife_race_end(struct task *task);
 static void alife_race_destroy(struct task *task);
 
-/* in the HEAD section, at the address 1ST_READ.BIN's stage_steps names for
+/* in the HEAD section, at the address 1ST_READ.BIN's stage_steps holds for
  * it, 0x0cb80040 */
 #pragma section HEAD
 void alife_race_step(struct task *task)

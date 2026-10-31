@@ -4,6 +4,10 @@
 #include <sg_xpt.h>
 #include <stdlib.h>
 
+#include "adv00/level_items.h"
+#include "adv0130/dat_0ca14ff0.h"
+#include "adv02/level_items.h"
+#include "adv03/level_items.h"
 #include "collision/collision.h"
 #include "debug/editor.h"
 #include "draw/draw.h"
@@ -63,10 +67,6 @@
 
 /* player 0 looks at the item while he is within WATCH_RANGE of it */
 #define WATCH_RANGE 40.0F
-
-/* a model in the module of the field its upgrade is found in, at the
- * address it takes once that module loads */
-#define MODULE_OBJECT(address) ((NJS_OBJECT *)(address))
 
 /* the stand's modes, in its work */
 enum level_item_mode {
@@ -213,19 +213,19 @@ static const Sint32 level_item_flags[LEVEL_ITEM_COUNT] = {
 /* each item's model and the textures it draws with. the ancient light has
  * none: level_item_draw_ancient_light draws its glow and sparks instead */
 static const struct level_item_model level_item_models[LEVEL_ITEM_COUNT] = {
-    {MODULE_OBJECT(0x0caafc1c), &sonic_texlist},
-    {MODULE_OBJECT(0x0cab1440), &sonic_texlist},
+    {&level_item_crystal_ring_object, &sonic_texlist},
+    {&level_item_light_shoes_object, &sonic_texlist},
     {NULL, NULL},
-    {MODULE_OBJECT(0x0cab1e84), &tails_texlist},
-    {MODULE_OBJECT(0x0c927c5c), &tails_texlist},
-    {MODULE_OBJECT(0x0cb1ef80), &knuckles_texlist},
-    {MODULE_OBJECT(0x0cb1db9c), &knuckles_texlist},
-    {MODULE_OBJECT(0x0ca18768), &amy_texlist},
-    {MODULE_OBJECT(0x0cb1d1dc), &amy_texlist},
-    {MODULE_OBJECT(0x0ca17c44), &e102_texlist},
-    {MODULE_OBJECT(0x0ca16fa4), &e102_texlist},
+    {&level_item_jet_anklet_object, &tails_texlist},
+    {&level_item_rhythm_brooch_object, &tails_texlist},
+    {&level_item_fighting_gloves_object, &knuckles_texlist},
+    {&level_item_shovel_claws_object, &knuckles_texlist},
+    {&level_item_long_hammer_object, &amy_texlist},
+    {&level_item_warrior_feather_object, &amy_texlist},
+    {&level_item_laser_object, &e102_texlist},
+    {&level_item_booster_object, &e102_texlist},
     {&big_power_rod_object, &big_texlist},
-    {MODULE_OBJECT(0x0cb1f514), &big_texlist},
+    {&level_item_life_belt_object, &big_texlist},
     {&big_lure_0, &fishing_texlist},
     {&big_lure_1, &fishing_texlist},
     {&big_lure_2, &fishing_texlist},
@@ -353,6 +353,18 @@ static NJS_SPRITE level_item_glow_sprite = {
  * 0x8c06e47c). ISO C leaves the read past level_item_spark_x undefined, but
  * SHC lays the four out in a row. as one NJS_SPRITE, 20 of the function's
  * 129 words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's spark is one NJS_SPRITE, its
+ * position then its look */
+static NJS_SPRITE level_item_spark_sprite = {
+    {0.0F, 0.0F, 0.0F},
+#include "object/level_item/level_item_spark_look.inc"
+};
+#define level_item_spark_x level_item_spark_sprite.p.x
+#define level_item_spark_y level_item_spark_sprite.p.y
+#define level_item_spark_z level_item_spark_sprite.p.z
+#define SPARK_SPRITE (&level_item_spark_sprite)
+#else
 static Float level_item_spark_x = 0.0F;
 static Float level_item_spark_y = 0.0F;
 static Float level_item_spark_z = 0.0F;
@@ -360,6 +372,7 @@ static struct sprite_look level_item_spark_look = {
 #include "object/level_item/level_item_spark_look.inc"
 };
 #define SPARK_SPRITE ((NJS_SPRITE *)&level_item_spark_x)
+#endif
 
 struct level_item *level_item_current;
 int big_lure_count;
@@ -414,8 +427,15 @@ void level_item_step(struct task *task)
                 /* @bug memory: collision_init takes a count of 3
                  * (MOV #3,R2 at 0x8c06d336) for the stand's one shape, so it
                  * copies two more from the 104 bytes past level_item_shape */
+#ifdef GCC
+                /* repairs the count the tag names: GCC's stand takes its one
+                 * shape */
+                collision_init(task, &level_item_shape[0], COLLISION_OBJECT, 1,
+                               1);
+#else
                 collision_init(task, &level_item_shape[0], COLLISION_OBJECT, 1,
                                3);
+#endif
                 level_item_wave_object->model->mats->attrflags &=
                     ~(NJD_FLAG_CLAMP_U | NJD_FLAG_CLAMP_V);
                 level_item_current->pos = work->pos;
@@ -532,7 +552,16 @@ static void level_item_find(Sint16 character, int area, Sint32 *kind)
     /* @bug memory: when none of the character's items is found in
      * the field, the search runs past level_item_places' entries and reads
      * on (MOV.W @R13,R13 at 0x8c06d5f0) */
+#ifdef GCC
+    /* repairs the search the tag names: GCC's stops at the table's end, at
+     * LEVEL_ITEM_COUNT, where the image's stops further on. level_item_pick
+     * takes any kind from LEVEL_ITEM_LURE up as a lure's, so the stand ends
+     * as it does in the image */
+    while (i < LEVEL_ITEM_COUNT &&
+           (!level_item_is_for(i, character) || !level_item_in_area(i, area))) {
+#else
     while (!level_item_is_for(i, character) || !level_item_in_area(i, area)) {
+#endif
         i++;
     }
     *kind = i;
@@ -792,8 +821,25 @@ static void level_item_float(struct task *task)
         pos.x = level_item_current->pos.x + (rand() * RAND_SCALE * 6.0F) - 3.0F;
         pos.y = level_item_current->pos.y + (rand() * RAND_SCALE * 6.0F) - 3.0F;
         pos.z = level_item_current->pos.z + (rand() * RAND_SCALE * 6.0F) - 3.0F;
+#ifdef GCC
+        /* repairs the glint's rate. with r as rand() * RAND_SCALE, the C
+         * gives (r + 0.5) * 0.5, and the image computes (r + 0.5) squared.
+         * SHC's FMAC writes r + 0.5 over FR2, which held the multiply's 0.5F
+         * (FMAC FR0,FR3,FR2 at 0x8c06df28), so FMUL FR2,FR5 at 0x8c06df2c
+         * squares the sum. SHC evaluates the arguments right to left, so the
+         * image draws the rate's rand() before the size's (JSR at
+         * 0x8c06df18). C leaves that order unspecified, so GCC draws the
+         * rate before the call */
+        {
+            Float rate = ((rand() * RAND_SCALE) + 0.5F) * 0.5F;
+
+            sparkle_create_glint(&pos, (rand() * RAND_SCALE * 0.25F) + 0.1F,
+                                 rate);
+        }
+#else
         sparkle_create_glint(&pos, (rand() * RAND_SCALE * 0.25F) + 0.1F,
                              ((rand() * RAND_SCALE) + 0.5F) * 0.5F);
+#endif
     }
 }
 

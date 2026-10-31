@@ -11,43 +11,15 @@
 #include "system/task_desc.h"
 #include "system/texture.h"
 
-/* the rows' objects and their lamps' materials */
+/* the rows' objects, and each row's model's materials, one for each lamp */
 extern NJS_OBJECT dat_0cbc8e00;
 extern NJS_OBJECT dat_0cbc926c;
 extern NJS_OBJECT dat_0cbc96d8;
 extern NJS_OBJECT dat_0cbcaf20;
-extern NJS_MATERIAL dat_0cbc89c8;
-extern NJS_MATERIAL dat_0cbc89dc;
-extern NJS_MATERIAL dat_0cbc89f0;
-extern NJS_MATERIAL dat_0cbc8a04;
-extern NJS_MATERIAL dat_0cbc8a40;
-extern NJS_MATERIAL dat_0cbc8a54;
-extern NJS_MATERIAL dat_0cbc8a2c;
-extern NJS_MATERIAL dat_0cbc8a18;
-extern NJS_MATERIAL dat_0cbc8e34;
-extern NJS_MATERIAL dat_0cbc8e48;
-extern NJS_MATERIAL dat_0cbc8e5c;
-extern NJS_MATERIAL dat_0cbc8e70;
-extern NJS_MATERIAL dat_0cbc8eac;
-extern NJS_MATERIAL dat_0cbc8ec0;
-extern NJS_MATERIAL dat_0cbc8e98;
-extern NJS_MATERIAL dat_0cbc8e84;
-extern NJS_MATERIAL dat_0cbc92a0;
-extern NJS_MATERIAL dat_0cbc92b4;
-extern NJS_MATERIAL dat_0cbc92c8;
-extern NJS_MATERIAL dat_0cbc92dc;
-extern NJS_MATERIAL dat_0cbc9318;
-extern NJS_MATERIAL dat_0cbc932c;
-extern NJS_MATERIAL dat_0cbc9304;
-extern NJS_MATERIAL dat_0cbc92f0;
-extern NJS_MATERIAL dat_0cbca888;
-extern NJS_MATERIAL dat_0cbca89c;
-extern NJS_MATERIAL dat_0cbca8c4;
-extern NJS_MATERIAL dat_0cbca8b0;
-extern NJS_MATERIAL dat_0cbca874;
-extern NJS_MATERIAL dat_0cbca860;
-extern NJS_MATERIAL dat_0cbca84c;
-extern NJS_MATERIAL dat_0cbca838;
+extern NJS_MATERIAL dat_0cbc89c8[];
+extern NJS_MATERIAL dat_0cbc8e34[];
+extern NJS_MATERIAL dat_0cbc92a0[];
+extern NJS_MATERIAL dat_0cbca838[];
 
 /* lamps in a row */
 #define LAMPS 8
@@ -101,22 +73,22 @@ static const Uint8 lamp_patterns[71] = {
 };
 static const struct lamp_row hall_rows[3] = {
     {&dat_0cbc8e00,
-     {&dat_0cbc89c8, &dat_0cbc89dc, &dat_0cbc89f0, &dat_0cbc8a04, &dat_0cbc8a40,
-      &dat_0cbc8a54, &dat_0cbc8a2c, &dat_0cbc8a18}},
+     {&dat_0cbc89c8[0], &dat_0cbc89c8[1], &dat_0cbc89c8[2], &dat_0cbc89c8[3],
+      &dat_0cbc89c8[6], &dat_0cbc89c8[7], &dat_0cbc89c8[5], &dat_0cbc89c8[4]}},
     {&dat_0cbc926c,
-     {&dat_0cbc8e34, &dat_0cbc8e48, &dat_0cbc8e5c, &dat_0cbc8e70, &dat_0cbc8eac,
-      &dat_0cbc8ec0, &dat_0cbc8e98, &dat_0cbc8e84}},
+     {&dat_0cbc8e34[0], &dat_0cbc8e34[1], &dat_0cbc8e34[2], &dat_0cbc8e34[3],
+      &dat_0cbc8e34[6], &dat_0cbc8e34[7], &dat_0cbc8e34[5], &dat_0cbc8e34[4]}},
     {&dat_0cbc96d8,
-     {&dat_0cbc92a0, &dat_0cbc92b4, &dat_0cbc92c8, &dat_0cbc92dc, &dat_0cbc9318,
-      &dat_0cbc932c, &dat_0cbc9304, &dat_0cbc92f0}},
+     {&dat_0cbc92a0[0], &dat_0cbc92a0[1], &dat_0cbc92a0[2], &dat_0cbc92a0[3],
+      &dat_0cbc92a0[6], &dat_0cbc92a0[7], &dat_0cbc92a0[5], &dat_0cbc92a0[4]}},
 };
 static const struct lamps_kind hall_lamps = {
 #include "al_race/lamps/hall_lamps.inc"
 };
 static const struct lamp_row course_rows[1] = {
     {&dat_0cbcaf20,
-     {&dat_0cbca888, &dat_0cbca89c, &dat_0cbca8c4, &dat_0cbca8b0, &dat_0cbca874,
-      &dat_0cbca860, &dat_0cbca84c, &dat_0cbca838}},
+     {&dat_0cbca838[4], &dat_0cbca838[5], &dat_0cbca838[7], &dat_0cbca838[6],
+      &dat_0cbca838[3], &dat_0cbca838[2], &dat_0cbca838[1], &dat_0cbca838[0]}},
 };
 static const struct lamps_kind course_lamps = {
 #include "al_race/lamps/course_lamps.inc"

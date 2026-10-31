@@ -421,6 +421,10 @@ static int viper_was_hit(struct task_work *work,
 static void node_pos(NJS_MATRIX *matrices, int node, NJS_POINT3 *pos);
 
 Sint32 egg_viper_energy_time;
+#ifdef GCC
+/* nodes 0 to 50, which the image holds in the three objects below */
+NJS_MATRIX egg_viper_matrices[51];
+#else
 /* nodes 0 to 46. egg_viper_tree_matrices writes nodes 47 to 50 on past its
  * end, and node_pos reads node 48 the same way */
 NJS_MATRIX egg_viper_matrices[47];
@@ -433,6 +437,7 @@ NJS_MATRIX egg_viper_anchor_matrix;
 /* nodes 48 to 50. nothing reads or writes the 13 matrices after them,
  * which put egg_viper_start_ang where the image has it (0x0c95a48c) */
 NJS_MATRIX egg_viper_node_matrices[16];
+#endif
 Angle egg_viper_start_ang;
 Bool egg_viper_camera_next;
 Bool egg_viper_camera_ready;

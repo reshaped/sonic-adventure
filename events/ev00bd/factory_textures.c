@@ -140,6 +140,6 @@ static NJS_TEXNAME ev00bd_factory_textures[103] = {
 NJS_TEXLIST ev00bd_factory_texlist = {
 #include "ev00bd/factory_textures/ev00bd_factory_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb8e92c[1] = {
+NJS_MATERIAL dat_0cb8e92c[1] = {
 #include "ev00bd/factory_textures/dat_0cb8e92c.inc"
 };

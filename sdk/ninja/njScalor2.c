@@ -1,8 +1,15 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
+/* the square of v's length: x * x + y * y + z * z */
+#ifdef GCC
+#undef njScalor2
+Float njScalor2(NJS_VECTOR *v)
+{
+    return zam_njScalor2(v);
+}
+#else
 /* clang-format off */
 #ifndef __clang__
-/* the square of v's length: x * x + y * y + z * z */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629638 follows the
  * body's own return at 0x8c629632 */
 #pragma inline_asm(njScalor2)
@@ -18,3 +25,4 @@ Float njScalor2(NJS_VECTOR *v)
 }
 #endif
 /* clang-format on */
+#endif

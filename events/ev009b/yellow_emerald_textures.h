@@ -6,5 +6,8 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev009b_yellow_emerald_texlist;
+/* the material of a node of the emerald's model. the data after this object
+ * holds the node */
+extern NJS_MATERIAL dat_0cb8692c[1];
 
 #endif

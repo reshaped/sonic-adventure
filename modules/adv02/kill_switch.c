@@ -225,6 +225,12 @@ static void kill_switch_update(struct task *task)
         VARS(work)->press -= PRESS_SPEED;
         if (VARS(work)->press < -PRESS_DEPTH) {
             VARS(work)->press = -PRESS_DEPTH;
+#ifdef GCC
+            /* GCC can't see that nearest is set wherever it is read:
+             * nearest_distance falls from FAR to CAGE_REACH or below only where
+             * the loop sets nearest too */
+            nearest = -1;
+#endif
             nearest_distance = FAR;
             for (i = 0; i < MONKEY_CAGES; i++) {
                 cage = monkey_cages[i];

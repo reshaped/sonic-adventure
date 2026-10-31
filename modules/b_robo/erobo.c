@@ -1758,7 +1758,13 @@ static void erobo_defeat(struct task *task)
         /* @bug arithmetic: below 20, timer / 20 is 0, and SHC's __modls
          * answers timer % 0 with 0 (JSR at 0x0c902a2c), so a beam comes every
          * step to the end */
+#ifdef GCC
+        /* keeps the value the tag names, 0: below 20 the test holds. GCC's
+         * own timer % 0 gives timer, which fails it */
+        if (boss->timer / 20 == 0 || boss->timer % (boss->timer / 20) == 0) {
+#else
         if (boss->timer % (boss->timer / 20) == 0) {
+#endif
             erobo_beams_create(&work->pos, CRACKLE_LENGTH, CRACKLE_TURN);
             erobo_lightning_create(&work->pos, CRACKLE_RANGE);
         }

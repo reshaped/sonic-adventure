@@ -594,7 +594,13 @@ static void walker_place_at(struct walker_work *work, NJS_POINT3 *out,
          * here, the second over the first, and nothing writes next. no call
          * passes NULL, so the read never runs */
         here = work->points[point];
+#ifdef GCC
+        /* repairs the copy the tag names: next takes the second point, so
+         * the walker stands on the first and faces the second */
+        next = work->points[point + way];
+#else
         here = work->points[point + way];
+#endif
         work->pos = here;
         /* NOLINTNEXTLINE(clang-diagnostic-uninitialized) */
         work->ang_y = angle_arc_tan2(next.z - here.z, -next.x + here.x);

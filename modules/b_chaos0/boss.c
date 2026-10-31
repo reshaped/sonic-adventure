@@ -371,6 +371,11 @@ static NJS_POINT3 *pole_nearest(NJS_POINT3 *pos)
     Float best = 999999.0F;
     Float distance;
 
+#ifdef GCC
+    /* repairs the unset nearest the tag below names: where no distance falls
+     * below 999999, GCC returns the first pole */
+    nearest = 0;
+#endif
     for (i = 0; i < POLES; i++) {
         distance = njDistanceP2P(pos, &chaos0_poles[i]);
         if (best > distance) {
@@ -1786,7 +1791,16 @@ static void chaos0_draw(struct task *task)
         /* event_is_playing doesn't read its argument. the image passes 2
          * (0x0c902bc4) */
         if (chaos->health > 0.0F || event_is_playing(2)) {
+#ifdef GCC
+            /* the puddle's trail and its ease to the ground advance in this
+             * draw. the second picture's pass draws again, and leaves them
+             * as the steps did, so they advance as at 30 fps */
+            if (!frame_redrawing) {
+                chaos_puddle_deform(work, chaos, &chaos_puddle);
+            }
+#else
             chaos_puddle_deform(work, chaos, &chaos_puddle);
+#endif
             njPushMatrix(NULL);
             njScaleV(NULL, &chaos->scale);
             draw_tree(&chaos_puddle);
@@ -1806,7 +1820,31 @@ static void chaos0_draw(struct task *task)
         TURN_VIA(njRotateY, -work->ang.y + 0x8000, ang);
         njTranslate(NULL, 0.0F, ORIGIN_HEIGHT, 0.0F);
         njScaleV(NULL, &work->scl);
+#ifdef GCC
+        /* the split frame's second picture poses the arm, then puts back
+         * what the steps read of the pose: the hands, the hand's shape and
+         * his facing */
+        if (frame_redrawing) {
+            NJS_POINT3 hands[2] = {chaos0_hands[0], chaos0_hands[1]};
+            NJS_POINT3 hands_last[2] = {chaos0_hands_last[0],
+                                        chaos0_hands_last[1]};
+            struct collision_shape hand_shape =
+                work->collision->shapes[SHAPE_HAND];
+            Angle facing = chaos->facing;
+
+            chaos0_arm_pose(work, chaos);
+            chaos0_hands[0] = hands[0];
+            chaos0_hands[1] = hands[1];
+            chaos0_hands_last[0] = hands_last[0];
+            chaos0_hands_last[1] = hands_last[1];
+            work->collision->shapes[SHAPE_HAND] = hand_shape;
+            chaos->facing = facing;
+        } else {
+            chaos0_arm_pose(work, chaos);
+        }
+#else
         chaos0_arm_pose(work, chaos);
+#endif
         if (chaos->figures & FIGURE_MELTING) {
             deform_step(body_deform);
             if (chaos->motion.pace > MELT_FADE) {

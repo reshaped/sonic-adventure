@@ -25,9 +25,8 @@ extern NJS_TEXLIST obj_mountain_texlist;
 extern NJS_OBJECT pole_0_object;
 extern NJS_OBJECT pole_1_object;
 
-/* object/placement.c defines it static, but 1ST_READ.BIN's symbols name
- * it. set_files[0][1] points at SET_AREA_1, where a stage loads its act 1's
- * set file */
+/* object/placement.c's set files, by stage and act. set_files[0][1] points
+ * at SET_AREA_1, where a stage loads its act 1's set file */
 extern struct set_file *set_files[STAGE_COUNT][STAGE_ACTS];
 
 /* what a piece adds to each set entry scale it draws at */
@@ -304,6 +303,16 @@ void rubble_b_step(struct task *task)
                 /* @bug uninitialized: with no such O DYNAMITE, away keeps the
                  * stack's old bytes (FMOV.S at 0x0c910d46), and the piece flies
                  * away from the point they make */
+#ifdef GCC
+                /* repairs the unset away the tag names: with no such
+                 * O DYNAMITE, the piece flies straight up, as from a blast
+                 * just below it. the find never fails in play: only E-102's
+                 * pieces fly, and his act's set file, SET0501E.BIN, holds an
+                 * O DYNAMITE for each id they take */
+                away.x = work->pos.x;
+                away.y = work->pos.y - 1.0F;
+                away.z = work->pos.z;
+#endif
                 rubble_find_dynamite((int)work->scl.x, &away.x, &away.y,
                                      &away.z);
                 away.x = work->pos.x - away.x;

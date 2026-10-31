@@ -6,6 +6,8 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "player/big_textures.h"
+
 #include "player/big_models.h"
 #include "player/textures.h"
 
@@ -2684,6 +2686,6 @@ static NJS_TEXNAME fishing_textures[65] = {
 NJS_TEXLIST fishing_texlist = {
 #include "player/big_textures/fishing_texlist.inc"
 };
-static NJS_MATERIAL dat_8c56345c[1] = {
+NJS_MATERIAL dat_8c56345c[1] = {
 #include "player/big_textures/dat_8c56345c.inc"
 };

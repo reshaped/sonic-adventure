@@ -109,10 +109,9 @@ static Bool camera_look(NJS_POINT3 *target);
 static void camera_restore_view(void);
 static void camera_save_view(void);
 
-/* #pragma section HEAD has SHC put the two tables below in DHEAD and the
- * names' strings in CHEAD. it puts eggmobile3_camera_step in PHEAD, which
- * opens the module. 1ST_READ.BIN's camera_mode_list names that step by its
- * address there */
+/* #pragma section HEAD has SHC put the two tables below in DHEAD and the names'
+ * strings in CHEAD. it puts eggmobile3_camera_step in PHEAD, which opens the
+ * module. 1ST_READ.BIN's camera_mode_list holds that step's address there */
 #pragma section HEAD
 /* each phase's step, or NULL for none */
 static void (*camera_phases[CAMERA_PHASES])(struct task_work *player,

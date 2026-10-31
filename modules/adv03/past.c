@@ -178,8 +178,6 @@ static NJS_OBJECT sky_act0_night_object;
 static NJS_OBJECT sky_act1_day_object;
 static NJS_OBJECT sky_act1_evening_object;
 static NJS_OBJECT sky_act1_night_object;
-static NJS_TEXLIST sky_act0_texlist;
-static NJS_TEXLIST sky_act1_texlist;
 
 /* the skies by act, then by time of day, TIME_DAY to TIME_NIGHT. PAST_FIRE
  * draws PAST_CHAOS's skies, with PAST_CHAOS's texture list */
@@ -206,7 +204,7 @@ static NJS_TEXNAME sky_act1_textures[9] = {
     {TEXT_4, 0, 0}, {TEXT_5, 0, 0}, {TEXT_6, 0, 0},
     {TEXT_7, 0, 0}, {TEXT_8, 0, 0}, {TEXT_9, 0, 0},
 };
-static NJS_TEXLIST sky_act1_texlist = {
+NJS_TEXLIST sky_act1_texlist = {
 #include "adv03/past/sky_act1_texlist.inc"
 };
 
@@ -214,7 +212,7 @@ static NJS_TEXNAME sky_act0_textures[6] = {
     {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},
     {TEXT_13, 0, 0}, {TEXT_14, 0, 0}, {TEXT_15, 0, 0},
 };
-static NJS_TEXLIST sky_act0_texlist = {
+NJS_TEXLIST sky_act0_texlist = {
 #include "adv03/past/sky_act0_texlist.inc"
 };
 

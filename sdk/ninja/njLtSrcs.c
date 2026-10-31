@@ -122,6 +122,13 @@ _lt_power:
 #endif
 /* clang-format on */
 
+#ifdef GCC
+/* lt_power_body's text defines _lt_power, the label GCC would give
+ * lt_power. lt_power takes another, so the calculators' JSRs to _lt_power
+ * reach the body */
+static Float lt_power(Float value, Int step) __asm__("_lt_power_c");
+#endif
+
 /* 1 for step 0. for steps 1 to 16, value to the power 0.5, 1, 1.5, 2, 3, 4,
  * 6, 8, 12, 16, 24, 32, 48, 64, 96 and 128, and for any other step, to the
  * power 128. it writes no general or floating-point register but R0, R1, R4,
@@ -206,10 +213,30 @@ Float njLightSqrt(Float value)
 static void lt_rgb_00(NJS_LIGHT *light, NJS_ARGB *color, NJS_POINT3 *point,
                       NJS_VECTOR *normal)
 {
+#ifdef GCC
+    /* repairs the @bug memory above: a calculator must leave color, point
+     * and normal in R5 to R7, and GCC's code may change all three. the
+     * variables below hold those registers only at the asm at the end, which
+     * reads them. the asm's memory clobber keeps the four stores through
+     * _nj_ptr_rgb_lt_argb_ ahead of it, so only the return follows it.
+     * -fcall-saved-r5 to -r7 on the object would break every lit draw
+     * instead: GCC's code would keep pointers in R6 and R7 across
+     * lt_rgb_lights_body, which loads R5 to R7 and restores none */
+    register NJS_ARGB *kept_color __asm__("r5") = color;
+    register NJS_POINT3 *kept_point __asm__("r6") = point;
+    register NJS_VECTOR *kept_normal __asm__("r7") = normal;
+
+#endif
     _nj_ptr_rgb_lt_argb_->a += light->ltcal.mdif.a;
     _nj_ptr_rgb_lt_argb_->r += light->ltcal.mdif.r;
     _nj_ptr_rgb_lt_argb_->g += light->ltcal.mdif.g;
     _nj_ptr_rgb_lt_argb_->b += light->ltcal.mdif.b;
+#ifdef GCC
+    __asm__ volatile(""
+                     :
+                     : "r"(kept_color), "r"(kept_point), "r"(kept_normal)
+                     : "memory");
+#endif
 }
 
 /* clang-format off */

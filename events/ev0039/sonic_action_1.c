@@ -16,6 +16,6 @@ static NJS_MOTION ev0039_sonic_motion_1 = {
 NJS_ACTION ev0039_sonic_action_1 = {
 #include "ev0039/sonic_action_1/ev0039_sonic_action_1.inc"
 };
-static NJS_TEXNAME ev0039_blue_emerald_textures[1] = {
+NJS_TEXNAME ev0039_blue_emerald_textures[1] = {
     {TEXT_1, 0, 0},
 };

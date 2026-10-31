@@ -14,10 +14,17 @@
  * and the saves of R14 and PR between TSTR's address and its read
  * (0x8c06fae0 to 0x8c06faf0). as volatile, 40 of the 126 words of the six
  * functions that use them differ */
+#ifdef GCC
+#define TSTR (*(volatile Uint8 *)0xffd80004)
+#define TCOR1 (*(volatile Uint32 *)0xffd80014)
+#define TCNT1 (*(volatile Uint32 *)0xffd80018)
+#define TCR1 (*(volatile Uint16 *)0xffd8001c)
+#else
 #define TSTR (*(Uint8 *)0xffd80004)
 #define TCOR1 (*(Uint32 *)0xffd80014)
 #define TCNT1 (*(Uint32 *)0xffd80018)
 #define TCR1 (*(Uint16 *)0xffd8001c)
+#endif
 /* TSTR's bit that runs timer 1 */
 #define STR1 0x02
 /* TCR's setting for a count at a quarter of the 50 MHz peripheral clock,

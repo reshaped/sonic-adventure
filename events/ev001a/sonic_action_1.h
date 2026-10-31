@@ -15,5 +15,7 @@ extern NJS_ACTION ev001a_eggmobile_action_1;
 extern NJS_ACTION ev001a_eggmobile_action_2;
 extern NJS_ACTION ev001a_eggmobile_action_3;
 extern NJS_ACTION ev001a_eggmobile_action_4;
+/* the texture name of the generated texlist ev001a_emerald_texlist */
+extern NJS_TEXNAME ev001a_emerald_textures[1];
 
 #endif

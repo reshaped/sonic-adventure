@@ -824,6 +824,13 @@ static void pause_draw_back(void)
     NJS_POINT2 scale;
     Float share;
 
+#ifdef GCC
+    /* repairs the unset shadow colors the tag above names: GCC's shadows
+     * take 0xa0000000, the color pause_sprites' initializer gives
+     * PART_CORNER_SHADOW and PART_SIDE_SHADOW */
+    *(Uint32 *)&color[2] = 0xa0000000;
+    *(Uint32 *)&color[3] = 0xa0000000;
+#endif
     for (tile.y = 0; tile.y < BACK_ROWS; tile.y++) {
         share = tile.y * (1.0F / BACK_ROWS);
         BACK_COLOR(color[0], share);

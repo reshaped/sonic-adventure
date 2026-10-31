@@ -1853,6 +1853,11 @@ static void credit_line_step(struct task *task)
     }
     y = -credit->y - credits->scroll + SCREEN_HEIGHT;
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
+#ifdef GCC
+    /* repairs the unset height the tag after the switch names: a line that
+     * draws nothing is 0 high, so its task ends once it passes the top */
+    height = 0;
+#endif
     switch (credit->line->kind) {
     case LINE_TITLE:
     case LINE_ROLE:
@@ -1970,7 +1975,9 @@ static Uint32 credits_line_height(struct staff_script *script,
     /* @bug memory: for the script's last line, next is read past
      * the script (MOV.B @R5,R3 at 0x8c902498). past staff_roll_lines lies
      * staff_roll_script, whose first byte, 0x8c, matches no case */
+#ifndef GCC
     next = script->lines[index + 1].kind;
+#endif
     switch (kind) {
     case LINE_TITLE:
         height = 32;
@@ -2006,6 +2013,14 @@ static Uint32 credits_line_height(struct staff_script *script,
         height = 0;
         break;
     }
+#ifdef GCC
+    /* keeps the value the tag above names, as the switch below reads it: the
+     * last line's kind alone sets its height */
+    if (index + 1 >= (unsigned int)script->count) {
+        return height;
+    }
+    next = script->lines[index + 1].kind;
+#endif
     switch (next) {
     case LINE_BREAK:
         height = 96;
@@ -2219,7 +2234,14 @@ static void stills_draw(struct task *task)
     v0->col = v1->col = v2->col = v3->col = 0xffffffff;
     texture = screen_texture_index(stills->texlist, 0);
     njSetTexture(stills->texlist);
+#ifdef GCC
+    /* the port's 16:9 stretches the backdrop across the screen */
+    port_wide_cover = TRUE;
+#endif
     njDrawTexture(vertices, 4, texture, 0);
+#ifdef GCC
+    port_wide_cover = FALSE;
+#endif
 }
 
 /* create the task that shows story's stills, in level. each still takes

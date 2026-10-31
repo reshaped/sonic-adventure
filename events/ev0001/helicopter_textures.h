@@ -8,5 +8,8 @@
 extern NJS_TEXLIST ev0001_helicopter_texlist;
 extern NJS_ACTION ev0001_helicopter_action;
 extern NJS_TEXLIST ev0001_patrol_car_texlist;
+/* the material of a node of the patrol cars' model. the node's other parts
+ * start the data after this object */
+extern NJS_MATERIAL dat_0cb9115c[1];
 
 #endif

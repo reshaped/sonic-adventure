@@ -49,6 +49,6 @@ NJS_TEXLIST mountain_land2_texlist = {
  * the material starts 4 bytes past one, right after the texlist, so it is
  * this file's. the model's strips start on a multiple of 8 after it, so
  * the strips can be another file's */
-static NJS_MATERIAL dat_0c9fddec[1] = {
+NJS_MATERIAL dat_0c9fddec[1] = {
 #include "stg05/land2_textures/dat_0c9fddec.inc"
 };

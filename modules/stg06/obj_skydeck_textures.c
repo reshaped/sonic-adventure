@@ -3,6 +3,7 @@
 #include <ninja.h>
 
 #include "stg06/models.h"
+#include "stg06/obj_skydeck_textures.h"
 
 #define TEXT_1_LENGTH 11
 #define TEXT_2_LENGTH 8
@@ -278,6 +279,6 @@ static NJS_TEXNAME obj_skydeck_textures[213] = {
 NJS_TEXLIST obj_skydeck_texlist = {
 #include "stg06/obj_skydeck_textures/obj_skydeck_texlist.inc"
 };
-static NJS_MATERIAL dat_0c9ff58c[1] = {
+NJS_MATERIAL dat_0c9ff58c[1] = {
 #include "stg06/obj_skydeck_textures/dat_0c9ff58c.inc"
 };

@@ -29,12 +29,12 @@ static NJS_TEXNAME ev002b_bullet_textures[4] = {
 NJS_TEXLIST ev002b_bullet_texlist = {
 #include "ev002b/police_action_10/ev002b_bullet_texlist.inc"
 };
-static NJS_MATERIAL dat_0cbacb8c[4] = {
+NJS_MATERIAL dat_0cbacb8c[4] = {
 #include "ev002b/police_action_10/dat_0cbacb8c.inc"
 };
-static Sint16 dat_0cbacbdc[15] = {
+Sint16 dat_0cbacbdc[15] = {
 #include "ev002b/police_action_10/dat_0cbacbdc.inc"
 };
-static Sint16 dat_0cbacbfa[7] = {
+Sint16 dat_0cbacbfa[7] = {
 #include "ev002b/police_action_10/dat_0cbacbfa.inc"
 };

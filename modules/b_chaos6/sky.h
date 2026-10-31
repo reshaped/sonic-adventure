@@ -5,8 +5,8 @@
 
 #include "system/task.h"
 
-/* the step of the sky's task. 1ST_READ.BIN's sky_steps reaches it for the
- * stage by its address, 0x0c9000a0, not by its name */
+/* the step of the sky's task. 1ST_READ.BIN's sky_steps names it for the
+ * stage */
 void chaos6_sky_step(struct task *task);
 /* the step of the clouds' task, which chaos6_start creates after the boss.
  * the task kills itself once the act changes */

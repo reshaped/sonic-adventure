@@ -46,7 +46,13 @@ extern NJS_ACTION tails_run_action;
  * name. SHC then keeps event_wait's address in R13 and event_camera_set_pos's
  * in R12 (0x0cb8008a, 0x0cb80108). by name, the two trade, and 54 of 977
  * words differ */
+#ifdef GCC
+/* GCC's link lays TIKAL_PROG.PRS out anew, so tikal_player_step needn't lie
+ * at 0x0cb00000 */
+#define TIKAL_PLAYER_STEP tikal_player_step
+#else
 #define TIKAL_PLAYER_STEP ((void (*)(struct task *))0x0cb00000)
+#endif
 
 extern NJS_ACTION ev0045_tikal_action_0;
 extern NJS_ACTION ev0045_tikal_action_1;

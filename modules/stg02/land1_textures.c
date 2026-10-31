@@ -35,6 +35,6 @@ NJS_TEXLIST windy_land1_texlist = {
 /* the materials of the first model after them, dat_0c94a138. SHC starts
  * each object's data on a multiple of 8. the materials start right after the
  * texlist, 4 bytes past one, so they are this file's */
-static NJS_MATERIAL dat_0c948fac[7] = {
+NJS_MATERIAL dat_0c948fac[7] = {
 #include "stg02/land1_textures/dat_0c948fac.inc"
 };

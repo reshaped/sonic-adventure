@@ -2,6 +2,8 @@
  * in its own event_e105_texlist, which it loads from EV_E105_BODY */
 #include <ninja.h>
 
+#include "shared/e105_textures.h"
+
 #define TEXT_1_LENGTH 10
 #define TEXT_2_LENGTH 9
 #define TEXT_3_LENGTH 9
@@ -36,7 +38,7 @@
 #define TEXT_32_LENGTH 9
 #include "shared/e105_textures/text.inc"
 
-static NJS_TEXNAME event_e105_textures[32] = {
+NJS_TEXNAME event_e105_textures[32] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

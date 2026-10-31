@@ -157,6 +157,13 @@ void event_mover_step(struct task *task)
         /* @bug uninitialized: njUnitVector reads point, which no path
          * through MOVER_FACING writes first (JSR at 0x0cb84e44 in EV0007).
          * no call starts MOVER_FACING, so the read never runs */
+#ifdef GCC
+        /* repairs the unset point the tag names: GCC's is the x axis, which
+         * event_follow_facing's turns about y and z measure from */
+        point.x = 1.0F;
+        point.y = 0.0F;
+        point.z = 0.0F;
+#endif
         njUnitVector(&point);
         njPushMatrix(&_unit_matrix_);
         TURN_VIA(njRotateZ, turned.z, ang);

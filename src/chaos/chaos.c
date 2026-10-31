@@ -298,6 +298,14 @@ void chaos_puddle_deform(struct task_work *work, struct chaos *chaos,
         kept = puddle_points;
         point = object->model->points;
         i = 0;
+#ifdef GCC
+        /* repairs the unset normal the tag below names: the image reads the
+         * normals of chaos_puddle's 376 points from the 4512 bytes of bss at
+         * &puddle_points. past the pointer they are other sources' statics,
+         * which GCC lays out otherwise. GCC reads the model's own normals,
+         * one for each point */
+        normal = object->model->normals;
+#endif
         /* @hack spelling: the steps in both arms, which SHC merges from
          * point->y's store on, and which keep R11 for the constant 0 and R12
          * for PUDDLE_MAKE's point (0x8c0fc064, 0x8c0fc0b2); one step after the

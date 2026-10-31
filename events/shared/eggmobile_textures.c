@@ -3,6 +3,8 @@
  * from EV_EGGMOBLE0 */
 #include <ninja.h>
 
+#include "shared/eggmobile_textures.h"
+
 #define TEXT_1_LENGTH 8
 #define TEXT_2_LENGTH 8
 #define TEXT_3_LENGTH 8
@@ -39,7 +41,7 @@
 #define TEXT_34_LENGTH 6
 #include "shared/eggmobile_textures/text.inc"
 
-static NJS_TEXNAME event_eggmobile_textures[34] = {
+NJS_TEXNAME event_eggmobile_textures[34] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

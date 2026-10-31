@@ -6,5 +6,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev0085_pachacamac_texlist;
+/* the sibling of the generated object at 0x0cb80fd8 */
+extern NJS_OBJECT dat_0cb80fa4;
 
 #endif

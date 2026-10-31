@@ -577,6 +577,7 @@
 0x0c918c1e  fish_generator_destroy
 0x0c918ca0  fish_spawn
 0x0c918d26  fish_generator_step
+0x0c91a5ac  shelter_act0_land
 0x0c94da44  dat_0c94da44
 0x0c94dc48  dat_0c94dc48
 0x0c94dc74  dat_0c94dc74

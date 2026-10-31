@@ -43,6 +43,11 @@ void e102_shoot(struct task *task, struct player *record, struct e102 *e102);
  * speed it has if speed is NULL. it ends once it's out of range or its 600
  * steps run out */
 void e102_release_shot(struct task *shot, NJS_VECTOR *speed);
+#ifdef GCC
+/* the work of the E-102 who fired task, or NULL where task isn't one of
+ * his shots or hasn't taken its first step */
+struct task_work *e102_shot_shooter(struct task *task);
+#endif
 /* the effects of a shot leaving his cannon, without the shot itself. it
  * makes a flash and a blast at e102->shot_pos, and a puff of smoke at each
  * of e102->points. pad 0 shakes for a player's shot, unless an event has

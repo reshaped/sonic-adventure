@@ -300,12 +300,23 @@ Bool event_check_music(void)
      * list doesn't hold, the walk passes the -1 that ends it (TST R5,R5 and
      * BF at 0x8c04c3ac) and reads on past the list (0x8c04c39a) until a word
      * equals event_current */
+#ifdef GCC
+    /* repairs the walk the tag names: it stops at the -1 that ends the list,
+     * so under an event the list lacks, the field's music starts */
+    for (event = music_events; *event >= 0; event++) {
+        if (event_current == *event) {
+            play = FALSE;
+            break;
+        }
+    }
+#else
     for (event = music_events; *event >= 0 || play; event++) {
         if (event_current == *event) {
             play = FALSE;
             break;
         }
     }
+#endif
     return play;
 }
 
@@ -546,6 +557,13 @@ void event_wait(int steps)
     int i;
 
     for (i = steps; i != 0; i--) {
+#ifdef GCC
+        /* a skip's wait lasts this step: skip_wait stands each runner at
+         * its target, leaves each mover owing the rest, and returns 1 */
+        if (event_skipping) {
+            i = skip_wait(i);
+        }
+#endif
         bitmap_draw(&thread->window);
         thread_yield();
         /* @hack redundant: an empty test of dat_8c751dfe, which nothing comes
@@ -562,6 +580,13 @@ void event_message_show(const char *text)
     struct event_thread *thread = thread_get_data(NULL);
     struct bitmap *window = &thread->window;
 
+#ifdef GCC
+    /* a skip shows no message, and clears the window as a fade out would */
+    if (event_skipping) {
+        window->text_color.argb.a = window->back_color.argb.a = 0;
+        return;
+    }
+#endif
     if (window->pixels == NULL) {
         bitmap_init_window(window);
         window->mode = BITMAP_EVENT;
@@ -622,6 +647,15 @@ void event_message_close(void)
     struct event_thread *thread = thread_get_data(NULL);
     struct bitmap *window = &thread->window;
 
+#ifdef GCC
+    /* a skip clears the window as a fade out would, at once, and releases
+     * it */
+    if (event_skipping) {
+        window->text_color.argb.a = window->back_color.argb.a = 0;
+        bitmap_release(window);
+        return;
+    }
+#endif
     if (window->pixels != NULL) {
         bitmap_fade_out(window);
         bitmap_release(window);
@@ -630,6 +664,14 @@ void event_message_close(void)
 
 void event_message_clear(void)
 {
+#ifdef GCC
+    /* a skip clears the text as a fade out would, at once */
+    if (event_skipping) {
+        ((struct event_thread *)thread_get_data(NULL))
+            ->window.text_color.argb.a = 0;
+        return;
+    }
+#endif
     bitmap_fade_out_text(
         &((struct event_thread *)thread_get_data(NULL))->window);
 }
@@ -874,6 +916,13 @@ void event_wait_motions(struct task *task)
     if (task != NULL) {
         while (task->work->event->motions != NULL) {
             event_wait(1);
+#ifdef GCC
+            /* a skip's wait lasts one step here too, with the motions
+             * still queued */
+            if (event_skipping) {
+                break;
+            }
+#endif
         }
     }
 }
@@ -898,6 +947,13 @@ void event_wait_paths(struct task *task)
     if (task != NULL) {
         while (task->work->event->paths != NULL) {
             event_wait(1);
+#ifdef GCC
+            /* a skip's wait lasts one step here too, with the paths
+             * still queued */
+            if (event_skipping) {
+                break;
+            }
+#endif
         }
     }
 }
@@ -931,6 +987,13 @@ static void event_pad_thread(void)
     int i;
 
     for (i = thread->recording->count; i != 0; i--) {
+#ifdef GCC
+        /* a skip drops the recording, which would drive the player on into
+         * EVENT_END. the next pad_scan replaces the last key it set */
+        if (event_skipping) {
+            break;
+        }
+#endif
         event_pad_set(thread->port, key++);
         thread_yield();
     }
@@ -1115,6 +1178,11 @@ static int event_ease_int(enum event_ease ease, int steps, int step, int from,
     /* @bug uninitialized: returns no value for any other ease. the caller
      * takes R0, which still holds ease, copied there for the switch
      * (MOV R4,R0 at 0x8c04d37a), as the function branches out (0x8c04d38e) */
+#ifdef GCC
+    /* repairs the missing return the tag names: any other ease moves
+     * linearly under GCC */
+    return ((to - from) * step / steps) + from;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -1132,6 +1200,13 @@ static Float event_ease_float(enum event_ease ease, int steps, int step,
     case EVENT_EASE_SMOOTH:
         share = (1.0F - njCos((step << 15) / steps)) * 0.5F;
         break;
+#ifdef GCC
+    /* repairs the unset share the tag below names: any other ease moves
+     * linearly under GCC */
+    default:
+        share = (Float)step / (Float)steps;
+        break;
+#endif
     }
     /* @bug uninitialized: for any other ease, no assignment reaches share.
      * SHC keeps share in FR4, which still holds from as the function was
@@ -1156,6 +1231,11 @@ static int event_ease_ang(enum event_ease ease, int steps, int step, int from,
     /* @bug uninitialized: returns no value for any other ease. the caller
      * takes R0, which still holds ease, as in event_ease_int (0x8c04d48a,
      * 0x8c04d49e) */
+#ifdef GCC
+    /* repairs the missing return the tag names: any other ease moves
+     * linearly under GCC */
+    return ((Sint16)(to - from) * step / steps) + from;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 

@@ -3,13 +3,50 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "adv00/object_list.h"
+#include "adv0100/object_list.h"
+#include "adv0130/object_list.h"
+#include "adv02/object_list.h"
+#include "adv03/object_list.h"
+#include "al_garden00/object_list.h"
+#include "al_garden01/object_list.h"
+#include "al_garden02/object_list.h"
+#include "al_race/object_list.h"
+#include "b_chaos0/object_list.h"
+#include "b_chaos2/object_list.h"
+#include "b_chaos4/object_list.h"
+#include "b_chaos6/object_list.h"
+#include "b_chaos7/object_list.h"
+#include "b_e101/object_list.h"
+#include "b_e101_r/object_list.h"
+#include "b_egm1/object_list.h"
+#include "b_egm2/object_list.h"
+#include "b_egm3/object_list.h"
+#include "b_robo/object_list.h"
 #include "camera/camera.h"
 #include "debug/editor.h"
+#include "minicart/object_list.h"
 #include "object/placement.h"
 #include "player/fishing.h"
 #include "player/player.h"
+#include "sboard/object_list.h"
+#include "shooting/object_list.h"
 #include "stage/stage.h"
 #include "stg00/object_list.h"
+#include "stg01/object_list.h"
+#include "stg02/object_list.h"
+#include "stg03/object_list.h"
+#include "stg04/object_list.h"
+#include "stg05/object_list.h"
+#include "stg06/object_list.h"
+#include "stg07/object_list.h"
+#include "stg08/object_list.h"
+#include "stg09/object_list.h"
+#include "stg10/object_list.h"
+#include "stg12/act0_object_list.h"
+#include "stg12/act1_object_list.h"
+#include "stg12/act2_object_list.h"
+#include "stg12/act3_object_list.h"
 #include "system/loader.h"
 #include "system/task.h"
 
@@ -27,8 +64,6 @@
 #define SET_FILE_4 ((struct set_file *)SET_AREA_4)
 #define SET_FILE_5 ((struct set_file *)SET_AREA_5)
 
-/* each stage's object lists sit in the module it loads */
-#define LIST(address) ((struct object_list *)(address))
 /* the practice stage's list, which acts that don't exist point at too */
 #define PRACTICE (&practice_object_list)
 
@@ -65,7 +100,12 @@ static Bool change_asked = FALSE;
 static Bool placed_once = FALSE;
 static int dat_8c1d722c = 0;
 
-static struct set_file *set_files[STAGE_COUNT][STAGE_ACTS] = {
+/* STG05's rubble.c takes it by name, and declares it itself: placement.h
+ * can't, since its bounds are stage.h's. stage.h in placement.h would stop
+ * SHC at each module that redeclares one of its functions with another
+ * type. adv0100's egg_seat.c redeclares stage_get_entrance to return int */
+/* NOLINTNEXTLINE(misc-use-internal-linkage) */
+struct set_file *set_files[STAGE_COUNT][STAGE_ACTS] = {
     {SET_FILE_0, SET_FILE_1, SET_FILE_2},
     {SET_FILE_0, SET_FILE_1, SET_FILE_2},
     {SET_FILE_0, SET_FILE_1, SET_FILE_2},
@@ -111,70 +151,87 @@ static struct set_file *set_files[STAGE_COUNT][STAGE_ACTS] = {
     {SET_FILE_0, SET_FILE_1},
 };
 
+/* each stage's object list by act, in the module it loads */
 static struct object_list *object_lists[STAGE_COUNT][STAGE_ACTS] = {
     {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0caa92d8), LIST(0x0caa92d8), LIST(0x0caa92d8), PRACTICE, PRACTICE},
-    {LIST(0x0c9ec3a0), LIST(0x0c9ec3a0), LIST(0x0c9ec3a0), PRACTICE, PRACTICE},
-    {LIST(0x0c9c3510), LIST(0x0c9c3510), LIST(0x0c9c3510), PRACTICE, PRACTICE},
-    {LIST(0x0ca790b0), LIST(0x0ca790b0), LIST(0x0ca790b0), PRACTICE, PRACTICE},
-    {LIST(0x0cadb9d4), LIST(0x0cadb9d4), LIST(0x0cadb9d4), PRACTICE, PRACTICE},
-    {LIST(0x0cadd3a4), LIST(0x0cadd3a4), LIST(0x0cadd3a4), PRACTICE, PRACTICE},
-    {LIST(0x0ca5b910), LIST(0x0ca5b910), LIST(0x0ca5b910), PRACTICE, PRACTICE},
-    {LIST(0x0cabe85c), LIST(0x0cabe85c), LIST(0x0cabe85c), LIST(0x0cabe85c),
+    {&beach_object_list, &beach_object_list, &beach_object_list, PRACTICE,
      PRACTICE},
-    {LIST(0x0cb13968), LIST(0x0cb13968), LIST(0x0cb13968), LIST(0x0cb13968),
+    {&windy_object_list, &windy_object_list, &windy_object_list, PRACTICE,
      PRACTICE},
-    {LIST(0x0cafeb8c), LIST(0x0cafeb8c), LIST(0x0cafeb8c), LIST(0x0cafeb8c),
-     LIST(0x0cafeb8c), LIST(0x0cafeb8c)},
-    {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0ca89fc4), LIST(0x0ca8a6c4), LIST(0x0ca8ae00), LIST(0x0ca8b4d4),
+    {&twinkle_object_list, &twinkle_object_list, &twinkle_object_list, PRACTICE,
      PRACTICE},
+    {&highway_object_list, &highway_object_list, &highway_object_list, PRACTICE,
+     PRACTICE},
+    {&mountain_object_list, &mountain_object_list, &mountain_object_list,
+     PRACTICE, PRACTICE},
+    {&sky_deck_object_list, &sky_deck_object_list, &sky_deck_object_list,
+     PRACTICE, PRACTICE},
+    {&ruin_object_list, &ruin_object_list, &ruin_object_list, PRACTICE,
+     PRACTICE},
+    {&icecap_object_list, &icecap_object_list, &icecap_object_list,
+     &icecap_object_list, PRACTICE},
+    {&casino_object_list, &casino_object_list, &casino_object_list,
+     &casino_object_list, PRACTICE},
+    {&final_object_list, &final_object_list, &final_object_list,
+     &final_object_list, &final_object_list, &final_object_list},
+    {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&shelter_act0_object_list, &shelter_act1_object_list,
+     &shelter_act2_object_list, &shelter_act3_object_list, PRACTICE},
     {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
     {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c900200), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c9002e0), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c900288), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c900368), LIST(0x0c900368), PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c901278), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c900158), LIST(0x0c900158), LIST(0x0c900158), LIST(0x0c900158),
-     LIST(0x0c900158)},
-    {LIST(0x0c900258), LIST(0x0c900258), LIST(0x0c900258), LIST(0x0c900258),
-     LIST(0x0c900258)},
-    {LIST(0x0c9588cc), LIST(0x0c9588cc), LIST(0x0c9588cc), LIST(0x0c9588cc),
-     LIST(0x0c9588cc)},
-    {LIST(0x0c900110), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c900098), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c9001b0), PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c),
-     LIST(0x0ca5ec4c), LIST(0x0ca5ec4c)},
-    {LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c),
-     LIST(0x0ca5ec4c), LIST(0x0ca5ec4c)},
-    {LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c), LIST(0x0ca5ec4c),
-     LIST(0x0ca5ec4c), LIST(0x0ca5ec4c)},
-    {LIST(0x0c923b58), LIST(0x0c923b58), LIST(0x0c923b58), LIST(0x0c923b58),
-     LIST(0x0c923b58), LIST(0x0c923b58)},
+    {&chaos0_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&chaos2_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&chaos4_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&chaos6_object_list, &chaos6_object_list, PRACTICE, PRACTICE, PRACTICE},
+    {&chaos7_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&eggmobile1_object_list, &eggmobile1_object_list, &eggmobile1_object_list,
+     &eggmobile1_object_list, &eggmobile1_object_list},
+    {&egm2_object_list, &egm2_object_list, &egm2_object_list, &egm2_object_list,
+     &egm2_object_list},
+    {&eggmobile3_object_list, &eggmobile3_object_list, &eggmobile3_object_list,
+     &eggmobile3_object_list, &eggmobile3_object_list},
+    {&eggmanrobo_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&e101_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&e101_r_object_list, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
+    {&station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list},
+    {&station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list},
+    {&station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list,
+     &station_square_object_list, &station_square_object_list},
+    {&egg_carrier_object_list, &egg_carrier_object_list,
+     &egg_carrier_object_list, &egg_carrier_object_list,
+     &egg_carrier_object_list, &egg_carrier_object_list},
     {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
     {PRACTICE, PRACTICE, PRACTICE, PRACTICE, PRACTICE},
-    {LIST(0x0c920b80), LIST(0x0c920b80), LIST(0x0c920b80), LIST(0x0c920b80),
-     LIST(0x0c920b80), LIST(0x0c920b80)},
-    {LIST(0x0c9001c8), LIST(0x0c9001c8), LIST(0x0c9001c8), LIST(0x0c9001c8),
-     LIST(0x0c9001c8)},
-    {LIST(0x0c9002f0), LIST(0x0c9002f0), LIST(0x0c9002f0)},
-    {LIST(0x0c90a0d8), LIST(0x0c90a0d8), LIST(0x0c90a0d8), LIST(0x0c90a0d8),
-     LIST(0x0c90a0d8), LIST(0x0c90a0d8)},
-    {LIST(0x0c955b70), LIST(0x0c955b70), LIST(0x0c955b70), LIST(0x0c955b70),
-     LIST(0x0c955b70)},
-    {LIST(0x0c955b70), LIST(0x0c955b70), LIST(0x0c955b70), LIST(0x0c955b70),
-     LIST(0x0c955b70)},
-    {LIST(0x0c902e60), LIST(0x0c902e60)},
-    {LIST(0x0cb931a0), LIST(0x0cb931a0), LIST(0x0cb931a0), LIST(0x0cb931a0),
-     LIST(0x0cb931a0)},
-    {LIST(0x0cb90210), LIST(0x0cb90210), LIST(0x0cb90210), LIST(0x0cb90210),
-     LIST(0x0cb90210)},
-    {LIST(0x0cb9b8dc), LIST(0x0cb9b8dc), LIST(0x0cb9b8dc), LIST(0x0cb9b8dc),
-     LIST(0x0cb9b8dc)},
-    {LIST(0x0cb80e98), LIST(0x0cb80e98), LIST(0x0cb80e98), LIST(0x0cb80e98),
-     LIST(0x0cb80e98)},
+    {&egg_carrier_inside_object_list, &egg_carrier_inside_object_list,
+     &egg_carrier_inside_object_list, &egg_carrier_inside_object_list,
+     &egg_carrier_inside_object_list, &egg_carrier_inside_object_list},
+    {&mystic_ruins_object_list, &mystic_ruins_object_list,
+     &mystic_ruins_object_list, &mystic_ruins_object_list,
+     &mystic_ruins_object_list},
+    {&past_object_list, &past_object_list, &past_object_list},
+    {&cart_object_list, &cart_object_list, &cart_object_list, &cart_object_list,
+     &cart_object_list, &cart_object_list},
+    {&shooting_object_list, &shooting_object_list, &shooting_object_list,
+     &shooting_object_list, &shooting_object_list},
+    {&shooting_object_list, &shooting_object_list, &shooting_object_list,
+     &shooting_object_list, &shooting_object_list},
+    {&sunaboard_object_list, &sunaboard_object_list},
+    {&station_square_garden_object_list, &station_square_garden_object_list,
+     &station_square_garden_object_list, &station_square_garden_object_list,
+     &station_square_garden_object_list},
+    {&egg_carrier_garden_object_list, &egg_carrier_garden_object_list,
+     &egg_carrier_garden_object_list, &egg_carrier_garden_object_list,
+     &egg_carrier_garden_object_list},
+    {&mystic_ruins_garden_object_list, &mystic_ruins_garden_object_list,
+     &mystic_ruins_garden_object_list, &mystic_ruins_garden_object_list,
+     &mystic_ruins_garden_object_list},
+    {&race_object_list, &race_object_list, &race_object_list, &race_object_list,
+     &race_object_list},
 };
 
 struct object_list *placement_list;
@@ -465,6 +522,11 @@ have_other:
  * range of player 0. the camera stands in for player 0 while there is none
  * or the set editor is open. the camera also stands in during the alife
  * race, and for Big while the fishing game has the camera */
+#ifdef GCC
+/* inlined into placement_manager_step, its registers spill: 21k cycles a
+ * frame more in Emerald Coast */
+static void place_near_one(void) __attribute__((noinline));
+#endif
 static void place_near_one(void)
 {
     /* @hack redundant: register on center, x, y, z and the rest below, which
@@ -800,6 +862,12 @@ Bool placement_try_leave_by(struct task *task, Float range)
     Float y;
     Float z;
 
+#ifdef GCC
+    /* the split frame's second picture lets no task leave */
+    if (frame_redrawing) {
+        return FALSE;
+    }
+#endif
     if (placement != NULL && (placement->flags & PLACEMENT_IN_RANGE)) {
         return FALSE;
     }
@@ -925,5 +993,10 @@ Sint8 placement_get_state(struct task *task)
     }
     /* @bug uninitialized: without a placement, the function returns the R0
      * its caller left, as the BT at 0x8c096e34 skips to the RTS */
+#ifdef GCC
+    /* repairs the missing return the tag names: with no placement, GCC
+     * returns 0 */
+    return 0;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }

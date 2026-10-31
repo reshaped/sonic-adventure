@@ -5,7 +5,7 @@
  * fraction with the leading bit at the top. a subnormal is normalized, with an
  * exponent of 0 or below. value must not be zero, for which the normalizing
  * loop does not end */
-void _unpack(double value, signed char *sign, short *exponent,
+void _unpack(long double value, signed char *sign, short *exponent,
              unsigned char *fraction)
 {
     unsigned short *high;

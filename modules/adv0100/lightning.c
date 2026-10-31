@@ -307,11 +307,26 @@ static void lightning_strike(struct task *task)
              count--) {
             pos.x = start.x + (RANDOM(-1.0F, 1.0F) * FLASH_SPREAD);
             pos.z = start.z + (RANDOM(-1.0F, 1.0F) * FLASH_SPREAD);
+#ifdef GCC
+            /* C leaves the arguments' order open, so the life's rand() is
+             * drawn before the call. SHC draws it first, then the delay's
+             * (JSR at 0x0c9297ee for the life and 0x0c929804 for the delay) */
+            {
+                int life = (int)RANDOM(2.0F, 7.0F);
+
+                lightning_add_flash(
+                    task, &pos, &ang,
+                    (int)((int)delay +
+                          (rand() * (AFTER_FLASH_WAIT * RAND_SCALE)) + 1.0F),
+                    life);
+            }
+#else
             lightning_add_flash(
                 task, &pos, &ang,
                 (int)((int)delay + (rand() * (AFTER_FLASH_WAIT * RAND_SCALE)) +
                       1.0F),
                 (int)RANDOM(2.0F, 7.0F));
+#endif
         }
     }
 }

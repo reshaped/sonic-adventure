@@ -553,8 +553,10 @@
 0x0c919ef8  final_lamp_lights
 0x0c919f28  egg_sign_fade_steps
 0x0c919fb0  elastic_fence_origin
+0x0c91d2fc  final_act0_land
 0x0c91d320  finalegg1_textures
 0x0c91d6e0  finalegg1_texlist
+0x0c983ec4  final_act1_land
 0x0c983ee8  finalegg2_textures
 0x0c984218  finalegg2_texlist
 0x0c9e1490  final_act2_land_entries
@@ -703,8 +705,11 @@
 0x0caefec4  light2_object
 0x0cafd2a8  dat_0cafd2a8
 0x0cafd790  dat_0cafd790
+0x0cafe3c8  final_act1_paths
+0x0cafe3dc  final_act0_paths
 0x0cafe3e8  final_act2_paths
 0x0cafeb8c  final_object_list
+0x0cb003e0  final_death_zones
 0x0cb003f0  final_container_shape
 0x0cb00428  set_step_shape
 0x0cb00460  thorn_roller_shapes
@@ -877,6 +882,7 @@
 0x0cb13d84  target_sonic_object
 0x0cb176ec  target_knuckles_object
 0x0cb1b274  target_tails_object
+0x0cb1b2a8  final_pools
 0x0cb1bf00  stand_light_shape
 0x0cb1bf34  stand_light_beam_widths
 0x0cb1d7f0  final_lamp_glare_color

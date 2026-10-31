@@ -123,6 +123,13 @@ static void hydrant_stand(struct task *task)
     if (player != NULL && (work->collision->flags & COLLISION_HIT)) {
         work->collision->flags &= ~COLLISION_HIT;
         above = work->pos.y - player->pos.y;
+#ifdef GCC
+        /* repairs the unset speed: player_ground_speed leaves speed unset
+         * for player 0 off the ground, and the image's test then reads its
+         * frame slot unwritten (FMOV.S @R15,FR2 at 0x0c906dba). GCC's is 0,
+         * a still player's ground speed, which leaves the hydrant standing */
+        speed = 0.0F;
+#endif
         player_ground_speed(0, &speed);
         if (speed > KNOCK_SPEED && above < KNOCK_BELOW) {
             if ((body = task_create_child(TASK_WORK, hydrant_body_step,

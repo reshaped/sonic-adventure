@@ -12,5 +12,7 @@ extern NJS_TEXLIST ev00bb_frog_2_texlist;
 extern NJS_TEXLIST ev00bb_frog_3_texlist;
 extern NJS_OBJECT ev00bb_frog_1_object;
 extern NJS_OBJECT ev00bb_frog_2_object;
+/* the texture names of the generated texlist at 0x0cbbd508 */
+extern NJS_TEXNAME dat_0cbbd4a8[8];
 
 #endif

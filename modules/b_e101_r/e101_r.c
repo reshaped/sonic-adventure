@@ -35,7 +35,7 @@ static void e101_r_sky_destroy(struct task *task);
 static void e101_r_sky_draw(struct task *task);
 
 /* #pragma section HEAD puts the step in PHEAD, after the camera's step, at
- * 0x0c900060. 1ST_READ.BIN's stage_steps reaches it by that address */
+ * 0x0c900060. 1ST_READ.BIN's stage_steps holds that address */
 #pragma section HEAD
 void e101_r_step(struct task *task)
 {
@@ -82,9 +82,8 @@ static void e101_r_destroy(struct task *task)
     e101_r_release();
 }
 
-/* #pragma section HEAD puts the sky's step after the stage's, at
- * 0x0c9000a0. 1ST_READ.BIN's sky_steps reaches it by that address. it draws
- * from its first step */
+/* #pragma section HEAD puts the sky's step after the stage's, at 0x0c9000a0.
+ * 1ST_READ.BIN's sky_steps holds that address. it draws from its first step */
 #pragma section HEAD
 void e101_r_sky_step(struct task *task)
 {

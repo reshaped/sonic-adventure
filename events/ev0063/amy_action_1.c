@@ -37,6 +37,6 @@ static NJS_TEXNAME ev0063_bird_textures[12] = {
 NJS_TEXLIST ev0063_bird_texlist = {
 #include "ev0063/amy_action_1/ev0063_bird_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb9e6a4[1] = {
+NJS_MATERIAL dat_0cb9e6a4[1] = {
 #include "ev0063/amy_action_1/dat_0cb9e6a4.inc"
 };

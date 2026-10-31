@@ -688,6 +688,11 @@ static void slide_clump_reset(struct task *task)
     NJS_POINT3 *pos;
     NJS_POINT3 *origin;
 
+#ifdef GCC
+    /* GCC can't see that every path sets pitch: the slide makes clumps of
+     * kinds 0, 1 and 2 alone */
+    pitch = 0;
+#endif
     switch (kind) {
     case 0:
         pitch =

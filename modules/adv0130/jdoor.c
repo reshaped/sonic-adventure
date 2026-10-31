@@ -132,7 +132,8 @@ void egg_carrier_jdoor_step(struct task *task)
         } else {
             for (i = 0; i < 3; i++) {
                 jdoor_dust.scale = 1.0F;
-                jdoor_dust.pos.x = work->pos.x + RANDOM(-50.0F, 50.0F);
+                jdoor_dust.pos.x =
+                    work->pos.x + (rand() * (100.0F * RAND_SCALE)) - 50.0F;
                 jdoor_dust.pos.y = work->pos.y + 1.0F;
                 jdoor_dust.pos.z = work->pos.z + 2.0F;
                 dust_create_from(&jdoor_dust);

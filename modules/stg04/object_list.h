@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists points at this list for acts 0 to 2. it reaches
- * the list by its address, 0x0ca790b0, not by its name */
+/* 1ST_READ.BIN's object_lists points at this list for acts 0 to 2 */
 extern struct object_list highway_object_list;
 
 #endif

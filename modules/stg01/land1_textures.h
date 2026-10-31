@@ -5,7 +5,7 @@
 
 /* the texlist of act 1's land, whose table points at it. 1ST_READ.BIN's
  * beach_act_pvms pairs it with BEACH02, the pvm texture_load_act loads into
- * it. beach_act_pvms reaches it by its address, not its name */
+ * it */
 extern NJS_TEXLIST beach_land1_texlist;
 
 #endif

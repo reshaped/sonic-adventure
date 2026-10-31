@@ -45,6 +45,6 @@ static NJS_TEXNAME ev0034_scorched_textures[27] = {
 NJS_TEXLIST ev0034_scorched_texlist = {
 #include "ev0034/scorched_textures/ev0034_scorched_texlist.inc"
 };
-static NJS_MATERIAL dat_0cbdb174[1] = {
+NJS_MATERIAL dat_0cbdb174[1] = {
 #include "ev0034/scorched_textures/dat_0cbdb174.inc"
 };

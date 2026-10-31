@@ -537,8 +537,15 @@ static void heli_hover_step(struct task *task)
      * reads is the tilt's low half (MOV.W @(12,R14),R0 at 0x0c9036f6).
      * task_destroy_children then finds nothing to destroy: a hovering
      * helicopter has no children */
+#ifdef GCC
+    /* keeps the shipped play the tags name: stage << 8 | act fits a Uint16,
+     * so stage.h's return compares the same, and the test still reads the
+     * tilt */
+    if (stage_get_stage_act() != PATH_VARS(work)->stage_act) {
+#else
     /* NOLINTNEXTLINE(clang-diagnostic-cast-function-type-*) */
     if (((int (*)(void))stage_get_stage_act)() != PATH_VARS(work)->stage_act) {
+#endif
         task_destroy_children(task);
     }
     if (!(player->flags & PLAYER_RECOILING)) {

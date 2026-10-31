@@ -217,7 +217,7 @@ void target_fence_init(struct task *task)
 
                     child_work->pos.x = x + ((cos * dx) + (sin * dz));
                     child_work->pos.y = y + dy;
-                    child_work->pos.z = z + ((cos * dz) - (sin * dx));
+                    child_work->pos.z = ((cos * dz) - (sin * dx)) + z;
                     place = place->sibling;
                 }
             }

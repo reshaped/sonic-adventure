@@ -1279,7 +1279,7 @@ static NJS_MOTION ev0142_e101_motion = {
 NJS_ACTION ev0142_e101_action[1] = {
 #include "ev0142/e102_action_2/ev0142_e101_action.inc"
 };
-static NJS_TEXNAME ev0142_memory_textures[2] = {
+NJS_TEXNAME ev0142_memory_textures[2] = {
     {TEXT_33, 0, 0},
     {TEXT_34, 0, 0},
 };

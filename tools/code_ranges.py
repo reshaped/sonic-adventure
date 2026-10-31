@@ -5,7 +5,8 @@ the padding a gen/ range declares. A byte none of them writes fails the
 build, which names its range.
 """
 
-from config import fail, hexa
+from tables import hexa
+from tool import fail
 
 # the categories of what writes an image's bytes, in the order the reports list
 # them: each one's name, and the description the reports print beside it. A

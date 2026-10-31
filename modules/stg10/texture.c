@@ -13,7 +13,11 @@
  * returns a Uint16. SHC then copies the result unextended (MOV R0,R3 at
  * 0x0c911978) for the compare at 0x0c91197e. as a Uint16, SHC extends it
  * with EXTU.W, and 1 of final_texture_step's 51 words differs */
+#ifdef GCC
+#include "stage/stage.h"
+#else
 extern int stage_get_stage_act(void);
+#endif
 
 /* a square 180 units a side, in the plane of x and z */
 extern NJS_OBJECT final_texture_panel_object;
@@ -50,7 +54,14 @@ static NJS_TEXNAME final_texture_name;
 /* njSin over one turn in 256 samples, each mapped from -1 to 1 onto 0 to
  * 64 */
 static Uint8 final_texture_sines[256];
+#ifdef GCC
+/* where a texture's pixels start off a cache line, kmiCopyToFrameBuffer
+ * copies them by kmiMemCopy4's longword reads, which fault on an address
+ * off 4. GCC aligns this array only to its Uint16s, where SHC put it on 4 */
+static Uint16 final_texture_pixels[SIDE * SIDE] __attribute__((aligned(4)));
+#else
 static Uint16 final_texture_pixels[SIDE * SIDE];
+#endif
 /* the phases of waves 2 and 3 at the pixel being painted. each row starts
  * them at the work's phase[2] and phase[3] */
 static Uint8 final_texture_phase2;
@@ -265,7 +276,13 @@ static void final_texture_paint(struct task *task)
      * scale y of 6 up to 7 (0x0c911baa). the load at 0x0c911bbe then takes
      * the word past final_texture_palettes, final_texture_panel_alpha's 1.0F,
      * as a palette's address */
+#ifdef GCC
+    /* repairs the test the tag names: GCC takes palette 0 for an index of
+     * PALETTES too, as for any other past the table */
+    if (which >= PALETTES || which < 0) {
+#else
     if (which > PALETTES || which < 0) {
+#endif
         which = 0;
     }
     palette = final_texture_palettes[which];

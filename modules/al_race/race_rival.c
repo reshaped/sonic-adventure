@@ -68,10 +68,10 @@ void race_rival_init(struct chao *rival, struct chao *source, int mode,
             low = 3000;
             high = 7500;
         }
-        rival->skills.swim = RANDOM(low, high);
-        rival->skills.fly = RANDOM(low, high);
-        rival->skills.run = RANDOM(low, high);
-        rival->skills.power = RANDOM(low, high);
+        rival->skills.swim = ((Float)rand() * (high - low) * RAND_SCALE) + low;
+        rival->skills.fly = ((Float)rand() * (high - low) * RAND_SCALE) + low;
+        rival->skills.run = ((Float)rand() * (high - low) * RAND_SCALE) + low;
+        rival->skills.power = ((Float)rand() * (high - low) * RAND_SCALE) + low;
         break;
     case RIVAL_BLACK_EGG:
     case RIVAL_SILVER_EGG:
@@ -222,7 +222,11 @@ void race_rival_init(struct chao *rival, struct chao *source, int mode,
 static int vary(int value)
 {
     int variation = (int)(value * 0.01F);
-    value += RANDOM(-variation, variation);
+    /* @hack spelling: + -variation for - variation, RANDOM's low bound, which
+     * the image negates by NEG at 0x0cb90db4 and takes as the addend of the
+     * FMAC at 0x0cb90dc2; as - variation, 10 of 44 words differ */
+    value +=
+        ((Float)rand() * (variation + variation) * RAND_SCALE) + -variation;
     value = value < 9999 ? value : 9999;
     value = value > 1 ? value : 1;
     return value;

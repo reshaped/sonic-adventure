@@ -17,6 +17,6 @@ static NJS_MOTION ev0001_patrol_car_motion = {
 NJS_ACTION ev0001_patrol_car_action = {
 #include "ev0001/patrol_car_action/ev0001_patrol_car_action.inc"
 };
-static NJS_TEXNAME ev0001_picture_textures[1] = {
+NJS_TEXNAME ev0001_picture_textures[1] = {
     {TEXT_1, 0, 0},
 };

@@ -1,0 +1,108 @@
+# The uses of 1ST_READ.BIN's imports that their stages don't hold, each with
+# the image it means and the evidence. tools/imports.py holds every other
+# use to the images loader_read_stage_files always reads for the stages its
+# source gives it (GCC.md#imports-and-the-census). A row covers each use of
+# an import from its image in its place: a table, a function, or TABLE[N],
+# the row of index N. A use no stage holds and no row covers fails. So does
+# a row that covers none. A row for TABLE[N] fails where one for TABLE gives
+# the same source and image
+#
+# source                  place                            image       reason
+src/camera/modes.c        camera_step_chaos_w              b_chaos7    CAMERA_MODE_CHAOS_W's step, which B_CHAOS7's fight.c sets
+src/camera/modes.c        camera_mode_list[46]             shooting    CAMERA_MODE_BACK's step, which SHOOTING's shooting.c sets
+src/camera/modes.c        camera_mode_list[47]             shooting    CAMERA_MODE_BACK2's step, which SHOOTING's shooting.c sets
+src/camera/modes.c        camera_mode_list[55]             b_e101_r    CAMERA_MODE_E101R's step, which B_E101_R's camera.c puts at 0x0c900000 as the fight's camera
+src/camera/modes.c        camera_mode_list[57]             b_egm3      CAMERA_MODE_EGM3's step, which B_EGM3's camera.c puts in PHEAD as the fight's camera
+src/chao/chao.c           chao_gardens_init                al_main     AL_MAIN's alife_load. AL_GARDEN00, AL_GARDEN01, AL_GARDEN02 and AL_RACE call chao_gardens_init, and loader_read_stage_files reads AL_MAIN for each of their stages
+src/chao/chao.c           icon_row_release                 al_main     the row's release of its animals in a garden: icon_row_init sets the step where the current stage is STAGE_ALIFE_SS, STAGE_ALIFE_EG or STAGE_ALIFE_MR, and loader_read_stage_files reads AL_MAIN for each
+src/enemy/zero.c          zero_setup                       stg03       Zero's reflection in Twinkle Park's mirrors, which zero_setup makes only where stage_get_stage_act() is STAGE_TWINKLE_MIRRORS, STAGE_TWINKLE's act 2, and loader_read_stage_files reads STG03 for STAGE_TWINKLE
+src/hud/hud.c             cart_draw_lap1                   minicart    the cart's first lap, drawn on its score screen, score_cart_step, which score_step runs for STAGE_CART's acts alone
+src/hud/hud.c             cart_draw_lap2                   minicart    the cart's second lap, drawn on its score screen, score_cart_step, which score_step runs for STAGE_CART's acts alone
+src/hud/hud.c             cart_draw_lap3                   minicart    the cart's third lap, drawn on its score screen, score_cart_step, which score_step runs for STAGE_CART's acts alone
+src/hud/hud.c             cart_draw_time                   minicart    the cart's time, drawn on its score screen, score_cart_step, which score_step runs for STAGE_CART's acts alone
+src/hud/hud.c             mission_check_cart               minicart    the cart's time, for its missions: mission_check checks them in its STAGE_CART case, and score_mission passes it the current stage
+src/hud/hud.c             score_cart_step                  minicart    the end of the cart's score screen, which score_step runs for STAGE_CART's acts alone
+src/hud/hud.c             score_mole_step                  stg00       the end of the Hedgehog Hammer's score screen, which score_step runs for STAGE_PRACTICE's act 0 alone
+src/main.c                main                             loader      LOADER.BIN's START_SYS, where main reads the file whole, and its jump_to_init, which main then calls
+src/object/iron_ball.c    iron_ball_jg_init                stg03       the jg's reflection in Twinkle Park's mirrors, which iron_ball_jg_init makes only where stage_get_stage_act() is STAGE_TWINKLE_MIRRORS, STAGE_TWINKLE's act 2, and loader_read_stage_files reads STG03 for STAGE_TWINKLE
+src/object/item_box.c     item_box_step                    stg03       the box's reflection in Twinkle Park's mirrors, which item_box_step makes in ITEM_BOX_INIT only where stage_get_stage_act() is STAGE_TWINKLE_MIRRORS, STAGE_TWINKLE's act 2, and loader_read_stage_files reads STG03 for STAGE_TWINKLE
+src/object/level_item.c   level_item_models[0]             adv00       Station Square's crystal ring. ADV00 defines the model, and each of the area's three stages reads ADV00
+src/object/level_item.c   level_item_models[1]             adv00       Station Square's light shoes. ADV00 defines the model, and each of the area's three stages reads ADV00
+src/object/level_item.c   level_item_models[3]             adv00       Station Square's jet anklet. ADV00 defines the model, and each of the area's three stages reads ADV00
+src/object/level_item.c   level_item_models[4]             adv03       the Past's rhythm brooch. ADV03 defines the model, and at its address ADV02, the area's other image, holds a model's uvs
+src/object/level_item.c   level_item_models[5]             adv02       the Mystic Ruins' fighting gloves. ADV02 defines the model, and at its address the Past's images hold none: ADV03 ends below it, and TIKAL_PROG holds a model's points
+src/object/level_item.c   level_item_models[6]             adv02       the Mystic Ruins' shovel claws. ADV02 defines the model, and at its address the Past's images hold none: ADV03 ends below it, and TIKAL_PROG holds a model's points
+src/object/level_item.c   level_item_models[7]             adv0130     the Egg Carrier inside's long hammer. ADV0130 defines the model, and at its address ADV0100, the outside's, holds a model's uvs
+src/object/level_item.c   level_item_models[8]             adv02       the Mystic Ruins' warrior feather. ADV02 defines the model, and at its address the Past's images hold none: ADV03 ends below it, and TIKAL_PROG holds a model's points
+src/object/level_item.c   level_item_models[9]             adv0130     the Egg Carrier inside's laser. ADV0130 defines the model, and at its address ADV0100, the outside's, holds a model's strips
+src/object/level_item.c   level_item_models[10]            adv0130     the Egg Carrier inside's booster. ADV0130 defines the model, and at its address ADV0100, the outside's, holds a model's points
+src/object/level_item.c   level_item_models[12]            adv02       the Mystic Ruins' life belt. ADV02 defines the model, and at its address the Past's images hold none: ADV03 ends below it, and TIKAL_PROG holds a model's points
+src/object/placement.c    object_lists                     stg00       PRACTICE, the practice stage's list, in the rows of acts that don't exist, which no stage plays
+src/player/amy.c          amy_actions[76]                  minicart    ACTION_RIDE, the cart's ride, which MINICART's riders.c defines. STG03's coaster, which SET0301A.BIN places, gives her PLAYER_MODE_RIDE too, where the address holds twinkle.c's code
+src/player/amy.c          amy_actions                      a_mot       her actions in a_mot.PRS, her motion file: loader_read_character_motions reads it to MOTION_AREA for her
+src/player/amy.c          amy_draw_drum                    a_mot       the drum's actions in a_mot.PRS, her motion file: loader_read_character_motions reads it to MOTION_AREA for her
+src/player/amy_bird.c     bird_init                        stg03       the bird's reflection in Twinkle Park's mirrors, which bird_init makes only where IN_STAGE(STAGE_TWINKLE) holds, and loader_read_stage_files reads STG03 for STAGE_TWINKLE
+src/player/big.c          big_actions[96]                  minicart    ACTION_RIDE, the cart's ride, which MINICART's riders.c defines
+src/player/big.c          big_actions                      b_mot       his actions in b_mot.PRS, his motion file: loader_read_character_motions reads it to MOTION_AREA for him
+src/player/e102.c         e102_actions[72]                 minicart    ACTION_RIDE, the cart's ride, which MINICART's riders.c defines
+src/player/e102.c         e102_actions                     e_mot       his actions in e_mot.PRS, his motion file: loader_read_character_motions reads it to MOTION_AREA for him
+src/player/effects.c      aura_draw                        s_mot       the aura's model in s_mot.PRS, Sonic's motion file: loader_read_character_motions reads it to MOTION_AREA for him and for Tails
+src/player/knuckles.c     knuckles_actions[36]             minicart    ACTION_RIDE, the cart's ride, which MINICART's riders.c defines
+src/player/knuckles.c     knuckles_actions                 k_mot       his actions in k_mot.PRS, his motion file: loader_read_character_motions reads it to MOTION_AREA for him
+src/player/tails.c        tails_actions[89]                minicart    ACTION_RIDE, the cart's ride, which MINICART's riders.c defines
+src/player/tails.c        tails_actions                    m_sbmot     his board actions, ACTION_BOARD to ACTION_BOARD_CROUCH, in m_sbmot.PRS: loader_read_stage_files reads it to TAILS_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/tails.c        tails_board_actions              m_sbmot     the board's own actions in m_sbmot.PRS: loader_read_stage_files reads it to TAILS_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/tails.c        tails_board_start                m_sbmot     his board's model and its texlist in m_sbmot.PRS: loader_read_stage_files reads it to TAILS_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/player.c       player_board_spray               stg08       Ice Cap's flakes, on ground WORLD_GRIP_LEAST or WORLD_GRIP_LOW, which Ice Cap's lands give and Sand Hill's, the board's other stage, don't
+src/player/player.c       player_board_spray               sboard      Sand Hill's puffs, on WORLD_SAND ground, which Sand Hill's land gives and Ice Cap's lands don't
+src/player/race.c         race_counts[4]                   stg06       COURSE_SKY_DECK's player's line's count. race_course picks the row, and race_create sets COURSE_SKY_DECK only in STAGE_SKY_DECK's case
+src/player/race.c         race_counts[5]                   stg06       COURSE_SKY_DECK's racer's line's count. race_course picks the row, and race_create sets COURSE_SKY_DECK only in STAGE_SKY_DECK's case
+src/player/race.c         race_eggman_draw                 stg04       Eggman's models and their texlist in the Speed Highway race, whose task race_create starts only in STAGE_HIGHWAY's case, and stage_create_players passes it stage_current
+src/player/race.c         race_eggman_texture_step         stg04       Eggman's texlist in the Speed Highway race, whose task only STG04's highway.c creates
+src/player/race.c         race_lines[4]                    stg06       COURSE_SKY_DECK's player's line. race_course picks the row, and race_create sets COURSE_SKY_DECK only in STAGE_SKY_DECK's case
+src/player/race.c         race_lines[5]                    stg06       COURSE_SKY_DECK's racer's line. race_course picks the row, and race_create sets COURSE_SKY_DECK only in STAGE_SKY_DECK's case
+src/player/sonic.c        sonic_actions                    stg02       Windy Valley's bounces and squashes, each an NJS_ACTION of sonic_object STG02's data defines
+src/player/sonic.c        sonic_actions                    stg04       ACTION_WALL_CRASH, an NJS_ACTION of sonic_object STG04's data defines
+src/player/sonic.c        sonic_actions                    stg06       Sky Deck's circles, each an NJS_ACTION of sonic_object STG06's data defines
+src/player/sonic.c        sonic_actions                    stg07       ACTION_PATH_SLIDE, Lost World's slide, an NJS_ACTION of sonic_object STG07's data defines
+src/player/sonic.c        sonic_actions                    stg08       Ice Cap's dangles, each an NJS_ACTION of sonic_object STG08's data defines
+src/player/sonic.c        sonic_actions                    stg09       Casinopolis' showers and mud, each an NJS_ACTION of sonic_object STG09's data defines
+src/player/sonic.c        sonic_actions                    b_chaos7    ACTION_SUPER_STAND to ACTION_SUPER_BALL, each an NJS_ACTION of super_sonic_object or of his ball B_CHAOS7's data defines
+src/player/sonic.c        sonic_actions                    s_mot       his actions in s_mot.PRS, his motion file: loader_read_character_motions reads it to MOTION_AREA for him and for Tails
+src/player/sonic.c        sonic_actions                    s_sbmot     his board actions, ACTION_BOARD to ACTION_BOARD_CROUCH, in s_sbmot.PRS: loader_read_stage_files reads it to SONIC_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/sonic.c        sonic_board_actions              s_sbmot     the board's own actions in s_sbmot.PRS: loader_read_stage_files reads it to SONIC_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/sonic.c        sonic_board_start                s_sbmot     the board's model and a texlist of its texture in s_sbmot.PRS: loader_read_stage_files reads it to SONIC_BOARD_AREA for STAGE_SUNABOARD, and icecap_act_start for Ice Cap, each for Sonic or Tails
+src/player/sonic.c        sonic_draw                       b_chaos7    Super Sonic's texlist, for the actions ACTION_SUPER_STAND to ACTION_SUPER_BALL, whose rows name B_CHAOS7's actions
+src/player/sonic.c        sonic_look_step                  s_mot       the aura's head in s_mot.PRS, his motion file: loader_read_character_motions reads it to MOTION_AREA for him and for Tails
+src/player/sonic.c        sonic_step                       b_chaos7    super_sonic_object's address, which sonic_step only compares with the welds' bases, turning their welds on where IN_STAGE(STAGE_CHAOS7) holds and off elsewhere
+src/player/sonic.c        sonic_super_ball_follow_create   b_chaos7    a task of Super Sonic's, made while PLAYER_SONIC_SUPER, which PLAYER_MODE_SUPER alone gives, and only B_CHAOS7's chaos7.c and EV00FF, his change before the last fight, set it
+src/player/sonic.c        sonic_super_ball_shrink_create   b_chaos7    a task of Super Sonic's, made while PLAYER_SONIC_SUPER, which PLAYER_MODE_SUPER alone gives, and only B_CHAOS7's chaos7.c and EV00FF, his change before the last fight, set it
+src/player/sonic.c        sonic_super_dash_create          b_chaos7    a task of Super Sonic's, made while PLAYER_SONIC_SUPER, which PLAYER_MODE_SUPER alone gives, and only B_CHAOS7's chaos7.c and EV00FF, his change before the last fight, set it
+src/player/sonic.c        sonic_try_request                b_chaos7    Super Sonic's aura, under PLAYER_MODE_SUPER, which only B_CHAOS7's chaos7.c and EV00FF, his change before the last fight, set
+src/player/sonic.c        sonic_try_request_holding        b_chaos7    Super Sonic's aura, under PLAYER_MODE_SUPER, which only B_CHAOS7's chaos7.c and EV00FF, his change before the last fight, set
+src/player/sonic.c        sonic_welds                      b_chaos7    super_sonic_object's nodes, whose welds sonic_step turns on where IN_STAGE(STAGE_CHAOS7) holds and off elsewhere
+src/progress/movie.c      movie_play                       movie       MOVIE.BIN's entry, which movie_play reads the file to, then calls
+src/progress/progress.c   field_people_place               adv00       Station Square's people, which field_people_place places only in its case for STAGE_STATION_SQUARE, the current stage, and loader_read_stage_files reads ADV00 for it
+src/progress/progress.c   field_people_place               adv0100     the Egg Carrier outside's people, which field_people_place places only in its case for STAGE_EGG_CARRIER, the current stage, and loader_read_stage_files reads ADV0100 for it
+src/progress/progress.c   field_people_place               adv0130     the Egg Carrier inside's people, which field_people_place places only in its case for STAGE_EGG_CARRIER_INSIDE, the current stage, and loader_read_stage_files reads ADV0130 for it
+src/progress/progress.c   field_people_place               adv02       the Mystic Ruins' people, which field_people_place places only in its case for STAGE_MYSTIC_RUINS, the current stage, and loader_read_stage_files reads ADV02 for it
+src/progress/progress.c   field_people_place               adv03       the Past's people, which field_people_place places only in its case for STAGE_PAST, the current stage, and loader_read_stage_files reads ADV03 for it
+src/progress/progress.c   field_people_remove              adv00       Station Square's people, which field_people_remove destroys only in its case for STAGE_STATION_SQUARE, the current stage, and loader_read_stage_files reads ADV00 for it
+src/progress/progress.c   field_people_remove              adv0100     the Egg Carrier outside's people, which field_people_remove destroys only in its case for STAGE_EGG_CARRIER, the current stage, and loader_read_stage_files reads ADV0100 for it
+src/progress/progress.c   field_people_remove              adv0130     the Egg Carrier inside's people, which field_people_remove destroys only in its case for STAGE_EGG_CARRIER_INSIDE, the current stage, and loader_read_stage_files reads ADV0130 for it
+src/progress/progress.c   field_people_remove              adv02       the Mystic Ruins' people, which field_people_remove destroys only in its case for STAGE_MYSTIC_RUINS, the current stage, and loader_read_stage_files reads ADV02 for it
+src/progress/progress.c   field_people_remove              adv03       the Past's people, which field_people_remove destroys only in its case for STAGE_PAST, the current stage, and loader_read_stage_files reads ADV03 for it
+src/save/minigame.c       cart_record_time                 minicart    the cart's times, read for the cart's score screen, score_cart_step, which score_step runs for STAGE_CART's acts alone
+src/stage/stage.c         stage_step_action                stg09       Casinopolis' deposited rings, which stage_step_action zeroes in STAGE_RESTART_FADE only where the current stage is STAGE_CASINO, and loader_read_stage_files reads STG09 for it
+src/stage/stage.c         stage_step_field                 al_main     the Chao gardens' save, which stage_step_field makes as the player quits only where the current stage is STAGE_ALIFE_SS to STAGE_ALIFE_RACE, and loader_read_stage_files reads AL_MAIN for each
+src/stage/stage.c         stage_create_players             shooting    the sky chase's player step, which stage_create_players gives Sonic or Tails only where the current stage is STAGE_SHOOTING1 or STAGE_SHOOTING2, and loader_read_stage_files reads SHOOTING for each
+src/stage/stage.c         stage_place_player               adv00       Station Square's starts, which stage_place_player takes only where the current stage is STAGE_STATION_SQUARE, STAGE_STATION_SQUARE_2 or STAGE_STATION_SQUARE_3, and loader_read_stage_files reads ADV00 for each
+src/stage/stage.c         stage_place_player               adv01obj    the Egg Carrier's starts, which stage_place_player takes only where the current stage is STAGE_EGG_CARRIER or STAGE_EGG_CARRIER_INSIDE, and loader_read_stage_files reads ADV01OBJ for each
+src/stage/stage.c         stage_place_player               adv02       the Mystic Ruins' starts, which stage_place_player takes only where the current stage is STAGE_MYSTIC_RUINS, and loader_read_stage_files reads ADV02 for it
+src/stage/stage.c         stage_place_player               adv03       the Past's starts, which stage_place_player takes only where the current stage is STAGE_PAST, and loader_read_stage_files reads ADV03 for it
+src/system/texture.c      act_list[30]                     b_chaos7    B_CHAOS7's own act_textures, which its act_textures.c keys to STAGE_CHAOS7's act 0. GCC's texture_load_act and texture_release_act read it only through act_textures_match. SHC's read its key for each act no earlier row matches, where the address holds the loaded module's bytes. texture_act_in_use and texture_release_acts have no caller
+src/system/texture.c      act_textures_match               b_chaos7    chaos7_act_textures, which act_textures_match reads only for STAGE_ACT(STAGE_CHAOS7, 0), its key. stage.c gives texture_load_act and texture_release_act only the current stage's act, and loader_read_stage_files reads B_CHAOS7 for STAGE_CHAOS7
+src/system/texture.c      alife_pvms[4]                    al_main     a garden's Chao textures, AL_MAIN's, which loads beside each garden. Nothing reads the list
+src/system/texture.c      alife_pvms[5]                    al_main     a garden's icons, AL_MAIN's, which loads beside each garden. Nothing reads the list
+src/system/texture.c      texture_load_stage               adv0100     ADV0100's list for the sunk egg carrier, which texture_load_stage takes only where the current stage is STAGE_EGG_CARRIER, and loader_read_stage_files reads ADV0100 for it
+src/system/texture.c      tikal_pvms[0]                    tikal_prog  Tikal's texlist, which character_pvms names for CHARACTER_TIKAL, and TIKAL_PROG holds with her player step

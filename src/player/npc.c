@@ -639,8 +639,8 @@ static void npc_steer(struct task *task)
     work->ang = follower->ang;
     pad_records[1].on = on;
     pad_records[1].press = press;
-    pad_stick_b.ang = ang;
-    pad_stick_b.stroke = stroke;
+    pad_sticks[1].ang = ang;
+    pad_sticks[1].stroke = stroke;
 }
 
 /* NPC_LOST once Tails is over LOST_DISTANCE from player 0, or once he has
@@ -665,6 +665,10 @@ static enum npc_lost npc_watch(struct task *task, struct task_work *leader,
     }
     njCalcPoint(NULL, &follower->pos, &view);
     point_project_centered(&view, &screen);
+#ifdef GCC
+    /* x as port.h's window holds it, so that 16:9 widens the test */
+    screen.x *= port_view_aspect;
+#endif
     if (screen.z < -50.0F || screen.x < -(scr->w * 0.5F) ||
         screen.x > scr->w * 0.5F || screen.y < -(scr->h * 0.5F) ||
         screen.y > scr->h * 0.5F) {

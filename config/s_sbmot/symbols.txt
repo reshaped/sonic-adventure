@@ -1,0 +1,44 @@
+# S_SBMOT.PRS: every name another image takes from it, by address.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cb099dc  dat_0cb099dc
+0x0cb0d880  dat_0cb0d880
+0x0cb12974  dat_0cb12974
+0x0cb19108  dat_0cb19108
+0x0cb1ad0c  dat_0cb1ad0c
+0x0cb1c930  dat_0cb1c930
+0x0cb1e5b4  dat_0cb1e5b4
+0x0cb20168  dat_0cb20168
+0x0cb2316c  dat_0cb2316c
+0x0cb24580  dat_0cb24580
+0x0cb26314  dat_0cb26314
+0x0cb27d88  dat_0cb27d88
+0x0cb2980c  dat_0cb2980c
+0x0cb2c750  dat_0cb2c750
+0x0cb2f4b4  dat_0cb2f4b4
+0x0cb31228  dat_0cb31228
+0x0cb3328c  dat_0cb3328c
+0x0cb35110  dat_0cb35110
+0x0cb36f84  dat_0cb36f84
+0x0cb36f98  sb_board1_texlist
+0x0cb37458  sonic_board_object
+0x0cb375b8  dat_0cb375b8
+0x0cb3784c  dat_0cb3784c
+0x0cb37c70  dat_0cb37c70
+0x0cb38094  dat_0cb38094
+0x0cb381c8  dat_0cb381c8
+0x0cb382fc  dat_0cb382fc
+0x0cb38440  dat_0cb38440
+0x0cb38574  dat_0cb38574
+0x0cb38798  dat_0cb38798
+0x0cb389bc  dat_0cb389bc
+0x0cb38af0  dat_0cb38af0
+0x0cb38c24  dat_0cb38c24
+0x0cb38e68  dat_0cb38e68
+0x0cb390ac  dat_0cb390ac
+0x0cb39f30  dat_0cb39f30
+0x0cb3b694  dat_0cb3b694
+0x0cb46fd8  dat_0cb46fd8
+0x0cb470fc  dat_0cb470fc
+0x0cb47230  dat_0cb47230
+0x0cb47e34  dat_0cb47e34

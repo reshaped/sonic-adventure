@@ -496,12 +496,23 @@ static const struct draw_override cart_wheels[3] = {
  * or E-102's tree that has a model and that no row names, draw_object reads
  * on past the table's end (0x8c05a4ba, 0x8c05a4c8). the word there is
  * cart_smoke_speed's x, whose 0.0F ends the scan as a null object would */
+#ifdef GCC
+/* keeps the scan's end the tag names: GCC's table ends with a null row */
+static const struct draw_override cart_large_wheels[5] = {
+    {&cart_big_wheel_1_object, cart_wheel_draw},
+    {&cart_big_wheel_2_object, cart_wheel_draw},
+    {&cart_e102_wheel_1_object, cart_wheel_draw},
+    {&cart_e102_wheel_2_object, cart_wheel_draw},
+    {NULL, NULL},
+};
+#else
 static const struct draw_override cart_large_wheels[4] = {
     {&cart_big_wheel_1_object, cart_wheel_draw},
     {&cart_big_wheel_2_object, cart_wheel_draw},
     {&cart_e102_wheel_1_object, cart_wheel_draw},
     {&cart_e102_wheel_2_object, cart_wheel_draw},
 };
+#endif
 /* the speed of a damaged cart's smoke */
 static const NJS_VECTOR cart_smoke_speed = {0.0F, 1.0F, 0.0F};
 /* a zero vector, which cart_fall starts the slope's pull from */

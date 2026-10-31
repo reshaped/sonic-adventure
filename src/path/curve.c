@@ -51,7 +51,15 @@ static int layout_fields(const char *format, int *offsets)
             }
             break;
         default:
+#ifdef GCC
+            /* stops on a letter with no case, as the shipped store's fault
+             * does. GCC splits a store to address 1 into byte stores, which
+             * don't fault */
+            for (;;) {
+            }
+#else
             *(int *)1 = 0;
+#endif
             break;
         }
     }
@@ -113,11 +121,23 @@ int path_curve_sample(struct path_curve *curve)
         for (part = 0.0F; part <= 1.0F - curve->step; part += curve->step) {
             switch (curve->kind) {
             case PATH_CURVE_LAGRANGE:
+#ifdef GCC
+                /* weight[0] negates the product, then multiplies by 1/6,
+                 * 0x3e2aaaaa, as SHC's code under -aggressive=2 does
+                 * (0x8c09b0a2, 0x8c09b0a4). GCC would divide by 6 where SHC's
+                 * side divides */
+                weight[0] =
+                    -((part - 1.0F) * (part - 2.0F) * part) * (1.0F / 6.0F);
+#else
                 weight[0] = -part * (part - 1.0F) * (part - 2.0F) / 6.0F;
+#endif
                 weight[1] =
                     (part + 1.0F) * (part - 1.0F) * (part - 2.0F) / 2.0F;
-                weight[2] = -(part + 1.0F) * part * (part - 2.0F) / 2.0F;
-                weight[3] = (part + 1.0F) * part * (part - 1.0F) / 6.0F;
+                weight[2] = (-1.0F - part) * (part - 2.0F) * part / 2.0F;
+                /* weight[3] multiplies by 1/6, 0x3e2aaaaa, as SHC's code
+                 * under -aggressive=2 does */
+                weight[3] =
+                    (part + 1.0F) * (part - 1.0F) * part * (1.0F / 6.0F);
                 break;
             case PATH_CURVE_BSPLINE:
             default:
@@ -184,6 +204,13 @@ Float path_axis_position(const Float *stops, Float distance)
     Float length = 0.0F;
     Float before;
 
+#ifdef GCC
+    /* repairs a distance below 0, or NaN, where the image reads stops[-1]
+     * and an unset local: GCC's run is still at its first stop */
+    if (!(distance >= 0.0F)) {
+        return stops[0];
+    }
+#endif
     for (i = 0; length <= distance; i++) {
         if (stops[i + 1] < 0.0F) {
             return stops[i];

@@ -4,8 +4,8 @@
 
 #include "player/player.h"
 
-/* the garden's list of zones for each act. 1ST_READ.BIN's death_zones
- * reaches this table by its address, 0x0cb9032c */
+/* the garden's list of zones for each act. 1ST_READ.BIN's death_zones names
+ * this table */
 extern struct death_zone *egg_carrier_garden_death_zones[];
 
 #endif

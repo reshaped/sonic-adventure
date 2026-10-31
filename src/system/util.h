@@ -19,8 +19,17 @@ struct task_work;
 #define RANDOM_ANGLE() (rand() * 2.0F)
 
 /* Ninja's angle units, 65536 to a turn, per radian and per degree */
+#ifdef GCC
+/* the two quotients as SHC folds them, which the image's pool words hold:
+ * 0x4622F986 at 0x8c058db0, in vector_angle, and 0x43360B60 at 0x8c08cb50,
+ * in ring_scatter. under -frounding-math GCC folds neither, so each use
+ * would run an FDIV */
+#define ANGLE_PER_RADIAN 0x1.45f30cp+13
+#define ANGLE_PER_DEGREE 0x1.6c16cp+7F
+#else
 #define ANGLE_PER_RADIAN (65536.0 / (2 * NJD_PI))
 #define ANGLE_PER_DEGREE (65536.0F / 360.0F)
+#endif
 /* @hack redundant: the unary plus, which keeps SHC from folding the two
  * factors into one: r takes an FMUL by 65536 and one by 1/(2 pi), as at
  * 0x8c0c1682 and 0x8c0c1684. without it, summed over tails_choose_mode and
@@ -242,5 +251,41 @@ Bool world_sweep_ball_hit(NJS_POINT3 *pos, NJS_VECTOR *speed,
  * null */
 int string_vformat(char *buffer, const char *format, va_list args);
 int string_format(char *buffer, const char *format, ...);
+
+#ifdef GCC
+/* under GCC, a C call of angle_difference or angle_distance outside util.c
+ * runs its helper inline. as in ninja_zam.h, the helper is named zam_ and
+ * the function's name, and a macro of the name calls it. each helper's body
+ * is util.c's. util.c undefines both macros above its definitions, which its
+ * own calls then reach. angle_approach, angle_unwrap and float_wrap have no
+ * helper: inlined, each would add 24 to 58 bytes at a call site, to save the
+ * call's 4 to 7 instructions */
+ALWAYS_INLINE Angle zam_angle_difference(Angle from, Angle to)
+{
+    Sint16 turn;
+
+    from = (Uint16)from;
+    to = (Uint16)to;
+    turn = to - from;
+    return turn;
+}
+ZAM_ASSERT_COMPATIBLE(angle_difference);
+#define angle_difference(from, to) zam_angle_difference(from, to)
+
+ALWAYS_INLINE Angle zam_angle_distance(Angle from, Angle to)
+{
+    Uint16 distance;
+
+    from = (Uint16)from;
+    to = (Uint16)to;
+    distance = to - from;
+    if ((Sint16)distance < 0) {
+        distance = -distance;
+    }
+    return distance;
+}
+ZAM_ASSERT_COMPATIBLE(angle_distance);
+#define angle_distance(from, to) zam_angle_distance(from, to)
+#endif
 
 #endif

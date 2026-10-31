@@ -426,6 +426,11 @@ void chaos7_fight_step(struct task *task)
     Float distance;
     Float scale;
 
+#ifdef GCC
+    /* GCC can't see that chaos is set wherever it is read: the switch reads
+     * it only in modes past FIGHT_START, 0, where the test below sets it */
+    chaos = NULL;
+#endif
     /* chaos7_boss is made in FIGHT_START, so the step reads its extra only in
      * later modes */
     /* @hack redundant: the mask, which changes nothing in the test, but loads

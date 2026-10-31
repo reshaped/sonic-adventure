@@ -5,8 +5,7 @@
 #include "effect/pools.h"
 
 /* the list, ended by a null, of the pools particle_create_pools makes for the
- * Egg Carrier and its inside. 1ST_READ.BIN's stage_pools names it by address
- * for both */
+ * Egg Carrier and its inside. 1ST_READ.BIN's stage_pools names it for both */
 extern struct particle_pool_spec *egg_carrier_pools[];
 
 #endif

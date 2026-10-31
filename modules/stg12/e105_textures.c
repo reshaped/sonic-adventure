@@ -45,9 +45,9 @@ static NJS_TEXNAME e105_textures[27] = {
 NJS_TEXLIST e105_texlist = {
 #include "stg12/e105_textures/e105_texlist.inc"
 };
-static NJS_MATERIAL dat_0ca921dc[2] = {
+NJS_MATERIAL dat_0ca921dc[2] = {
 #include "stg12/e105_textures/dat_0ca921dc.inc"
 };
-static Sint16 dat_0ca92204[30] = {
+Sint16 dat_0ca92204[30] = {
 #include "stg12/e105_textures/dat_0ca92204.inc"
 };

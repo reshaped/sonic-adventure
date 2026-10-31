@@ -4,8 +4,7 @@
 
 #include "system/texture.h"
 
-/* 1ST_READ.BIN's stage_pvms reaches this list by its address, 0x0c9588d8,
- * not by its name. texture_load_stage loads it */
+/* 1ST_READ.BIN's stage_pvms names this list. texture_load_stage loads it */
 extern struct texture_pvm eggmobile3_pvms[];
 
 #endif

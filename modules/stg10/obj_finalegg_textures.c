@@ -223,6 +223,6 @@ static NJS_TEXNAME obj_finalegg_textures[169] = {
 NJS_TEXLIST obj_finalegg_texlist = {
 #include "stg10/obj_finalegg_textures/obj_finalegg_texlist.inc"
 };
-static NJS_MATERIAL dat_0ca8948c[3] = {
+NJS_MATERIAL dat_0ca8948c[3] = {
 #include "stg10/obj_finalegg_textures/dat_0ca8948c.inc"
 };

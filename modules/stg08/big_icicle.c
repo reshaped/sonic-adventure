@@ -823,7 +823,14 @@ static void big_icicle_run(struct task *task)
                          * (0x0c90b35a), and speeds[i] is the word past the
                          * array, turns[0], an Angle, which the image reads as
                          * a Float, at 0x0c90b59a, 0x0c90b5a4 */
+#ifdef GCC
+                        /* repairs the read past speeds the tag names: GCC's
+                         * puff takes 0.9 of the big icicle's own speed, as
+                         * the small icicles' puffs take theirs */
+                        velocity.y = icicle->speed * 0.9F;
+#else
                         velocity.y = icicle->speeds[i] * 0.9F;
+#endif
                         velocity.z = RANDOM(-7.5F, 7.5F);
                         big_icicle_puff.color.a = PUFF_ALPHA();
                         ground = landing + (rand() * (30.0F * RAND_SCALE));

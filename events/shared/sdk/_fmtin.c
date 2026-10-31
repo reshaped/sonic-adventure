@@ -721,6 +721,13 @@ static int read_decimal(char conversion, void *destination,
     } else {
         wide_limit.suffix.range_errno = RANGE_ERRNO_DOUBLE;
     }
+#ifdef GCC
+    /* GCC can't see that result and exponent are set wherever they are read:
+     * limit.range holds only 1, -1 or 0, the switch has a case for each, and
+     * case 0 reads exponent only where the test below has set it */
+    result = (char *)zero.bytes;
+    exponent = 0;
+#endif
     if (!limit.range) {
         while (digit_count < SCAN_DIGITS) {
             digits[digit_count++] = '0';

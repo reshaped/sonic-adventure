@@ -125,6 +125,6 @@ static NJS_MODEL dat_0cbab3a8 = {
 static NJS_OBJECT dat_0cbab3d0 = {
 #include "ev0091/knuckles_action_6/dat_0cbab3d0.inc"
 };
-static NJS_TEXNAME dat_0cbab404[1] = {
+NJS_TEXNAME dat_0cbab404[1] = {
     {TEXT_1, 0, 0},
 };

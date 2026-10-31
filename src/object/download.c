@@ -1029,6 +1029,13 @@ static void download_step(struct task *task)
  * the step, reads the press */
 static void download_draw(struct task *task)
 {
+#ifdef GCC
+    /* the split frame's second picture shows no retry prompt and retries
+     * no mission: the prompt is the pause's */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     if (mission_state != MISSION_NONE) {
         retry_draws++;
         text_set_color(0xf0a0f0a0);
@@ -1414,6 +1421,12 @@ static void download_item_draw(struct task *task)
         }
         texlist = &bank_b_texlist;
         break;
+#ifdef GCC
+    default:
+        /* repairs the unset texlist the tag names: GCC draws nothing, as the
+         * model switch's default does */
+        return;
+#endif
     }
     if (work->timer <= TIMER_TAKEN) {
         NJS_ARGB color;

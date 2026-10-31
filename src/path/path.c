@@ -43,13 +43,6 @@ struct cubic_knot {
 
 enum path_manager_mode { PATH_MANAGER_START, PATH_MANAGER_WATCH };
 
-struct path_list {
-    Sint32 stage_act;
-    struct path **paths; /* ended by a null */
-};
-
-extern struct path_list path_lists[];
-
 static void path_manager_step(struct task *task);
 static void path_create_tasks(void);
 
@@ -200,7 +193,13 @@ void path_run_cubic(void)
     /* @hack type: volatile on count, which has each call read it from
      * @R15 (MOV.L @R15,R5 at 0x8c08e4f6); without it, SHC passes its slot's
      * address, the function runs 2 bytes short and 11 of 22 words differ */
+#ifdef GCC
+    /* repairs the count the first tag names: GCC's is 0, which samples
+     * nothing */
+    int count = 0;
+#else
     volatile int count;
+#endif
     struct cubic_knot knots[CUBIC_KNOTS];
     NJS_POINT3 out[CUBIC_SAMPLES];
 
@@ -321,6 +320,30 @@ static void segment_ends(struct path *path, struct path_sample *sample,
     out[1].pos.z = around[2].pos.z;
 }
 
+#ifdef GCC
+/* the mark path_sample_from lends path_sample, or null */
+static struct path_mark *sample_mark;
+
+/* the point path_sample's search of path for sample's distance starts at,
+ * and in *sum the lengths before it. the search that set sample_mark found no
+ * segment before the mark's point that ends past the mark's distance, so none
+ * ends past a distance at or past that, and a search from point 0 comes to
+ * the mark's point with the mark's sum, by the same additions. it takes no
+ * mark at or past count, which no search of path sets, so the search starts
+ * on a point */
+static int search_start(struct path *path, struct path_sample *sample,
+                        Float *sum)
+{
+    if (sample_mark != NULL && sample_mark->index >= 0 &&
+        sample_mark->index < path->count &&
+        sample->distance >= sample_mark->distance) {
+        *sum = sample_mark->sum;
+        return sample_mark->index;
+    }
+    return 0;
+}
+#endif
+
 Bool path_sample(struct path *path, struct path_sample *sample)
 {
     NJS_VECTOR delta;
@@ -341,8 +364,21 @@ Bool path_sample(struct path *path, struct path_sample *sample)
         sample->distance = float_wrap(sample->distance, path->length);
         break;
     }
+#ifdef GCC
+    /* repairs a path with no points, where the image reads length unset:
+     * GCC's takes no sample, as for a distance off a path that stops */
+    if (path->count == 0) {
+        return FALSE;
+    }
+#endif
     sum = 0.0F;
+#ifdef GCC
+    /* the last point's break below ends the search, so it needs no test */
+    for (i = search_start(path, sample, &sum), point = &path->points[i];;
+         i++, point++) {
+#else
     for (i = 0, point = path->points; i < path->count; i++, point++) {
+#endif
         if (point->length == 0.0F) {
             length = 1.0F;
         } else {
@@ -351,8 +387,25 @@ Bool path_sample(struct path *path, struct path_sample *sample)
         if (sum + length > sample->distance) {
             break;
         }
+#ifdef GCC
+        /* repairs a distance at or past the sum of the points' lengths but
+         * within the path's length, a gap rounding leaves between the two. no
+         * point takes it, so the image's loop runs off the last point and
+         * reads the next definition's bytes as a point. GCC's last point
+         * takes it, at its segment's end */
+        if (i == path->count - 1) {
+            break;
+        }
+#endif
         sum += length;
     }
+#ifdef GCC
+    if (sample_mark != NULL && sample_mark->index < 0) {
+        sample_mark->distance = sample->distance;
+        sample_mark->sum = sum;
+        sample_mark->index = i;
+    }
+#endif
     segment_ends(path, sample, i, segment);
     part = (sample->distance - sum) / length;
     sample->ang_x = point->ang_x;
@@ -382,6 +435,19 @@ Bool path_sample(struct path *path, struct path_sample *sample)
     sample->ahead = delta;
     return TRUE;
 }
+
+#ifdef GCC
+Bool path_sample_from(struct path *path, struct path_sample *sample,
+                      struct path_mark *mark)
+{
+    Bool sampled;
+
+    sample_mark = mark;
+    sampled = path_sample(path, sample);
+    sample_mark = NULL;
+    return sampled;
+}
+#endif
 
 Bool path_find_segment(struct path *path, Float distance, Uint32 *index)
 {
@@ -440,6 +506,11 @@ Float path_find_nearest(struct path *path, NJS_POINT3 *pos, NJS_POINT3 *nearest,
     NJS_POINT3 on;
     int i;
 
+#ifdef GCC
+    /* repairs a path with no segment, where the image returns best unset:
+     * nothing on it is near, so GCC's best is INFINITY */
+    best = INFINITY;
+#endif
     for (i = path->count; i > last; i--) {
         Float length = point->length;
         NJS_POINT3 *from = &point->pos;
@@ -510,6 +581,12 @@ static void spline_find_span(Float distance, struct path_spline *spline,
     Float length;
     int i;
 
+#ifdef GCC
+    /* repairs the unset length the comment above names: with count 4 or
+     * less, GCC's part is measured by span 1's length, the span *index
+     * gets */
+    length = point->length;
+#endif
     for (i = 1; i < spline->count - 3; i++, point++) {
         length = point->length;
         if (sum + length > distance) {
@@ -623,5 +700,10 @@ Bool path_spline_sample(struct path_spline *spline, struct path_sample *sample)
      * image calls the function, so no caller reads the result. with return
      * TRUE, SHC loads 1 into R0, the function runs 2 bytes long and 16 of 279
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is TRUE, for the sample it
+     * took */
+    return TRUE;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }

@@ -626,6 +626,10 @@
 0x0ca7be34  dat_0ca7be34
 0x0ca7fe18  dat_0ca7fe18
 0x0ca8294c  outside_act0_land
+0x0ca838dc  outside_act1_land
+0x0ca843d4  outside_act2_land
+0x0ca857b4  outside_act3_land
+0x0ca85f1c  outside_act4_land
 0x0ca85f40  outside_act5_land_entries
 0x0ca86de0  outside_act5_land
 0x0ca86e08  gate_shapes

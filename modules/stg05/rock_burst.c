@@ -163,7 +163,7 @@ static NJS_TEXNAME rock_burst_dust_textures[DUST_FRAMES] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0}, {TEXT_4, 0, 0},
     {TEXT_5, 0, 0}, {TEXT_6, 0, 0}, {TEXT_7, 0, 0}, {TEXT_8, 0, 0},
 };
-static NJS_TEXLIST rock_burst_dust_texlist = {
+NJS_TEXLIST rock_burst_dust_texlist = {
 #include "stg05/rock_burst/rock_burst_dust_texlist.inc"
 };
 static NJS_TEXANIM rock_burst_dust_frames[DUST_FRAMES] = {

@@ -5,6 +5,7 @@
 #
 0x0cb00000  tikal_player_step
 0x0cb019d8  tikal_texlist
+0x0cb099dc  tikal_object
 0x0cb80000  ev00f7_head
 0x0cb80008  ev00f7_script
 0x0cb82610  event_chao_destroy

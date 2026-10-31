@@ -4,9 +4,8 @@
 
 #include "system/texture.h"
 
-/* the pvms texture_load_stage loads for the stage. 1ST_READ.BIN's
- * stage_pvms reaches the list by its address, 0x0c9000a0, not by its
- * name */
+/* the pvms texture_load_stage loads for the stage. 1ST_READ.BIN's stage_pvms
+ * names the list */
 extern struct texture_pvm e101_pvms[];
 
 #endif

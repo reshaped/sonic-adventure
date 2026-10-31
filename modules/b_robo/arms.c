@@ -539,6 +539,11 @@ static Bool arms_unfurl(void)
      * the R0 arm_lay left, 0x0c930e58 (loaded at 0x0c9079fa).
      * erobo_arms_step's test at 0x0c9073de takes it as true, so ARMS_UNFURL
      * ends after one step */
+#ifdef GCC
+    /* keeps the value the tag names, as erobo_arms_step reads it: TRUE, so
+     * ARMS_UNFURL ends after its first step */
+    return TRUE;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 

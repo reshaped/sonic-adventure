@@ -504,6 +504,7 @@
 0x0c913ca6  script_big_beach_step
 0x0c913d60  script_e102_beach_init
 0x0c913d66  script_e102_beach_step
+0x0c9163b4  station_square_land0
 0x0c9163d8  station_square_land0_textures
 0x0c916e28  station_square_land0_texlist
 0x0c920a1c  dat_0c920a1c
@@ -547,6 +548,7 @@
 0x0c9645d8  dat_0c9645d8
 0x0c96526c  dat_0c96526c
 0x0c967c18  dat_0c967c18
+0x0c9744b4  station_square_land1
 0x0c9744d8  station_square_land1_textures
 0x0c975150  station_square_land1_texlist
 0x0c9b679c  dat_0c9b679c
@@ -1084,6 +1086,7 @@
 0x0ca5e3a8  station_square_starts
 0x0ca5ec4c  station_square_object_list
 0x0ca5ec58  station_square_sky_models
+0x0ca5f4b4  obj_ss_texlist
 0x0ca5f4ec  ss_bg_texlist
 0x0ca606a0  dat_0ca606a0
 0x0ca61880  dat_0ca61880
@@ -1187,6 +1190,9 @@
 0x0caaf744  kart_sign_object
 0x0caaf848  twinkle_light_object
 0x0caaf94c  twinkle_light_lit_object
+0x0caafc1c  level_item_crystal_ring_object
+0x0cab1440  level_item_light_shoes_object
+0x0cab1e84  level_item_jet_anklet_object
 0x0cab1eb8  prop_bottle_shape
 0x0cab1eec  prop_container_shape
 0x0cab1f20  prop_exit_shape
@@ -1398,6 +1404,7 @@
 0x0cb2decc  dat_0cb2decc
 0x0cb2e680  dat_0cb2e680
 0x0cb2e6e8  dat_0cb2e6e8
+0x0cb2edd8  station_square_death_zones
 0x0cb2edf0  mannequin_shapes
 0x0cb2ee58  script_sonic_opening
 0x0cb2ee60  script_sonic_beach

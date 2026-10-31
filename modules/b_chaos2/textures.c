@@ -109,10 +109,24 @@ static NJS_MOTION punch_10_motion = {
 NJS_ACTION chaos2_punch_10_action = {
 #include "b_chaos2/textures/chaos2_punch_10_action.inc"
 };
+/* @bug memory: Chaos 2's puddle takes texture 8 of chaos2_texlist
+ * (src/chaos/chaos.c's chaos_form_textures), past these six.
+ * chaos_animate_surface writes entry 8's texaddr every step, onto
+ * chaos2_effect_textures[2]'s filename (0x0c962584), which nothing reads once
+ * the textures load, and the puddle's draw reads it back */
+#ifdef GCC
+/* repairs the write the tag names: GCC's array runs to entry 8, past the six
+ * chaos2_texlist loads */
+static NJS_TEXNAME chaos2_textures[9] = {
+    {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0},
+    {TEXT_4, 0, 0}, {TEXT_5, 0, 0}, {TEXT_6, 0, 0},
+};
+#else
 static NJS_TEXNAME chaos2_textures[6] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0},
     {TEXT_4, 0, 0}, {TEXT_5, 0, 0}, {TEXT_6, 0, 0},
 };
+#endif
 NJS_TEXLIST chaos2_texlist = {
 #include "b_chaos2/textures/chaos2_texlist.inc"
 };

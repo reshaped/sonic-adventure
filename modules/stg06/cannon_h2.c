@@ -238,7 +238,7 @@ static int cannon_h2_aim(NJS_POINT3 *start, NJS_POINT3 *end, NJS_VECTOR *speed,
     steps = njSqrt((dx * dx) + (dz * dz));
     steps *= 1.0F / SHELL_PACE;
     x = dx / steps;
-    y = (dy + (0.5F * SHELL_GRAVITY * steps * steps)) / steps;
+    y = (dy + (steps * steps * (0.5F * SHELL_GRAVITY))) / steps;
     z = dz / steps;
     out = &speed->x;
     *out++ = x;
@@ -249,7 +249,7 @@ static int cannon_h2_aim(NJS_POINT3 *start, NJS_POINT3 *end, NJS_VECTOR *speed,
         x *= steps;
         z *= steps;
         y *= steps;
-        height = y - (0.5F * SHELL_GRAVITY * steps * steps);
+        height = y - (steps * steps * (0.5F * SHELL_GRAVITY));
         distance = njSqrt((x * x) + (z * z));
     } else {
         height = y;

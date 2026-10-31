@@ -2,6 +2,8 @@
  * hall gate's models */
 #include <ninja.h>
 
-static NJS_MATERIAL dat_0cb04988[4] = {
+#include "stg10/hall_gate_materials.h"
+
+NJS_MATERIAL dat_0cb04988[4] = {
 #include "stg10/hall_gate_materials/dat_0cb04988.inc"
 };

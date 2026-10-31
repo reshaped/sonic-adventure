@@ -3,8 +3,10 @@ from pathlib import Path
 from unittest import mock
 
 import code_ranges
-from config import EVENT_ALIASES, EVENT_RUNTIME, EXTENTS, FIRST, Config, configs, directories, files, reasons
+from config import Config, configs, gcc_object, handoffs, imports, order
+from images import EVENT_RUNTIME, EXTENTS, FIRST
 from support import LOADER_SECTIONS, MODULE, cwd, tree
+from test_relink import IMAGE, ORDER, SPLITS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -174,11 +176,11 @@ class Tables(unittest.TestCase):
             self.assertEqual(config.held(), {'src/main.c': [('DSG', 0x8C688000, 0x8C6880C0)]})
 
     def test_rejects_a_section_row_in_1st_read(self):
-        # even rows that agree with the sections tools/config.py fixes, as layout() gives them
+        # even rows that agree with the sections tools/images.py fixes, as layout() gives them
         with tree(MODULE):
             rows = ''.join(f'{name}  0x{start:08x}  0x{end:08x}\n' for name, start, end in Config('1st_read').layout())
         with tree(dict(MODULE, **{'config/1st_read/splits.txt': rows + MODULE['config/1st_read/splits.txt']})), \
-                self.assertRaisesRegex(SystemExit, r"config/1st_read/splits\.txt:1: a section row, and tools/config\.py "
+                self.assertRaisesRegex(SystemExit, r"config/1st_read/splits\.txt:1: a section row, and tools/images\.py "
                                                    r"fixes 1ST_READ\.BIN's sections$"):
             Config('1st_read')
 
@@ -190,26 +192,8 @@ class Tables(unittest.TestCase):
         with tree(dict(MODULE, **{'config/README.md': 'index\n'})):
             self.assertEqual([config.name for config in configs()], ['1st_read', 'mod'])
 
-    def test_gives_each_images_original_file(self):
-        with tree(dict(MODULE, **{'config/loader/splits.txt': '', 'config/movie/splits.txt': '', 'config/README.md': ''})):
-            self.assertEqual(files(), {'1st_read': '1ST_READ.BIN', 'loader': 'LOADER.BIN', 'mod': 'SONICADV/MOD.PRS',
-                                       'movie': 'SONICADV/MOVIE.BIN'})
-
 
 class Extents(unittest.TestCase):
-    def test_follow_one_another_in_link_order(self):
-        # each starts where the one before it ends, or past it; one with no end is followed by its X32, and an X32
-        # after an end starts there, rounded up to 32
-        for extents in EXTENTS.values():
-            for name, start, end in extents:
-                if end is not None:
-                    self.assertLessEqual(start, end, name)
-            for (name, start, end), (later, after, _) in zip(extents, extents[1:]):
-                self.assertLessEqual(start if end is None else end, after, later)
-                self.assertTrue(end is not None or later == f'{name}32', name)
-                if end is not None and later == f'{name}32':
-                    self.assertEqual(after, -(-end // 32) * 32, later)
-
     def test_agree_with_the_rows(self):
         # in the repository's tables, each section's first placement starts at its extent's start, and its last
         # ends at its extent's end, where a source holds the object there. None holds LOADER.BIN's last in B, or
@@ -255,7 +239,7 @@ class Extents(unittest.TestCase):
             self.assertEqual(Config('loader').sources(), ['loader/a.c'])
         with tree(loader('B  0x8ce20a00  0x8ce5002c', *rows[1:3])), \
                 self.assertRaisesRegex(SystemExit, r'config/loader/splits\.txt: section B runs 0x8ce20a00 to 0x8ce5002c, '
-                                                   r'and tools/config\.py gives 0x8ce20a00 to 0x8ce50040'):
+                                                   r'and tools/images\.py gives 0x8ce20a00 to 0x8ce50040'):
             Config('loader')
 
     def test_wants_a_section_row_to_span_the_section_alone_where_its_x32_has_a_row(self):
@@ -266,9 +250,9 @@ class Extents(unittest.TestCase):
             with tree(loader(bsg, bsg32, *placements)):
                 self.assertEqual(Config('loader').sources(), ['loader/a.c'])
         for rows, problem in ((('BSG  0x8ce50040  0x8ce7dd38', bsg32, *placements), 'section BSG runs 0x8ce50040 to 0x8ce7dd38, '
-                               r'and tools/config\.py gives 0x8ce50040 to 0x8ce7dd30'),
+                               r'and tools/images\.py gives 0x8ce50040 to 0x8ce7dd30'),
                               (('BSG  0x8ce50040  0x8ce7dd30', 'BSG32  0x8ce7dd40  0x8ce7e900', placements[0]),
-                               r'section BSG32 runs 0x8ce7dd40 to 0x8ce7e900, and tools/config\.py gives 0x8ce7dd40 to 0x8ce7e920')):
+                               r'section BSG32 runs 0x8ce7dd40 to 0x8ce7e900, and tools/images\.py gives 0x8ce7dd40 to 0x8ce7e920')):
             with tree(loader(*rows)), self.assertRaisesRegex(SystemExit, r'config/loader/splits\.txt: ' + problem):
                 Config('loader')
 
@@ -283,7 +267,7 @@ class Extents(unittest.TestCase):
         for listed in (rows[:1] + rows[2:3], ('PSGSFD00  0x8ceb0be4  0x8ceb25d4',) + rows[1:]):
             with tree(movie(*listed)), \
                     self.assertRaisesRegex(SystemExit, r'config/movie/splits\.txt: section PSGSFD00 runs 0x8ceb0be[04] to '
-                                                       r'0x8ceb25d4, and tools/config\.py gives 0x8ceb0be0 to 0x8ceb25d2'):
+                                                       r'0x8ceb25d4, and tools/images\.py gives 0x8ceb0be0 to 0x8ceb25d2'):
                 Config('movie')
 
     def test_wants_a_row_for_each_section_that_holds_bytes(self):
@@ -296,7 +280,7 @@ class Extents(unittest.TestCase):
                                                            (0x8CEB2BE0, 0x8CEB8BE0)]))
         with tree(movie(*rows[:2], 'CSGSFD02  0x8ceb2be0  0x8ceb8be0', rows[3])), \
                 self.assertRaisesRegex(SystemExit, r'config/movie/splits\.txt: section PSGSFD02 has no row, '
-                                                   r'and tools/config\.py gives 0x8ceb2be0 to 0x8ceb8be0'):
+                                                   r'and tools/images\.py gives 0x8ceb2be0 to 0x8ceb8be0'):
             Config('movie')
 
     def test_bound_no_other_image(self):
@@ -336,18 +320,6 @@ class Layout(unittest.TestCase):
             first, mod = Config('1st_read'), Config('mod')
             self.assertEqual((first.span(), first.base), ((0x8C010000, 0x8C8FD160), 0x8C010000))
             self.assertEqual((mod.span(), mod.base), ((0x0C900000, 0x0C900200), 0x0C900000))
-
-
-class Aliases(unittest.TestCase):
-    def test_each_repeats_a_configured_event_by_its_hash(self):
-        # 208 events: one image each but the four that repeat another, which SHA256SUMS holds to its hash
-        hashes = dict(reversed(line.split('  ')) for line in (ROOT / 'SHA256SUMS').read_text().splitlines())
-        events = {path.name.upper() for path in (ROOT / 'config').iterdir() if path.name.startswith('ev')}
-        self.assertEqual(len(events) + len(EVENT_ALIASES), 208)
-        for alias, event in EVENT_ALIASES.items():
-            self.assertNotIn(alias, events)
-            self.assertIn(event, events)
-            self.assertEqual(hashes[f'orig/SONICADV/{alias}.PRS'], hashes[f'orig/SONICADV/{event}.PRS'], alias)
 
 
 class Symbols(unittest.TestCase):
@@ -399,61 +371,108 @@ class Symbols(unittest.TestCase):
                 Config('mod').symbols()
 
 
-class Directories(unittest.TestCase):
-    def test_leaves_out_only_the_images_own_directory(self):
-        # events/mod is mod's own directory, and modules/mod, where it places a.c, shares only its name
-        with tree(dict(MODULE, **{'events/mod/own.h': ''})):
-            self.assertEqual(directories(Config('mod')), [Path('events/mod'), Path('modules/mod')])
+class Imports(unittest.TestCase):
+    # two is a second image in mod's region, with an a_init of its own. Its table spells b_text's address in the 0x8c
+    # view, 0x8c900000, and imports() gives it as spelled. 1ST_READ.BIN takes mod's a_init as a_init, two's as
+    # two__a_init, and two's b_text as b_text
+    TWO = {'config/two/symbols.txt': '0x0c900040  a_init\n0x8c900000  b_text\n',
+           'config/1st_read/imports.txt': '# by image\na_init  mod\ntwo__a_init  two  a_init\nb_text  two\n'}
+
+    def rejects(self, rows, pattern):
+        with tree({**MODULE, **self.TWO, 'config/1st_read/imports.txt': rows}), \
+                self.assertRaisesRegex(SystemExit, r'config/1st_read/imports\.txt:\d: ' + pattern):
+            imports()
+
+    def test_binds_each_name_where_its_images_table_puts_the_definition(self):
+        with tree(dict(MODULE, **self.TWO)):
+            self.assertEqual(imports(), [('a_init', 'mod', 'a_init', 0x0C900000, 'config/1st_read/imports.txt:2'),
+                                         ('two__a_init', 'two', 'a_init', 0x0C900040, 'config/1st_read/imports.txt:3'),
+                                         ('b_text', 'two', 'b_text', 0x8C900000, 'config/1st_read/imports.txt:4')])
+            self.assertEqual(Config('1st_read').symbols()[-3:],
+                             [(0x0C900000, 'a_init'), (0x0C900040, 'two__a_init'), (0x8C900000, 'b_text')])
+
+    def test_gives_no_other_image_1st_reads_imports(self):
+        with tree(dict(MODULE, **self.TWO)):
+            self.assertEqual(Config('mod').symbols(), [(0x0C900000, 'a_init'), (0x0C900000, 'a_start'),
+                                                       (0x0C900104, 'shared'), (0x8C0101A0, 'main')])
+
+    def test_imports_nothing_without_the_table(self):
+        with tree(MODULE):
+            self.assertEqual(imports(), [])
+            self.assertEqual(handoffs(), {})
+
+    def test_reads_the_reason_a_hand_off_s_row_ends_with(self):
+        rows = 'a_init  mod  hand-off: main starts mod once it reads it\ntwo__a_init  two  a_init\n'
+        with tree({**MODULE, **self.TWO, 'config/1st_read/imports.txt': rows}):
+            self.assertEqual(imports(), [('a_init', 'mod', 'a_init', 0x0C900000, 'config/1st_read/imports.txt:1'),
+                                         ('two__a_init', 'two', 'a_init', 0x0C900040, 'config/1st_read/imports.txt:2')])
+            self.assertEqual(handoffs(), {'a_init': 'main starts mod once it reads it'})
+
+    def test_rejects_a_row_out_of_form(self):
+        for row in ('a_init', 'a_init  mod  a_init  more', '1st  mod', 'a_init  mod  1st', 'a_init  mod  hand-off:',
+                    'a_init  hand-off: no image'):
+            with self.subTest(row=row):
+                self.rejects(f'{row}\n', 'not a row: NAME IMAGE \\[SYMBOL\\]')
+
+    def test_rejects_an_image_config_doesnt_describe_or_1st_read(self):
+        self.rejects('a_init  three\n', r'three: no such image, a directory in config/')
+        self.rejects('main  1st_read\n', r'main: an import from 1ST_READ\.BIN itself')
+
+    def test_rejects_a_symbol_the_images_table_doesnt_give(self):
+        self.rejects('a_stop  mod\n', r'config/mod/symbols\.txt gives a_stop no address')
+
+    def test_rejects_a_name_with_a_row_already(self):
+        self.rejects('a_init  mod\na_init  two\n', r'a_init has a row already, at config/1st_read/imports\.txt:1')
+        self.rejects('shared  mod\n', r'shared has a row in config/1st_read/symbols\.txt already')
 
 
-class Reasons(unittest.TestCase):
-    def reasons(self, *rows):
-        with tree(dict(MODULE, **{'config/kept.txt': ''.join(f'{row}\n' for row in rows)})):
-            return reasons()
+class GccObject(unittest.TestCase):
+    def test_names_a_source_s_object_at_its_path_and_a_gen_range_s_content(self):
+        self.assertEqual([gcc_object(source, 'mod') for source in ('modules/mod/a.c', 'modules/mod/b.src',
+                                                                    'gen/mod/d_0c900140.c')],
+                         [Path('build/gcc/modules/mod/a.o'), Path('build/gcc/modules/mod/b.o'),
+                          Path('build/gcc/gen/mod/content.o')])
 
-    def test_reads_a_word_or_a_range_by_image_with_its_reason(self):
-        # a range may start and end off 4, where it holds a word
-        found = self.reasons('# a comment', 'mod  0x0c900010  two   instructions',
-                             'mod  0x0c900100  0x0c900110  a glyph bitmap', 'mod  0x0c900113  0x0c900115  a text',
-                             '1st_read  0x8c0101a0  text')
-        self.assertEqual(found, {'mod': [(0x0C900010, 0x0C900014, 'two instructions', 'config/kept.txt:2'),
-                                         (0x0C900100, 0x0C900110, 'a glyph bitmap', 'config/kept.txt:3'),
-                                         (0x0C900113, 0x0C900115, 'a text', 'config/kept.txt:4')],
-                                 '1st_read': [(0x8C0101A0, 0x8C0101A4, 'text', 'config/kept.txt:5')]})
 
-    def test_rejects_rows_out_of_form(self):
-        for row, problem in (('mod  0x0c900010', 'not a row: IMAGE START \\[END\\] REASON'),
-                             ('mod  0x0c900010  0x0c900014', 'not a row: IMAGE START \\[END\\] REASON'),
-                             ('none  0x0c900010  text', 'none: no such image, a directory in config/'),
-                             ('mod  c900010  text', 'c900010: not an address'),
-                             ('mod  0x0c900010  0x0c900010  text', '0x0c900010 to 0x0c900010 holds no byte'),
-                             ('mod  0x0c900011  0x0c900014  text', '0x0c900011 to 0x0c900014 holds no word'),
-                             ('mod  0x0c900012  text', "0x0c900012: not on 4, so no word's address")):
-            with self.subTest(row=row), self.assertRaisesRegex(SystemExit, r'config/kept\.txt:1: ' + problem):
-                self.reasons(row)
+# MODULE with a gen/ range of mod's D
+GENERATED = dict(MODULE, **{'config/mod/splits.txt': MODULE['config/mod/splits.txt']
+                            + 'gen/mod/d_0c900110.c  D  0x0c900110  0x0c900200\n'})
 
-    def test_rejects_a_row_that_overlaps_an_earlier_row_of_its_image(self):
-        # another image's row may hold the same addresses
-        self.reasons('mod  0x0c900014  text', '1st_read  0x0c900014  text')
-        with self.assertRaisesRegex(SystemExit, r'config/kept\.txt:2: 0x0c900010 to 0x0c900020 overlaps the row at '
-                                                r'config/kept\.txt:1$'):
-            self.reasons("mod  0x0c900014  0x0c900018  a model's UVs", 'mod  0x0c900010  0x0c900020  another reason')
-        # each pair shares only the byte at 0x0c900014, and so gives the word there twice
-        for rows, later in ((('mod  0x0c900014  0x0c900015  text', 'mod  0x0c900014  another reason'), '0x0c900014 to 0x0c900018'),
-                            (('mod  0x0c900014  text', 'mod  0x0c900011  0x0c900015  another reason'), '0x0c900011 to 0x0c900015')):
-            with self.subTest(rows=rows), \
-                    self.assertRaisesRegex(SystemExit, rf'config/kept\.txt:2: {later} overlaps the row at config/kept\.txt:1$'):
-                self.reasons(*rows)
 
-    def test_reads_the_repositorys_rows_each_in_its_images_span(self):
-        # config/kept.txt as make shift reads it, so that a malformed row fails without the disc
-        with cwd(ROOT):
-            found = reasons()
-            spans = {image: Config(image).span() for image in found}
-        for image, rows in found.items():
-            low, high = spans[image]
-            for start, end, _, where in rows:
-                self.assertTrue(low <= start and end <= high, where)
+class Definitions(unittest.TestCase):
+    def definitions(self, *rows):
+        with tree(dict(GENERATED, **{'config/mod/data.txt': ''.join(f'{row}\n' for row in rows)})):
+            return Config('mod').definitions()
+
+    def test_gives_each_row(self):
+        rows = ('# a comment', '0x0c900110  object', '0x0c900144  model', '0x0c90016c  struct death_zone[3]',
+                '0x0c900190  NJS_OBJECT *[1]', '0x0c900194  mixed[2]  vouched  # the row vouches for them',
+                '0x0c90019c  struct task_spec  vouched')
+        self.assertEqual(self.definitions(*rows),
+                         [(0x0C900110, 'object', None, False, 'config/mod/data.txt:2'),
+                          (0x0C900144, 'model', None, False, 'config/mod/data.txt:3'),
+                          (0x0C90016C, 'struct death_zone', 3, False, 'config/mod/data.txt:4'),
+                          (0x0C900190, 'NJS_OBJECT *', 1, False, 'config/mod/data.txt:5'),
+                          (0x0C900194, 'mixed', 2, True, 'config/mod/data.txt:6'),
+                          (0x0C90019C, 'struct task_spec', None, True, 'config/mod/data.txt:7')])
+
+    def test_gives_none_without_the_table(self):
+        with tree(GENERATED):
+            self.assertEqual(Config('mod').definitions(), [])
+
+    def test_rejects_rows_out_of_form_or_order(self):
+        for rows, problem in (
+                (['0x0c900110'], 'not a row: ADDRESS KIND'),
+                (['0x0c900110  points[0]'], 'not a row: ADDRESS KIND'),
+                (['0x0c900110  points[2'], 'not a row: ADDRESS KIND'),
+                (['0x0c900110  points[2]  vouched  twice'], 'not a row: ADDRESS KIND'),
+                (['0xc900110  object'], '0xc900110: not an address'),
+                (['0x0c900100  object'], '0x0c900100 lies in no gen/ range of config/mod/splits.txt'),
+                (['0x0c900144  object', '0x0c900110  model'], '0x0c900110 lies at or below 0x0c900144'),
+                (['0x0c900144  object', '0x0c900144  model'], '0x0c900144 lies at or below 0x0c900144')):
+            with self.subTest(rows=rows), self.assertRaisesRegex(SystemExit, f'config/mod/data\\.txt:{len(rows)}: '
+                                                                             + problem):
+                self.definitions(*rows)
 
 
 def objects(aligned):
@@ -582,7 +601,7 @@ class LinkerFill(unittest.TestCase):
         # CSG's fill runs to CSG32's start, which only the extents give
         extents = tuple(row for row in EXTENTS[FIRST] if row[0] != 'CSG32')
         with mock.patch.dict(EXTENTS, {FIRST: extents}), self.assertRaisesRegex(
-                SystemExit, r"tools/config\.py: FIRST_TAILS runs the fill from CSG's last placement to CSG32's start, "
+                SystemExit, r"tools/images\.py: FIRST_TAILS runs the fill from CSG's last placement to CSG32's start, "
                             r'and FIRST_EXTENTS gives CSG32 none'):
             tails(*TAILS)
 
@@ -758,6 +777,33 @@ class Tiling(unittest.TestCase):
         # an alignment no compiler fixes
         self.assertEqual(starts('0x0c900100', 'C'), {4, 8})
         self.assertEqual(starts('0x0c900100', 'P'), set())
+
+
+class Order(unittest.TestCase):
+    def test_keeps_each_section_in_its_rows_order(self):
+        with tree(IMAGE):
+            self.assertEqual(order(Config('img')), ORDER)
+
+    def test_keeps_table_order_where_no_section_orders_two_objects(self):
+        # a.c places no bss, so no section orders a.c and c.c: a.c, first in the table, links first
+        files = dict(IMAGE, **{'config/img/splits.txt': SPLITS.replace('modules/img/a.c  B  0x0c900080  0x0c900088\n',
+                                                                        '')})
+        with tree(files):
+            self.assertEqual(order(Config('img')), ['modules/img/a.c', 'modules/img/c.c', 'modules/img/b.c',
+                                                    'modules/two/a.c'])
+
+    def test_rejects_sections_that_order_two_objects_both_ways(self):
+        # P places a.c before b.c, and D b.c's data before a.c's
+        splits = ('P  0x0c900000  0x0c900040\nD  0x0c900040  0x0c900050\n'
+                  'modules/img/a.c  P  0x0c900000  0x0c900020\nmodules/img/a.c  D  0x0c900048  0x0c900050\n'
+                  'modules/img/b.c  P  0x0c900020  0x0c900040\nmodules/img/b.c  D  0x0c900040  0x0c900048\n')
+        with tree(dict(IMAGE, **{'config/img/splits.txt': splits})), self.assertRaises(SystemExit) as failed:
+            order(Config('img'))
+        message = str(failed.exception)
+        self.assertIn("config/img/splits.txt: no one order of the objects keeps each section in its rows' order: ",
+                      message)
+        self.assertIn('modules/img/a.c goes before modules/img/b.c in P', message)
+        self.assertIn('modules/img/b.c goes before modules/img/a.c in D', message)
 
 
 if __name__ == '__main__':

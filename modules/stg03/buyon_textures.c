@@ -41,6 +41,6 @@ NJS_TEXLIST buyon_texlist = {
  * multiple of 8. the materials start 4 bytes past one, right after the
  * texlist, so they are this file's. the model's strips after them start on
  * a multiple of 8, so they may start another file */
-static NJS_MATERIAL dat_0c9c3eb4[3] = {
+NJS_MATERIAL dat_0c9c3eb4[3] = {
 #include "stg03/buyon_textures/dat_0c9c3eb4.inc"
 };

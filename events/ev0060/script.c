@@ -103,7 +103,13 @@ extern NJS_ACTION ev0060_metal_sonic_action;
  * 0x0cb81848. as one NJS_TEXLIST passed as &event_sprite_bomb_texlist, R9 holds
  * the y angle 0x5e00 instead, ev0060_script runs 12 bytes long, and 395 of its
  * 2650 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a texlist inside event_sprite_texlists */
+#define event_sprite_bomb_texlist (&event_sprite_texlists[EVENT_SPRITE_BOMB])
+#else
 extern NJS_TEXLIST event_sprite_bomb_texlist[];
+#endif
 
 static struct event_path_point ev0060_run_points_0[44] = {
 #include "ev0060/script/ev0060_run_points_0.inc"

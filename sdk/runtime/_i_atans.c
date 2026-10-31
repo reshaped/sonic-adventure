@@ -111,6 +111,11 @@ float _in_atans(float x)
          * 0x8c1237f0 returns FR5, still the 0.125 of an_eighth that
          * _in_fmods took as y, or its negation. the FPSCR the CPU resets
          * to (0x40001) rounds toward zero, which keeps reduced below 1 */
+#ifdef GCC
+        /* repairs the unset result the tag above names: for eighth 8, a
+         * reduced of 1, GCC gives offset plus pi/4, the arc tangent of 1 */
+        result = offset + _QUOPAIS;
+#endif
         switch (eighth) {
         case 0:
             result = offset + _app_atans(reduced);

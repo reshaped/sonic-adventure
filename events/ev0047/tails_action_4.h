@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_ACTION ev0047_tails_action_4;
+/* the texture name of the generated texlist ev0047_emerald_texlist */
+extern NJS_TEXNAME ev0047_emerald_textures[1];
 
 #endif

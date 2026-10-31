@@ -452,6 +452,12 @@ static Float action_link_sample_shape(NJS_MKEY_P *keys, Uint32 index,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float fourth);
 
+#ifdef GCC
+ALWAYS_INLINE Float squared_length(Float x, Float y, Float z, Float fourth)
+{
+    return zam_fipr_self(x, y, z, fourth);
+}
+#else
 /* clang-format off */
 #ifndef __clang__
 /* the squared length of (x, y, z, fourth), in FR0. SHC expands the body at
@@ -468,6 +474,7 @@ static Float squared_length(Float x, Float y, Float z, Float fourth)
 }
 #endif
 /* clang-format on */
+#endif
 
 /* blend first toward second by weight into out, and scale the blend to unit
  * length, to FSRRA's precision. a blend whose squared length is not above

@@ -58,6 +58,6 @@ NJS_TEXLIST station_square_land5_texlist = {
  * texlist, off a multiple of 8. so it belongs to this source. the model's
  * strips start at a multiple of 8 straight after it, where one source or two
  * build the same */
-static NJS_MATERIAL dat_0ca57f04[1] = {
+NJS_MATERIAL dat_0ca57f04[1] = {
 #include "adv00/land5_textures/dat_0ca57f04.inc"
 };

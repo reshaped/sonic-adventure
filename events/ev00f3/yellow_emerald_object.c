@@ -12,6 +12,6 @@ extern NJS_OBJECT dat_0cb9d84c;
 NJS_OBJECT ev00f3_yellow_emerald_object = {
 #include "ev00f3/yellow_emerald_object/ev00f3_yellow_emerald_object.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

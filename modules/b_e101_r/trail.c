@@ -316,7 +316,13 @@ void e101_mk2_afterimage_create(struct e101_mk2 *boss, NJS_ACTION *action)
             /* @bug memory: with the newest pose in slot 0, the index
              * is -1, from ADD #-1,R3 at 0x0c90483e. the afterimage then draws
              * the 40 bytes before poses, at 0x0c92e848, as its pose */
+#ifdef GCC
+            /* repairs the index the tag names: RING takes it to the ring's
+             * last slot, which holds the pose before the newest */
+            image->pose = &poses[RING(pose_head - 1)];
+#else
             image->pose = &poses[pose_head - 1];
+#endif
             image->action = action;
             image->scale = 1.0F;
             image->alpha = 0.5F;

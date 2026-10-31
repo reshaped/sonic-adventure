@@ -56,7 +56,7 @@ static NJS_TEXNAME ev00f8_sprite_splash_textures[8] = {
 };
 
 /* indexed by enum event_sprite_texlist, as event_sprite_texlists is */
-static NJS_TEXLIST ev00f8_sprite_texlists[EVENT_SPRITE_TEXLISTS] = {
+NJS_TEXLIST ev00f8_sprite_texlists[EVENT_SPRITE_TEXLISTS] = {
 #include "ev00f8/sprite/ev00f8_sprite_texlists.inc"
 };
 

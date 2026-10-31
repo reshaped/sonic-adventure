@@ -19,9 +19,13 @@ extern NJS_OBJECT target_knuckles_object;
 extern NJS_OBJECT target_tails_object;
 
 /* Final Egg's own particle pools, ending in NULL, which particle_create_pools
- * makes after those every stage has. stage_pools in effect/pools.c finds the
- * list at its address, 0x0cb1b2a8 */
+ * makes after those every stage has. stage_pools in effect/pools.c names the
+ * list */
 extern struct particle_pool_spec *final_pools[];
+
+/* the poms' texlist. 1ST_READ.BIN's final_pvms names it, for
+ * EFF_FINALEGG_POM's textures */
+extern NJS_TEXLIST final_pom_texlist;
 
 /* make a pom at pos and scale. it makes none when its pool is null or no
  * particle is free */

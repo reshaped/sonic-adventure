@@ -1,12 +1,20 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* push the current matrix: store XMTRX in the current matrix pointer's slot,
  * and move the pointer to the next slot. with m null, XMTRX keeps its matrix,
  * which is stored in the new slot too. otherwise XMTRX takes m, and the new
  * slot is left as it was. returns TRUE, or FALSE, pushing nothing, when the
  * stack is full */
+#ifdef GCC
+/* ninja_zam.h defines no njPushMatrix macro, so every call reaches this
+ * definition */
+Bool njPushMatrix(NJS_MATRIX *m)
+{
+    return zam_njPushMatrix(m);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c628bd0 follows the
  * body's own return at 0x8c628bcc */
 #pragma inline_asm(njPushMatrix)
@@ -72,3 +80,4 @@ Bool njPushMatrix(NJS_MATRIX *m)
 }
 #endif
 /* clang-format on */
+#endif

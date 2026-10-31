@@ -130,14 +130,33 @@ void egg_hornet_barrier_draw(struct barrier *barrier)
         njRotateX(NULL, -0x4000);
         njScale(NULL, 2.0F, 2.0F, 2.0F);
         njSetTexture(&egm1barrier_texlist);
+#ifdef GCC
+        /* the second picture's pass skips the boss's callback where step 1
+         * drew the boss, so step 1 draws the barrier too, where port.h's
+         * FRAME_DRAWS says */
+        if (FRAME_DRAWS()) {
+            present_untimed(TRUE);
+            njSimpleDrawObject(&egg_hornet_barrier_object);
+            present_untimed(FALSE);
+        }
+#else
         if (frame_step == 0) {
             njSimpleDrawObject(&egg_hornet_barrier_object);
         }
+#endif
         njScale(NULL, 1.2F, 1.2F, 1.2F);
         njSetTexture(&egm1barrier_texlist);
+#ifdef GCC
+        if (FRAME_DRAWS()) {
+            present_untimed(TRUE);
+            njSimpleDrawObject(&egg_hornet_barrier_object);
+            present_untimed(FALSE);
+        }
+#else
         if (frame_step == 0) {
             njSimpleDrawObject(&egg_hornet_barrier_object);
         }
+#endif
         njPopMatrix(1);
         draw_attr_restore();
         draw_control_restore();

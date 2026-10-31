@@ -40,7 +40,7 @@ For an `@bug` tag, see the `uninitialized` one in `src/object/spring.c`.
 
 An `@hack` tag marks a choice in the source kept only because SHC's output needs it, where plainer C would express the same behavior. An `@bug` tag marks an evidenced defect of the shipped game that the source keeps, whether the source makes it or SHC's code does. Ordinary code takes neither. A construct the behavior needs is no hack, however unusual it looks: a cast C needs for the call the image makes takes no tag. Nor is data the image holds and no code reads: the source defines it because the bytes are there, not to steer SHC's code, so it takes no tag. An initializer, zeros included, that holds a static datum in the image's data rather than its bss is data the image holds too; a local's initializer is code, and takes a tag when nothing reads it.
 
-A tag records one finding. Tags stack only where their findings are separate, as a `volatile` stacks with the unset read it steers. No tag certifies the code around it. Lint doesn't find every hack or bug; it checks only the patterns [What lint checks](#what-lint-checks) names.
+A tag records one finding. Tags stack only where their findings are separate, as a `volatile` stacks with the unset read it steers. No tag certifies the code around it. Where a guard gives GCC other C, a tag describes the shipped side, and [GCC.md](GCC.md#guards) says what GCC's side does. Lint doesn't find every hack or bug; it checks only the patterns [What lint checks](#what-lint-checks) names.
 
 ### Hacks
 
@@ -209,10 +209,10 @@ A `name` basis needs all four: the member's name contains `asm`; asmsh wrote it;
 
 ## What lint checks
 
-`make lint` runs `tools/tags.py` over every `.c`, `.h` and `.src` file under `src/`, `sdk/`, `modules/`, `events/` and `loader/`. It fails on:
+`make lint` runs `tools/tags.py` over every `.c`, `.h` and `.src` file under `src/`, `sdk/`, `modules/`, `events/` and `loader/`, and every `.c` and `.h` file under `gcc/`. It fails on:
 
 - a malformed tag, a tag in a `/** */` comment, or a kind its tag doesn't take;
-- a `#pragma inline_asm` spelled other than `#pragma inline_asm(NAME)` or `#pragma inline_asm(NAME(size=N))`;
+- a `#pragma inline_asm` spelled other than `#pragma inline_asm(NAME)` or `#pragma inline_asm(NAME(size=N))`, or with no braces below it;
 - an inline body, `#pragma asm` block or `.src` function with no `@asm` tag, or two;
 - an `@asm` tag out of place: in C, not directly above its pragma; in a `.src` file, not ending the comment above a label that starts a function;
 - an `@asm` tag other than `open` that doesn't open with a rule or evidence of its kind, or cites no address;

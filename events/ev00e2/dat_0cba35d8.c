@@ -2,6 +2,8 @@
  * motion of ev00e2_frog_action_0. nothing reads the texlist */
 #include <ninja.h>
 
+#include "ev00e2/dat_0cba35d8.h"
+
 #define TEXT_1_LENGTH 7
 #define TEXT_2_LENGTH 7
 #define TEXT_3_LENGTH 7
@@ -14,7 +16,7 @@
 
 extern NJS_OBJECT dat_0cba35a4;
 
-static NJS_OBJECT dat_0cba35d8 = {
+NJS_OBJECT dat_0cba35d8 = {
 #include "ev00e2/dat_0cba35d8/dat_0cba35d8.inc"
 };
 static NJS_TEXNAME dat_0cba360c[8] = {
@@ -69,6 +71,6 @@ static NJS_MKEY_A dat_0cba5934[48] = {
 static NJS_MDATA2 dat_0cba5c34[15] = {
 #include "ev00e2/dat_0cba35d8/dat_0cba5c34.inc"
 };
-static NJS_MOTION dat_0cba5d24 = {
+NJS_MOTION dat_0cba5d24 = {
 #include "ev00e2/dat_0cba35d8/dat_0cba5d24.inc"
 };

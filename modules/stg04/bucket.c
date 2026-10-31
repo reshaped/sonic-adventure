@@ -134,6 +134,11 @@ static void bucket_break(struct task *task)
          * player 0 off the ground, and its FALSE goes unread. a hit then
          * reads speed's frame slot unwritten (FMOV.S @R15,FR3 at
          * 0x0c903b4a) */
+#ifdef GCC
+        /* repairs the unset speed the tag names: 0, a still player's ground
+         * speed, breaks the bucket at BREAK_SPEED_LEAST */
+        speed = 0.0F;
+#endif
         player_ground_speed(0, &speed);
         if (work->collision->flags & COLLISION_HIT) {
             work->collision->flags &= ~COLLISION_HIT;

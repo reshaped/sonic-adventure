@@ -1596,6 +1596,12 @@ static void zero_draw(struct task *task)
     Float red;
     Float green;
     Float blue;
+#ifdef GCC
+    /* the split frame's second picture puts the bob back once Zero is
+     * drawn, so that the bob, which zero_beam's and zero_find_arm_end's
+     * poses translate by, stays as the steps left it */
+    Float bob = zero_bob_object.pos[1];
+#endif
 
     if (frame_step != 0) {
         return;
@@ -1652,6 +1658,11 @@ static void zero_draw(struct task *task)
         draw_attr_restore();
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
     }
+#ifdef GCC
+    if (frame_redrawing) {
+        zero_bob_object.pos[1] = bob;
+    }
+#endif
 }
 
 /* start the beam over: no length, no lock, and its aim within 5 of Amy's
@@ -1961,6 +1972,11 @@ static void zero_marker_step(struct task *task)
     int green;
     int blue;
 
+#ifdef GCC
+    /* GCC can't see that work->mode is always one of the cases: task_create
+     * zeroes it to MARKER_START, and only this function sets it */
+    alpha = red = green = blue = 0;
+#endif
     switch (work->mode) {
     case MARKER_START:
         work->scl.x = 100.0F;

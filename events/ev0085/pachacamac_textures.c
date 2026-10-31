@@ -39,6 +39,6 @@ static NJS_TEXNAME ev0085_pachacamac_textures[21] = {
 NJS_TEXLIST ev0085_pachacamac_texlist = {
 #include "ev0085/pachacamac_textures/ev0085_pachacamac_texlist.inc"
 };
-static NJS_OBJECT dat_0cb80fa4 = {
+NJS_OBJECT dat_0cb80fa4 = {
 #include "ev0085/pachacamac_textures/dat_0cb80fa4.inc"
 };

@@ -5,8 +5,7 @@
 
 #include <ninja.h>
 
-/* each character's action table in 1ST_READ.BIN names its action here by
- * address */
+/* each character's action table in 1ST_READ.BIN names its action here */
 extern NJS_ACTION amy_cart_action;
 extern NJS_ACTION big_cart_action;
 extern NJS_ACTION e102_cart_action;

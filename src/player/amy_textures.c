@@ -6,6 +6,8 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "player/amy_textures.h"
+
 #include "player/textures.h"
 
 #define TEXT_1_LENGTH 7
@@ -96,15 +98,15 @@ static NJS_TEXNAME amy_eff_textures[4] = {
 NJS_TEXLIST amy_eff_texlist = {
 #include "player/amy_textures/amy_eff_texlist.inc"
 };
-static NJS_MATERIAL dat_8c4d5cec[10] = {
-#include "player/amy_textures/dat_8c4d5cec.inc"
+NJS_MATERIAL amy_skirt_materials[10] = {
+#include "player/amy_textures/amy_skirt_materials.inc"
 };
-static Sint16 dat_8c4d5db4[24] = {
-#include "player/amy_textures/dat_8c4d5db4.inc"
+Sint16 amy_skirt_meshes0[24] = {
+#include "player/amy_textures/amy_skirt_meshes0.inc"
 };
-static Sint16 dat_8c4d5de4[72] = {
-#include "player/amy_textures/dat_8c4d5de4.inc"
+Sint16 amy_skirt_meshes1[72] = {
+#include "player/amy_textures/amy_skirt_meshes1.inc"
 };
-static Sint16 dat_8c4d5e74[22] = {
-#include "player/amy_textures/dat_8c4d5e74.inc"
+Sint16 amy_skirt_meshes2[22] = {
+#include "player/amy_textures/amy_skirt_meshes2.inc"
 };

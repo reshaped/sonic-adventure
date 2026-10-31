@@ -5,9 +5,40 @@
 #include <shinobi.h>
 #include <stdio.h>
 
+#include "adv00/land0_textures.h"
+#include "adv00/land1_textures.h"
+#include "adv00/land2_textures.h"
+#include "adv00/land3_textures.h"
+#include "adv00/land4_textures.h"
+#include "adv00/land5_textures.h"
+#include "adv00/texlists.h"
 #include "adv0100/texlists.h"
+#include "adv0130/egg_carrier_inside.h"
+#include "adv02/texlists.h"
+#include "adv03/act0_textures.h"
+#include "adv03/act1_textures.h"
+#include "adv03/act2_textures.h"
+#include "adv03/past.h"
+#include "adv03/pvms.h"
+#include "al_garden00/textures.h"
+#include "al_garden02/texlists.h"
+#include "al_main/icon.h"
+#include "al_main/models.h"
+#include "al_race/pvms.h"
 #include "animal/barrier.h"
 #include "animal/textures.h"
+#include "b_chaos0/pvms.h"
+#include "b_chaos2/pvms.h"
+#include "b_chaos4/pvms.h"
+#include "b_chaos6/pvms.h"
+#include "b_chaos7/act_textures.h"
+#include "b_chaos7/pvms.h"
+#include "b_e101/pvms.h"
+#include "b_e101_r/pvms.h"
+#include "b_egm1/pvms.h"
+#include "b_egm2/pvms.h"
+#include "b_egm3/pvms.h"
+#include "b_robo/pvms.h"
 #include "chao/chao.h"
 #include "enemy/leon.h"
 #include "enemy/robo.h"
@@ -17,6 +48,7 @@
 #include "enemy/uni.h"
 #include "hud/boss_name.h"
 #include "hud/life_gauge.h"
+#include "minicart/pvms.h"
 #include "object/piece.h"
 #include "object/tikal_light.h"
 #include "player/big_kaeru_textures.h"
@@ -29,11 +61,64 @@
 #include "player/textures.h"
 #include "progress/emblem.h"
 #include "progress/progress.h"
+#include "sboard/pvms.h"
+#include "shooting/act1_textures.h"
+#include "shooting/act2_textures.h"
+#include "shooting/gauge.h"
+#include "shooting/hud.h"
+#include "shooting/reticle.h"
+#include "shooting/texlists.h"
 #include "stage/stage.h"
+#include "stg00/texlists.h"
+#include "stg01/land0_textures.h"
+#include "stg01/land1_textures.h"
+#include "stg01/land2_textures.h"
+#include "stg01/pvms.h"
+#include "stg02/land0_textures.h"
+#include "stg02/land1_textures.h"
+#include "stg02/land2_textures.h"
+#include "stg02/pvms.h"
+#include "stg03/pvms.h"
+#include "stg04/land0_textures.h"
+#include "stg04/land1_textures.h"
+#include "stg04/land2_textures.h"
+#include "stg04/police.h"
+#include "stg04/texlists.h"
+#include "stg05/e104_textures.h"
+#include "stg05/explosion_textures.h"
+#include "stg05/land0_textures.h"
+#include "stg05/land1_textures.h"
+#include "stg05/land2_textures.h"
+#include "stg05/rock_burst.h"
+#include "stg05/texlists.h"
+#include "stg06/aclift.h"
+#include "stg06/models.h"
+#include "stg06/shots.h"
+#include "stg06/skydeck01_textures.h"
+#include "stg06/skydeck02_textures.h"
+#include "stg06/skydeck03_textures.h"
+#include "stg07/obj_ruin_textures.h"
+#include "stg07/ruin01_textures.h"
+#include "stg07/ruin02_textures.h"
+#include "stg07/ruin03_textures.h"
+#include "stg08/icecap01_textures.h"
+#include "stg08/icecap02_textures.h"
+#include "stg08/icecap03_textures.h"
+#include "stg08/pvms.h"
+#include "stg09/casino01_textures.h"
+#include "stg09/casino02_textures.h"
+#include "stg09/casino03_textures.h"
+#include "stg09/casino04_textures.h"
+#include "stg09/pvms.h"
+#include "stg10/gacha_robot_textures.h"
+#include "stg10/obj_finalegg_textures.h"
+#include "stg10/pom.h"
+#include "stg12/pvms.h"
 #include "system/loader.h"
 #include "system/prs.h"
 #include "system/texlists.h"
 #include "system/texture.h"
+#include "tikal_prog/tikal.h"
 
 /* texlist_slots' slots: the regular slot, then from SLOT_STAGE the stage's
  * four */
@@ -57,14 +142,20 @@
 
 /* the room a file is read into below the end of its area: its size,
  * rounded up to a multiple of 256 */
+/* @bug memory: the read's last sector writes up to 1792 bytes past the
+ * room, which is the file's size rounded up to a multiple of 256 where the
+ * read writes whole sectors. load_prs's room ends at WORK_AREA_END, where
+ * the heap starts, and syMallocInit puts its first block's header 32 bytes
+ * in: OBJ_REGULAR.PRS's read, of 155785 bytes, runs the whole 1792. the
+ * rounding is the AND R0,R1 at 0x8c09f0a0, and at 0x8c09f180 in
+ * texture_load_prs_file, whose room ends at WORK_AREA */
+#ifdef GCC
+/* repairs the room the tag names: it holds the file's whole sectors, so the
+ * read ends at its area's end */
+#define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)
+#else
 #define FILE_ROOM(size) (((size) + 255) & ~255)
-
-/* MODULE_TEXLIST, MODULE_PVMS and MODULE_ACT take an address in a module
- * as a texture list, a list of pvms or an act's textures. the address holds
- * one only while that module is loaded */
-#define MODULE_TEXLIST(address) ((NJS_TEXLIST *)(address))
-#define MODULE_PVMS(address) ((struct texture_pvm *)(address))
-#define MODULE_ACT(address) ((struct act_textures *)(address))
+#endif
 
 static Sint32 load_prs(char *name, NJS_TEXLIST *texlist);
 
@@ -83,48 +174,48 @@ static NJS_TEXNAME pvm_textures[PVM_TEXTURES];
 
 /* the shelter keeps its acts' pvms in its module */
 static struct act_textures shelter_acts[] = {
-    {STAGE_ACT(STAGE_SHELTER, 0), 10, 0, MODULE_PVMS(0x0caa0d60)},
-    {STAGE_ACT(STAGE_SHELTER, 1), 2, 0, MODULE_PVMS(0x0caa0db0)},
-    {STAGE_ACT(STAGE_SHELTER, 2), 4, 0, MODULE_PVMS(0x0caa0dc0)},
-    {STAGE_ACT(STAGE_SHELTER, 3), 1, 0, MODULE_PVMS(0x0caa0de0)},
+    {STAGE_ACT(STAGE_SHELTER, 0), 10, 0, shelter_act0_pvms},
+    {STAGE_ACT(STAGE_SHELTER, 1), 2, 0, shelter_act1_pvms},
+    {STAGE_ACT(STAGE_SHELTER, 2), 4, 0, shelter_act2_pvms},
+    {STAGE_ACT(STAGE_SHELTER, 3), 1, 0, shelter_act3_pvms},
 };
 
 /* each stage's list of pvms, from here to stage_pvms. the first four
  * entries take the stage's slots, and a null texlist leaves its slot empty.
  * the entries after the fourth end at a null texlist */
 static struct texture_pvm shooting1_pvms[] = {
-    {"SHOOTING0", MODULE_TEXLIST(0x0c90ada4)},
+    {"SHOOTING0", &shooting0_texlist},
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {NULL, MODULE_TEXLIST(0x0c955d38)},
-    {NULL, MODULE_TEXLIST(0x0cad4248)},
-    {NULL, MODULE_TEXLIST(0x0c955bac)},
-    {"SHOOTING1", MODULE_TEXLIST(0x0c956ba4)},
+    {NULL, &lock_texlist},
+    {NULL, &gauge_texlist},
+    {NULL, &score_texlist},
+    {"SHOOTING1", &shooting1_texlist},
     {NULL, NULL},
 };
 
 static struct texture_pvm shooting2_pvms[] = {
-    {"SHOOTING0", MODULE_TEXLIST(0x0c90ada4)},
+    {"SHOOTING0", &shooting0_texlist},
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {NULL, MODULE_TEXLIST(0x0c955d38)},
-    {NULL, MODULE_TEXLIST(0x0cad4248)},
-    {NULL, MODULE_TEXLIST(0x0c955bac)},
-    {"SHOOTING2", MODULE_TEXLIST(0x0c9e04b4)},
+    {NULL, &lock_texlist},
+    {NULL, &gauge_texlist},
+    {NULL, &score_texlist},
+    {"SHOOTING2", &shooting2_texlist},
     {"CHAOS_LIFEGAUGE", &chaos_lifegauge_texlist},
     {NULL, &b32ascii_texlist},
     {NULL, NULL},
 };
 
 static struct texture_pvm highway_pvms[] = {
-    {"OBJ_HIGHWAY", MODULE_TEXLIST(0x0ca3eab8)},
-    {"NISEPAT", MODULE_TEXLIST(0x0ca791b4)},
+    {"OBJ_HIGHWAY", &obj_highway_texlist},
+    {"NISEPAT", &police_texlist},
     {"SUPI_SUPI", &supi_supi_texlist},
     {"UNI_A_UNIBODY", &uni_a_unibody_texlist},
     {"TOGEBALL_TOGEBALL", &togeball_togeball_texlist},
-    {"OBJ_HIGHWAY2", MODULE_TEXLIST(0x0ca3ed68)},
+    {"OBJ_HIGHWAY2", &obj_highway2_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
     {"WARA", &wara_texlist},
@@ -135,16 +226,16 @@ static struct texture_pvm highway_pvms[] = {
 };
 
 static struct texture_pvm mountain_pvms[] = {
-    {"OBJ_MOUNTAIN", MODULE_TEXLIST(0x0ca3a3f8)},
+    {"OBJ_MOUNTAIN", &obj_mountain_texlist},
     {"E_SARU", &e_saru_texlist},
     {"SUPI_SUPI", &supi_supi_texlist},
     {"UNI_C_UNIBODY", &uni_c_unibody_texlist},
     {"E_BOMB", &e_bomb_texlist},
     {"TOGEBALL_TOGEBALL", &togeball_togeball_texlist},
-    {"MOUNTAIN_STEAM", MODULE_TEXLIST(0x0cad74a8)},
-    {"MOUNTAIN_E104", MODULE_TEXLIST(0x0caaf3c0)},
-    {"MOUNTAIN_MEXPLOSION", MODULE_TEXLIST(0x0cad5a18)},
-    {"YOUGAN_ANIM", MODULE_TEXLIST(0x0ca9cb6c)},
+    {"MOUNTAIN_STEAM", &rock_burst_dust_texlist},
+    {"MOUNTAIN_E104", &mountain_e104_texlist},
+    {"MOUNTAIN_MEXPLOSION", &mexplosion_texlist},
+    {"YOUGAN_ANIM", &lava_anim_texlist},
     {"ZOU", &zou_texlist},
     {"GORI", &gori_texlist},
     {"LION", &lion_texlist},
@@ -152,31 +243,31 @@ static struct texture_pvm mountain_pvms[] = {
     {"MOGU", &mogu_texlist},
     {"CHAOS_LIFEGAUGE", &chaos_lifegauge_texlist},
     {NULL, &b32ascii_texlist},
-    {"MOUNTAIN_CARRIER", MODULE_TEXLIST(0x0caaeea0)},
+    {"MOUNTAIN_CARRIER", &dat_0caaeea0},
     {"TUBA", &tuba_texlist},
     {NULL, NULL},
 };
 
 static struct texture_pvm sky_deck_pvms[] = {
-    {"OBJ_SKYDECK", MODULE_TEXLIST(0x0c9ff584)},
-    {"E_AIRCRAFT", MODULE_TEXLIST(0x0cae591c)},
+    {"OBJ_SKYDECK", &obj_skydeck_texlist},
+    {"E_AIRCRAFT", &aclift_texlist},
     {"SUPI_SUPI", &supi_supi_texlist},
     {"UNI_A_UNIBODY", &uni_a_unibody_texlist},
     {"TOGEBALL_TOGEBALL", &togeball_togeball_texlist},
-    {"AIR_SIGNAL", MODULE_TEXLIST(0x0cae5bbc)},
+    {"AIR_SIGNAL", &aclift_lamp_texlist},
     {"TUBA", &tuba_texlist},
     {"OUM", &oum_texlist},
     {"KUJA", &kuja_texlist},
     {"LION", &lion_texlist},
     {"SUKA", &suka_texlist},
     {"MILESRACE", &milesrace_texlist},
-    {NULL, MODULE_TEXLIST(0x0cae7544)},
+    {NULL, &shots_texlist},
     {NULL, NULL},
 };
 
 static struct texture_pvm ruin_pvms[] = {
-    {"OBJ_RUIN", MODULE_TEXLIST(0x0ca27d14)},
-    {"OBJ_RUIN2", MODULE_TEXLIST(0x0ca27f20)},
+    {"OBJ_RUIN", &obj_ruin_texlist},
+    {"OBJ_RUIN2", &obj_ruin2_texlist},
     {"E_LEON", &e_leon_texlist},
     {"E_SNAKE", &e_snake_texlist},
     {"UNI_C_UNIBODY", &uni_c_unibody_texlist},
@@ -189,12 +280,12 @@ static struct texture_pvm ruin_pvms[] = {
 };
 
 static struct texture_pvm final_pvms[] = {
-    {"OBJ_FINALEGG", MODULE_TEXLIST(0x0ca89484)},
+    {"OBJ_FINALEGG", &obj_finalegg_texlist},
     {"E_ROBO", &e_robo_texlist},
     {"SUPI_SUPI", &supi_supi_texlist},
     {NULL, NULL},
-    {"EFF_FINALEGG_POM", MODULE_TEXLIST(0x0cb0e2d0)},
-    {"GACHAPON", MODULE_TEXLIST(0x0cb012c4)},
+    {"EFF_FINALEGG_POM", &final_pom_texlist},
+    {"GACHAPON", &gacha_robot_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
     {"WARA", &wara_texlist},
@@ -204,18 +295,18 @@ static struct texture_pvm final_pvms[] = {
 };
 
 static struct texture_pvm station_square_pvms[] = {
-    {"OBJ_SS", MODULE_TEXLIST(0x0ca5f4b4)},
+    {"OBJ_SS", &obj_ss_texlist},
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {"SSCAR", MODULE_TEXLIST(0x0ca9b9cc)},
-    {"SS_DENTOU", MODULE_TEXLIST(0x0ca97c0c)},
-    {"SS_KANBAN", MODULE_TEXLIST(0x0ca97c44)},
-    {"SS_PEOPLE", MODULE_TEXLIST(0x0cb2c92c)},
-    {"SS_EKIIN", MODULE_TEXLIST(0x0cb2c994)},
-    {"SS_MIZUGI", MODULE_TEXLIST(0x0cb2c9f0)},
-    {"SS_BURGER", MODULE_TEXLIST(0x0cb2cac4)},
-    {"SS_BG", MODULE_TEXLIST(0x0ca5f4ec)},
+    {"SSCAR", &sscar_texlist},
+    {"SS_DENTOU", &ss_dentou_texlist},
+    {"SS_KANBAN", &ss_kanban_texlist},
+    {"SS_PEOPLE", &ss_people_texlist},
+    {"SS_EKIIN", &dat_0cb2c994},
+    {"SS_MIZUGI", &dat_0cb2c9f0},
+    {"SS_BURGER", &dat_0cb2cac4},
+    {"SS_BG", &ss_bg_texlist},
     {"EMBLEM", &emblem_texlist},
     {NULL, NULL},
 };
@@ -225,11 +316,11 @@ static struct texture_pvm alife_ss_pvms[] = {
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {"CHAO", MODULE_TEXLIST(0x0ca54a5c)},
-    {"AL_ICON", MODULE_TEXLIST(0x0c91d654)},
-    {"CHAO_OBJECT", MODULE_TEXLIST(0x0ca54e0c)},
-    {"CHAO_HYOUJI", MODULE_TEXLIST(0x0ca54f1c)},
-    {"GARDEN00_OBJECT", MODULE_TEXLIST(0x0cb904d8)},
+    {"CHAO", &alife_chao_texlist},
+    {"AL_ICON", &alife_icon_texlist},
+    {"CHAO_OBJECT", &alife_objects_texlist},
+    {"CHAO_HYOUJI", &alife_window_texlist},
+    {"GARDEN00_OBJECT", &garden_objects_texlist},
     {"GOMA", &goma_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
@@ -253,10 +344,10 @@ static struct texture_pvm alife_eg_pvms[] = {
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {"CHAO", MODULE_TEXLIST(0x0ca54a5c)},
-    {"AL_ICON", MODULE_TEXLIST(0x0c91d654)},
-    {"CHAO_OBJECT", MODULE_TEXLIST(0x0ca54e0c)},
-    {"CHAO_HYOUJI", MODULE_TEXLIST(0x0ca54f1c)},
+    {"CHAO", &alife_chao_texlist},
+    {"AL_ICON", &alife_icon_texlist},
+    {"CHAO_OBJECT", &alife_objects_texlist},
+    {"CHAO_HYOUJI", &alife_window_texlist},
     {"GOMA", &goma_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
@@ -280,11 +371,11 @@ static struct texture_pvm alife_mr_pvms[] = {
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {"CHAO", MODULE_TEXLIST(0x0ca54a5c)},
-    {"AL_ICON", MODULE_TEXLIST(0x0c91d654)},
-    {"CHAO_OBJECT", MODULE_TEXLIST(0x0ca54e0c)},
-    {"CHAO_HYOUJI", MODULE_TEXLIST(0x0ca54f1c)},
-    {"GARDEN02_OBJECT", MODULE_TEXLIST(0x0cb8f9ac)},
+    {"CHAO", &alife_chao_texlist},
+    {"AL_ICON", &alife_icon_texlist},
+    {"CHAO_OBJECT", &alife_objects_texlist},
+    {"CHAO_HYOUJI", &alife_window_texlist},
+    {"GARDEN02_OBJECT", &mine_cart_texlist},
     {"GOMA", &goma_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
@@ -310,8 +401,8 @@ static struct texture_pvm alife_pvms[] = {
     {NULL, NULL},
     {NULL, NULL},
     {NULL, NULL},
-    {"CHAO", MODULE_TEXLIST(0x0ca54a5c)},
-    {"AL_ICON", MODULE_TEXLIST(0x0c91d654)},
+    {"CHAO", &alife_chao_texlist},
+    {"AL_ICON", &alife_icon_texlist},
     {"GOMA", &goma_texlist},
     {"USA", &usa_texlist},
     {"BANB", &banb_texlist},
@@ -332,49 +423,49 @@ static struct texture_pvm alife_pvms[] = {
 
 /* most stages keep their pvm lists in their modules */
 static struct texture_pvm *stage_pvms[STAGE_COUNT] = {
-    MODULE_PVMS(0x0c900cdc), /* 0 practice */
-    MODULE_PVMS(0x0cab1348), /* 1 beach */
-    MODULE_PVMS(0x0ca146b8), /* 2 windy */
-    MODULE_PVMS(0x0c9bff88), /* 3 twinkle */
+    practice_pvms, /* 0 practice */
+    beach_pvms, /* 1 beach */
+    windy_pvms, /* 2 windy */
+    twinkle_pvms, /* 3 twinkle */
     highway_pvms, /* 4 highway */
     mountain_pvms, /* 5 mountain */
     sky_deck_pvms, /* 6 sky deck */
     ruin_pvms, /* 7 ruin */
-    MODULE_PVMS(0x0cac1b90), /* 8 icecap */
-    MODULE_PVMS(0x0cb17258), /* 9 casino */
+    icecap_pvms, /* 8 icecap */
+    casino_pvms, /* 9 casino */
     final_pvms, /* 10 final */
     NULL, /* 11 */
-    MODULE_PVMS(0x0caa0ce0), /* 12 shelter */
+    shelter_pvms, /* 12 shelter */
     NULL, /* 13 */
     NULL, /* 14 */
-    MODULE_PVMS(0x0c900208), /* 15 Chaos 0 */
-    MODULE_PVMS(0x0c900220), /* 16 Chaos 2 */
-    MODULE_PVMS(0x0c9001d0), /* 17 Chaos 4 */
-    MODULE_PVMS(0x0c900288), /* 18 Chaos 6 */
-    MODULE_PVMS(0x0c901a90), /* 19 Chaos 7 */
-    MODULE_PVMS(0x0c9000d8), /* 20 eggmobile1 */
-    MODULE_PVMS(0x0c9001b0), /* 21 eggmobile2 */
-    MODULE_PVMS(0x0c9588d8), /* 22 eggmobile3 */
-    MODULE_PVMS(0x0c900140), /* 23 eggmanrobo */
-    MODULE_PVMS(0x0c9000a0), /* 24 e101 */
-    MODULE_PVMS(0x0c900150), /* 25 e101 r */
+    chaos0_pvms, /* 15 Chaos 0 */
+    chaos2_pvms, /* 16 Chaos 2 */
+    chaos4_pvms, /* 17 Chaos 4 */
+    chaos6_pvms, /* 18 Chaos 6 */
+    chaos7_pvms, /* 19 Chaos 7 */
+    eggmobile1_pvms, /* 20 eggmobile1 */
+    egm2_pvms, /* 21 eggmobile2 */
+    eggmobile3_pvms, /* 22 eggmobile3 */
+    eggmanrobo_pvms, /* 23 eggmanrobo */
+    e101_pvms, /* 24 e101 */
+    e101_r_pvms, /* 25 e101 r */
     station_square_pvms, /* 26 station square */
     station_square_pvms, /* 27 station square 2 */
     station_square_pvms, /* 28 station square 3 */
-    MODULE_PVMS(0x0c923a8c), /* 29 egg carrier, in ADV0100 */
+    egg_carrier_pvms, /* 29 egg carrier, in ADV0100 */
     NULL, /* 30 egg carrier 2 */
     NULL, /* 31 egg carrier 3 */
-    MODULE_PVMS(0x0c921a58), /* 32 egg carrier inside, in ADV0130 */
-    MODULE_PVMS(0x0c902834), /* 33 mystic ruins */
-    MODULE_PVMS(0x0c9001f8), /* 34 past */
-    MODULE_PVMS(0x0c90a0e0), /* 35 cart */
+    egg_carrier_inside_pvms, /* 32 egg carrier inside, in ADV0130 */
+    mystic_ruins_pvms, /* 33 mystic ruins */
+    past_pvms, /* 34 past */
+    cart_pvms, /* 35 cart */
     shooting1_pvms, /* 36 shooting1 */
     shooting2_pvms, /* 37 shooting2 */
-    MODULE_PVMS(0x0c902e18), /* 38 sunaboard */
+    sunaboard_pvms, /* 38 sunaboard */
     alife_ss_pvms, /* 39 alife ss */
     alife_eg_pvms, /* 40 alife eg */
     alife_mr_pvms, /* 41 alife mr */
-    MODULE_PVMS(0x0cb80ea0), /* 42 alife race */
+    race_pvms, /* 42 alife race */
 };
 
 /* the regular sets texture_load_regular loads, by regular_sets: the
@@ -449,7 +540,7 @@ static struct texture_pvm e102_pvms[] = {
 };
 
 static struct texture_pvm tikal_pvms[] = {
-    {"TIKAL", MODULE_TEXLIST(0x0cb019d8)},
+    {"TIKAL", &tikal_texlist},
     {NULL, NULL},
 };
 
@@ -461,88 +552,80 @@ static struct texture_pvm *character_pvms[CHARACTER_COUNT] = {
 /* the acts' pvms. an act_textures takes count of them, from the one its
  * pvms points at */
 static struct texture_pvm beach_act_pvms[] = {
-    {"BEACH01", MODULE_TEXLIST(0x0c9121c4)},
-    {"BEACH02", MODULE_TEXLIST(0x0c981d30)},
-    {"BEACH03", MODULE_TEXLIST(0x0c9df3a0)},
+    {"BEACH01", &beach_land0_texlist},
+    {"BEACH02", &beach_land1_texlist},
+    {"BEACH03", &beach_land2_texlist},
 };
 
 static struct texture_pvm windy_act_pvms[] = {
-    {"WINDY01", MODULE_TEXLIST(0x0c90fbb0)},
-    {"WINDY02", MODULE_TEXLIST(0x0c948fa4)},
-    {"WINDY03", MODULE_TEXLIST(0x0c956fe0)},
+    {"WINDY01", &windy_land0_texlist},
+    {"WINDY02", &windy_land1_texlist},
+    {"WINDY03", &windy_land2_texlist},
 };
 
 static struct texture_pvm highway_act_pvms[] = {
-    {"HIGHWAY01", MODULE_TEXLIST(0x0c91aebc)},
-    {"HIGHWAY02", MODULE_TEXLIST(0x0c99cf48)},
-    {"HIGHWAY03", MODULE_TEXLIST(0x0c9a9c1c)},
+    {"HIGHWAY01", &highway_land0_texlist},
+    {"HIGHWAY02", &highway_land1_texlist},
+    {"HIGHWAY03", &highway_land2_texlist},
 };
 
 static struct texture_pvm mountain_act_pvms[] = {
-    {"MOUNTAIN01", MODULE_TEXLIST(0x0c91f464)},
-    {"MOUNTAIN02", MODULE_TEXLIST(0x0c9aef94)},
-    {"MOUNTAIN03", MODULE_TEXLIST(0x0c9fdde4)},
+    {"MOUNTAIN01", &mountain_land0_texlist},
+    {"MOUNTAIN02", &mountain_land1_texlist},
+    {"MOUNTAIN03", &mountain_land2_texlist},
 };
 
 static struct texture_pvm sky_deck_act_pvms[] = {
-    {"SKYDECK01", MODULE_TEXLIST(0x0c927cb0)},
-    {"SKYDECK02", MODULE_TEXLIST(0x0c97ec10)},
-    {"SKYDECK03", MODULE_TEXLIST(0x0c9b03a4)},
+    {"SKYDECK01", &skydeck01_texlist},
+    {"SKYDECK02", &skydeck02_texlist},
+    {"SKYDECK03", &skydeck03_texlist},
 };
 
 static struct texture_pvm ruin_act_pvms[] = {
-    {"RUIN01", MODULE_TEXLIST(0x0c90df40)},
-    {"RUIN02", MODULE_TEXLIST(0x0c96460c)},
-    {"RUIN03", MODULE_TEXLIST(0x0c9f9b20)},
+    {"RUIN01", &ruin01_texlist},
+    {"RUIN02", &ruin02_texlist},
+    {"RUIN03", &ruin03_texlist},
 };
 
 static struct texture_pvm icecap_act_pvms[] = {
-    {"ICECAP01", MODULE_TEXLIST(0x0c91aaf0)},
-    {"ICECAP02", MODULE_TEXLIST(0x0c95cb44)},
-    {"ICECAP03", MODULE_TEXLIST(0x0c9c68c0)},
-    {"ICECAP02", MODULE_TEXLIST(0x0c95cb44)},
+    {"ICECAP01", &icecap01_texlist},
+    {"ICECAP02", &icecap02_texlist},
+    {"ICECAP03", &icecap03_texlist},
+    {"ICECAP02", &icecap02_texlist},
 };
 
 static struct texture_pvm casino_act_pvms[] = {
-    {"CASINO01", MODULE_TEXLIST(0x0c927dd4)},
-    {"CASINO02", MODULE_TEXLIST(0x0c96dc70)},
-    {"CASINO03", MODULE_TEXLIST(0x0c9b0b60)},
-    {"CASINO04", MODULE_TEXLIST(0x0c9da09c)},
+    {"CASINO01", &casino01_texlist},
+    {"CASINO02", &casino02_texlist},
+    {"CASINO03", &casino03_texlist},
+    {"CASINO04", &casino04_texlist},
 };
 
 static struct texture_pvm station_square_act_pvms[] = {
-    {"ADVSS00", MODULE_TEXLIST(0x0c916e28)},
-    {"ADVSS01", MODULE_TEXLIST(0x0c975150)},
-    {"SS_CASINO", MODULE_TEXLIST(0x0caa5960)},
-    {"SS_TRAIN", MODULE_TEXLIST(0x0ca8c740)},
-    {"ADVSS02", MODULE_TEXLIST(0x0c9c3078)},
-    {"ADVSS03", MODULE_TEXLIST(0x0c9de708)},
-    {"SS_BOAT", MODULE_TEXLIST(0x0ca97d54)},
-    {"ADVSS04", MODULE_TEXLIST(0x0ca369c4)},
-    {"ADVSS05", MODULE_TEXLIST(0x0ca57efc)},
-    {"SS_TWINS", MODULE_TEXLIST(0x0caaea38)},
+    {"ADVSS00", &station_square_land0_texlist},
+    {"ADVSS01", &station_square_land1_texlist},
+    {"SS_CASINO", &ss_casino_texlist},
+    {"SS_TRAIN", &ss_train_texlist},
+    {"ADVSS02", &station_square_land2_texlist},
+    {"ADVSS03", &station_square_land3_texlist},
+    {"SS_BOAT", &ss_boat_texlist},
+    {"ADVSS04", &station_square_land4_texlist},
+    {"ADVSS05", &station_square_land5_texlist},
+    {"SS_TWINS", &ss_twins_texlist},
 };
 
 static struct texture_pvm mystic_ruins_act_pvms[] = {
-    {"ADV_MR00", MODULE_TEXLIST(0x0c900914)},
-    {"MR_SKY00", MODULE_TEXLIST(0x0c902768)},
-    {"MR_TRAIN", MODULE_TEXLIST(0x0c902498)},
-    {"ADV_MR01", MODULE_TEXLIST(0x0c900d54)},
-    {"MR_SKY01", MODULE_TEXLIST(0x0c9027dc)},
-    {"ADV_MR02", MODULE_TEXLIST(0x0c901344)},
-    {"MR_SKY02", MODULE_TEXLIST(0x0c90282c)},
-    {"MR_PYRAMID", MODULE_TEXLIST(0x0c90259c)},
-    {"MR_FINALEGG", MODULE_TEXLIST(0x0c90231c)},
-    {"ADV_MR03", MODULE_TEXLIST(0x0c90182c)},
+    {"ADV_MR00", &adv_mr00_texlist},       {"MR_SKY00", &mr_sky00_texlist},
+    {"MR_TRAIN", &mr_train_texlist},       {"ADV_MR01", &adv_mr01_texlist},
+    {"MR_SKY01", &mr_sky01_texlist},       {"ADV_MR02", &adv_mr02_texlist},
+    {"MR_SKY02", &mr_sky02_texlist},       {"MR_PYRAMID", &mr_pyramid_texlist},
+    {"MR_FINALEGG", &mr_finalegg_texlist}, {"ADV_MR03", &adv_mr03_texlist},
 };
 
 static struct texture_pvm past_act_pvms[] = {
-    {"PAST00", MODULE_TEXLIST(0x0c92b078)},
-    {"MR_SKY02", MODULE_TEXLIST(0x0c9052ec)},
-    {"PAST01", MODULE_TEXLIST(0x0c9698dc)},
-    {"MR_SKY00", MODULE_TEXLIST(0x0c90529c)},
-    {"PAST02", MODULE_TEXLIST(0x0c999bcc)},
-    {"MR_SKY00", MODULE_TEXLIST(0x0c90529c)},
+    {"PAST00", &past00_texlist}, {"MR_SKY02", &sky_act0_texlist},
+    {"PAST01", &past01_texlist}, {"MR_SKY00", &sky_act1_texlist},
+    {"PAST02", &past02_texlist}, {"MR_SKY00", &sky_act1_texlist},
 };
 
 static struct act_textures beach_acts[] = {
@@ -559,12 +642,17 @@ static struct act_textures windy_acts[] = {
 
 /* twinkle keeps its acts' pvms in its module */
 static struct act_textures twinkle_acts[] = {
-    {STAGE_ACT(STAGE_TWINKLE, 0), 2, 0, MODULE_PVMS(0x0c9bfff0)},
-    {STAGE_ACT(STAGE_TWINKLE, 1), 5, 0, MODULE_PVMS(0x0c9c0000)},
-    {STAGE_ACT(STAGE_TWINKLE, 2), 2, 0, MODULE_PVMS(0x0c9c0028)},
+    {STAGE_ACT(STAGE_TWINKLE, 0), 2, 0, &twinkle_act_pvms[0]},
+    {STAGE_ACT(STAGE_TWINKLE, 1), 5, 0, &twinkle_act_pvms[2]},
+    {STAGE_ACT(STAGE_TWINKLE, 2), 2, 0, &twinkle_act_pvms[7]},
 };
 
 /* act_list leaves highway's acts out, so texture_load_act refuses them */
+#ifdef GCC
+/* GCC keeps the table nothing reads, as SHC does, so that highway's land
+ * texlists' rows in config/1st_read/imports.txt bind in either build */
+static struct act_textures highway_acts[3] __attribute__((used));
+#endif
 static struct act_textures highway_acts[] = {
     {STAGE_ACT(STAGE_HIGHWAY, 0), 1, 0, &highway_act_pvms[0]},
     {STAGE_ACT(STAGE_HIGHWAY, 1), 1, 0, &highway_act_pvms[1]},
@@ -615,22 +703,28 @@ static struct act_textures station_square_acts[] = {
 /* the egg carrier's acts, outside and inside, with their pvms in ADV0100
  * and ADV0130 */
 static struct act_textures adv0100_acts[] = {
-    {STAGE_ACT(STAGE_EGG_CARRIER, 0), 1, 0, MODULE_PVMS(0x0c923b14)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 1), 1, 0, MODULE_PVMS(0x0c923b1c)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 2), 1, 0, MODULE_PVMS(0x0c923b24)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 3), 1, 0, MODULE_PVMS(0x0c923b2c)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 4), 1, 0, MODULE_PVMS(0x0c923b34)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 5), 2, 0, MODULE_PVMS(0x0c923b3c)},
-    {STAGE_ACT(STAGE_EGG_CARRIER, 6), 1, 0, MODULE_PVMS(0x0c923b4c)},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 0), 1, 0, &egg_carrier_act_pvms[0]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 1), 1, 0, &egg_carrier_act_pvms[1]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 2), 1, 0, &egg_carrier_act_pvms[2]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 3), 1, 0, &egg_carrier_act_pvms[3]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 4), 1, 0, &egg_carrier_act_pvms[4]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 5), 2, 0, &egg_carrier_act_pvms[5]},
+    {STAGE_ACT(STAGE_EGG_CARRIER, 6), 1, 0, &egg_carrier_act_pvms[7]},
 };
 
 static struct act_textures adv0130_acts[] = {
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 0), 1, 0, MODULE_PVMS(0x0c921a98)},
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 1), 1, 0, MODULE_PVMS(0x0c921aa0)},
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 2), 2, 0, MODULE_PVMS(0x0c921aa8)},
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 3), 1, 0, MODULE_PVMS(0x0c921ab8)},
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 4), 2, 0, MODULE_PVMS(0x0c921ac0)},
-    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 5), 1, 0, MODULE_PVMS(0x0c921ad0)},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 0), 1, 0,
+     &egg_carrier_inside_act_pvms[0]},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 1), 1, 0,
+     &egg_carrier_inside_act_pvms[1]},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 2), 2, 0,
+     &egg_carrier_inside_act_pvms[2]},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 3), 1, 0,
+     &egg_carrier_inside_act_pvms[4]},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 4), 2, 0,
+     &egg_carrier_inside_act_pvms[5]},
+    {STAGE_ACT(STAGE_EGG_CARRIER_INSIDE, 5), 1, 0,
+     &egg_carrier_inside_act_pvms[7]},
 };
 
 static struct act_textures mystic_ruins_acts[] = {
@@ -679,7 +773,7 @@ static struct act_textures *act_list[] = {
     &shelter_acts[2],
     &shelter_acts[3],
     /* Chaos 7's act 0: chaos7_act_textures, in B_CHAOS7 */
-    MODULE_ACT(0x0c901ad0),
+    &chaos7_act_textures,
     &station_square_acts[0],
     &station_square_acts[1],
     &station_square_acts[2],
@@ -925,6 +1019,21 @@ void texture_release_stage(void)
     }
 }
 
+#ifdef GCC
+/* whether textures are stage_act's. stage_act must be the current stage's
+ * act, so that B_CHAOS7 is loaded when it is Chaos 7's. Chaos 7's textures
+ * lie in B_CHAOS7, and while another module holds MODULE_AREA, their
+ * address holds its bytes. so they are read only for Chaos 7's act */
+static Bool act_textures_match(struct act_textures *textures, Uint16 stage_act)
+{
+    if (textures == &chaos7_act_textures &&
+        stage_act != STAGE_ACT(STAGE_CHAOS7, 0)) {
+        return FALSE;
+    }
+    return textures->stage_act == stage_act;
+}
+#endif
+
 Bool texture_load_act(Uint16 stage_act)
 {
     struct act_textures **act;
@@ -934,7 +1043,11 @@ Bool texture_load_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
+#ifdef GCC
+        if (act_textures_match(textures, stage_act)) {
+#else
         if (textures->stage_act == stage_act) {
+#endif
             if (textures->users == 0) {
                 pvm = textures->pvms;
                 /* NOLINTNEXTLINE(bugprone-signed-char-misuse) */
@@ -978,7 +1091,11 @@ Bool texture_release_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
+#ifdef GCC
+        if (act_textures_match(textures, stage_act)) {
+#else
         if (textures->stage_act == stage_act) {
+#endif
             textures->users--;
             if (textures->users == 0) {
                 pvm = textures->pvms;
@@ -1055,6 +1172,11 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
+#ifdef GCC
+            /* GCC deletes an empty loop, so the asm keeps the wait between
+             * tries */
+            __asm__ volatile("");
+#endif
         }
     }
     if (gdfs == NULL) {
@@ -1088,6 +1210,11 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
+#ifdef GCC
+            /* GCC deletes an empty loop, so the asm keeps the wait between
+             * tries */
+            __asm__ volatile("");
+#endif
         }
     }
     if (gdfs == NULL) {

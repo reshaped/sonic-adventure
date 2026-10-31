@@ -61,10 +61,18 @@ void player_grant_invincibility(Uint8 player)
      * its number */
     /* @hack redundant: player >= 1, the CMP/GE at 0x8c082130, adds nothing to
      * player > 7; without it, 28 of 31 words differ */
+#ifdef GCC
+    /* repairs the read the tag names, as player.c's
+     * player_give_invincibility does */
+    if (player > PLAYER_COUNT - 1) {
+        player = 0;
+    }
+#else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > 7 && player_work[player] == NULL) {
         player = 0;
     }
+#endif
     task = task_create(TASK_WORK, 0, player_invincible_step);
     if (task != NULL) {
         PLAYER_VARS(task->work)->player = player;

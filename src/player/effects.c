@@ -15,10 +15,10 @@
 #include "object/placement.h"
 #include "player/effects.h"
 #include "player/player.h"
+#include "player/s_mot.h"
 #include "player/sonic_effect_models.h"
 #include "player/sonic_ice_piece.h"
 #include "system/frame.h"
-#include "system/loader.h"
 #include "system/task.h"
 #include "system/texlists.h"
 #include "system/util.h"
@@ -115,10 +115,6 @@ enum bubble_burst { BUBBLES_STEADY, BUBBLES_BURSTING };
 #define CHARGE_SPEED 3.0F
 
 #define ICE_PIECES 16
-
-/* the aura's model: an object of Sonic's s_mot, 0x2ad4 bytes into
- * MOTION_AREA, where the file loads */
-#define AURA_MODEL ((NJS_OBJECT *)(MOTION_AREA + 0x2ad4))
 
 struct bubble {
     Float surface; /* the height of the water's surface, where it bursts */
@@ -495,7 +491,7 @@ static struct bubble *bubble_create(struct task_work *work)
         (bubble = bubble_alloc(work)) != NULL) {
         size =
             ((SOURCE(work)->motion.size_max - SOURCE(work)->motion.size_min) *
-             (rand() * RAND_SCALE)) +
+             rand() * RAND_SCALE) +
             SOURCE(work)->motion.size_min;
         speed.x +=
             ((rand() * RAND_SCALE) - 0.5F) * SOURCE(work)->motion.spread * 2.0F;
@@ -506,7 +502,8 @@ static struct bubble *bubble_create(struct task_work *work)
         bubble->pos = pos;
         bubble->speed = speed;
         /* any angle: up to three turns, which an Angle wraps */
-        bubble->ang = (Angle)(rand() * RAND_SCALE * 1080.0F * ANGLE_PER_DEGREE);
+        bubble->ang =
+            (Angle)(rand() * (RAND_SCALE * 1080.0F * ANGLE_PER_DEGREE));
         bubble->spin = (Angle)(((rand() * RAND_SCALE) - 0.5F) *
                                SOURCE(work)->motion.spin * ANGLE_PER_DEGREE);
         bubble->surface = record->shadow.above;
@@ -792,7 +789,14 @@ static void bubbles_step(struct task *task)
             /* @hack spelling: speed stepped to y and indexed on to z through a
              * Float walk; through the members, 203 of 482 words differ */
             speed_axis = &bubble->speed.x;
+#ifdef GCC
+            /* the step follows the +=, which tools/floats.py then writes as
+             * an addition, so that GCC fuses the product as SHC does */
+            *speed_axis += ((rand() * RAND_SCALE) - 0.5F) * wobble;
+            speed_axis++;
+#else
             *speed_axis++ += ((rand() * RAND_SCALE) - 0.5F) * wobble;
+#endif
             speed_axis[1] += ((rand() * RAND_SCALE) - 0.5F) * wobble;
         }
         bubble->ang += bubble->spin;
@@ -1314,7 +1318,7 @@ void aura_draw(struct task_work *work, struct task_motion *motion,
     if (frame_step != 0) {
         return;
     }
-    action.object = AURA_MODEL;
+    action.object = &sonic_aura_object;
     index = record->anim.action;
     /* @hack redundant: index picked while the record blends, where nothing
      * reads it (0x8c0bbf8e, 0x8c0bbf90); without it, 135 of 157 words differ */

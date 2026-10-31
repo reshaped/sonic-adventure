@@ -197,6 +197,16 @@
 0x0c95fed0  chaos0_wobble_motion
 0x0c95fed4  chaos0_wobble_rest
 0x0c95fed8  chaos0_wobble_radii
+0x0c95fedc  chaos0_light_inner_angle
+0x0c95fee0  chaos0_light_outer_angle
+0x0c95fee8  chaos0_light_red
+0x0c95feec  chaos0_light_green
+0x0c95fef0  chaos0_light_blue
+0x0c95fef4  chaos0_light_specular
+0x0c95fef8  chaos0_light_diffuse
+0x0c95fefc  chaos0_light_ambient
+0x0c95ff00  chaos0_light_near
+0x0c95ff04  chaos0_light_far
 0x0c960060  searchlight_dir
 0x0c960070  car_sprite
 0x0c960090  car_matrix

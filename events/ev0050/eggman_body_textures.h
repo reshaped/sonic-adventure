@@ -6,5 +6,7 @@
 
 extern NJS_TEXLIST ev0050_eggman_body_texlist;
 extern NJS_TEXLIST ev0050_walker_texlist;
+/* the material of the generated model at 0x0cb87cd4 */
+extern NJS_MATERIAL dat_0cb87b84[1];
 
 #endif

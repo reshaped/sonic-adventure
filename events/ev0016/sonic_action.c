@@ -38,7 +38,7 @@ static NJS_MOTION ev0016_sonic_motion = {
 NJS_ACTION ev0016_sonic_action = {
 #include "ev0016/sonic_action/ev0016_sonic_action.inc"
 };
-static NJS_TEXNAME ev0016_egg_carrier_textures[21] = {
+NJS_TEXNAME ev0016_egg_carrier_textures[21] = {
     {TEXT_1, 0, 0},  {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0},  {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0},  {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

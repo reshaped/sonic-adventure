@@ -119,6 +119,6 @@ NJS_TEXLIST shooting1_texlist = {
 };
 /* a node with no model, which the act's first model, at 0x0c956be0, names
  * as its sibling */
-static NJS_OBJECT dat_0c956bac = {
+NJS_OBJECT dat_0c956bac = {
 #include "shooting/act1_textures/dat_0c956bac.inc"
 };

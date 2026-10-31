@@ -94,8 +94,7 @@ static void eggmobile1_end(void)
 }
 
 /* #pragma section HEAD puts the step in PHEAD, which B_EGM1's link places
- * first, at 0x0c900000. 1ST_READ.BIN's stage_steps reaches it by that
- * address */
+ * first, at 0x0c900000. 1ST_READ.BIN's stage_steps holds that address */
 #pragma section HEAD
 void eggmobile1_step(struct task *task)
 {

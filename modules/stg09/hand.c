@@ -347,6 +347,14 @@ static void hand_run(struct task *task)
         player = player_work[0];
         gap = -1.0F;
         rise = VARS(work)->rise;
+#ifdef GCC
+        /* GCC can't see that grip is set wherever it is read: the hold below
+         * reads it only where gap is above 0, which only a pose sets */
+        grip.point = (NJS_POINT3){0.0F, 0.0F, 0.0F};
+        /* GCC can't see that hand_pose sets second wherever it sets first:
+         * pose_action always returns TRUE */
+        second.point = (NJS_POINT3){0.0F, 0.0F, 0.0F};
+#endif
         if (hand_pose(frame, &first.point, &first_axis.vector, &second.point,
                       &second_axis.vector)) {
             /* each tip lies hand_jaw_length down its jaw's y axis. normal,

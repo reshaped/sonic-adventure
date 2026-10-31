@@ -26,21 +26,21 @@ static NJS_TEXNAME gacha_robot_textures[11] = {
 NJS_TEXLIST gacha_robot_texlist = {
 #include "stg10/gacha_robot_textures/gacha_robot_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb012cc[4] = {
+NJS_MATERIAL dat_0cb012cc[4] = {
 #include "stg10/gacha_robot_textures/dat_0cb012cc.inc"
 };
-static Sint16 dat_0cb0131c[11] = {
+Sint16 dat_0cb0131c[11] = {
 #include "stg10/gacha_robot_textures/dat_0cb0131c.inc"
 };
-static Sint16 dat_0cb01332[6] = {
+Sint16 dat_0cb01332[6] = {
 #include "stg10/gacha_robot_textures/dat_0cb01332.inc"
 };
-static Sint16 dat_0cb0133e[16] = {
+Sint16 dat_0cb0133e[16] = {
 #include "stg10/gacha_robot_textures/dat_0cb0133e.inc"
 };
-static Sint16 dat_0cb0135e[15] = {
+Sint16 dat_0cb0135e[15] = {
 #include "stg10/gacha_robot_textures/dat_0cb0135e.inc"
 };
-static NJS_COLOR dat_0cb0137c[9] = {
+NJS_COLOR dat_0cb0137c[9] = {
 #include "stg10/gacha_robot_textures/dat_0cb0137c.inc"
 };

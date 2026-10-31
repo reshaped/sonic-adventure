@@ -96,8 +96,15 @@ static void cargo_fade_draw(struct task *task)
         cargo_fade_sprite.sy = COVER_Y;
         cargo_fade_sprite.p.x = MIDDLE_X;
         cargo_fade_sprite.p.y = MIDDLE_Y;
+#ifdef GCC
+        /* the port's 16:9 stretches the fade across the screen */
+        port_wide_cover = TRUE;
+#endif
         njDrawSprite2D(&cargo_fade_sprite, 0, -0.9F,
                        NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR);
+#ifdef GCC
+        port_wide_cover = FALSE;
+#endif
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
     }
 }

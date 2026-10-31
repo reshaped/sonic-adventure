@@ -5,5 +5,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev00f7_emerald_red_texlist;
+/* the material of one node of the blue emerald's model */
+extern NJS_MATERIAL dat_0cbeb5a4[1];
 
 #endif

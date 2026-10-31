@@ -31,6 +31,20 @@ extern NJS_OBJECT mystic_ruins_master_emerald_2_object;
 extern NJS_OBJECT mystic_ruins_master_emerald_3_object;
 extern NJS_OBJECT mystic_ruins_master_emerald_4_object;
 extern NJS_MODEL mystic_ruins_master_emerald_glow_model;
+#ifdef GCC
+/* repairs the read past the glow's one normal. its model has 4 points but
+ * one normal, at 0x0cb04da4. njSimpleDrawModel reads a normal for each
+ * point, so the image's last 3 reads run past that one, into the meshset
+ * and the first point (the reads at 0x8c62bba8 or 0x8c62bd64 in
+ * 1ST_READ.BIN). GCC's glow holds a normal for each point. its material
+ * ignores the light, so no normal changes how it draws */
+static NJS_VECTOR master_emerald_glow_normals[4] = {
+    {0.0F, 1.0F, 0.0F},
+    {0.0F, 1.0F, 0.0F},
+    {0.0F, 1.0F, 0.0F},
+    {0.0F, 1.0F, 0.0F},
+};
+#endif
 
 #define FORMS 5 /* the emerald's forms, in mystic_ruins_master_emeralds */
 
@@ -290,6 +304,10 @@ static void mystic_ruins_master_emerald_draw(struct task *task)
     njScale(NULL, master_emerald_glow_scale, master_emerald_glow_scale,
             master_emerald_glow_scale);
     njSetTexture(&mrobj_texlist);
+#ifdef GCC
+    mystic_ruins_master_emerald_glow_model.normals =
+        master_emerald_glow_normals;
+#endif
     njSimpleDrawModel(&mystic_ruins_master_emerald_glow_model);
     njPopMatrix(1);
     njTranslate(NULL, 0.0F, master_emerald_floor_glow_height, 0.0F);

@@ -1486,7 +1486,7 @@ static NJS_TEXNAME aclift_textures[34] = {
     {TEXT_41, 0, 0}, {TEXT_42, 0, 0},
 };
 
-static NJS_TEXLIST aclift_texlist = {
+NJS_TEXLIST aclift_texlist = {
 #include "stg06/aclift/aclift_texlist.inc"
 };
 
@@ -1620,7 +1620,7 @@ static NJS_TEXNAME aclift_lamp_textures[9] = {
     {TEXT_7, 0, 0},  {TEXT_8, 0, 0}, {TEXT_4, 0, 0},
 };
 
-static NJS_TEXLIST aclift_lamp_texlist = {
+NJS_TEXLIST aclift_lamp_texlist = {
 #include "stg06/aclift/aclift_lamp_texlist.inc"
 };
 

@@ -79,6 +79,13 @@ static char *music_files[MUSIC_COUNT] = {
     "WNDYVLY2.ADX", "WNDYVLY3.ADX",
 };
 
+#ifdef GCC
+/* nothing writes these, so GCC would read each as TRUE. it keeps them as
+ * used, as the image keeps them, for a probe of the running game to turn
+ * the streams off by */
+static Bool music_enabled __attribute__((used));
+static Bool voice_enabled __attribute__((used));
+#endif
 static Bool music_enabled = TRUE;
 static Bool voice_enabled = TRUE;
 static void *music_work = (void *)STREAM_WORK;
@@ -146,6 +153,12 @@ static void stream_step(struct task *task)
      * 61 words differ */
     char unused[256];
 
+#ifdef GCC
+    /* a skip starts no stream behind its curtain, so no voice takes time */
+    if (event_skipping) {
+        music_request = voice_request = -1;
+    }
+#endif
     if (music_stream != NULL) {
         if (music_request >= 0) {
             ADXT_StartFname(music_stream, music_files[music_request]);

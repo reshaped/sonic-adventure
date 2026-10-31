@@ -18,7 +18,17 @@ Uint32 njGenerateFogDensity(Float f)
     } else {
         /* for f below 0, frexp gives a mantissa in [0.5, 1), and the fog
          * density register takes one in [1, 2) */
+#ifdef GCC
+        /* keeps what the tag on exponent describes: exponent takes the low
+         * byte of frexp's int, which SHC's MOV.B reads. GCC gives exponent
+         * one byte, which frexp's store would run past */
+        int power;
+
+        mantissa = frexp(-f, &power);
+        exponent = power;
+#else
         mantissa = frexp(-f, (int *)&exponent);
+#endif
         exponent--;
         mantissa *= 2.0F;
         /* @hack spelling: each test takes its step from mantissa and compares

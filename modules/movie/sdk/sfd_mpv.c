@@ -174,6 +174,12 @@ static Sint32 sfmpv_DecodeSomePic(struct sfd_handle *hn)
     Bool more;
     Sint32 err;
 
+#ifdef GCC
+    /* GCC can't see that sfmpv_RingGetRead sets data and len wherever it
+     * returns 0 */
+    data = NULL;
+    len = 0;
+#endif
     for (;;) {
         if ((err = sfmpv_RingGetRead(hn, &data, &len)) != 0) {
             break;

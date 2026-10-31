@@ -214,7 +214,12 @@ static void conveyor_belt_draw(struct task *task)
          * at 0x0c902952) from conveyor_belt_uv, which holds 44. the last 20
          * read the three meshsets that follow it and 8 bytes past them, and
          * nothing draws their copies */
+#ifdef GCC
+        /* repairs the read the tag names: GCC copies conveyor_belt_uv's 44 */
+        for (i = 0; i < 44; i++) {
+#else
         for (i = 0; i < SCROLLED_UVS; i++) {
+#endif
             *to++ = *from++;
             *to++ = *from++ + work->timer;
         }

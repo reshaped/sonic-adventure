@@ -6,5 +6,8 @@
 
 extern NJS_ACTION ev0064_amy_action_5;
 extern NJS_TEXLIST ev0064_bird_texlist;
+/* the material of the first model in the data after this object. that model
+ * is a part of the bird that ev0064_bird_action moves */
+extern NJS_MATERIAL dat_0cb91b74[1];
 
 #endif

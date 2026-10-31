@@ -110,6 +110,43 @@ static Float elastic_fence_rubber = 0.02F;
 static Float elastic_fence_string = 0.02F;
 /* the fences alive. the first to start clears the chain */
 static int elastic_fence_count = 0;
+#ifdef GCC
+/* keeps collision_init's copy of SHAPES shapes from elastic_fence_posts:
+ * GCC's band is its third */
+static struct collision_shape elastic_fence_posts[SHAPES] = {
+    {SHAPE_CAPSULE | SHAPE_NO_PUSH,
+     0,
+     PUSH_ALL | PUSH_FIRM(PUSH_ALL),
+     {0.0F, 3.0F, -8.0F},
+     1.5F,
+     2.0F,
+     0.0F,
+     {0},
+     0,
+     NULL},
+    {SHAPE_CAPSULE | SHAPE_NO_PUSH,
+     0,
+     PUSH_ALL | PUSH_FIRM(PUSH_ALL),
+     {0.0F, 3.0F, 8.0F},
+     1.5F,
+     2.0F,
+     0.0F,
+     {0},
+     0,
+     NULL},
+    {SHAPE_CYLINDER | SHAPE_NO_PUSH,
+     0,
+     PUSH_FIRM(PUSH_ALL),
+     {0.0F, 3.5999998F, 0.0F},
+     BAND_HALF,
+     2.0F,
+     0.0F,
+     {0},
+     0,
+     NULL},
+};
+#define elastic_fence_band elastic_fence_posts[2]
+#else
 static struct collision_shape elastic_fence_posts[2] = {
     {SHAPE_CAPSULE | SHAPE_NO_PUSH,
      0,
@@ -152,6 +189,7 @@ static struct collision_shape elastic_fence_band = {
     0,
     NULL,
 };
+#endif
 /* a zero point. its definition stands after elastic_fence_step, for its
  * place among the constants */
 static const NJS_POINT3 elastic_fence_origin;

@@ -15,11 +15,11 @@ Reject each of the following, naming every one found:
 - a path listed but not expected: an original file that is no image
   config/ describes and no event that repeats one, a file make rebuilds
   from an original, or a build/ file make checks against no line of its own;
-- an event config.EVENT_ALIASES gives as repeating another, listed with a
+- an event images.EVENT_ALIASES gives as repeating another, listed with a
   hash other than that event's.
 
 With OUT, write there the lines sha256sum -c checks: each line of
-SHA256SUMS, then for each image's original file its hash beside the path of
+SHA256SUMS, then for each binary's original file its hash beside the path of
 the file make rebuilds from it under build/, so that the original's one line
 holds both files to that hash. Each such original's line is then expected,
 whether or not EXPECTED lists it.
@@ -33,7 +33,9 @@ import re
 import sys
 from collections import Counter
 
-from config import EVENT_ALIASES, fail, files, lines, save
+from images import EVENT_ALIASES, binaries, files
+from tables import lines
+from tool import fail, save
 
 # a line as sha256sum writes one: its hash and its path
 LINE = re.compile(r'([0-9a-f]{64})  (\S+)')
@@ -47,7 +49,8 @@ def main(argv):
                         help='where to write the lines sha256sum -c checks, build/sums.txt')
     args = parser.parse_args(argv)
     expected = {path for _, line in lines(args.expected) for path in line.split()}
-    rebuilt = set(files().values())
+    originals = files()
+    rebuilt = {originals[name] for name in binaries()}
     if args.out is not None:
         expected |= {f'orig/{file}' for file in rebuilt}
     listed = Counter()

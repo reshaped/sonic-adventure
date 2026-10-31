@@ -786,7 +786,15 @@ static void draw(struct task_work *work, struct chaos *state)
     chaos_light_follow(work);
     draw_control_save();
     draw_control_set(NJD_CONTROL_3D_OFFSET_MATERIAL);
+#ifdef GCC
+    /* the surface flows in this draw, once a frame. the second picture's
+     * pass draws again and leaves it, so it flows as at 30 fps */
+    if (!frame_redrawing) {
+        chaos_animate_surface(state);
+    }
+#else
     chaos_animate_surface(state);
+#endif
     njSetTexture(extra->texlist);
     animation = state->motion.current;
     njPushMatrix(NULL);

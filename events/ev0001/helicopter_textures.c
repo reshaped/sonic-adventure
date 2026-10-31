@@ -453,6 +453,6 @@ static NJS_TEXNAME ev0001_patrol_car_textures[14] = {
 NJS_TEXLIST ev0001_patrol_car_texlist = {
 #include "ev0001/helicopter_textures/ev0001_patrol_car_texlist.inc"
 };
-static NJS_MATERIAL dat_0cb9115c[1] = {
+NJS_MATERIAL dat_0cb9115c[1] = {
 #include "ev0001/helicopter_textures/dat_0cb9115c.inc"
 };

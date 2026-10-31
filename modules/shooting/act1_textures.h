@@ -4,8 +4,10 @@
 
 #include <ninja.h>
 
-/* 1ST_READ.BIN's shooting1_pvms loads this texlist from SHOOTING1, by its
- * address, 0x0c956ba4 */
+/* 1ST_READ.BIN's shooting1_pvms loads this texlist from SHOOTING1 */
 extern NJS_TEXLIST shooting1_texlist;
+/* the node with no model that the act's first model, in the generated data,
+ * names as its sibling */
+extern NJS_OBJECT dat_0c956bac;
 
 #endif

@@ -436,6 +436,11 @@ static void column_draw(struct task *task)
         for (i = 0; i <= 1; i++) {
             part = &column->parts[i];
             if (part->height > 0.0F) {
+#ifdef GCC
+                /* GCC can't see that every path sets shade: a part's mode
+                 * holds only the four the switch has cases for */
+                shade = RISE_SHADE;
+#endif
                 switch (part->mode) {
                 case PART_WAIT:
                 case PART_RISE_UP:

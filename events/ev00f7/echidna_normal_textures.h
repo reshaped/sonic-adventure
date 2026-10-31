@@ -12,5 +12,7 @@ extern NJS_OBJECT ev00f7_echidna_stout_object;
 extern NJS_ACTION ev00f7_echidna_action_0;
 extern NJS_ACTION ev00f7_echidna_action_1;
 extern NJS_ACTION ev00f7_echidna_action_2;
+/* the texture names of the generated texlist ev00f7_pachacamac_texlist */
+extern NJS_TEXNAME ev00f7_pachacamac_textures[21];
 
 #endif

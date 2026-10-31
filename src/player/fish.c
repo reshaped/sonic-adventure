@@ -308,6 +308,11 @@ static Bool frog_chase(struct task *task)
     /* @bug uninitialized: after a blocked sweep, the function returns no value.
      * R0 still holds 12, speed.z's offset, from MOV #12,R0 at 0x8c0f7ade.
      * frog_step's TST at 0x8c0f82d8 takes it as TRUE, so the chase goes on */
+#ifdef GCC
+    /* keeps the value the tag names, as frog_step reads it: TRUE, for the 12
+     * left in R0 */
+    return TRUE;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -444,6 +449,11 @@ Bool fish_watch_lure(struct task *task)
     /* @bug uninitialized: at a distance of 0, no path sets cosine. the BT
      * at 0x8c0f7e86 skips the FDIV into FR6, and the tests at 0x8c0f7f0a
      * and 0x8c0f7f1c read FR6 as njScalor left it, holding away.z */
+#ifdef GCC
+    /* keeps the value the tag names, away.z, which is 0 at a distance of 0
+     * unless the fish's z and the lure's both lie within 2^-39 of 0 */
+    cosine = 0.0F;
+#endif
     if (distance != 0.0F) {
         cosine = dot / distance;
     }

@@ -854,7 +854,7 @@ static NJS_OBJECT dat_0cbb06c0 = {
 static NJS_OBJECT dat_0cbb06f4 = {
 #include "ev0012/bird_textures_1/dat_0cbb06f4.inc"
 };
-static NJS_OBJECT dat_0cbb0728 = {
+NJS_OBJECT dat_0cbb0728 = {
 #include "ev0012/bird_textures_1/dat_0cbb0728.inc"
 };
 static NJS_TEXNAME dat_0cbb075c[12] = {
@@ -1216,6 +1216,6 @@ static NJS_MKEY_F dat_0cbb2994[2] = {
 static NJS_MDATA3 dat_0cbb29b4[57] = {
 #include "ev0012/bird_textures_1/dat_0cbb29b4.inc"
 };
-static NJS_MOTION dat_0cbb2f0c = {
+NJS_MOTION dat_0cbb2f0c = {
 #include "ev0012/bird_textures_1/dat_0cbb2f0c.inc"
 };

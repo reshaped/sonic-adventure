@@ -114,6 +114,23 @@ static struct collision_shape stopper_shape = {
  * then loads the last two from pool words of their own (0x0c90c380,
  * 0x0c90c38e). defined as one stopper_init_arg, the function loads its
  * address once, is 2 bytes longer, and 10 of 14 words differ */
+#ifdef GCC
+/* keeps the read the tag names: GCC's three are the members of one
+ * stopper_init_arg */
+static struct stopper_init_arg stopper_args = {
+    {
+        &stopper_action,
+        &obj_shareobj_texlist,
+        {&stopper_shape, 1, 40.0F},
+        &stopper_object,
+    },
+    0.0F,
+    &stopper_frame_object,
+};
+#define stopper_arg stopper_args.arg
+#define stopper_radius stopper_args.radius
+#define stopper_frame stopper_args.frame
+#else
 static struct stopper_arg stopper_arg = {
     &stopper_action,
     &obj_shareobj_texlist,
@@ -122,6 +139,7 @@ static struct stopper_arg stopper_arg = {
 };
 static Float stopper_radius = 0.0F;
 static NJS_OBJECT *stopper_frame = &stopper_frame_object;
+#endif
 
 static const struct task_desc stopper_desc = {
     sizeof(struct stopper), TASK_WORK | TASK_FORCE, stopper_init,

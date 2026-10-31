@@ -133,6 +133,13 @@ void windy_rock_step(struct task *task)
              * the task's caller left it: the 1900.0 limit stage_run_action
              * keeps there (FMOV.S at 0x8c051b1a). the test never holds, and
              * the rock never breaks */
+#ifdef GCC
+            /* repairs the read the tag names: x takes the rock's x before
+             * the test reads it. within BREAK_REACH of windy_rock_mark, the
+             * rock's x is past 3700, so the rock never breaks, as in the
+             * image */
+            x = work->pos.x;
+#endif
             if (x < 320.0F) { /* NOLINT(clang-diagnostic-uninitialized) */
                 if (work->scl.x != 0.0F) {
                     placement_kill(task);

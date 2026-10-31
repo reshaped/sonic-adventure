@@ -1,0 +1,47 @@
+# S_MOT.PRS: every name another image takes from it, by address.
+# Names are spelled as in C; the linker's spelling adds a leading underscore.
+#
+0x0cc0252c  sonic_aura_head
+0x0cc02ad4  sonic_aura_object
+0x0cc06b74  sonic_updraft_action
+0x0cc09708  sonic_lift_action
+0x0cc0bb0c  sonic_hold_run_action
+0x0cc0cd30  sonic_hold_stand_action
+0x0cc0f594  sonic_hold_walk_action
+0x0cc10a48  sonic_hold_jump_action
+0x0cc12eec  sonic_hold_fall_start_action
+0x0cc14a20  sonic_hold_fall_action
+0x0cc16aec  sonic_hold_hard_landing_action
+0x0cc18c70  sonic_hold_stop_action
+0x0cc1a454  sonic_hold_turn_action
+0x0cc226c0  sonic_throw_at_action
+0x0cc27514  sonic_throw_action
+0x0cc2b280  sonic_air_throw_at_action
+0x0cc2d314  sonic_air_throw_action
+0x0cc2e298  sonic_grip_start_action
+0x0cc2fafc  sonic_grip_action
+0x0cc32c70  sonic_pull_action
+0x0cc344d4  sonic_shake_action
+0x0cc37db8  sonic_ledge_action
+0x0cc39d5c  sonic_flung_action
+0x0cc3b790  sonic_rocket_up_action
+0x0cc3d3b4  sonic_rocket_along_action
+0x0cc4462c  sonic_clear_motion
+0x0cc44638  sonic_clear_action
+0x0cc45d60  dat_0cc45d60
+0x0cc45d6c  dat_0cc45d6c
+0x0cc47710  sonic_ride_action
+0x0cc49f6c  sonic_hang_on_action
+0x0cc4fea0  sonic_caught_action
+0x0cc593ec  sonic_hang_go_action
+0x0cc5b248  sonic_hang_action
+0x0cc5d0c4  sonic_hang_halfway_action
+0x0cc60da8  sonic_glide_action
+0x0cc6456c  sonic_panel_land_action
+0x0cc66590  sonic_panel_jump_action
+0x0cc686b4  sonic_breathe_action
+0x0cc69958  sonic_light_dash_action
+0x0cc6b3dc  sonic_hold_shake_start_action
+0x0cc6d0b0  sonic_hold_shake_action
+0x0cc6ecc4  sonic_hold_shake_end_action
+0x0cc77498  sonic_drown_action

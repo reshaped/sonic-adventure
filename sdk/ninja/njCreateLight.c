@@ -95,6 +95,13 @@ _light_power:
 #endif
 /* clang-format on */
 
+#ifdef GCC
+/* light_power_body's text defines _light_power, the label GCC would give
+ * light_power. light_power takes another, so create_light's BSR
+ * _light_power reaches the body */
+static Float light_power(Float value, Int step) __asm__("_light_power_c");
+#endif
+
 /* value to the specular power that step stands for, as NJS_LIGHT_CAL.exp lists
  * them */
 static Float light_power(Float value, Int step)
@@ -102,9 +109,40 @@ static Float light_power(Float value, Int step)
     return light_power_body(value, step);
 }
 
-/* output gets input's a, r, g and b times scale */
+#ifdef GCC
+/* create_light's body keeps &l->attr in R7 and &l->ltcal in R6 across each
+ * BSR _light_scale_color, and GCC's code for light_scale_color may change
+ * both. so light_scale_color takes the label _light_scale_color_c, and
+ * _light_scale_color is a veneer: it saves R6 and R7, calls
+ * light_scale_color and restores them. the veneer starts a section of its
+ * own, at offset 0, so the BSR lands on it: GNU as relocates a branch to a
+ * symbol of another section past the symbol by its offset there */
 static void light_scale_color(NJS_ARGB *output, const NJS_ARGB *input,
-                              Float scale)
+                              Float scale) __asm__("_light_scale_color_c");
+__asm__("\t.pushsection\t.text._light_scale_color,\"ax\",@progbits\n"
+        "\t.global\t_light_scale_color\n"
+        "\t.type\t_light_scale_color, @function\n"
+        "_light_scale_color:\n"
+        "\tmov.l\tr6,@-r15\n"
+        "\tmov.l\tr7,@-r15\n"
+        "\tsts.l\tpr,@-r15\n"
+        "\tmov.l\t1f,r0\n"
+        "\tjsr\t@r0\n"
+        "\tnop\n"
+        "\tlds.l\t@r15+,pr\n"
+        "\tmov.l\t@r15+,r7\n"
+        "\trts\n"
+        "\tmov.l\t@r15+,r6\n"
+        "\t.align\t2\n"
+        "1:\t.long\t%a0\n"
+        "\t.size\t_light_scale_color, . - _light_scale_color\n"
+        "\t.popsection\n"
+        :
+        : "i"(light_scale_color));
+#endif
+
+/* output gets input's a, r, g and b times scale */
+void light_scale_color(NJS_ARGB *output, const NJS_ARGB *input, Float scale)
 {
     /* @hack spelling: Float pointers walk input's and output's a, r, g and b,
      * which SHC loads with FMOV.S @R5+ and stores in ADD #4 steps (0x8c62599c
@@ -149,9 +187,7 @@ static void light_scale_color(NJS_ARGB *output, const NJS_ARGB *input,
 /* njCreateLight's body, which sets l up as ninja.h says. it keeps &l->attr in
  * R7 and &l->ltcal in R6 across its calls. the calling convention lets a
  * callee change R6 and R7, but light_power and light_scale_color write no
- * register but R0, R1, R4, R5 and FR0 to FR4. the body calls
- * light_scale_color as _njCreateLight-32, its address, since SHC gives that
- * static function an internal label */
+ * register but R0, R1, R4, R5 and FR0 to FR4 */
 /* @asm operand: fsca-registers, FSCA FPUL,DR2 at 0x8c625a62 keeps the inner
  * cosine in FR1 from FSCA FPUL,DR0 at 0x8c625a5e */
 #pragma inline_asm(create_light)
@@ -306,28 +342,28 @@ static void create_light(NJS_LIGHT *l, Int type)
         MOV         #36,R5
         FMOV.S      @(R0,R6),FR4
         ADD         R7,R5
-        BSR         _njCreateLight-32
+        BSR         _light_scale_color
         ADD         R6,R4
         MOV         #4,R0
         MOV         #84,R5
         MOV         #16,R4
         FMOV.S      @(R0,R7),FR4
         ADD         R6,R5
-        BSR         _njCreateLight-32
+        BSR         _light_scale_color
         ADD         R5,R4
         MOV         #8,R0
         MOV         #84,R5
         MOV         #32,R4
         FMOV.S      @(R0,R7),FR4
         ADD         R6,R5
-        BSR         _njCreateLight-32
+        BSR         _light_scale_color
         ADD         R5,R4
         MOV         #12,R0
         MOV         #84,R5
         MOV         #48,R4
         FMOV.S      @(R0,R7),FR4
         ADD         R6,R5
-        BSR         _njCreateLight-32
+        BSR         _light_scale_color
         ADD         R5,R4
         MOV.L       #_njUnitMatrix,R2
         MOV         R14,R4
@@ -342,14 +378,12 @@ static void create_light(NJS_LIGHT *l, Int type)
 void njCreateLight(NJS_LIGHT *l, Int type)
 {
     create_light(l, type);
-    /* @hack redundant: never-run calls of light_power and light_scale_color,
-     * which keep both in the object: SHC leaves out a static function no C
-     * calls, and only create_light's body calls these. without the second, PSG
-     * is 496 bytes and the body's four BSRs land in light_power. without the
-     * first, asmsh stops at the body's BSR _light_power, 200 (E) undefined
-     * symbol reference, so without it, count unmeasured */
+    /* @hack redundant: a never-run call of light_power, which keeps it in the
+     * object: SHC leaves out a static function no C calls, and only
+     * create_light's body calls it. without the call, asmsh stops at the
+     * body's BSR _light_power, 200 (E) undefined symbol reference, so without
+     * it, count unmeasured */
     if (0) {
         light_power(0.0F, 0);
-        light_scale_color(NULL, NULL, 0.0F);
     }
 }

@@ -51,6 +51,12 @@ struct particle *particle_alloc(struct particle_pool *pool,
 {
     struct particle *particle;
 
+#ifdef GCC
+    /* the split frame's second picture makes no particle */
+    if (frame_redrawing) {
+        return NULL;
+    }
+#endif
     if (pool == NULL) {
         return NULL;
     }

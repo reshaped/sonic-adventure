@@ -270,6 +270,7 @@
 0x0c9271ac  knuckles_lamp_object
 0x0c9272b0  well_shadow_object
 0x0c9273b4  plants_shadow_object
+0x0c927c5c  level_item_rhythm_brooch_object
 0x0c927c90  script_sonic_fire_point
 0x0c927ca0  script_tails_tikal_point
 0x0c927cb0  script_knuckles_tikal_point
@@ -893,6 +894,7 @@
 0x0c9c9b1c  dat_0c9c9b1c
 0x0c9c9bec  dat_0c9c9bec
 0x0c9c9cb4  past_smoke_pool
+0x0c9ca070  past_death_zones
 0x0c9ce390  dat_0c9ce390
 0x0c9d260c  dat_0c9d260c
 0x0c9d6958  dat_0c9d6958
@@ -938,5 +940,6 @@
 0x0ca02d38  people_lists
 0x0ca02d50  past_script_table
 0x0cb019d8  tikal_texlist
+0x0cb099dc  tikal_object
 0x0cb2d478  dat_0cb2d478
 0x0cb4a000  field_messages

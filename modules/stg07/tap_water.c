@@ -27,6 +27,6 @@ static NJS_TEXNAME tap_water_textures[4] = {
 static NJS_TEXLIST tap_water_texlist = {
 #include "stg07/tap_water/tap_water_texlist.inc"
 };
-static NJS_MATERIAL dat_0ca4dbf4[1] = {
+NJS_MATERIAL dat_0ca4dbf4[1] = {
 #include "stg07/tap_water/dat_0ca4dbf4.inc"
 };

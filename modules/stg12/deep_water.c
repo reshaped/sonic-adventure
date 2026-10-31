@@ -21,7 +21,11 @@ extern NJS_OBJECT shelter_lower_water_4_object;
  * 0x0c910750 without extending it; as stage.h declares it, 7 of
  * shelter_deep_water_step's 209 words and 1 of the 109 words of its pool and
  * pad differ */
+#ifdef GCC
+#include "stage/stage.h"
+#else
 extern int stage_get_stage_act(void);
+#endif
 
 #define WATER_WORLD_FLAGS (WORLD_LARGE | WORLD_MOVES | WORLD_WATER)
 

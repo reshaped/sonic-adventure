@@ -324,9 +324,19 @@ static void invincibility_draw(struct task *task)
 {
     struct task_work *work = task->work;
 
+#ifdef GCC
+    /* the task has no callback for the second picture's pass, so step 1
+     * draws the ball for that picture where port.h's FRAME_DRAWS says.
+     * where it says not, the ball shows in the first picture alone */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+    present_untimed(TRUE);
+#else
     if (frame_step != 0) {
         return;
     }
+#endif
     njPushMatrix(NULL);
     njSetTexture(&invincibility_ball_texture);
     njTranslateV(NULL, &work->pos);
@@ -335,6 +345,9 @@ static void invincibility_draw(struct task *task)
     njScale(NULL, work->scl.x, work->scl.x, work->scl.x);
     njSimpleDrawModel(&invincibility_ball_model);
     njPopMatrix(1);
+#ifdef GCC
+    present_untimed(FALSE);
+#endif
 }
 
 static void invincibility_step(struct task *task)

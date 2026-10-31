@@ -17,6 +17,7 @@
 #include "event/event.h"
 #include "event/play.h"
 #include "hud/hud.h"
+#include "minicart/riders.h"
 #include "object/common.h"
 #include "object/ring.h"
 #include "player/e102.h"
@@ -28,20 +29,20 @@
 #include "player/e102_shot.h"
 #include "player/e102_smoke.h"
 #include "player/e102_stand_downhill.h"
+#include "player/e_mot.h"
 #include "player/player.h"
 #include "player/target.h"
 #include "player/textures.h"
 #include "sound/sound.h"
 #include "stage/stage.h"
+#ifdef GCC
+#include "system/frame.h"
+#endif
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/texture.h"
 #include "system/util.h"
 #include "vmu/vibration.h"
-
-/* an action in e_mot.PRS, his motion file, which loads at a fixed address.
- * E_MOT takes the action's address there */
-#define E_MOT(address) ((NJS_ACTION *)(address))
 
 /* SE_SKATE and SE_HOVER play until stopped */
 #define SE_STEP 782 /* his footsteps, and a light landing */
@@ -202,14 +203,15 @@ extern NJS_OBJECT e102_laser_gun_tip;
 extern NJS_OBJECT e102_laser_gun;
 extern NJS_OBJECT e102_shot_plain_gun;
 extern NJS_OBJECT e102_shot_laser_gun;
-/* the materials that fade as his time runs out: the first of each eye's
- * and each toe's, and e102_head_materials[GLOW_MATERIAL], which also glows */
+/* the materials that fade as his time runs out: each eye's and each toe's
+ * FADE_MATERIAL, and e102_head_materials[GLOW_MATERIAL], which also glows */
+#define FADE_MATERIAL 2
 #define GLOW_MATERIAL 6
-extern NJS_MATERIAL e102_eye_minus_z_material[];
-extern NJS_MATERIAL e102_eye_plus_z_material[];
+extern NJS_MATERIAL e102_eye_minus_z_materials[];
+extern NJS_MATERIAL e102_eye_plus_z_materials[];
 extern NJS_MATERIAL e102_head_materials[];
-extern NJS_MATERIAL e102_toe_plus_z_material[];
-extern NJS_MATERIAL e102_toe_minus_z_material[];
+extern NJS_MATERIAL e102_toe_plus_z_materials[];
+extern NJS_MATERIAL e102_toe_minus_z_materials[];
 extern NJS_OBJECT e102_booster;
 extern NJS_ACTION e102_cannon_action;
 extern NJS_ACTION e102_stand_action;
@@ -366,31 +368,38 @@ static struct player_action e102_actions[] = {
     {&e102_stand_action, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 0.0625F, 1.0F},
     {&e102_turn_action, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F, 0.9F},
     {&e102_stand_action, 77, PLAYER_ANIM_LOOP, ACTION_SLIDE, 0.0625F, 1.0F},
-    {E_MOT(0x0cc13464), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
-    {E_MOT(0x0cc1926c), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F, 1.0F},
+    {&e102_lift_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
+    {&e102_hold_run_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_RUN, 0.5F, 1.0F},
     {&e102_hold_stand_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 1.0F,
      1.0F},
-    {E_MOT(0x0cc23a1c), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE, 0.5F, 1.0F},
+    {&e102_hold_skate_turn_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE,
+     0.5F, 1.0F},
     {&e102_hold_stand_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_STAND, 0.0625F,
      0.5F},
-    {E_MOT(0x0cc16378), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F, 1.0F},
+    {&e102_hold_walk_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_WALK, 0.5F,
+     1.0F},
     {&e102_pull_action, 77, PLAYER_ANIM_LOOP, ACTION_PULL, 0.5F, 1.0F},
     {&e102_shake_action, 77, PLAYER_ANIM_LOOP, ACTION_SHAKE, 0.5F, 0.5F},
     {&e102_grip_action, 77, PLAYER_ANIM_ONCE, ACTION_GRIP, 0.5F, 1.0F},
     {&e102_shake_action, 77, PLAYER_ANIM_LOOP, ACTION_GRIP, 0.5F, 0.0F},
-    {E_MOT(0x0cc02e30), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F, 1.0F},
-    {E_MOT(0x0cc049a4), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL, 0.5F, 1.0F},
-    {E_MOT(0x0cc06148), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F, 1.0F},
-    {E_MOT(0x0cc07d0c), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 0.5F, 1.0F},
+    {&e102_hold_jump_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_JUMP, 0.5F,
+     1.0F},
+    {&e102_hold_fall_start_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_FALL, 0.5F,
+     1.0F},
+    {&e102_hold_fall_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_FALL, 0.5F,
+     1.0F},
+    {&e102_hold_hard_landing_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     0.5F, 1.0F},
     {&e102_throw_at_target_action, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F,
      1.0F},
     {&e102_throw_action, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 0.5F, 1.0F},
     {&e102_throw_at_target_action, 77, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F,
      1.0F},
     {&e102_throw_action, 77, PLAYER_ANIM_ONCE, ACTION_FALL, 0.5F, 1.0F},
-    {E_MOT(0x0cc13464), 77, PLAYER_ANIM_BACK, ACTION_STAND, 0.5F, 1.0F},
+    {&e102_lift_action, 77, PLAYER_ANIM_BACK, ACTION_STAND, 0.5F, 1.0F},
     {&e102_jump_start_action, 77, PLAYER_ANIM_ONCE, ACTION_JUMP, 0.25F, 1.0F},
-    {E_MOT(0x0cc0194c), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_JUMP, 0.25F, 1.0F},
+    {&e102_hold_jump_start_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_JUMP,
+     0.25F, 1.0F},
     {&e102_slide_stop_action, 77, PLAYER_ANIM_ONCE, ACTION_SLIDE_STAND,
      1.0F / 6.0F, 0.5F},
     {&e102_slide_stand_action, 77, PLAYER_ANIM_ONCE, ACTION_SLIDE_STAND,
@@ -404,54 +413,57 @@ static struct player_action e102_actions[] = {
     {&e102_skate_stop_action, 77, PLAYER_ANIM_ONCE, ACTION_SKATE, 0.25F, 1.0F},
     {&e102_hover_start_action, 77, PLAYER_ANIM_ONCE, ACTION_HOVER, 0.25F, 1.0F},
     {&e102_hover_action, 77, PLAYER_ANIM_LOOP, ACTION_HOVER, 0.25F, 1.0F},
-    {E_MOT(0x0cc0cb78), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_WATER_SKATE, 0.25F,
-     1.5F},
-    {E_MOT(0x0cc0f6b4), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_WATER_SKATE, 0.25F,
-     1.0F},
-    {E_MOT(0x0cc10be0), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_WATER_SKATE, 0.25F,
-     1.0F},
-    {E_MOT(0x0cc1926c), 77, PLAYER_ANIM_LOOP_SPEED, ACTION_HOLD_RUN_PACED,
+    {&e102_hold_water_start_action, 77, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_WATER_SKATE, 0.25F, 1.5F},
+    {&e102_hold_skate_to_water_action, 77, PLAYER_ANIM_ONCE,
+     ACTION_HOLD_WATER_SKATE, 0.25F, 1.0F},
+    {&e102_hold_water_skate_action, 77, PLAYER_ANIM_LOOP,
+     ACTION_HOLD_WATER_SKATE, 0.25F, 1.0F},
+    {&e102_hold_run_action, 77, PLAYER_ANIM_LOOP_SPEED, ACTION_HOLD_RUN_PACED,
      0.25F, 0.5F},
-    {E_MOT(0x0cc1c220), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE, 0.25F, 0.8F},
-    {E_MOT(0x0cc1d944), 77, PLAYER_ANIM_LOOP_SPEED, ACTION_HOLD_SKATE, 0.25F,
-     0.5F},
+    {&e102_hold_skate_start_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE,
+     0.25F, 0.8F},
+    {&e102_hold_skate_action, 77, PLAYER_ANIM_LOOP_SPEED, ACTION_HOLD_SKATE,
+     0.25F, 0.5F},
     {&e102_stand_action, 77, PLAYER_ANIM_BACK, ACTION_STOP, 0.0625F, 1.0F},
-    {E_MOT(0x0cc1c220), 77, PLAYER_ANIM_BACK, ACTION_HOLD_STAND, 1.0F, 1.0F},
+    {&e102_hold_skate_start_action, 77, PLAYER_ANIM_BACK, ACTION_HOLD_STAND,
+     1.0F, 1.0F},
     {&e102_skate_to_water_action, 77, PLAYER_ANIM_BACK, ACTION_SKATE, 0.25F,
      1.5F},
-    {E_MOT(0x0cc0cb78), 77, PLAYER_ANIM_BACK, ACTION_HOLD_SKATE, 0.25F, 1.5F},
+    {&e102_hold_water_start_action, 77, PLAYER_ANIM_BACK, ACTION_HOLD_SKATE,
+     0.25F, 1.5F},
     {&e102_skate_turn_action, 77, PLAYER_ANIM_ONCE, ACTION_SKATE, 1.0F, 0.9F},
-    {E_MOT(0x0cc23a1c), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE_END, 1.0F,
-     1.0F},
+    {&e102_hold_skate_turn_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SKATE_END,
+     1.0F, 1.0F},
     {&dat_8c489a20, 77, PLAYER_ANIM_BACK, 63, 0.25F, 1.0F},
     {&dat_8c489a20, 77, PLAYER_ANIM_ONCE, 62, 0.25F, 1.0F},
     {&dat_8c48cbd4, 77, PLAYER_ANIM_BACK, 65, 1.0F / 6.0F, 1.0F},
     {&dat_8c48cbd4, 77, PLAYER_ANIM_ONCE, 64, 0.25F, 1.0F},
-    {E_MOT(0x0cc27300), 77, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 0.125F, 1.0F},
+    {&e102_ledge_action, 77, PLAYER_ANIM_DRIVEN, ACTION_LEDGE, 0.125F, 1.0F},
     {&e102_clear_action, 77, PLAYER_ANIM_HOLD, ACTION_CLEAR, 1.0F, 0.35F},
     {&e102_clear_end_action, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F, 0.35F},
     {&e102_down_action, 77, PLAYER_ANIM_HOLD, ACTION_DOWN, 0.25F, 1.0F},
     {&e102_stand_action, 77, PLAYER_ANIM_ONCE, ACTION_DOWN, 0.25F, 1.0F},
     {&e102_stand_action, 77, PLAYER_ANIM_ONCE, ACTION_DOWN, 0.25F, 1.0F},
-    {MODULE_ACTION(0x0c909154), 77, PLAYER_ANIM_HOLD, ACTION_RIDE, 0.25F, 1.0F},
+    {&e102_cart_action, 77, PLAYER_ANIM_HOLD, ACTION_RIDE, 0.25F, 1.0F},
     {&e102_fidget_start_action, 77, PLAYER_ANIM_ONCE, ACTION_FIDGET,
      1.0F / 6.0F, 0.25F},
     {&e102_fidget_action, 77, PLAYER_ANIM_ONCE, ACTION_FIDGET_END, 1.0F / 6.0F,
      0.25F},
     {&e102_fidget_start_action, 77, PLAYER_ANIM_BACK, ACTION_STAND, 1.0F / 6.0F,
      0.25F},
-    {E_MOT(0x0cc29324), 77, PLAYER_ANIM_ONCE, 77, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc2b7c8), 77, PLAYER_ANIM_ONCE, 77, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc2e3ec), 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc30570), 77, PLAYER_ANIM_ONCE, 80, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc32df4), 77, PLAYER_ANIM_ONCE, 80, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc35bb8), 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F / 6.0F, 0.5F},
-    {E_MOT(0x0cc3774c), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SHAKE, 1.0F / 6.0F,
-     0.5F},
-    {E_MOT(0x0cc39190), 77, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE, 1.0F / 6.0F,
-     0.5F},
-    {E_MOT(0x0cc3ae74), 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND, 1.0F / 6.0F,
-     0.5F},
+    {&dat_0cc29324, 77, PLAYER_ANIM_ONCE, 77, 1.0F / 6.0F, 0.5F},
+    {&dat_0cc2b7c8, 77, PLAYER_ANIM_ONCE, 77, 1.0F / 6.0F, 0.5F},
+    {&dat_0cc2e3ec, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F / 6.0F, 0.5F},
+    {&dat_0cc30570, 77, PLAYER_ANIM_ONCE, 80, 1.0F / 6.0F, 0.5F},
+    {&dat_0cc32df4, 77, PLAYER_ANIM_ONCE, 80, 1.0F / 6.0F, 0.5F},
+    {&dat_0cc35bb8, 77, PLAYER_ANIM_ONCE, ACTION_STAND, 1.0F / 6.0F, 0.5F},
+    {&e102_hold_shake_start_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_SHAKE,
+     1.0F / 6.0F, 0.5F},
+    {&e102_hold_shake_action, 77, PLAYER_ANIM_LOOP, ACTION_HOLD_SHAKE,
+     1.0F / 6.0F, 0.5F},
+    {&e102_hold_shake_end_action, 77, PLAYER_ANIM_ONCE, ACTION_HOLD_STAND,
+     1.0F / 6.0F, 0.5F},
     {&e102_stand_uphill_action, 77, PLAYER_ANIM_LOOP, ACTION_STAND_UPHILL,
      1.0F / 6.0F, 1.0F},
     {&e102_stand_downhill_action, 77, PLAYER_ANIM_LOOP, ACTION_STAND_DOWNHILL,
@@ -518,12 +530,21 @@ static NJS_OBJECT *e102_arm_objects[] = {
 static Float e102_height_above_cannon = 15.0F;
 /* a point in a node's space. e102_draw passes it, with e102_node_point_z after
  * it, as the NJS_POINT3 it puts through the node's matrix */
+#ifdef GCC
+/* one NJS_POINT3 under GCC, so that z is the point's own. GCC inlines
+ * njCalcPoint, whose read of z lies past an NJS_POINT2. GCC may assume that
+ * read touches no other object, and so move a store to e102_node_point_z
+ * past it, or drop the store */
+static NJS_POINT3 e102_node_point = {0.0F, 0.0F, 0.0F};
+#define e102_node_point_z e102_node_point.z
+#else
 /* @hack type: the point as an NJS_POINT2 and a Float after it, so that SHC
  * loads z's own address to reach it (MOV.L @(0x8c0d8f0c),R3 at 0x8c0d8e62). as
  * one NJS_POINT3, SHC reaches z from the point's address, e102_draw's frame
  * grows by 4, and 495 of its 862 words differ */
 static NJS_POINT2 e102_node_point = {0.0F, 0.0F};
 static Float e102_node_point_z = 0.0F;
+#endif
 
 Sint8 e102_in_play;
 Sint8 e102_hovering;
@@ -631,19 +652,19 @@ void e102_step(struct task *task)
         e102_material = &e102_head_materials[GLOW_MATERIAL];
         e102_material->attrflags &= ~(NJD_SA_MASK | NJD_DA_MASK);
         e102_material->attrflags |= NJD_SA_SRC | NJD_FLAG_USE_ALPHA;
-        e102_material = e102_eye_plus_z_material;
+        e102_material = &e102_eye_plus_z_materials[FADE_MATERIAL];
         e102_material->attrflags &= ~(NJD_SA_MASK | NJD_DA_MASK);
         e102_material->attrflags |= NJD_SA_SRC | NJD_FLAG_USE_ALPHA;
         e102_material->diffuse.argb.a = 255;
-        e102_material = e102_eye_minus_z_material;
+        e102_material = &e102_eye_minus_z_materials[FADE_MATERIAL];
         e102_material->attrflags &= ~(NJD_SA_MASK | NJD_DA_MASK);
         e102_material->attrflags |= NJD_SA_SRC | NJD_FLAG_USE_ALPHA;
         e102_material->diffuse.argb.a = 255;
-        e102_material = e102_toe_plus_z_material;
+        e102_material = &e102_toe_plus_z_materials[FADE_MATERIAL];
         e102_material->attrflags &= ~(NJD_SA_MASK | NJD_DA_MASK);
         e102_material->attrflags |= NJD_SA_SRC | NJD_FLAG_USE_ALPHA;
         e102_material->diffuse.argb.a = 255;
-        e102_material = e102_toe_minus_z_material;
+        e102_material = &e102_toe_minus_z_materials[FADE_MATERIAL];
         e102_material->attrflags &= ~(NJD_SA_MASK | NJD_DA_MASK);
         e102_material->attrflags |= NJD_SA_SRC | NJD_FLAG_USE_ALPHA;
         e102_material->diffuse.argb.a = 255;
@@ -2411,6 +2432,17 @@ static void e102_draw(struct task *task)
      * njCalcVector loads for each call, and 365 of 862 words differ */
     Bool (*push)(NJS_MATRIX *matrix);
     void (*calc_vector)(NJS_MATRIX *matrix, NJS_VECTOR *from, NJS_VECTOR *to);
+#ifdef GCC
+    /* the split frame's second picture draws from a copy of his own record,
+     * so that the cannon's turn, the draws left to aim and the phases of his
+     * glow and bob stay as his steps left them */
+    struct e102 copy;
+
+    if (frame_redrawing) {
+        copy = *e102;
+        e102 = &copy;
+    }
+#endif
 
     if (record->upgrades & PLAYER_E102_LASER) {
         e102_gun_mount->sibling = &e102_laser_gun;
@@ -2636,10 +2668,12 @@ static void e102_draw(struct task *task)
                 scale = (80.0F - record->anim.frame) * 6.375F;
                 alpha = scale;
                 e102_head_materials[GLOW_MATERIAL].diffuse.argb.a = alpha;
-                e102_eye_plus_z_material->diffuse.argb.a = alpha;
-                e102_eye_minus_z_material->diffuse.argb.a = alpha;
-                e102_toe_plus_z_material->diffuse.argb.a = alpha;
-                e102_toe_minus_z_material->diffuse.argb.a = alpha;
+                e102_eye_plus_z_materials[FADE_MATERIAL].diffuse.argb.a = alpha;
+                e102_eye_minus_z_materials[FADE_MATERIAL].diffuse.argb.a =
+                    alpha;
+                e102_toe_plus_z_materials[FADE_MATERIAL].diffuse.argb.a = alpha;
+                e102_toe_minus_z_materials[FADE_MATERIAL].diffuse.argb.a =
+                    alpha;
             }
         }
         draw_attr_restore();
@@ -3771,6 +3805,11 @@ static void e102_skate(struct task_work *work, struct task_motion *motion,
     Bool pushed;
 
     e102_turn(work, motion, record);
+#ifdef GCC
+    /* repairs the unset stroke the tag below names: GCC's stroke starts at
+     * 0, a let-go stick's, so a call that leaves it as it was leaves 0 */
+    stroke = 0.0F;
+#endif
     pushed = player_read_stick(work, NULL, &stroke);
     /* @bug uninitialized: player_read_stick sets stroke only from a stick
      * that's pushed. otherwise FMOV.S @R15,FR1 at 0x8c0db058 reads what

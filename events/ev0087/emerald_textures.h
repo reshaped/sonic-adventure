@@ -6,5 +6,7 @@
 #include <ninja.h>
 
 extern NJS_TEXLIST ev0087_emerald_texlist;
+/* the motion of the generated action ev0087_emerald_action_0 */
+extern NJS_MOTION dat_0cba929c;
 
 #endif

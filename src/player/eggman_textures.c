@@ -3,6 +3,8 @@
  * meshset draws with this one */
 #include <ninja.h>
 
+#include "player/eggman_textures.h"
+
 #include "player/textures.h"
 
 #define TEXT_1_LENGTH 8
@@ -36,6 +38,6 @@ static NJS_TEXNAME eggman_textures[19] = {
 NJS_TEXLIST eggman_texlist = {
 #include "player/eggman_textures/eggman_texlist.inc"
 };
-static NJS_MATERIAL dat_8c586e24[1] = {
+NJS_MATERIAL dat_8c586e24[1] = {
 #include "player/eggman_textures/dat_8c586e24.inc"
 };

@@ -47,7 +47,13 @@ extern NJS_ACTION ev00f8_tikal_action_3;
  * &ev00f8_sprite_texlists[EVENT_SPRITE_LENS], SHC loads it once and keeps it
  * on the stack for the two calls, ev00f8_script runs 12 bytes long, and 652
  * of 669 words differ */
+#ifdef GCC
+/* GCC's link binds a name only where a definition starts, and this one
+ * names a texlist inside ev00f8_sprite_texlists */
+#define ev00f8_sprite_lens_texlist (ev00f8_sprite_texlists[EVENT_SPRITE_LENS])
+#else
 extern NJS_TEXLIST ev00f8_sprite_lens_texlist;
+#endif
 
 static struct task *ev00f8_flash = NULL;
 

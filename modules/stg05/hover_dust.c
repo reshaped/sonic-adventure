@@ -31,7 +31,7 @@ void e100_hover_dust(struct task_work *work, Float ground)
 
     if (height > 0.0F && height < 30.0F) {
         Angle ang =
-            (Angle)(rand() * RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN);
+            (Angle)(rand() * (RAND_SCALE * (2 * NJD_PI) * ANGLE_PER_RADIAN));
         Float speed = (21.0F - height) * 0.25F;
 
         hover_dust.scale = 0.5F + (speed * 0.1F);

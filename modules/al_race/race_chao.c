@@ -965,6 +965,11 @@ static void race_chao_pause(struct task_work *work, struct alife_chao *chao,
         chao->accel.x = -chao->speed.x;
         chao->accel.z = -chao->speed.z;
         chao->motion.rate = 1.0F;
+#ifdef GCC
+        /* GCC can't see that every path sets seconds: case 1 leaves
+         * run_motion 84, 78 or 63, as the tag below says */
+        seconds = 0;
+#endif
         switch (racer->run_motion) {
         case 84:
             seconds = 3;
@@ -2604,9 +2609,13 @@ static void race_chao_ripple(struct task_work *work, struct alife_chao *chao,
     NJS_POINT3 pos;
     NJS_VECTOR growth;
 
-    pos.x = work->pos.x + RANDOM(0.0F, 0.05F);
+    /* @hack redundant: RANDOM's low bound, 0.0F, which the image adds to x
+     * and to z below by FADD (0x0cb86268, 0x0cb86290) of the FLDI0 at
+     * 0x0cb86254; without them, the function is 8 bytes shorter and 61 of 61
+     * words differ */
+    pos.x = work->pos.x + (rand() * (0.05F * RAND_SCALE)) + 0.0F;
     pos.y = level;
-    pos.z = work->pos.z + RANDOM(0.0F, 0.05F);
+    pos.z = work->pos.z + (rand() * (0.05F * RAND_SCALE)) + 0.0F;
     growth.x = 0.02F;
     growth.y = 0.0F;
     growth.z = 0.6F;
@@ -2646,9 +2655,13 @@ static void race_chao_voice(struct task_work *work, struct alife_chao *chao)
     /* @bug uninitialized: tests record before anything sets it, so the return
      * for a null record never runs. SHC reads record as R15, the stack pointer,
      * which is never zero: TST R15,R15 at 0x0cb86336 */
+#ifdef GCC
+    /* keeps the play the tag names: the return never runs */
+#else
     if (!record) { /* NOLINT(clang-diagnostic-uninitialized) */
         return;
     }
+#endif
     if (racer->voice == 0) {
         return;
     }
@@ -2712,7 +2725,13 @@ static void race_chao_voice(struct task_work *work, struct alife_chao *chao)
          * at 0x0cb864fe, and race_chao_moods_4[12] reads the byte after the
          * table (MOV.B @(R0,R14),R4 at 0x0cb86510): race_chao_voices_17's
          * first voice, 22 */
+#ifdef GCC
+        /* repairs the clamp the tag names: GCC's lets 11 through at most, so
+         * a mood of 12 plays the table's last voice, 9 */
+        if (mood > 11) {
+#else
         if (mood > 12) {
+#endif
             mood = 11;
         } else if (mood < 0) {
             mood = 0;

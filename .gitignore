@@ -4,6 +4,8 @@
 /tools/wibo-*
 /tools/shc-*
 /tools/llvm
+/tools/sh-elf*
+/tools/sh4zam
 
 # Python's bytecode from a tool run outside make, which puts it in build/
 __pycache__/

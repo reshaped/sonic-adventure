@@ -200,7 +200,13 @@ Sint32 buAnalyzeBackupFileImage(BUS_BACKUPFILEHEADER *hdr, const void *buf)
      * its 16 bytes, and lands on icon_palette's first byte (MOV.B R5,@R12 at
      * 0x8c11b6f4). the store of icon_palette below then overwrites it
      * (MOV.L R3,@(R0,R4) at 0x8c11b70e) */
+#ifdef GCC
+    /* repairs the store past game_name the tag above names: GCC stores no
+     * NUL, as game_name has no room for one. the image's name, padded with
+     * NULs, fills its 16 bytes */
+#else
     *dst = 0;
+#endif
     hdr->icon_speed = image->icon_speed;
     hdr->icon_num = image->icon_num;
     part = (char *)buf;

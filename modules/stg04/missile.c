@@ -15,8 +15,12 @@
 #include "system/util.h"
 
 extern NJS_OBJECT highway_missile_object;
-extern NJS_MESHSET highway_missile_scroll_meshset;
-extern NJS_TEXNAME corner_light_texname[1];
+/* the model's meshsets, of which SCROLL_MESHSET's UVs scroll */
+#define SCROLL_MESHSET 2
+extern NJS_MESHSET highway_missile_meshsets[];
+/* OBJ_HIGHWAY2's texture names, among them the corner light's glow, which
+ * the missile's glows take too */
+extern NJS_TEXNAME obj_highway2_textures[54];
 
 /* destroyed beyond 3000 units of the camera and player 0 */
 #define MISSILE_RANGE (3000.0F * 3000.0F)
@@ -172,9 +176,9 @@ static void highway_missile_scroll(struct task_work *work)
     /* @hack spelling: the mesh set reached through meshset, so the pool holds
      * the mesh set's own address, and the load reads vertuv 20 bytes past it
      * (MOV.L @(20,R5),R5 at 0x0c911914). through
-     * highway_missile_scroll_meshset.vertuv, the pool holds vertuv's address,
-     * and 2 of highway_missile_scroll's 20 words differ */
-    NJS_MESHSET *meshset = &highway_missile_scroll_meshset;
+     * highway_missile_meshsets[SCROLL_MESHSET].vertuv, the pool holds
+     * vertuv's address, and 2 of highway_missile_scroll's 20 words differ */
+    NJS_MESHSET *meshset = &highway_missile_meshsets[SCROLL_MESHSET];
     NJS_COLOR *uv = meshset->vertuv;
     int i;
 

@@ -5,11 +5,25 @@
 #include <shinobi.h>
 #include <sofdec.h>
 
+#include "al_garden00/garden.h"
+#include "al_garden01/garden.h"
+#include "al_garden02/garden.h"
 #include "event/play.h"
 #include "event/script.h"
 #include "progress/progress.h"
 #include "sound/stream.h"
 #include "stage/stage.h"
+#include "stg01/scripts.h"
+#include "stg02/scripts.h"
+#include "stg03/scripts.h"
+#include "stg04/scripts.h"
+#include "stg05/scripts.h"
+#include "stg06/scripts.h"
+#include "stg07/scripts.h"
+#include "stg08/scripts.h"
+#include "stg09/scripts.h"
+#include "stg10/scripts.h"
+#include "stg12/scripts.h"
 #include "system/bitmap.h"
 #include "system/frame.h"
 #include "system/pad.h"
@@ -23,9 +37,6 @@
 enum script_runs { RUNS_PAGES, RUNS_LINES };
 
 #define TIMED_STEPS 60
-
-/* a stage module's script table, at its address once the module loads */
-#define MODULE_SCRIPTS(address) ((struct script_row *)(address))
 
 /* a message waiting for the window, kept in the runner task's extra */
 struct message_request {
@@ -77,20 +88,20 @@ static void message_runner_step(struct task *task);
     } while (0)
 
 /* each stage's script table, or null where script_pick runs the field's */
-static struct script_row *stage_scripts[STAGE_ROWS] = {
+static const struct script_row *stage_scripts[STAGE_ROWS] = {
     NULL, /* STAGE_PRACTICE */
-    MODULE_SCRIPTS(0x0c911738), /* STAGE_BEACH */
-    MODULE_SCRIPTS(0x0ca158f0), /* STAGE_WINDY */
-    MODULE_SCRIPTS(0x0c9f8688), /* STAGE_TWINKLE */
-    MODULE_SCRIPTS(0x0c913a20), /* STAGE_HIGHWAY */
-    MODULE_SCRIPTS(0x0cadd260), /* STAGE_MOUNTAIN */
-    MODULE_SCRIPTS(0x0cae9848), /* STAGE_SKY_DECK */
-    MODULE_SCRIPTS(0x0ca5d308), /* STAGE_RUIN */
-    MODULE_SCRIPTS(0x0cac3910), /* STAGE_ICECAP */
-    MODULE_SCRIPTS(0x0cb1a4a8), /* STAGE_CASINO */
-    MODULE_SCRIPTS(0x0c919300), /* STAGE_FINAL */
+    beach_script_table, /* STAGE_BEACH */
+    windy_script_table, /* STAGE_WINDY */
+    twinkle_script_table, /* STAGE_TWINKLE */
+    highway_script_table, /* STAGE_HIGHWAY */
+    mountain_script_table, /* STAGE_MOUNTAIN */
+    sky_deck_script_table, /* STAGE_SKY_DECK */
+    ruin_script_table, /* STAGE_RUIN */
+    icecap_script_table, /* STAGE_ICECAP */
+    casino_script_table, /* STAGE_CASINO */
+    final_script_table, /* STAGE_FINAL */
     NULL, /* 11, unnamed */
-    MODULE_SCRIPTS(0x0caa4b58), /* STAGE_SHELTER */
+    shelter_script_table, /* STAGE_SHELTER */
     NULL, /* 13, unnamed */
     NULL, /* 14, unnamed */
     NULL, /* STAGE_CHAOS0 */
@@ -117,9 +128,9 @@ static struct script_row *stage_scripts[STAGE_ROWS] = {
     NULL, /* STAGE_SHOOTING1 */
     NULL, /* STAGE_SHOOTING2 */
     NULL, /* STAGE_SUNABOARD */
-    MODULE_SCRIPTS(0x0cb812b0), /* STAGE_ALIFE_SS */
-    MODULE_SCRIPTS(0x0cb80a88), /* STAGE_ALIFE_EG */
-    MODULE_SCRIPTS(0x0cb81300), /* STAGE_ALIFE_MR */
+    station_square_garden_script_table, /* STAGE_ALIFE_SS */
+    egg_carrier_garden_script_table, /* STAGE_ALIFE_EG */
+    mystic_ruins_garden_script_table, /* STAGE_ALIFE_MR */
     NULL, /* STAGE_ALIFE_RACE */
     NULL, /* STAGE_NONE */
 };
@@ -170,7 +181,7 @@ void script_set_table(struct script_row *table)
 
 Bool script_pick(int row, struct script_pages *pick)
 {
-    struct script_row *table;
+    const struct script_row *table;
     Sint16 *script;
     void *runs;
     void *run;
@@ -205,6 +216,11 @@ Bool script_pick_lines(int row, struct script_lines *lines)
     if (table != NULL) {
         script = table[row].script;
         runs = table[row].runs;
+#ifdef GCC
+        /* repairs the unset flag the tag below names: pick.flag starts at
+         * -1, as in script_pick. -1 names no flag */
+        pick.flag = -1;
+#endif
         lines->lines = (char **)script_run(&pick, script, runs, RUNS_LINES);
         /* @bug uninitialized: nothing sets pick.flag but the script's
          * SCRIPT_FLAG, so without one the flag is a stack word no path wrote

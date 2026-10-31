@@ -18,6 +18,6 @@ static NJS_MOTION ev0068_tikal_motion_3 = {
 NJS_ACTION ev0068_tikal_action_3 = {
 #include "ev0068/tikal_action_3/ev0068_tikal_action_3.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

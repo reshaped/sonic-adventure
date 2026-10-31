@@ -16,6 +16,6 @@ static NJS_MOTION ev00de_frog_motion_2 = {
 NJS_ACTION ev00de_frog_action_2 = {
 #include "ev00de/frog_action_2/ev00de_frog_action_2.inc"
 };
-static NJS_TEXNAME ev00de_emerald_yellow_textures[1] = {
+NJS_TEXNAME ev00de_emerald_yellow_textures[1] = {
     {TEXT_1, 0, 0},
 };

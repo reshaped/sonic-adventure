@@ -14,9 +14,8 @@ static void e101_run(struct task *task);
 static void e101_destroy(struct task *task);
 
 /* #pragma section HEAD puts the step in PHEAD, which B_E101's link places
- * first, at 0x0c900000. 1ST_READ.BIN's stage_steps reaches it by that
- * address. the switch of section after the step ends it on its own literal
- * pool */
+ * first, at 0x0c900000. 1ST_READ.BIN's stage_steps holds that address. the
+ * switch of section after the step ends it on its own literal pool */
 #pragma section HEAD
 void e101_step(struct task *task)
 {
@@ -55,8 +54,8 @@ static void e101_destroy(struct task *task)
 {
 }
 
-/* 1ST_READ.BIN's sky_steps reaches e101_sky_step by its address,
- * 0x0c900040. the sky's task does nothing */
+/* 1ST_READ.BIN's sky_steps holds e101_sky_step's address, 0x0c900040. the sky's
+ * task does nothing */
 #pragma section HEAD
 void e101_sky_step(struct task *task)
 {

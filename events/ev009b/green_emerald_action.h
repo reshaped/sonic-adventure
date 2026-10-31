@@ -11,5 +11,7 @@
  * passed as &ev009b_green_emerald_action, the two trade, and 78 of
  * ev009b_script's 690 words differ */
 extern NJS_ACTION ev009b_green_emerald_action[];
+/* the texture name of the generated texlist ev009b_purple_emerald_texlist */
+extern NJS_TEXNAME ev009b_purple_emerald_textures[1];
 
 #endif

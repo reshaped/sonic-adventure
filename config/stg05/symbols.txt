@@ -1618,6 +1618,7 @@
 0x0ca3995c  dat_0ca3995c
 0x0ca39990  dat_0ca39990
 0x0ca399c4  dat_0ca399c4
+0x0ca39fb4  mountain_death_zones
 0x0ca3a3f8  obj_mountain_texlist
 0x0ca3a8d8  knuckles_wall_object
 0x0ca3ab90  break_step_piece_5_model

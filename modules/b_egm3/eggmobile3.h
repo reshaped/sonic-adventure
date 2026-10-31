@@ -21,8 +21,8 @@ extern struct task *egg_viper_task;
 extern struct task *egg_viper_needles[EGG_VIPER_NEEDLES];
 extern struct task *egg_viper_segments[EGG_VIPER_SEGMENTS];
 
-/* the stage's step and its sky's. 1ST_READ.BIN's stage_steps and sky_steps
- * reach them by their addresses, 0x0c900000 and 0x0c9000e0 */
+/* the stage's step and its sky's, which 1ST_READ.BIN's stage_steps and
+ * sky_steps name */
 void eggmobile3_step(struct task *task);
 void eggmobile3_sky_step(struct task *task);
 

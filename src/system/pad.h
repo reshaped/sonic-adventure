@@ -61,10 +61,8 @@ extern PDS_PERIPHERAL pad_records[8];
 extern PDS_PERIPHERAL *per_info[PAD_PORTS];
 extern Uint8 dat_8c75d910[20];
 /* each player's stick, or zeros while the pads don't drive the game or the
- * player's own pad doesn't drive it. pad_stick_b is pad_sticks[1] under a
- * name of its own */
+ * player's own pad doesn't drive it */
 extern struct pad_stick pad_sticks[8];
-extern struct pad_stick pad_stick_b;
 /* each player's stick as read, whether its pad drives the player or not */
 extern struct pad_stick pad_sticks_read[8];
 /* each pad's buttons, by its slot in per_info. pad_held holds those held,

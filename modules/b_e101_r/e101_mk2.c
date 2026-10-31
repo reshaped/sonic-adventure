@@ -1413,6 +1413,11 @@ static void e101_mk2_swat(struct task *task)
     move(task);
     steer_to_target(task);
     turn_smoothly(task);
+#ifdef GCC
+    /* GCC can't see that distance is set wherever it is read: only cases 1
+     * and 3 read it, and the test below sets it for both */
+    distance = 0.0F;
+#endif
     if (work->submode <= 3 && work->submode != MODE_DONE) {
         if (!find_shot(task, &shot)) {
             distance = 0.0F;
@@ -1903,7 +1908,14 @@ static void e101_mk2_defeat(struct task *task)
         /* @bug arithmetic: under a timer of 5, the divisor is 0. __modls,
          * called at 0x0c902f4e, then sets errno and returns 0, so a blast goes
          * off each step */
+#ifdef GCC
+        /* keeps the value the tag names, 0: under a timer of 5 the test
+         * holds. GCC's own timer % 0 gives timer, which fails it */
+        if (boss->timer * 40 / 200 == 0 ||
+            boss->timer % (boss->timer * 40 / 200) == 0) {
+#else
         if (boss->timer % (boss->timer * 40 / 200) == 0) {
+#endif
             e101_mk2_light_burst(pos, 80.0F);
             e101_mk2_bomb_near(pos, 20.0F);
             if (rand() * RAND_SCALE <= 0.5F) {
@@ -1929,7 +1941,15 @@ static void e101_mk2_defeat(struct task *task)
         /* @bug arithmetic: under a timer of 6, the divisor is 0 here too.
          * __modls, called at 0x0c90305a, then returns 0, so a blast goes off
          * each step */
+#ifdef GCC
+        /* keeps the value the tag names, 0: under a timer of 6 the test
+         * holds. GCC's own timer % 0 gives timer, which fails it from 1 to
+         * 5 */
+        if (boss->timer * 30 / 180 == 0 ||
+            boss->timer % (boss->timer * 30 / 180) == 0) {
+#else
         if (boss->timer % (boss->timer * 30 / 180) == 0) {
+#endif
             e101_mk2_light_burst(pos, 80.0F);
             e101_mk2_bomb_near(pos, 20.0F);
             if (rand() * RAND_SCALE <= 0.5F) {

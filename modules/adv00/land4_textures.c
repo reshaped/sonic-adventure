@@ -167,12 +167,12 @@ NJS_TEXLIST station_square_land4_texlist = {
  * after the item before it. so all three belong to this source. the model's
  * colors start at a multiple of 8 straight after the strips, where one source
  * or two build the same */
-static NJS_MATERIAL dat_0ca369cc[2] = {
+NJS_MATERIAL dat_0ca369cc[2] = {
 #include "adv00/land4_textures/dat_0ca369cc.inc"
 };
-static Sint16 dat_0ca369f4[45] = {
+Sint16 dat_0ca369f4[45] = {
 #include "adv00/land4_textures/dat_0ca369f4.inc"
 };
-static Sint16 dat_0ca36a4e[45] = {
+Sint16 dat_0ca36a4e[45] = {
 #include "adv00/land4_textures/dat_0ca36a4e.inc"
 };

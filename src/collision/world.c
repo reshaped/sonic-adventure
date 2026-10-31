@@ -4,14 +4,83 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#include "adv00/land2.h"
+#include "adv00/land3.h"
+#include "adv00/land4.h"
+#include "adv00/land5.h"
+#include "adv00/lands.h"
+#include "adv0100/act0_land.h"
+#include "adv0100/act5_land.h"
+#include "adv0100/lands.h"
+#include "adv0130/lands.h"
+#include "adv02/act2_land.h"
+#include "adv02/act3_land.h"
+#include "adv02/lands.h"
+#include "adv03/act0_land.h"
+#include "adv03/act1_land.h"
+#include "adv03/act2_land.h"
+#include "al_garden00/land.h"
+#include "al_garden01/land.h"
+#include "al_garden02/land.h"
+#include "al_race/act0_land.h"
+#include "al_race/act1_land.h"
+#include "b_chaos0/land.h"
+#include "b_chaos2/land.h"
+#include "b_chaos4/land.h"
+#include "b_chaos6/land_act0.h"
+#include "b_chaos6/land_act1.h"
+#include "b_chaos7/land.h"
+#include "b_e101/land.h"
+#include "b_e101_r/land.h"
+#include "b_egm1/land.h"
+#include "b_egm2/land.h"
+#include "b_egm3/land.h"
 #include "camera/camera.h"
 #include "collision/polygon.h"
 #include "collision/world.h"
 #include "draw/draw.h"
 #include "draw/model.h"
+#include "minicart/land0.h"
+#include "minicart/land1.h"
+#include "minicart/land2.h"
+#include "minicart/land3.h"
+#include "minicart/land4.h"
+#include "minicart/land5.h"
 #include "player/player.h"
+#include "sboard/land.h"
 #include "sound/sound.h"
 #include "stage/stage.h"
+#include "stg00/land.h"
+#include "stg01/land1.h"
+#include "stg01/land2.h"
+#include "stg01/lands.h"
+#include "stg02/land0.h"
+#include "stg02/land1.h"
+#include "stg02/land2.h"
+#include "stg03/lands.h"
+#include "stg04/land0.h"
+#include "stg04/land1.h"
+#include "stg04/land2.h"
+#include "stg05/land0.h"
+#include "stg05/land1.h"
+#include "stg05/land2.h"
+#include "stg06/land0.h"
+#include "stg06/land1.h"
+#include "stg06/land2.h"
+#include "stg07/land0.h"
+#include "stg07/land1.h"
+#include "stg07/lands.h"
+#include "stg08/land0.h"
+#include "stg08/land1.h"
+#include "stg08/land2.h"
+#include "stg08/land3.h"
+#include "stg09/land2.h"
+#include "stg09/lands.h"
+#include "stg10/land2.h"
+#include "stg10/lands.h"
+#include "stg12/land1.h"
+#include "stg12/land2.h"
+#include "stg12/lands.h"
 #include "system/binary.h"
 #include "system/cache.h"
 #include "system/frame.h"
@@ -65,62 +134,66 @@ static char world_debug_mode_names[6][20] = {"NORMAL", "SCREEN",    "BOX",
 
 Sint32 world_land_blocks = 0;
 
-/* a land in a stage's module, at the address it loads at */
-#define LAND(address) ((struct land_table *)(address))
+/* B_ROBO's copy of b_e101_r/land.h's e101_r_land, the land on the Egg
+ * Carrier's deck, by the name config/1st_read/imports.txt gives it */
+extern struct land_table eggmanrobo_land;
 
 /* each stage's land by act, or null. STAGE_STATION_SQUARE_2 and
  * STAGE_STATION_SQUARE_3 take station square's six lands, and the sand
  * board's two acts share one */
 static struct land_table *world_lands[STAGE_COUNT][STAGE_ACTS] = {
-    {LAND(0x0c900bac)},
-    {LAND(0x0c981904), LAND(0x0c9def10), LAND(0x0ca1e110)},
-    {LAND(0x0c90e000), LAND(0x0c90e364), LAND(0x0c90fa98)},
-    {LAND(0x0c9180ac), LAND(0x0c919b64), LAND(0x0c91a77c)},
-    {LAND(0x0c917f14), LAND(0x0c918b50), LAND(0x0c91aa68)},
-    {LAND(0x0c919b78), LAND(0x0c91b7c0), LAND(0x0c91f220)},
-    {LAND(0x0c922a5c), LAND(0x0c924ad8), LAND(0x0c9278fc)},
-    {LAND(0x0c90dc60), LAND(0x0c964174), LAND(0x0c9f9994)},
-    {LAND(0x0c915b24), LAND(0x0c9166f4), LAND(0x0c919094), LAND(0x0c91a930)},
-    {LAND(0x0c92778c), LAND(0x0c96d994), LAND(0x0c9b0a00), LAND(0x0c9d9d24)},
-    {LAND(0x0c91d2fc), LAND(0x0c983ec4), LAND(0x0c9e69c8)},
+    {&practice_land},
+    {&beach_act0_land, &beach_act1_land, &beach_act2_land},
+    {&windy_act0_land, &windy_act1_land, &windy_act2_land},
+    {&twinkle_act0_land, &twinkle_act1_land, &twinkle_act2_land},
+    {&highway_land0, &highway_land1, &highway_land2},
+    {&mountain_land0, &mountain_land1, &mountain_land2},
+    {&sky_deck_act0_land, &sky_deck_act1_land, &sky_deck_act2_land},
+    {&ruin_act0_land, &ruin_act1_land, &ruin_act2_land},
+    {&icecap_act0_land, &icecap_act1_land, &icecap_act2_land,
+     &icecap_act3_land},
+    {&casino_act0_land, &casino_act1_land, &casino_act2_land,
+     &casino_act3_land},
+    {&final_act0_land, &final_act1_land, &final_act2_land},
     {NULL},
-    {LAND(0x0c91a5ac), LAND(0x0c953620), LAND(0x0c9b1c50)},
-    {NULL},
-    {NULL},
-    {LAND(0x0c9001d8)},
-    {LAND(0x0c9002b8)},
-    {LAND(0x0c900260)},
-    {LAND(0x0c900370), LAND(0x0c900398)},
-    {LAND(0x0c901280)},
-    {LAND(0x0c900130)},
-    {LAND(0x0c900230)},
-    {LAND(0x0c958840)},
-    {LAND(0x0c900118)},
-    {LAND(0x0c900070)},
-    {LAND(0x0c900188)},
-    {LAND(0x0c9163b4), LAND(0x0c9744b4), LAND(0x0c9c2db0), LAND(0x0c9dda80),
-     LAND(0x0ca36408), LAND(0x0ca57d4c)},
-    {LAND(0x0c9163b4), LAND(0x0c9744b4), LAND(0x0c9c2db0), LAND(0x0c9dda80),
-     LAND(0x0ca36408), LAND(0x0ca57d4c)},
-    {LAND(0x0c9163b4), LAND(0x0c9744b4), LAND(0x0c9c2db0), LAND(0x0c9dda80),
-     LAND(0x0ca36408), LAND(0x0ca57d4c)},
-    {LAND(0x0ca8294c), LAND(0x0ca838dc), LAND(0x0ca843d4), LAND(0x0ca857b4),
-     LAND(0x0ca85f1c), LAND(0x0ca86de0)},
+    {&shelter_act0_land, &shelter_act1_land, &shelter_act2_land},
     {NULL},
     {NULL},
-    {LAND(0x0c92ce4c), LAND(0x0c92dfb0), LAND(0x0c92e9d4), LAND(0x0c92f5bc),
-     LAND(0x0c92ffac), LAND(0x0c930648)},
-    {LAND(0x0c9182c0), LAND(0x0c99f114), LAND(0x0c900178), LAND(0x0c9001a0)},
-    {LAND(0x0c900278), LAND(0x0c9002a0), LAND(0x0c9002c8)},
-    {LAND(0x0c901a54), LAND(0x0c902f90), LAND(0x0c904368), LAND(0x0c90568c),
-     LAND(0x0c906694), LAND(0x0c9078dc)},
+    {&chaos0_land},
+    {&chaos2_land},
+    {&chaos4_land},
+    {&chaos6_act0_land, &chaos6_act1_land},
+    {&chaos7_land},
+    {&eggmobile1_land},
+    {&egm2_land},
+    {&eggmobile3_land},
+    {&eggmanrobo_land},
+    {&e101_land},
+    {&e101_r_land},
+    {&station_square_land0, &station_square_land1, &station_square_land2,
+     &station_square_land3, &station_square_land4, &station_square_land5},
+    {&station_square_land0, &station_square_land1, &station_square_land2,
+     &station_square_land3, &station_square_land4, &station_square_land5},
+    {&station_square_land0, &station_square_land1, &station_square_land2,
+     &station_square_land3, &station_square_land4, &station_square_land5},
+    {&outside_act0_land, &outside_act1_land, &outside_act2_land,
+     &outside_act3_land, &outside_act4_land, &outside_act5_land},
     {NULL},
     {NULL},
-    {LAND(0x0c902df4), LAND(0x0c902df4)},
-    {LAND(0x0cb903f0)},
-    {LAND(0x0cb8d9c8)},
-    {LAND(0x0cb8f7dc)},
-    {LAND(0x0cb8027c), LAND(0x0cb80e70)},
+    {&inside_act0_land, &inside_act1_land, &inside_act2_land, &inside_act3_land,
+     &inside_act4_land, &inside_act5_land},
+    {&mystic_ruins_act0_land, &mystic_ruins_act1_land, &mystic_ruins_act2_land,
+     &mystic_ruins_act3_land},
+    {&past_act0_land, &past_act1_land, &past_act2_land},
+    {&cart_land0, &cart_land1, &cart_land2, &cart_land3, &cart_land4,
+     &cart_land5},
+    {NULL},
+    {NULL},
+    {&sunaboard_land, &sunaboard_land},
+    {&station_square_garden_land},
+    {&egg_carrier_garden_land},
+    {&mystic_ruins_garden_land},
+    {&race_act0_land, &race_act1_land},
 };
 
 Sint16 world_count;
@@ -547,6 +620,20 @@ static void world_land_list_visible(void)
     } else {
         clip = _nj_far_clip_;
     }
+#ifdef GCC
+    /* 16:9 grows the clip so that the near test reaches as far along the
+     * view's side edges as it does at 4:3. along a line at an angle a off the
+     * camera's heading, the test reaches clip * cos(a). the edges lie where
+     * tan(a) is half / dist at 4:3, and half / scale_x under 16:9 */
+    if (port_draw_aspect != 1.0F) {
+        Float half = _nj_screen_.w * 0.5F;
+        Float dist = _nj_screen_.dist;
+        Float scale_x = dist * port_draw_aspect;
+
+        clip *= dist * njSqrt((scale_x * scale_x) + (half * half)) /
+                (scale_x * njSqrt((dist * dist) + (half * half)));
+    }
+#endif
     offset.x = offset.y = 0.0F;
     offset.z = -(clip * 0.5F);
     clip *= 0.5F;

@@ -1,5 +1,5 @@
 /* the course Sonic races Tails on in the first act: its points and their
- * count. 1ST_READ.BIN's race_lines and race_counts name the two by address */
+ * count. 1ST_READ.BIN's race_lines and race_counts name the two */
 #include <sg_xpt.h>
 
 #include "player/race.h"

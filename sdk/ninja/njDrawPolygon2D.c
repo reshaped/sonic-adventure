@@ -338,6 +338,29 @@ static void outline_textured(NJS_POINT2COL *p, Int n)
 void njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
 {
     Int kind;
+#ifdef GCC
+    /* the split frame keeps the draw for a picture to come. where the 2D
+     * draws squeeze, the draw takes a copy of p with its points' x
+     * squeezed, but an untextured polygon that covers the screen keeps x.
+     * the copy has room for CORNERS points, the most a filled polygon may
+     * have, so a draw of more keeps its x */
+    NJS_POINT2COL squeezed;
+    NJS_POINT2 points[CORNERS];
+    Int i;
+
+    present_record(PRESENT_POLYGON_2D, p, n, 0, pri, attr);
+    if (n <= CORNERS && port_wide_squeezes() &&
+        ((attr & NJD_USE_TEXTURE) ||
+         !port_wide_covers(&p->p->x, n, sizeof(*p->p) / sizeof(Float)))) {
+        for (i = 0; i < n; i++) {
+            points[i].x = port_wide_x(p->p[i].x);
+            points[i].y = p->p[i].y;
+        }
+        squeezed = *p;
+        squeezed.p = points;
+        p = &squeezed;
+    }
+#endif
 
     njGetkmPointer();
     kind = (attr & NJD_USE_TEXTURE) > 0;

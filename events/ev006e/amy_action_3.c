@@ -40,6 +40,6 @@ NJS_TEXLIST ev006e_bird_texlist = {
 /* the one material of node 0x0cb8df1c of dat_0cb91ecc, the model
  * ev006e_bird_action moves. the rest of that model lies in the data after
  * this object */
-static NJS_MATERIAL dat_0cb8de4c[1] = {
+NJS_MATERIAL dat_0cb8de4c[1] = {
 #include "ev006e/amy_action_3/dat_0cb8de4c.inc"
 };

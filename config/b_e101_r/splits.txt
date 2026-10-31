@@ -37,7 +37,7 @@ modules/b_e101_r/files.c               P        0x0c9036a0  0x0c9038c0
 modules/b_e101_r/files.c               C        0x0c907790  0x0c9077a5
 modules/b_e101_r/files.c               D        0x0c907f40  0x0c907ff8
 modules/b_e101_r/files.c               B        0x0c92e760  0x0c92e810
-# the table that ends C: D's start, R's start and end, and B's start and end, as the link of the whole image puts them and tools/config.py gives them, the last of which files.c reads as the end of bss. R lies past B here, and between D and B in B_ROBO, whose table is the same. SHC computes no section's bounds, so the table is assembly, an object of its own. it starts on 8 straight after object_list.c's name, and e101_mk2.c's data starts D on 8, 4 bytes past it: the zero word is the linker's fill, which the fill rule verifies, or a sixth word of the table, and either builds the same
+# the table that ends C: D's start, R's start and end, and B's start and end, as the link of the whole image puts them and tools/images.py gives them, the last of which files.c reads as the end of bss. R lies past B here, and between D and B in B_ROBO, whose table is the same. SHC computes no section's bounds, so the table is assembly, an object of its own. it starts on 8 straight after object_list.c's name, and e101_mk2.c's data starts D on 8, 4 bytes past it: the zero word is the linker's fill, which the fill rule verifies, or a sixth word of the table, and either builds the same
 modules/b_e101_r/bounds.src            C        0x0c907ca8  0x0c907cbc
 modules/b_e101_r/glow.c                P        0x0c9048c0  0x0c904a20
 modules/b_e101_r/glow.c                D        0x0c908000  0x0c908004

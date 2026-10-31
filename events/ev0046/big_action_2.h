@@ -7,5 +7,7 @@
 
 extern NJS_ACTION ev0046_big_action_2;
 extern NJS_TEXLIST ev0046_frog_texlist;
+/* the material of one node of the frog's model */
+extern NJS_MATERIAL dat_0cb9ec84[1];
 
 #endif

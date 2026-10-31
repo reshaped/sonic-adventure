@@ -78,11 +78,18 @@ Sint32 njCheckFileName(char *path, char *name)
          * from the pad after it and from mipmap_sizes. an ext that starts with
          * . matches neither (MOV #3,R11 at 0x8c66b9d0 in 1ST_READ.BIN, and at
          * 0x8ce1f2b8 in LOADER.BIN) */
+#ifdef GCC
+        /* repairs the reads the tag names: GCC compares fileext's one
+         * entry, and takes FILEEXT_NUM for no match, as the image's loop
+         * ends */
+        i = _builtin_strcmp(ext, fileext[0]) == 0 ? 0 : FILEEXT_NUM;
+#else
         for (i = 0; i < FILEEXT_NUM; i++) {
             if (_builtin_strcmp(ext, fileext[i]) == 0) {
                 break;
             }
         }
+#endif
         /* @hack spelling: a switch on i whose default takes a match, which
          * keeps _nj_tex_ext_'s address in R2 (0x8c66b9f4 in 1ST_READ.BIN); as
          * an if, 4 of 87 words differ */

@@ -39,7 +39,7 @@ import itertools
 import re
 import sys
 
-from config import content, fail, save
+from tool import content, fail, save
 
 # the functions of each text, in order
 FUNCTIONS = ('prepare_camera', 'apply_channels', 'find_camera_key', 'find_camera_angle_key', 'linear_camera_angle',

@@ -13,7 +13,7 @@
 #include "system/util.h"
 
 extern NJS_OBJECT sign_s_object;
-extern NJS_MESHSET sign_s_meshsets[];
+extern NJS_MESHSET sign_s_meshsets[5];
 
 /* placement_try_leave_by's squared range: about 600 from the camera or
  * player 0 */

@@ -21,3 +21,54 @@ jobs:
       - run: make -j"$(nproc)" lint
       # check and lint build shckit; without the disc, nothing builds these
       - run: make build/gdi build/prskit
+
+  # make test with make gcc's toolchain and SH4ZAM, which the check job
+  # lacks, so the tests that need them run here. Without the disc, it builds
+  # no image
+  gcc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      # The key takes the toolchain's recipe as make expands it, and its
+      # sources' sums, so a change to what builds the toolchain builds it
+      # again, and an edit elsewhere in gcc.mk keeps the cached one
+      - id: toolchain
+        run: |
+          sum=$({ make -nB tools/sh-elf/bin/sh-elf-gcc; grep ' tools/sh-elf.src/' tools/SHA256SUMS; } | sha256sum)
+          echo "key=sh-elf-${sum%% *}" >> "$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: tools/sh-elf
+          key: ${{ steps.toolchain.outputs.key }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: make -j"$(nproc)" tools/sh-elf/bin/sh-elf-gcc
+      # Save the toolchain before the tests run: actions/cache saves by itself
+      # only at the job's end, and only if every step passed
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: tools/sh-elf
+          key: ${{ steps.toolchain.outputs.key }}
+      # SH4ZAM's files, cached by their lines of tools/SHA256SUMS. make
+      # fetches them where the cache holds none, and else finds them fetched
+      - id: sh4zam
+        run: |
+          sum=$(grep ' tools/sh4zam/' tools/SHA256SUMS | sha256sum)
+          echo "key=sh4zam-${sum%% *}" >> "$GITHUB_OUTPUT"
+      - id: sh4zam-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: tools/sh4zam
+          key: ${{ steps.sh4zam.outputs.key }}
+      - run: make tools/sh4zam/fetched.txt
+      - if: steps.sh4zam-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: tools/sh4zam
+          key: ${{ steps.sh4zam.outputs.key }}
+      # The tests take tools/sh-elf by default, and skip a test that needs a
+      # tool it lacks. With SH_ELF set, that test fails instead
+      - run: make test SH_ELF=tools/sh-elf

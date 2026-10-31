@@ -1,9 +1,16 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
-/* clang-format off */
-#ifndef __clang__
 /* set m to T * m, where T translates by v's x, y and z. a null m selects the
  * current matrix, in XMTRX */
+#ifdef GCC
+#undef njTranslateV
+void njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
+{
+    zam_njTranslateV(m, v);
+}
+#else
+/* clang-format off */
+#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629754 follows the
  * body's own return at 0x8c629750 */
 #pragma inline_asm(njTranslateV)
@@ -69,3 +76,4 @@ void njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
 }
 #endif
 /* clang-format on */
+#endif

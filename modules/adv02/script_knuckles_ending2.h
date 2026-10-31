@@ -4,8 +4,8 @@
 
 #include "progress/story.h"
 
-/* the section's script, which knuckles_story in progress/story.c names by its
- * address in ADV02 */
+/* the section's script, in ADV02, which knuckles_story in progress/story.c
+ * names */
 extern struct story_script script_knuckles_ending2;
 
 #endif

@@ -2,6 +2,8 @@
  * event_chaos0_water_texlist */
 #include <ninja.h>
 
+#include "ev00de/dat_0cba5668.h"
+
 #define TEXT_1_LENGTH 11
 #include "ev00de/dat_0cba5668/text.inc"
 
@@ -14,6 +16,6 @@ static NJS_MOTION dat_0cba5668 = {
 static NJS_ACTION dat_0cba5674 = {
 #include "ev00de/dat_0cba5668/dat_0cba5674.inc"
 };
-static NJS_TEXNAME event_chaos0_water_textures[1] = {
+NJS_TEXNAME event_chaos0_water_textures[1] = {
     {TEXT_1, 0, 0},
 };

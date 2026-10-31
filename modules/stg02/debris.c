@@ -23,7 +23,11 @@
  * returns a Uint16. SHC then compares the result unextended (CMP/EQ R0,R8 at
  * 0x0c904b08). as stage.h declares it, 5 of windy_haze_step's 102 words
  * differ */
+#ifdef GCC
+#include "stage/stage.h"
+#else
 extern int stage_get_stage_act(void);
+#endif
 
 extern NJS_OBJECT sai_object;
 extern NJS_MODEL dat_0c9bfa04;
@@ -129,7 +133,7 @@ void windy_tornado_debris_step(struct task *task)
         random = rand() * RAND_SCALE;
         work->scl.x = _builtin_fabsf(random) + 1.0F;
         work->scl.y = work->pos.y;
-        ang = (Angle)(random * 360.0F * ANGLE_PER_DEGREE);
+        ang = (Angle)(random * (360.0F * ANGLE_PER_DEGREE));
         work->ang.y = work->ang.x = ang;
         break;
     case MODE_RUN:
@@ -141,6 +145,13 @@ void windy_tornado_debris_step(struct task *task)
          * (JSR at 0x0c904902). until the tornado's first run step, it leaves
          * target unwritten. only target.y is set (0x0c904912), so point_toward
          * reads target.x and z unset (JSR at 0x0c904924) */
+#ifdef GCC
+        /* repairs the unset target the tag names: until the tornado's first
+         * run step, the target's x and z are the debris's own, so the debris
+         * moves in neither */
+        target.x = work->pos.x;
+        target.z = work->pos.z;
+#endif
         windy_tornado_get_pos(&target);
         target.y = work->scl.y;
         point_toward(&work->pos, &target, speed * 2.0F, &work->pos);

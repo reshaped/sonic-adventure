@@ -211,6 +211,12 @@ static void drop_target_piece_run(struct task *task)
     int sinking;
     struct task_work *player;
 
+#ifdef GCC
+    /* GCC can't see that every path sets sinking and down: drop_target_init
+     * makes pieces 0, 1 and 2 alone */
+    sinking = DROP_TARGET_0_SINKING;
+    down = DROP_TARGET_0_DOWN;
+#endif
     switch (PIECE(work)->piece) {
     case 0:
         sinking = DROP_TARGET_0_SINKING;

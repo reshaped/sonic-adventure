@@ -16,6 +16,6 @@ static NJS_MOTION ev009b_green_emerald_motion = {
 NJS_ACTION ev009b_green_emerald_action[1] = {
 #include "ev009b/green_emerald_action/ev009b_green_emerald_action.inc"
 };
-static NJS_TEXNAME ev009b_purple_emerald_textures[1] = {
+NJS_TEXNAME ev009b_purple_emerald_textures[1] = {
     {TEXT_1, 0, 0},
 };

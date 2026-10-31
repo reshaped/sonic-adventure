@@ -58,7 +58,12 @@ Bool alife_take_hit(struct task_work *work, struct alife_chao *chao)
         /* @bug uninitialized: returns no value during the cooldown. R0 keeps
          * the 122 that MOV #122,R0 at 0x0c913f9a loads to read hit_wait, which
          * alife_interrupt takes as TRUE, so it tries nothing after this */
+#ifdef GCC
+        /* keeps the value the tag names, as alife_interrupt reads it: TRUE */
+        return TRUE;
+#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
+#endif
     } else {
         if (chao->hit_wait > HIT_WAIT_MAX) {
             chao->hit_wait = HIT_WAIT_MAX;

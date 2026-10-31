@@ -16,12 +16,14 @@
 #include "event/event.h"
 #include "hud/hud.h"
 #include "main.h"
+#include "minicart/riders.h"
 #include "object/capsule.h"
 #include "object/common.h"
 #include "object/helpers.h"
 #include "object/panel.h"
 #include "object/ring.h"
 #include "path/path.h"
+#include "player/m_sbmot.h"
 #include "player/tails.h"
 #include "player/tails_trail.h"
 #include "player/player.h"
@@ -323,24 +325,24 @@ enum tails_action_index {
  * or at rest while the stage is paused */
 #define TAIL_SETTLE_ZONE 0x1000
 
-/* an action in m_sbmot.PRS, which loads at a fixed address: one of his on
- * his board, or one of the board's */
-#define M_SBMOT(address) ((NJS_ACTION *)(address))
-
 /* the record of the board's rider */
 /* @hack type: player_get called through a pointer to a function of a
  * Sint8, so the number MOV.B sign-extends goes to it as it is (MOV R0,R4
  * at 0x8c0c7750); through player.h's Uint8 prototype, SHC adds an EXTU.B,
  * the function runs 2 bytes long and 81 of 91 words differ */
+#ifdef GCC
+/* keeps the shipped play: GCC calls player_get through player.h's
+ * prototype, and the board's player number is always 0, which the two
+ * types pass alike. heap_calloc zeroes the work, and nothing sets the
+ * number */
+#define BOARD_PLAYER(work) (player_get(BOARD_VARS(work)->player))
+#else
 #define BOARD_PLAYER(work)                                                     \
     (((struct player * (*)(Sint8)) player_get)(BOARD_VARS(work)->player))
+#endif
 
 /* how far his board sits below his middle */
 #define BOARD_DEPTH (-5.190199F)
-
-/* his board itself, and its textures, in m_sbmot.PRS too */
-#define BOARD_OBJECT ((NJS_OBJECT *)0x0cb029c8)
-#define BOARD_TEXLIST ((NJS_TEXLIST *)0x0cb025a4)
 
 /* the nodes a look task turns: his head and his two pupils */
 struct tails_look_nodes {
@@ -449,6 +451,21 @@ extern NJS_MODEL tails_tail0_wave_model[];
 extern NJS_MODEL tails_tail1_wave_model[];
 extern NJS_MODEL tails_tail0_blend_model[];
 extern NJS_MODEL tails_tail1_blend_model[];
+#ifdef GCC
+/* the face normals model_calc_face_normals writes for the two waving copies
+ * and the two blends: tails_tail1_wave_model's, tails_tail0_wave_model's,
+ * tails_tail1_blend_model's, then tails_tail0_blend_model's. each model's
+ * three meshsets point their normals into 14 of them, one for each strip.
+ * 1ST_READ.BIN's tables place the four models' 56 in bss, where no source
+ * holds them. the port defines them here, and repairs a write past them
+ * with 7 more. tails_tail0_blend_model's third meshset points its normals
+ * at the 54th. blending it (JSR to model_blend at 0x8c0c270a) writes each
+ * strip's normals from there, as util.c's bug has it, and the longest
+ * writes 10. in the image the 7 land on knuckles.c's bss from 0x8c7ab3a0,
+ * and the 60th on knuckles_dig_last_pos. knuckles_set_dig_chances then
+ * takes that normal for where Knuckles last dug out */
+NJS_VECTOR tails_tail_face_normals[56 + 7];
+#endif
 /* for each of his two models, the node a mouth task takes as his face,
  * whose sibling is his head. then his head, and its model. after them come
  * the head the mouth task blends into, the shapes his mouth moves through,
@@ -728,7 +745,7 @@ static struct player_action tails_actions[] = {
     {&tails_throw_at_target_action, 68, 4, 19, 0.5F, 1.0F},
     {&tails_throw_action, 68, 4, 19, 0.5F, 1.0F},
     {&tails_lift_action, 68, 6, 0, 1.0F, 1.0F},
-    {MODULE_ACTION(0x0c90a0cc), 68, 5, 89, 1.0F, 0.3F},
+    {&tails_cart_action, 68, 5, 89, 1.0F, 0.3F},
     {&tails_hang_go_action, 68, 12, 90, 1.0F, 0.3F},
     {&tails_hang_action, 68, 3, 91, 0.25F, 0.25F},
     {&tails_hang_swapped_action, 68, 3, 92, 0.25F, 0.25F},
@@ -746,27 +763,27 @@ static struct player_action tails_actions[] = {
     {&tails_circle_right_action, 68, 3, 104, 0.25F, 2.0F},
     {&tails_circle_down_action, 68, 5, 105, 0.25F, 0.5F},
     {&tails_circle_land_action, 68, 4, 102, 0.25F, 0.5F},
-    {M_SBMOT(0x0cae1c44), 68, 3, 107, 0.0625F, 1.0F},
-    {M_SBMOT(0x0cae1c44), 68, 5, 108, 0.125F, 1.0F},
-    {M_SBMOT(0x0cae1c44), 68, 5, 109, 0.125F, 1.0F},
-    {M_SBMOT(0x0cae63e0), 68, 4, 116, 0.0625F, 1.0F},
-    {M_SBMOT(0x0cae4a2c), 68, 4, 110, 0.25F, 1.0F},
-    {M_SBMOT(0x0caec15c), 68, 12, 112, 1.0F, 1.0F},
-    {M_SBMOT(0x0caea6b8), 68, 12, 113, 1.0F, 1.0F},
-    {M_SBMOT(0x0caeec50), 68, 4, 119, 1.0F, 1.0F},
-    {M_SBMOT(0x0cae8c14), 68, 4, 119, 1.0F, 1.0F},
-    {M_SBMOT(0x0cadd73c), 68, 3, 117, 0.5F, 0.3F},
-    {M_SBMOT(0x0cadd73c), 68, 3, 117, 0.5F, 0.3F},
-    {M_SBMOT(0x0cae0210), 68, 4, 107, 0.5F, 1.0F},
-    {M_SBMOT(0x0cae1c44), 68, 3, 119, 0.0625F, 1.0F},
-    {M_SBMOT(0x0cae1c44), 68, 4, 107, 0.0625F, 1.0F},
-    {M_SBMOT(0x0caf883c), 68, 4, 117, 0.0625F, 0.8F},
-    {M_SBMOT(0x0cb02590), 68, 4, 117, 0.0625F, 1.1F},
-    {M_SBMOT(0x0caf25a4), 68, 4, 124, 1.0F, 1.5F},
-    {M_SBMOT(0x0caf25a4), 68, 4, 125, 1.0F, 1.5F},
-    {M_SBMOT(0x0caf25a4), 68, 4, 117, 0.25F, 1.5F},
-    {M_SBMOT(0x0caf5dc8), 68, 4, 117, 0.25F, 1.5F},
-    {M_SBMOT(0x0cae3658), 68, 3, 127, 0.25F, 1.5F},
+    {&dat_0cae1c44, 68, 3, 107, 0.0625F, 1.0F},
+    {&dat_0cae1c44, 68, 5, 108, 0.125F, 1.0F},
+    {&dat_0cae1c44, 68, 5, 109, 0.125F, 1.0F},
+    {&dat_0cae63e0, 68, 4, 116, 0.0625F, 1.0F},
+    {&dat_0cae4a2c, 68, 4, 110, 0.25F, 1.0F},
+    {&dat_0caec15c, 68, 12, 112, 1.0F, 1.0F},
+    {&dat_0caea6b8, 68, 12, 113, 1.0F, 1.0F},
+    {&dat_0caeec50, 68, 4, 119, 1.0F, 1.0F},
+    {&dat_0cae8c14, 68, 4, 119, 1.0F, 1.0F},
+    {&dat_0cadd73c, 68, 3, 117, 0.5F, 0.3F},
+    {&dat_0cadd73c, 68, 3, 117, 0.5F, 0.3F},
+    {&dat_0cae0210, 68, 4, 107, 0.5F, 1.0F},
+    {&dat_0cae1c44, 68, 3, 119, 0.0625F, 1.0F},
+    {&dat_0cae1c44, 68, 4, 107, 0.0625F, 1.0F},
+    {&dat_0caf883c, 68, 4, 117, 0.0625F, 0.8F},
+    {&dat_0cb02590, 68, 4, 117, 0.0625F, 1.1F},
+    {&dat_0caf25a4, 68, 4, 124, 1.0F, 1.5F},
+    {&dat_0caf25a4, 68, 4, 125, 1.0F, 1.5F},
+    {&dat_0caf25a4, 68, 4, 117, 0.25F, 1.5F},
+    {&dat_0caf5dc8, 68, 4, 117, 0.25F, 1.5F},
+    {&dat_0cae3658, 68, 3, 127, 0.25F, 1.5F},
     {&tails_spin_action, 68, 10, 128, 0.25F, 0.2F},
     {&tails_stand_action, 68, 4, 130, 0.25F, 0.25F},
     {&tails_stand_action, 68, 3, 130, 0.25F, 0.25F},
@@ -891,26 +908,10 @@ static struct weld tails_welds[] = {
 /* the board's own action for each of his board actions, from ACTION_BOARD
  * on. null draws the board as its model has it */
 static NJS_ACTION *tails_board_actions[] = {
-    NULL,
-    M_SBMOT(0x0cb03844),
-    M_SBMOT(0x0cb03844),
-    M_SBMOT(0x0cb02cd0),
-    M_SBMOT(0x0cb02b7c),
-    M_SBMOT(0x0cb035a0),
-    M_SBMOT(0x0cb02f14),
-    M_SBMOT(0x0cb0335c),
-    M_SBMOT(0x0cb03138),
-    NULL,
-    M_SBMOT(0x0cb02a38),
-    NULL,
-    NULL,
-    NULL,
-    M_SBMOT(0x0cb039c8),
-    M_SBMOT(0x0cb0456c),
-    M_SBMOT(0x0cb03844),
-    M_SBMOT(0x0cb03844),
-    M_SBMOT(0x0cb03844),
-    M_SBMOT(0x0cb03844),
+    NULL,          &dat_0cb03844, &dat_0cb03844, &dat_0cb02cd0, &dat_0cb02b7c,
+    &dat_0cb035a0, &dat_0cb02f14, &dat_0cb0335c, &dat_0cb03138, NULL,
+    &dat_0cb02a38, NULL,          NULL,          NULL,          &dat_0cb039c8,
+    &dat_0cb0456c, &dat_0cb03844, &dat_0cb03844, &dat_0cb03844, &dat_0cb03844,
     NULL,
 };
 
@@ -3284,6 +3285,16 @@ static void tails_draw(struct task *task)
                 njSetConstantMaterial(&color);
             }
         }
+#ifdef GCC
+        /* the split frame's second picture draws the tails as step 0 left
+         * them. it moves them no further, so that they turn and wave once a
+         * frame, as at 30 fps */
+        if (frame_redrawing) {
+            njPopMatrix(1);
+            draw_set_palette(0);
+            return;
+        }
+#endif
         /* in flight, or with TAILS_TAIL_SPIN set, his flying tails spin.
          * in his tail attack, or with TAILS_TAIL_STILL set, they stay
          * still. otherwise his tails wave, and spin up as he runs */
@@ -4185,7 +4196,13 @@ static Bool tails_try_request(struct task_work *work,
          * end, is one past tails_actions' last row (MOV.W @(0x8c0c3f08),R2
          * at 0x8c0c3ece), so player_anim_step reads his action's row from
          * tails_shapes' first bytes */
+#ifdef GCC
+        /* repairs the read the tag names: GCC takes the last row, his
+         * shower's end, which plays his stand once and goes to ACTION_STAND */
+        record->anim.action = ACTION_SHOWER_END;
+#else
         record->anim.action = ACTION_MUD_OUT;
+#endif
         work->ang.x = work->ang.z = 0;
         player_clear_speed(motion, record);
         work->flags &= ~(PLAYER_ON_PATH | PLAYER_ATTACKING);
@@ -5329,6 +5346,10 @@ static Bool tails_look_create(Sint8 player, struct tails_look_nodes *nodes)
     /* @hack spelling: once the task is made, R0 keeps 96 from MOV #96,R0 at
      * 0x8c0c5d16. its one caller drops the result, so with return TRUE, 7 of 46
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+    return TRUE;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -5355,6 +5376,10 @@ static Bool tails_fly_look_create(Sint8 player, struct tails_look_nodes *nodes)
     /* @hack spelling: once the task is made, R0 keeps 96 from MOV #96,R0 at
      * 0x8c0c5d94. its one caller drops the result, so with return TRUE, 7 of 46
      * words differ */
+#ifdef GCC
+    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+    return TRUE;
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
 }
 
@@ -5481,6 +5506,12 @@ static void tails_look_step(struct task *task)
             break;
         case EVENT_LOOK_TASK:
             target = event->look_task->work;
+#ifdef GCC
+            /* repairs the unset angles the tag below names: 0, as the
+             * default case sets them, looks ahead */
+            angles[1] = 0;
+            angles[2] = 0;
+#endif
             /* @bug uninitialized: when the event's task has no work,
              * angles[1] and [2] stay unset. the BT at 0x8c0c6146 skips to
              * the aims, which read them at 0x8c0c61b8 and 0x8c0c61c2 */
@@ -5791,6 +5822,18 @@ static void tails_attack_next(struct task_work *work, struct player *record)
         if (player_read_stick(work, NULL, NULL)) {
             PDS_PERIPHERAL *pad;
 
+#ifdef GCC
+            /* sets pad first, as SHC evaluates the shipped arguments right to
+             * left */
+            pad = &pad_records[PLAYER_VARS(work)->player];
+            next =
+                ((((int)(atan2f((Float)(pad->y1 << 8), (Float)(pad->x1 << 8)) *
+                         ANGLE_PER_RADIAN) +
+                   4096) >>
+                  13) &
+                 7) +
+                ACTION_ATTACK_RIGHT;
+#else
             /* @hack implicit: the second argument sets pad and the first reads
              * it, unsequenced, which SHC evaluates right to left, keeping pad
              * in a stack slot between the reads (MOV.L R0,@R15 at 0x8c0c6aa2,
@@ -5811,6 +5854,7 @@ static void tails_attack_next(struct task_work *work, struct player *record)
                    ACTION_ATTACK_RIGHT;
             /* NOLINTEND(clang-diagnostic-unsequenced) */
             /* NOLINTEND(clang-diagnostic-uninitialized) */
+#endif
             if ((Uint8)next == record->anim.action) {
                 entry->next = ((Uint8)(int)record->anim.frame & 1) +
                               ACTION_ATTACK_STILL_A;
@@ -6178,8 +6222,8 @@ void tails_board_start(struct task *task)
 {
     struct task_work *work = task->work;
 
-    BOARD_VARS(work)->object = BOARD_OBJECT;
-    BOARD_VARS(work)->texlist = BOARD_TEXLIST;
+    BOARD_VARS(work)->object = &tails_board_object;
+    BOARD_VARS(work)->texlist = &tails_board_texlist;
     task->motion->gravity = 0.02F;
     njLoadTexture(BOARD_VARS(work)->texlist);
     task->destructor = tails_board_destroy;

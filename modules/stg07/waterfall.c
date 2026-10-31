@@ -15,6 +15,11 @@ extern NJS_OBJECT waterfall_object;
 /* the meshsets the slide takes, and the uvs it copies from each */
 #define FALL_MESHSETS 3
 #define FALL_UVS 88
+#ifdef GCC
+/* the model's meshsets, and the uvs each one's strips take */
+#define MODEL_MESHSETS 2
+static const int meshset_uvs[MODEL_MESHSETS] = {88, 90};
+#endif
 
 /* the waterfall destroys itself unless the camera or player 0 is within
  * 1200 of it */
@@ -107,14 +112,27 @@ static void waterfall_draw(struct task *task)
      * 0x0c90b86c). point 1's z then holds a stack address until the draw puts
      * it back (0x0c90b880, 0x0c90b92a) */
     meshset = object->model->meshsets;
+#ifdef GCC
+    /* repairs the reads the tag names: GCC's loops take the model's two
+     * meshsets */
+    for (i = 0; i < MODEL_MESHSETS; ++i, ++meshset) {
+#else
     for (i = 0; i < FALL_MESHSETS; ++i, ++meshset) {
+#endif
         /* @hack spelling: the slide through an int, which SHC copies from R8
          * into R10 each pass for the SUB R10,R0 (0x0c90b872, 0x0c90b8e8).
          * without it, the object's code ends 32 bytes sooner, and 92 of
          * waterfall_draw's 151 words differ */
         int down = slide;
 
+#ifdef GCC
+        /* repairs the second meshset's copy: its strips take 90 uvs. the
+         * image copies 88, so its draw takes the last two from the third
+         * meshset's copy */
+        j = meshset_uvs[i];
+#else
         j = FALL_UVS;
+#endif
         from = meshset->vertuv;
         to = &uvs[i * FALL_UVS];
         own[i] = from;
@@ -128,7 +146,12 @@ static void waterfall_draw(struct task *task)
     }
     draw_model(object->model);
     meshset = object->model->meshsets;
+#ifdef GCC
+    /* repairs the second loop the same way */
+    for (i = 0; i < MODEL_MESHSETS; ++i, ++meshset) {
+#else
     for (i = 0; i < FALL_MESHSETS; ++i, ++meshset) {
+#endif
         meshset->vertuv = own[i];
     }
     njPopMatrix(1);

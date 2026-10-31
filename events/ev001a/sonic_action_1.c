@@ -2513,6 +2513,6 @@ NJS_ACTION ev001a_eggmobile_action_4 = {
 };
 /* the texture name that ev001a_emerald_texlist, in the generated data after
  * this object, points at */
-static NJS_TEXNAME ev001a_emerald_textures[1] = {
+NJS_TEXNAME ev001a_emerald_textures[1] = {
     {TEXT_13, 0, 0},
 };

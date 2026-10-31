@@ -55,7 +55,8 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope);
 Float ground_find_first_floor(struct task_work *work, struct angles *slope);
 
 /* the shadow functions draw only while frame_step is 0, a frame's first
- * step. those that return a floor's height return it on every step */
+ * step. under GCC, port.h's present_shadow says when. those that return a
+ * floor's height return it on every step */
 
 /* draw a shadow on a floor at height under the task, of size 1 right under
  * it, tilted by the task's x and z angles */
@@ -86,6 +87,25 @@ Float shadow_draw_slope(struct task_work *work, Float scale,
  * it draws the shadow on the surface below, when that is less than 20000
  * down */
 void shadow_update(struct task_work *work, struct shadow *shadow);
+#ifdef GCC
+/* how a shadow draws: shadow_object scaled by its width, or by its width
+ * twice, as shadow_draw_at's is, or shadow_object's model alone, as
+ * shadow_draw_at_height's is */
+enum shadow_way { SHADOW_OBJECT, SHADOW_TWICE, SHADOW_MODEL };
+/* a shadow as a shadow function places it: where it sits, its turns about
+ * z, x and y, each 0 where the function makes none, its width, and how it
+ * draws */
+struct shadow_place {
+    NJS_POINT3 pos;
+    Angle ang_z;
+    Angle ang_x;
+    Angle ang_y;
+    Float scale;
+    enum shadow_way way;
+};
+/* draw place's shadow, as the shadow functions draw theirs */
+void shadow_draw_placed(const struct shadow_place *place);
+#endif
 /* fill in result's nearest surface on each side of its point, of the
  * objects near it. ground_find_sides leaves liquids out, and returns TRUE
  * when any object has a surface on a side. ground_find_sides_water takes

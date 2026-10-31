@@ -2,6 +2,8 @@
  * them in its own bird texlist, which it loads from VER2_WING */
 #include <ninja.h>
 
+#include "shared/bird_textures.h"
+
 #define TEXT_1_LENGTH 9
 #define TEXT_2_LENGTH 9
 #define TEXT_3_LENGTH 10
@@ -16,7 +18,7 @@
 #define TEXT_12_LENGTH 9
 #include "shared/bird_textures/text.inc"
 
-static NJS_TEXNAME event_bird_textures[12] = {
+NJS_TEXNAME event_bird_textures[12] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0},  {TEXT_3, 0, 0},  {TEXT_4, 0, 0},
     {TEXT_5, 0, 0}, {TEXT_6, 0, 0},  {TEXT_7, 0, 0},  {TEXT_8, 0, 0},
     {TEXT_9, 0, 0}, {TEXT_10, 0, 0}, {TEXT_11, 0, 0}, {TEXT_12, 0, 0},

@@ -16,5 +16,8 @@ extern NJS_ACTION ev00bf_bird_action_4;
 extern NJS_ACTION ev00bf_bird_action_5;
 extern NJS_ACTION ev00bf_bird_action_6;
 extern NJS_TEXLIST ev00bf_bird_texlist_2;
+/* the material of dat_0cb990dc, the model of one of ev00bf_bird_action_7's
+ * nodes. those nodes follow this object's data */
+extern NJS_MATERIAL dat_0cb99034[1];
 
 #endif

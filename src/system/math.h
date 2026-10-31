@@ -81,4 +81,91 @@ void fill_bytes(void *mem, int value, int count);
  * positive multiple of 32, and mem a multiple of 4 */
 void fill_blocks(void *mem, Uint32 value, int size);
 
+#ifdef GCC
+/* under GCC, a C call of vector_inner_product_across,
+ * vector_magnitude_across, vector_unit_across or point_calc_xy runs its
+ * helper inline. as in ninja_zam.h, the helper is named zam_ and the
+ * function's name, and a macro of the name calls it. math.src stays each
+ * function's definition, which a function pointer still reaches. each
+ * helper runs math.src's arithmetic on the same operands, but for the
+ * registers its comment says a caller left. each FIPR takes its two vectors
+ * in math.src's order.
+ *
+ * the other functions have no helper, so a C call reaches math.src. of
+ * them, vector_inner_product, vector_magnitude, point_project_centered,
+ * point_distance, point_distance_across, point_distance_squared and
+ * point_distance_squared_across would each run no fewer instructions
+ * inlined than the call. their bodies load a vector by post-increment,
+ * where GCC's inlined loads compute each member's address */
+
+/* v's x and z, with 0 for y, as math.src's _across bodies load them. like
+ * them, it reads no y, which some callers leave unset */
+ALWAYS_INLINE shz_vec3_t zam_load_across(const NJS_VECTOR *v)
+{
+    return shz_vec3_init(v->x, 0.0F, v->z);
+}
+
+/* b is FIPR's first operand, as in math.src's FIPR FV4,FV0. that FIPR also
+ * multiplies the zeros in FR1 and FR3 by the FR5 and FR7 its caller left,
+ * where this one multiplies 0 by 0. an infinity or a NaN in FR5 or FR7
+ * makes math.src's result a NaN, and not the helper's */
+ALWAYS_INLINE Float zam_vector_inner_product_across(NJS_VECTOR *a,
+                                                    NJS_VECTOR *b)
+{
+    return zam_fipr(shz_vec3_vec4(zam_load_across(b), 0.0F),
+                    shz_vec3_vec4(zam_load_across(a), 0.0F));
+}
+ZAM_ASSERT_COMPATIBLE(vector_inner_product_across);
+#define vector_inner_product_across(a, b) zam_vector_inner_product_across(a, b)
+
+ALWAYS_INLINE Float zam_vector_magnitude_across(NJS_VECTOR *vector)
+{
+    return __builtin_sqrtf(zam_squared_length(zam_load_across(vector)));
+}
+ZAM_ASSERT_COMPATIBLE(vector_magnitude_across);
+#define vector_magnitude_across(vector) zam_vector_magnitude_across(vector)
+
+ALWAYS_INLINE Float zam_vector_unit_across(NJS_VECTOR *vector, NJS_VECTOR *out)
+{
+    shz_vec3_t across = zam_load_across(vector);
+    Float scale = _builtin_fsrra(zam_squared_length(across));
+
+    out->x = across.x * scale;
+    out->z = across.z * scale;
+    return scale;
+}
+ZAM_ASSERT_COMPATIBLE(vector_unit_across);
+#define vector_unit_across(vector, out) zam_vector_unit_across(vector, out)
+
+/* with a matrix in memory, the helper runs the two FIPRs
+ * shz_mat4x4_transform_point2 runs: the point (x, y, 0, 1) with
+ * (*matrix)[0], [4], [8] and [12] for x, and with [1], [5], [9] and [13]
+ * for y. it puts 0 in place of [8] and [9], which the point's 0 z
+ * multiplies, and loads neither, as math.src doesn't. the point is each
+ * FIPR's first operand, as in math.src's FIPR FV0,FV4. that FIPR multiplies
+ * the point's 0 z by the FR6 its caller left, where this one multiplies 0
+ * by 0. an infinity or a NaN in FR6 makes math.src's result a NaN, and not
+ * the helper's */
+ALWAYS_INLINE void zam_point_calc_xy(NJS_MATRIX *matrix, NJS_POINT3 *point,
+                                     Float *out)
+{
+    shz_vec2_t xy = shz_vec2_init(point->x, point->y);
+    shz_vec4_t at = shz_vec2_vec4(xy, 0.0F, 1.0F);
+
+    if (matrix == NULL) {
+        xy = shz_xmtrx_transform_point2(xy);
+        out[0] = xy.x;
+        out[1] = xy.y;
+    } else {
+        out[0] = zam_fipr(
+            at, shz_vec4_init((*matrix)[0], (*matrix)[4], 0.0F, (*matrix)[12]));
+        out[1] = zam_fipr(
+            at, shz_vec4_init((*matrix)[1], (*matrix)[5], 0.0F, (*matrix)[13]));
+    }
+}
+ZAM_ASSERT_COMPATIBLE(point_calc_xy);
+#define point_calc_xy(matrix, point, out) zam_point_calc_xy(matrix, point, out)
+
+#endif
+
 #endif

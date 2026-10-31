@@ -3,6 +3,7 @@
 #ifndef STG04_POLICE_H
 #define STG04_POLICE_H
 
+#include <ninja.h>
 #include <sg_xpt.h>
 
 #include "system/task.h"
@@ -12,6 +13,10 @@
  * route's start */
 #define POLICE_STRETCHES 7
 extern Float police_stretches[POLICE_STRETCHES][2];
+
+/* the texlist of the car, its driver and the siren. 1ST_READ.BIN's
+ * highway_pvms names it, for NISEPAT's textures */
+extern NJS_TEXLIST police_texlist;
 
 /* the object list's init, which installs the step, draw and destructor */
 void police_init(struct task *task);

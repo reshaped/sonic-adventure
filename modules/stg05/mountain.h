@@ -5,6 +5,13 @@
 
 #include "system/task.h"
 
+struct death_zone;
+
+/* the zones a player goes down in, a list for each act, ended by a null
+ * object. 1ST_READ.BIN's death_zones holds the array's address for
+ * Red Mountain. the stage's generated data holds them */
+extern struct death_zone *mountain_death_zones[];
+
 /* the stage task's work, which its first step sets. the step that ends the
  * stage clears it to NULL. pos.y holds the lava's level. scl.x holds the
  * level the lava rises to, and scl.y its rise each step, which MagmaCnt

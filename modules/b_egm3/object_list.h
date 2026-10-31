@@ -4,8 +4,7 @@
 
 #include "object/placement.h"
 
-/* 1ST_READ.BIN's object_lists reaches this list by its address, 0x0c9588cc,
- * not by its name */
+/* 1ST_READ.BIN's object_lists names this list */
 extern struct object_list eggmobile3_object_list;
 
 #endif

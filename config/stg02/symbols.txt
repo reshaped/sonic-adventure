@@ -628,6 +628,12 @@
 0x0c9de2a8  windy_emerald_blue_object
 0x0c9de2dc  windy_emerald_textures
 0x0c9de324  windy_emerald_texlist
+0x0c9dff1c  dat_0c9dff1c
+0x0c9e28a0  dat_0c9e28a0
+0x0c9e5224  dat_0c9e5224
+0x0c9e6e18  dat_0c9e6e18
+0x0c9ebb34  windy_act0_paths
+0x0c9ebb3c  windy_act2_paths
 0x0c9ebb58  windy_fog_table
 0x0c9ebd58  windy_zone_entered
 0x0c9ebd60  windy_object_kinds

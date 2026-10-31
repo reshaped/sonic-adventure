@@ -2330,6 +2330,11 @@ static Sint32 flush_dir(Sint32 drive)
     Sint32 moved;
     struct vmsfs_drive *drv = &buVmsDrive[drive];
 
+#ifdef GCC
+    /* GCC can't see that prev is set wherever it is read: the loop reads it
+     * only where i is above 0, after an earlier pass has set it */
+    prev = 0;
+#endif
     first = drv->media->dir_block;
     count = drv->media->dir_size;
     block = first;

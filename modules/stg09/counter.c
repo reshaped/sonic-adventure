@@ -19,7 +19,7 @@
 
 /* the board, whose model holds the lamp's and the digits' materials */
 extern NJS_OBJECT counter_object;
-extern NJS_MESHSET counter_lamp_meshset;
+extern NJS_MESHSET counter_meshsets[10];
 
 /* the task starts only within about 600 of the camera or player 0, and
  * destroys itself otherwise. placement_try_leave_by takes the range

@@ -4,8 +4,8 @@
 
 #include "progress/story.h"
 
-/* each section's script, which a story table in progress/story.c names by
- * its address in ADV03 */
+/* each section's script, in ADV03, which a story table in progress/story.c
+ * names */
 extern struct story_script script_sonic_fire;
 extern struct story_script script_tails_tikal;
 extern struct story_script script_knuckles_tikal;

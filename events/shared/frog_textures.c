@@ -2,6 +2,8 @@
  * event that links frog.c defines that texlist and loads it from SHAPE_FROG */
 #include <ninja.h>
 
+#include "shared/frog_textures.h"
+
 #define TEXT_1_LENGTH 7
 #define TEXT_2_LENGTH 7
 #define TEXT_3_LENGTH 7
@@ -12,7 +14,7 @@
 #define TEXT_8_LENGTH 7
 #include "shared/frog_textures/text.inc"
 
-static NJS_TEXNAME event_frog_textures[8] = {
+NJS_TEXNAME event_frog_textures[8] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0}, {TEXT_4, 0, 0},
     {TEXT_5, 0, 0}, {TEXT_6, 0, 0}, {TEXT_7, 0, 0}, {TEXT_8, 0, 0},
 };

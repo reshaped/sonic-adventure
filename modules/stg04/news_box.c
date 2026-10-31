@@ -68,6 +68,11 @@ static void news_box_stand(struct task *task)
     TURN(njRotateZ, work->ang.z);
     TURN(njRotateX, work->ang.x);
     TURN(njRotateY, work->ang.y);
+#ifdef GCC
+    /* GCC can't see that every path sets object: each news box's init sets
+     * its kind to one the switch has a case for */
+    object = &news_box_1_object;
+#endif
     switch (VARS(work)->kind) {
     case NEWS_BOX_1:
         object = &news_box_1_object;

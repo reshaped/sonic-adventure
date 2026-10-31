@@ -1510,6 +1510,6 @@ static NJS_TEXLIST dat_0cb9868c = {
 /* the material of the model at 0x0cb9873c, one of the models in Froggy's
  * tree, which ev001c_frog_action moves. that model lies in the generated
  * data after this object */
-static NJS_MATERIAL dat_0cb98694[1] = {
+NJS_MATERIAL dat_0cb98694[1] = {
 #include "ev001c/sonic_action_0/dat_0cb98694.inc"
 };

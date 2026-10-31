@@ -200,3 +200,9 @@ Sint32 _nj_palette_bpp_;
 Sint32 _nj_palette_mode_;
 Int _nj_matrix_flag_;
 void (*_nj_motion_callback_)(NJS_OBJECT *obj);
+#ifdef GCC
+/* port.h's pivot and cover for the 2D draws' squeeze, WIDE_MIDDLE and FALSE
+ * at boot */
+Float port_wide_anchor;
+Int port_wide_cover;
+#endif

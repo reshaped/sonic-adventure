@@ -7,5 +7,8 @@
 
 extern NJS_TEXLIST event_e101_texlist;
 extern NJS_TEXLIST event_e101_jet_texlist;
+/* the material belongs to a node of event_e101_object, E-101's model, in the
+ * generated data of each event that links it */
+extern NJS_MATERIAL event_e101_material[1];
 
 #endif

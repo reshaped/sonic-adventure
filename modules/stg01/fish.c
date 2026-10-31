@@ -806,6 +806,13 @@ static Bool fish_return(struct task *task)
      * 0x0c90b7a2, 0x0c9144c2 and 0x0c918342 and the read at 0x0c90b7d0,
      * 0x0c9144f0 and 0x0c918370. fish_spawn, the only creator of a fish,
      * always stores its generator (0x0c90fb18), so the path never runs */
+#ifdef GCC
+    /* repairs the reads the tag names: a fish with no generator has no home
+     * to reach, so it returns FALSE, as one with no extra does */
+    if (extra->generator == NULL) {
+        return FALSE;
+    }
+#endif
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
     if (extra->generator != NULL) {
         generator = extra->generator;

@@ -1,234 +1,25 @@
-import contextlib
-import io
 import re
 import struct
 import unittest
-from decimal import Decimal
+from decimal import Context, Decimal, Inexact, localcontext
 from pathlib import Path
 from unittest import mock
 
-from config import FIRST_FILE_END
 import data
-from data import (TOKEN, Array, Data, EmitError, Item, LayoutError, Memory, Pointer, ReadError, Record, Scalar, Types,
-                  Writer, f32, mdata_keys, model_at, motion_at, number, object_at, spell, texlist_at)
-from support import tree
-
-
-XPT = '''typedef unsigned char Uint8;
-typedef signed char Sint8;
-typedef unsigned short Uint16;
-typedef short Sint16;
-typedef unsigned long Uint32;
-typedef long Sint32;
-typedef float Float;
-enum bool { false, true };
-typedef enum bool Bool;
-'''
-
-
-def types(*texts):
-    return Types([XPT, *texts])
-
-
-def offsets(layout):
-    return [(name, offset) for name, _, offset in layout.fields]
-
-
-def member(layout, name):
-    return next(field for each, field, _ in layout.fields if each == name)
-
-
-class Layouts(unittest.TestCase):
-    def test_scalars_take_shcs_sizes(self):
-        found = types()
-        for ctype, code in (('char', 'c'), ('signed char', 'b'), ('Uint8', 'B'), ('short', 'h'), ('Uint16', 'H'),
-                            ('int', 'i'), ('unsigned', 'I'), ('long', 'i'), ('Uint32', 'I'), ('Float', 'f'),
-                            ('Bool', 'i'), ('enum bool', 'i')):
-            with self.subTest(ctype=ctype):
-                self.assertEqual(found.layout(ctype), Scalar(code))
-
-    def test_a_struct_aligns_each_member_and_pads_its_end(self):
-        layout = types('struct a { Uint8 b; Sint16 h; Uint8 c; Sint32 w; Sint8 e; };').layout('struct a')
-        self.assertEqual(offsets(layout), [('b', 0), ('h', 2), ('c', 4), ('w', 8), ('e', 12)])
-        self.assertEqual((layout.size, layout.alignment, layout.holes), (16, 4, ((1, 1), (5, 3), (13, 3))))
-
-    def test_one_declaration_declares_each_member(self):
-        layout = types('struct a { Float x, y; Uint8 *p, m[3]; };').layout('struct a')
-        self.assertEqual(offsets(layout), [('x', 0), ('y', 4), ('p', 8), ('m', 12)])
-        self.assertEqual(member(layout, 'p'), Pointer('Uint8'))
-        self.assertEqual(member(layout, 'm'), Array(Scalar('B'), 3))
-
-    def test_a_union_holds_its_largest_member_and_writes_its_first(self):
-        layout = types('union u { Uint8 b; Uint32 w; Sint16 h[3]; };').layout('union u')
-        self.assertTrue(layout.union)
-        self.assertEqual((layout.size, layout.holes), (8, ((1, 7),)))
-
-    def test_typedefs_of_records_arrays_and_pointers(self):
-        found = types('typedef struct { Float x, y; } P2, *P2P;\ntypedef Float TABLE[4][2];\n'
-                      'typedef struct node { struct node *next; P2 at; } NODE;')
-        self.assertEqual(found.layout('P2').size, 8)
-        # an unnamed struct has no name a cast can take
-        self.assertEqual(found.layout('P2P'), Pointer(None))
-        self.assertEqual(found.layout('TABLE'), Array(Array(Scalar('f'), 2), 4))
-        self.assertEqual(offsets(found.layout('NODE')), [('next', 0), ('at', 4)])
-        self.assertEqual(member(found.layout('NODE'), 'next'), Pointer('struct node'))
-
-    def test_a_pointer_names_its_pointee_as_a_cast_would(self):
-        layout = types('struct t; struct a { const Uint16 (*rows)[4]; struct t **list; void (*f)(int); '
-                       'const Uint8 *bytes; };').layout('struct a')
-        self.assertEqual([field for _, field, _ in layout.fields],
-                         [Pointer('const Uint16[]'), Pointer('struct t *'), Pointer(None), Pointer('const Uint8')])
-
-    def test_a_record_inside_a_record(self):
-        layout = types('struct a { Uint8 b; struct { Sint16 h; union { Float f; Uint8 c; } u; } in; };').layout(
-            'struct a')
-        self.assertEqual(offsets(layout), [('b', 0), ('in', 4)])
-        self.assertIsInstance(member(layout, 'in'), Record)
-        self.assertEqual(layout.size, 12)
-
-    def test_each_source_defines_its_own_record(self):
-        # two files' struct a, as two sources of one image define them
-        self.assertEqual(types('struct a { Sint32 w; Uint8 b; };').layout('struct a').size, 8)
-        self.assertEqual(types('struct a { Uint8 b; };').layout('struct a').size, 1)
-
-    def test_comments_strings_and_directives_hide_no_declaration(self):
-        found = types('/* struct a { int x; }; */\nchar *s = "struct a { char x; }";\n#if 0\n#endif\n'
-                      '// struct a { short x; };\nstruct a { Float f; };')
-        self.assertEqual(member(found.layout('struct a'), 'f'), Scalar('f'))
-
-    def test_a_comment_inside_a_macro_joins_its_lines(self):
-        # a comment's line break ends no directive, spliced or not
-        for macro in ('#define N \\\n    /* a comment of \\\n     * two lines */ \\\n    (1 + 2)\n',
-                      '#define N (1 + /* a comment of\n     * two lines */ 2)\n'):
-            with self.subTest(macro=macro):
-                self.assertEqual(types(macro + 'struct a { char x[N]; };').layout('struct a').size, 3)
-
-    def test_what_has_no_layout_fails_naming_why(self):
-        found = types('struct bits { Uint32 flag : 1; };\nstruct d { double x; };\nstruct a { int x[]; };\n'
-                      'typedef void FUNCTION(void);\n#define N (~0U >> 31)\nstruct s { char a[N]; };\n'
-                      'struct n { char a[-1]; };')
-        for ctype, reason in (('struct bits', 'flag is a bit-field'), ('struct d', 'double: no layout'),
-                              ('struct a', r'int\[\]: no extent'), ('FUNCTION', 'a function'),
-                              ('struct s', r'\[N\]: ~ 0U: -1 lies outside unsigned int'),
-                              ('struct n', r'\[- 1\]: a negative extent'),
-                              ('struct none', 'struct none: no definition'), ('NOTHING', 'NOTHING: no type'),
-                              ('void', 'void: no layout')):
-            with self.subTest(ctype=ctype), self.assertRaisesRegex(LayoutError, reason):
-                found.layout(ctype)
-
-    def test_a_tag_defined_two_ways_fails(self):
-        found = types('struct a { Sint32 w; };', 'struct a { Uint8 b; };')
-        with self.assertRaisesRegex(LayoutError, 'struct a: defined two ways'):
-            found.layout('struct a')
-
-    def test_a_typedef_defined_two_ways_fails(self):
-        with self.assertRaisesRegex(LayoutError, '^T: defined two ways$'):
-            types('typedef short T;', 'typedef long T;').layout('T')
-
-
-class Constants(unittest.TestCase):
-    def test_extents_take_macros_and_enumerators(self):
-        found = types('#define ROWS 3\n#define COLS (ROWS * 2 + 1)\nenum { RED, GREEN = 4, BLUE, COUNT };\n'
-                      'struct a { Uint8 grid[ROWS][COLS]; Sint16 colors[COUNT]; };')
-        self.assertEqual(member(found.layout('struct a'), 'grid'), Array(Array(Scalar('B'), 7), 3))
-        self.assertEqual(found.layout('struct a').size, 21 + 1 + 12)
-        self.assertEqual(found.evaluate(['BLUE']), 5)
-
-    def test_a_macro_or_an_enumerator_defined_two_ways_fails(self):
-        found = types('#define N 1\nenum { E = 1 };', '#define N 2\nenum { E = 2 };')
-        for name in ('N', 'E'):
-            with self.subTest(name=name), self.assertRaisesRegex(LayoutError, f'^{name}: defined two ways$'):
-                found.evaluate([name])
-
-    def test_a_macro_expands_as_text(self):
-        # as the preprocessor does, without parentheses of its own
-        self.assertEqual(types('#define SUM 1 + 2').evaluate(['SUM', '*', '3']), 7)
-
-    def test_c_arithmetic(self):
-        # each as SHC R10 and R32 give it in an extent
-        found = types()
-        for text, value in (('-7 / 2', -3), ('-7 % 2', -1), ('7 % -2', 1), ('1 << 4 | 1', 17), ('~0 & 0xff', 255),
-                            ('(2 + 3) * 4', 20), ('6 - 2 - 1', 3), ('1 < 2 && 2 < 3', 1), ('-16 >> 2', -4),
-                            ('-3 >> 1', -2), ('-3 << 2', -12)):
-            with self.subTest(text=text):
-                self.assertEqual(found.evaluate(TOKEN.findall(text)), value)
-
-    def test_unsigned_and_long_values_that_fit_their_types(self):
-        # each as SHC R10 and R32 give it in an extent
-        found = types()
-        for text, value in (('12U + 40UL', 52), ('0x80000000U >> 28', 8), ('0xFFFFFFFF >> 28', 15),
-                            ('3000000000 / 1000000000', 3), ('1 < 2U', 1), ('-1 && 1U', 1), ('5U - 3', 2),
-                            ('-1L < 1U', 1), ('1 < 0xffffffffUL', 1), ('0x80000000L >> 31', 1), ('-1 >> 1U', -1),
-                            ('(1 < 2U) - 2', -1), ('!0U - 2', -1)):
-            with self.subTest(text=text):
-                self.assertEqual(found.evaluate(TOKEN.findall(text)), value)
-
-    def test_integer_constants_take_shcs_types(self):
-        self.assertEqual([number(text) for text in ('0', '017', '0x1F', '12U', '40UL', '10L', '0x80000000',
-                                                    '3000000000', '0x80000000L')],
-                         [(0, 'int'), (15, 'int'), (31, 'int'), (12, 'unsigned int'), (40, 'unsigned long'),
-                          (10, 'long'), (0x80000000, 'unsigned int'), (3000000000, 'unsigned int'),
-                          (0x80000000, 'unsigned long')])
-        for text, reason in (('1.5F', '1.5F: no integer constant'), ('10LL', '10LL: no integer constant'),
-                             ('0x100000000', '0x100000000: wider than 32 bits')):
-            with self.subTest(text=text), self.assertRaisesRegex(LayoutError, reason):
-                number(text)
-
-    def test_what_is_no_constant_fails(self):
-        found = types('#define HALF(x) ((x) / 2)\n#define LOOP LOOP\n')
-        for tokens, reason in ((['HALF', '(', '4', ')'], 'HALF: a function-like macro'), (['LOOP'], 'LOOP: no'),
-                               (['1', '/', '0'], '1 / 0: a division by zero'), (['sizeof', 'x'], 'sizeof')):
-            with self.subTest(tokens=tokens), self.assertRaisesRegex(LayoutError, reason):
-                found.evaluate(tokens)
-
-    def test_a_value_shc_gives_otherwise_fails_naming_its_operation(self):
-        # SHC R10 and R32 give each one a value unbounded integers don't, as
-        # they wrap, convert or shift
-        found = types('enum { TOP = 0x7fffffff, OVER };')
-        for text, reason in (('~0U >> 31', '~ 0U: -1 lies outside unsigned int'),
-                             ('(~0U >> 31) + 1', '~ 0U: -1 lies outside unsigned int'),
-                             ('0xffffffffU + 1U', '0xffffffffU + 1U: 4294967296 lies outside unsigned int'),
-                             ('-1 < 1U', '- 1 < 1U: -1 lies outside unsigned int'),
-                             ('1L < 0xffffffff', '1L < 0xffffffff: 4294967295 lies outside long'),
-                             ('0x7fffffff + 1', '0x7fffffff + 1: 2147483648 lies outside int'),
-                             ('1 << 31', '1 << 31: 2147483648 lies outside int'),
-                             ('-2147483648', '- 2147483648: -2147483648 lies outside unsigned int'),
-                             ('OVER', 'OVER: 2147483648 lies outside int'),
-                             ('1 << 32', '1 << 32: a shift by 32, outside 0 to 31'),
-                             ('1 << -1', '1 << - 1: a shift by -1, outside 0 to 31')):
-            with self.subTest(text=text), self.assertRaisesRegex(LayoutError, re.escape(reason)):
-                found.evaluate(TOKEN.findall(text))
-
-    def test_what_shc_gives_no_value_fails(self):
-        # SHC R10 and R32 fail each, a division by zero even on the side of &&
-        # or || that C skips
-        found = types()
-        for text, reason in (('0 && (1 / 0)', '1 / 0: a division by zero'),
-                             ('1 || (1 % 0)', '1 % 0: a division by zero'),
-                             ('(-2147483647 - 1) / -1', '( - 2147483647 - 1 ) / - 1: 2147483648 lies outside int'),
-                             ('(-2147483647 - 1) % -1',
-                              '( - 2147483647 - 1 ) % - 1: its quotient 2147483648 lies outside int'),
-                             ('10LL', '10LL: no integer constant'),
-                             ('0x100000000', '0x100000000: wider than 32 bits')):
-            with self.subTest(text=text), self.assertRaisesRegex(LayoutError, re.escape(reason)):
-                found.evaluate(TOKEN.findall(text))
-
-    def test_both_sides_of_and_are_evaluated(self):
-        # SHC R10 and R32 give this 0, skipping its shift, which fails here
-        with self.assertRaisesRegex(LayoutError, re.escape('1 << 32: a shift by 32, outside 0 to 31')):
-            types().evaluate(TOKEN.findall('0 && (1 << 32)'))
-
-    def test_an_enum_of_thousands_counts_on(self):
-        # past Python's recursion limit
-        found = types('enum many { ' + ', '.join(f'E{index}' for index in range(5000)) + ' };')
-        self.assertEqual(found.evaluate(['E4999']), 4999)
-
+from cdata import EmitError, Items, Writer, quote, spell
+from image import KINDS, MDATA, Declared, Image, Item, Laid, Memory, ReadError, f32, window
+from layout import LayoutError, Record, Types
+from support import LOADER_SECTIONS, MODULE, tree
+from test_layout import offsets
+from tool import publish
 
 BASE = 0x0C000000
+ROOT = Path(__file__).resolve().parents[1]
 # the sdk's scalar types, Ninja's types and ninja.h, which Types reads to lay
 # out a body's type
-SDK = [(Path(__file__).resolve().parents[1] / 'sdk/include' / name).read_text()
-       for name in ('sg_xpt.h', 'njtypes.h', 'ninja.h')]
+SDK = [(ROOT / 'sdk/include' / name).read_text() for name in ('sg_xpt.h', 'njtypes.h', 'ninja.h')]
+# the game's headers that type a land and a stage's path
+GAME = [(ROOT / 'src' / name).read_text() for name in ('collision/world.h', 'path/path.h')]
 
 
 def words(*values):
@@ -238,7 +29,12 @@ def words(*values):
 def image(payload):
     # the emitter's input: payload at BASE, no code, and main RAM's window
     # for an address
-    return Memory('TEST.BIN', payload, BASE, (), (data.window(BASE),))
+    return Memory('TEST.BIN', payload, BASE, (), (window(BASE),))
+
+
+def writer(memory, items=(), names=None, constant=False):
+    # a Writer of items, each a range of its own, that need start no name
+    return Writer(Items(memory, items, [(item.start, item.end) for item in items], {}), names or {}, constant)
 
 
 class Floats(unittest.TestCase):
@@ -248,7 +44,7 @@ class Floats(unittest.TestCase):
         for word in (0x7F800000, 0xFF800000, 0x7FC00000, 0x00000001, 0x807FFFFF, 0x7F7FFFFF, 0xFF7FFFFF):
             self.assertIsNone(spell(word))
             with self.assertRaisesRegex(EmitError, f'^TEST.BIN: 0x0c000010: 0x{word:08x} is no float'):
-                Writer(image(bytes(16) + words(word)), [], {}).float(BASE + 0x10)
+                writer(image(bytes(16) + words(word))).float(BASE + 0x10)
 
     def test_signed_zero_and_exact_bits(self):
         self.assertEqual(spell(0x00000000), '0.0F')
@@ -262,11 +58,17 @@ class Floats(unittest.TestCase):
             self.assertTrue(Decimal(f32(word)) <= Decimal(text[:-1]) < Decimal(f32(word + 1)), text)
             self.assertEqual(spell(word | 0x80000000), '-' + text)
 
+    def test_a_callers_decimal_context_changes_no_literal(self):
+        # a precision too small for the literal's 8 digits, and a trap on a rounding
+        for context in (Context(prec=4), Context(traps=[Inexact])):
+            with self.subTest(context=context), localcontext(context):
+                self.assertEqual(spell(0x3F800001), '1.0000002F')
+
     def test_writers_name_where_an_unsupported_float_lies(self):
         # a model whose radius is infinite
         model = image(bytes(36) + words(0x7F800000))
         with self.assertRaisesRegex(EmitError, '0x0c000024: 0x7f800000'):
-            Writer(model, [Item(BASE, BASE + 40, 'model')], {}).source('a model')
+            writer(model, [Item(BASE, BASE + 40, 'model')]).source('a model')
 
 
 class Truncation(unittest.TestCase):
@@ -275,24 +77,67 @@ class Truncation(unittest.TestCase):
         for kind in ('words', 'bytes', 'points'):
             with self.subTest(kind=kind), self.assertRaisesRegex(
                     EmitError, '^TEST.BIN: 0x0c000000: 24 bytes to 0x0c000018 lie outside the image$'):
-                Writer(short, [Item(BASE, BASE + 24, kind)], {}).source('short')
+                writer(short, [Item(BASE, BASE + 24, kind)]).source('short')
 
-    def test_a_record_the_images_end_cuts_short_fails_at_the_member_past_it(self):
-        # an item of each kind, a word long and all of the image, short of its
-        # record: the first member it reads past the end, and that member's size
-        short = image(words(0))
-        for item, at, size in ((Item(BASE, BASE + 4, 'object'), 0x14, 4), (Item(BASE, BASE + 4, 'motion'), 4, 4),
-                               (Item(BASE, BASE + 4, 'texlist'), 4, 4), (Item(BASE, BASE + 4, 'mkey_a'), 4, 4),
-                               (Item(BASE, BASE + 4, 'texanim'), 4, 2), (Item(BASE, BASE + 4, 'mdata', 1), 4, 4)):
+    def test_an_item_short_of_an_element_fails_before_a_read(self):
+        # a word of each kind of record, and two floats of a point, in an image
+        # whose bytes run on past them: no read takes the bytes past the item
+        held = image(words(*range(16)))
+        for item, size, ctype in ((Item(BASE, BASE + 4, 'object'), 52, 'NJS_OBJECT'),
+                                  (Item(BASE, BASE + 4, 'motion'), 12, 'NJS_MOTION'),
+                                  (Item(BASE, BASE + 4, 'texanim'), 20, 'NJS_TEXANIM'),
+                                  (Item(BASE, BASE + 4, 'mdata', 1), 8, 'NJS_MDATA1'),
+                                  (Item(BASE, BASE + 8, 'points'), 12, 'NJS_POINT3')):
             with self.subTest(kind=item.kind), self.assertRaisesRegex(
-                    EmitError, f'^TEST.BIN: 0x{BASE + at:08x}: {size} bytes to 0x{BASE + at + size:08x} lie outside '
-                               'the image$'):
-                Writer(short, [item], {}).source('short')
+                    EmitError, f'^TEST.BIN: 0x0c000000: dat_0c000000 is {item.end - item.start} bytes, no whole number '
+                               f'of {size}-byte {ctype}$'):
+                writer(held, [item])
 
     def test_an_item_in_the_image_is_whole(self):
         whole = image(words(1, 2, 3, 4, 5, 6))
         self.assertIn('0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005, 0x00000006',
-                      Writer(whole, [Item(BASE, BASE + 24, 'words')], {}).source('whole'))
+                      writer(whole, [Item(BASE, BASE + 24, 'words')]).source('whole').text)
+
+
+class Handoff(unittest.TestCase):
+    def test_a_range_takes_its_items_and_the_fill_that_aligns_one(self):
+        # a byte, then three bytes of fill before a word; and a target past the image, as bss holds one
+        items = [Item(BASE, BASE + 1, 'bytes'), Item(BASE + 4, BASE + 8, 'words'),
+                 Declared(BASE + 0x100, BASE + 0x108, 'Uint32', True, 4)]
+        found = Items(image(b'\x07' + bytes(3) + words(9)), items, [(BASE, BASE + 8), (BASE + 0x100, BASE + 0x108)],
+                      {BASE + 4: 'word'})
+        self.assertEqual(found.items, items)
+
+    def test_an_item_set_that_doesnt_hold_its_ranges_fails_naming_where(self):
+        # bytes that no item holds and no alignment pads, or that aren't all the fill, or that end a range; an item
+        # past its ranges, one off its alignment, two that overlap, an item past the image that isn't a target, a
+        # name inside an item and one that starts none, and an element of no bytes
+        held = image(words(1, 7, 2, 0))
+        empty = Record(False, (), 0, 1, ())
+        for payload, items, ranges, names, problem in (
+                (held, [Item(BASE, BASE + 4, 'words'), Item(BASE + 8, BASE + 12, 'words')], [(BASE, BASE + 12)], {},
+                 '0x0c000004: 4 bytes before dat_0c000008 that no definition holds, and that are no fill aligning it'),
+                (image(b'\x07\x05\x00\x00' + words(9)),
+                 [Item(BASE, BASE + 1, 'bytes'), Item(BASE + 4, BASE + 8, 'words')], [(BASE, BASE + 8)], {},
+                 '0x0c000001: 3 bytes before dat_0c000004 that no definition holds'),
+                (held, [Item(BASE, BASE + 4, 'words')], [(BASE, BASE + 8)], {},
+                 '0x0c000004: 4 bytes to 0x0c000008 that no definition holds'),
+                (held, [Item(BASE, BASE + 8, 'words')], [(BASE, BASE + 4)], {},
+                 '0x0c000000: dat_0c000000, to 0x0c000008, lies outside the ranges'),
+                (held, [Item(BASE + 2, BASE + 6, 'words')], [(BASE, BASE + 8)], {},
+                 "0x0c000002: dat_0c000002 starts off Uint32's alignment, 4"),
+                (held, [Item(BASE, BASE + 8, 'words'), Item(BASE + 4, BASE + 8, 'words')], [(BASE, BASE + 8)], {},
+                 '0x0c000004: dat_0c000004 starts before dat_0c000000 ends, at 0x0c000008'),
+                (held, [Item(BASE + 16, BASE + 20, 'words')], [(BASE + 16, BASE + 20)], {},
+                 '0x0c000010: 4 bytes to 0x0c000014 lie outside the image'),
+                (held, [Item(BASE, BASE + 8, 'words')], [(BASE, BASE + 8)], {BASE + 2: 'half'},
+                 '0x0c000002: half falls inside Uint32 0x0c000000'),
+                (held, [Item(BASE, BASE + 4, 'words')], [(BASE, BASE + 4)], {BASE + 8: 'gone'},
+                 '0x0c000008: gone starts no definition'),
+                (held, [Laid(BASE, BASE + 4, empty, 'struct empty', False, ())], [(BASE, BASE + 4)], {},
+                 '0x0c000000: dat_0c000000 is 4 bytes, no whole number of 0-byte struct empty')):
+            with self.subTest(problem=problem), self.assertRaisesRegex(EmitError, f'^TEST.BIN: {re.escape(problem)}'):
+                Items(payload, items, ranges, names)
 
 
 class Pointers(unittest.TestCase):
@@ -303,7 +148,85 @@ class Pointers(unittest.TestCase):
                  Item(BASE + 12, BASE + 16, 'words')]
         with self.assertRaisesRegex(EmitError, '^TEST.BIN: 0x0c000008: a pointer to 0x0c000004, in the padding '
                                                'between definitions$'):
-            Writer(padded, items, {}).source('padded')
+            writer(padded, items).source('padded')
+
+    def test_a_pointer_into_const_data_casts_its_const_away(self):
+        # pointers to their own start and second word, and to a float after them, in D and then in C
+        payload = words(BASE, BASE + 4, BASE + 12, 0x3F800000)
+        items = [Item(BASE, BASE + 12, 'pointers'), Item(BASE + 12, BASE + 16, 'floats')]
+        for constant, definition in ((False, 'void *p[] = {\n    p, &p[1], q,\n};'),
+                                     (True, 'void *const p[] = {\n    (void *)p, (void *)&p[1], (void *)q,\n};')):
+            with self.subTest(constant=constant):
+                self.assertIn(definition, writer(image(payload), items, {BASE: 'p', BASE + 12: 'q'}, constant)
+                              .source('pointers').text)
+
+    def test_the_source_gives_each_name_from_outside_with_its_address(self):
+        # a pointer to a name past the items, and one to an address no name has
+        emitted = writer(image(words(BASE + 0x80, BASE + 0x90)), [Item(BASE, BASE + 8, 'pointers')],
+                         {BASE + 0x80: 'later'}).source('outside')
+        self.assertIn('extern char dat_0c000090[];\nextern char later[];\n', emitted.text)
+        self.assertEqual(emitted.outside, {'later': BASE + 0x80, 'dat_0c000090': BASE + 0x90})
+
+
+# a loader_read_stage_files that reads mod for STAGE_ONE, two for STAGE_TWO
+# and three for STAGE_THREE, which src/stage/stage.h numbers 1 to 3
+LOADS = {'src/stage/stage.h': '#define STAGE_ONE 1\n#define STAGE_TWO 2\n#define STAGE_THREE 3\n',
+         'src/system/loader.c': ('void loader_read_stage_files(void)\n{\n    switch (stage) {\n'
+                                 '    case STAGE_ONE:\n        loader_read_prs("mod.PRS", MODULE_AREA);\n'
+                                 '        return;\n    case STAGE_TWO:\n        loader_read_prs("two.PRS", MODULE_AREA);\n'
+                                 '        return;\n    case STAGE_THREE:\n'
+                                 '        loader_read_prs("three.PRS", MODULE_AREA);\n        return;\n    }\n}\n')}
+# MODULE's mod and 1ST_READ.BIN; two and three, which load at mod's
+# addresses; and 1ST_READ.BIN's path_lists. Its rows give act 0 of STAGE_ONE
+# and of STAGE_TWO the paths at 0x0c900000, and act 0 of STAGE_THREE those
+# at 0x0c900010. The end row follows them, and the word past it holds
+# 0x0c900000. mod and two each define an a_init at 0x0c900000, which
+# 1ST_READ.BIN imports from both, two's as two__a_init
+KEYED = {**MODULE, **LOADS,
+         'config/1st_read/symbols.txt': MODULE['config/1st_read/symbols.txt'] + '0x8c010000  path_lists\n',
+         'config/two/splits.txt': 'D  0x0c900000  0x0c900100\n', 'config/two/symbols.txt': '0x0c900000  a_init\n',
+         'config/three/splits.txt': 'D  0x0c900000  0x0c900100\n', 'config/three/symbols.txt': '',
+         'config/1st_read/imports.txt': 'a_init  mod\ntwo__a_init  two  a_init\n',
+         '1ST_READ.BIN': words(0x100, 0x0C900000, 0x200, 0x0C900000, 0x300, 0x0C900010, 0xFFFF, 0, 0x0C900000)}
+
+
+class Imports(unittest.TestCase):
+    def test_the_generated_data_names_a_word_by_the_first_import_at_its_address(self):
+        # KEYED's path_lists, moved into a gen/ range of D. Each word that
+        # holds 0x0c900000 is a_init, the first import symbols() gives there,
+        # whatever stage its row gives the paths to. The .syms lists no
+        # import, as it lists only the names the C makes up. three's row's
+        # 0x0c900010, which no import holds, stays a number
+        files = {**KEYED,
+                 'config/1st_read/symbols.txt': MODULE['config/1st_read/symbols.txt'] + '0x8c1755e0  path_lists\n',
+                 'config/1st_read/splits.txt': (MODULE['config/1st_read/splits.txt']
+                                                + 'gen/1st_read/d_8c1755e0.c  D  0x8c1755e0  0x8c175604\n'),
+                 'config/1st_read/data.txt': '0x8c1755e0  mixed[9]\n',
+                 '1ST_READ.BIN': bytes(0x8C1755E0 - data.FIRST_BASE) + KEYED['1ST_READ.BIN']}
+        out = Path('build/gen/1st_read/d_8c1755e0.c')
+        with tree(files):
+            data.generate('1ST_READ.BIN', 'gen/1st_read/d_8c1755e0.c', str(out))
+            self.assertIn('(void *)0x00000100, a_init, (void *)0x00000200, a_init,\n'
+                          '    (void *)0x00000300, (void *)0x0c900010, (void *)0x0000ffff, 0,\n    a_init,\n',
+                          out.read_text())
+            self.assertEqual(out.with_suffix('.syms').read_text(), '')
+
+    def test_only_1st_read_bin_takes_a_word_at_an_imports_address_for_one(self):
+        # 1ST_READ.BIN imports LOADER.BIN's loader_entry at 0x8ce000a0,
+        # outside 1ST_READ.BIN's window. The import still makes 1ST_READ.BIN's
+        # word that holds the address loader_entry. mod imports nothing, and
+        # the address lies outside its windows, so its own word stays a number
+        files = {**KEYED, 'config/loader/splits.txt': ''.join(f'{row}\n' for row in LOADER_SECTIONS),
+                 'config/loader/symbols.txt': '0x8ce000a0  loader_entry\n',
+                 'config/1st_read/imports.txt': KEYED['config/1st_read/imports.txt'] + 'loader_entry  loader\n',
+                 '1ST_READ.BIN': words(0x8CE000A0), 'MOD.BIN': words(0x8CE000A0)}
+        for name, path, value in (('1st_read', '1ST_READ.BIN', 'loader_entry'),
+                                  ('mod', 'MOD.BIN', '(void *)0x8ce000a0')):
+            with self.subTest(name=name), tree(files):
+                config = data.Config(name)
+                image = config.image(path)
+                text = writer(image, [Item(image.base, image.base + 4, 'pointers')], config.names).source(name).text
+                self.assertIn(f'[] = {{\n    {value},\n}};', text)
 
 
 # each type a body takes from declarations, as a source defines it: the type,
@@ -394,17 +317,17 @@ LAID = [
 ]
 
 
-class Laid(unittest.TestCase):
+class Layouts(unittest.TestCase):
     def test_each_type_a_body_takes_from_its_declarations(self):
         for ctype, definitions, record, initializer in LAID:
             with self.subTest(ctype=ctype, definitions=definitions):
                 layout = Types([*SDK, definitions]).layout(ctype)
                 self.assertEqual(layout.size, len(record))
-                self.assertEqual(Writer(image(record), [], {}).initializer(layout, BASE), initializer)
+                self.assertEqual(writer(image(record)).initializer(layout, BASE), initializer)
 
     def test_a_union_is_its_first_member(self):
         layout = Types(SDK).layout('NJS_COLOR')
-        self.assertEqual(Writer(image(words(0x80ff0000)), [], {}).initializer(layout, BASE), '0x80ff0000')
+        self.assertEqual(writer(image(words(0x80ff0000))).initializer(layout, BASE), '0x80ff0000')
 
     def test_a_pad_byte_that_isnt_zero_fails(self):
         # a struct's padding, and a union's bytes past its first member
@@ -415,17 +338,17 @@ class Laid(unittest.TestCase):
             layout = Types([*SDK, definitions]).layout(ctype)
             with self.subTest(ctype=ctype), self.assertRaisesRegex(
                     EmitError, f'{where}: a pad byte of 0x01, which no initializer writes'):
-                Writer(image(record), [], {}).initializer(layout, BASE)
+                writer(image(record)).initializer(layout, BASE)
 
 
 class Structures(unittest.TestCase):
-    def test_the_table_lays_out_the_sdks_types_as_types_does(self):
+    def test_the_table_lays_out_each_kinds_type_as_types_does(self):
         # each kind's type and each mdata's: its size and alignment, and where
         # the table names members, the offset of each of the type's, in
         # order. A union's are one member's own, as a color's u and v are
-        found = Types(SDK)
-        layouts = {kind.ctype: kind.layout for kind in data.KINDS.values()}
-        layouts.update({f'NJS_MDATA{factors}': layout for factors, layout in data.MDATA.items()})
+        found = Types([*SDK, *GAME])
+        layouts = {kind.ctype: kind.layout for kind in KINDS.values()}
+        layouts.update({f'NJS_MDATA{factors}': layout for factors, layout in MDATA.items()})
         for ctype, layout in layouts.items():
             with self.subTest(ctype=ctype):
                 laid = found.layout(ctype)
@@ -442,77 +365,57 @@ class Structures(unittest.TestCase):
 
 class Reads(unittest.TestCase):
     def test_a_negative_size_is_rejected(self):
-        loaded = Data('TEST.BIN', bytes(16), BASE)
         with self.assertRaisesRegex(ReadError, 'negative'):
-            loaded.inside(BASE + 8, -4)
-        with self.assertRaisesRegex(ReadError, 'negative'):
-            loaded.need(BASE + 8, -4, 4, 'an array')
+            Image('TEST.BIN', bytes(16), BASE).inside(BASE + 8, -4)
 
     def test_a_read_outside_the_image_is_rejected(self):
         # past its end, and before its start, which a slice would take from the end
-        loaded = Data('TEST.BIN', words(1, 2), BASE)
-        for read, address, what in ((loaded.u32, BASE + 8, 'a Uint32'), (loaded.u16, BASE + 7, 'a Uint16'),
-                                    (loaded.s32, BASE - 4, 'an Sint32'), (loaded.s16, BASE - 2, 'an Sint16')):
-            with self.subTest(what=what), self.assertRaisesRegex(
-                    ReadError, f"^TEST.BIN: 0x{address:08x}: can't be {what}, whose"):
-                read(address)
-        with self.assertRaisesRegex(ReadError, "^TEST.BIN: 0x0c000004: can't be 2 words, whose 8 bytes lie outside"):
-            loaded.words(BASE + 4, 2)
+        loaded = Image('TEST.BIN', words(1, 2), BASE)
+        for address in (BASE + 6, BASE - 4):
+            with self.subTest(address=hex(address)), self.assertRaisesRegex(
+                    ReadError, f"^TEST.BIN: 0x{address:08x}: can't be a Uint32, whose 4 bytes lie outside the image$"):
+                loaded.u32(address)
 
     def test_inside_is_the_image_and_no_more(self):
-        loaded = Data('TEST.BIN', bytes(16), BASE)
+        loaded = Image('TEST.BIN', bytes(16), BASE)
         self.assertTrue(loaded.inside(BASE, 16))
         self.assertTrue(loaded.inside(BASE + 16, 0))
         self.assertFalse(loaded.inside(BASE, 17))
         self.assertFalse(loaded.inside(BASE - 1, 1))
 
-    def test_a_misaligned_record_is_rejected(self):
-        loaded = Data('TEST.BIN', bytes(64), BASE)
-        with self.assertRaisesRegex(ReadError, "^TEST.BIN: 0x0c000002: can't be an object, not aligned to 4$"):
-            object_at(loaded, BASE + 2)
-
-    def test_a_record_past_the_image_is_rejected(self):
-        loaded = Data('TEST.BIN', bytes(48), BASE)
-        with self.assertRaisesRegex(ReadError,
-                                    "^TEST.BIN: 0x0c000010: can't be a model, whose 40 bytes lie outside the image$"):
-            model_at(loaded, BASE + 16)
-        with self.assertRaisesRegex(ReadError, 'outside the image'):
-            texlist_at(loaded, BASE - 8)
-
-    def test_an_mdata_entry_past_the_image_is_rejected(self):
-        # a motion of positions and angles, whose entries are 16 bytes
-        loaded = Data('TEST.BIN', words(BASE + 12, 10, 0x3) + words(0, 0, 0, 0), BASE)
-        motion = motion_at(loaded, BASE)
-        self.assertEqual(mdata_keys(loaded, motion, BASE + 12), [(0x1, 0, 0), (0x2, 0, 0)])
-        with self.assertRaisesRegex(ReadError, 'an mdata entry'):
-            mdata_keys(loaded, motion, BASE + 16)
+def bits(value):
+    return struct.unpack('<I', struct.pack('<f', value))[0]
 
 
-class Recognizer(unittest.TestCase):
-    def test_an_actions_tree_counts_its_motions_mdata_past_a_ref(self):
-        # two angle keys at 0x00; three mdata entries from 0x20, each naming
-        # them; the motion at 0x38; a tree of three objects, each the last's
-        # child, from 0x44; the action at 0xe0; then a word that points at it,
-        # and one that holds the third entry's address, as a glyph might
-        one = struct.unpack('<I', struct.pack('<f', 1.0))[0]
+def land(**fields):
+    """An act's land and what it holds, 0x140 bytes: three points at 0x00, a
+    triangle's strip at 0x24, a material at 0x2c, and a meshset of that
+    material at 0x40. The model at 0x58 leaves its material uncounted. An
+    object of the model lies at 0x80, and two entries that name it at 0xb4.
+    The land lies at 0xfc, and zeros follow it. Each keyword sets the land's
+    field of its name, but object sets the first entry's object."""
+    table = dict(count=2, motion_count=0, flags=0x4, users=0, clip=bits(1000.0), entries=BASE + 0xB4, motions=0,
+                 pvm=0, texlist=0, file=0, data=0)
+    first = fields.pop('object', BASE + 0x80)
+    table.update(fields)
 
-        def node(child):
-            return words(0, 0, 0, 0, 0, 0, 0, 0, one, one, one, child, 0)
+    def entry(root):
+        return words(bits(1.0), bits(2.0), bits(3.0), bits(4.0), 0, 0, root, 0, 0x80000001)
 
-        payload = (words(0, 0, 0, 0, 1, 0, 0, 0) + words(BASE, 2) * 3 + words(BASE + 0x20, 2) + struct.pack('<HH', 2, 1)
-                   + node(BASE + 0x78) + node(BASE + 0xAC) + node(0) + words(BASE + 0x44, BASE + 0x38)
-                   + words(BASE + 0xE0, BASE + 0x30))
-        found = data.Recognizer(data.Image('TEST.BIN', payload, BASE, (), (data.window(BASE),)), BASE,
-                                BASE + len(payload))
-        found.recognize()
-        mdata = found.items[BASE + 0x20]
-        self.assertEqual((mdata.kind, mdata.end), ('mdata', BASE + 0x38))
+    return (words(bits(1.0), 0, 0, 0, bits(1.0), 0, 0, 0, bits(1.0)) + struct.pack('<3H2x', 0, 1, 2)
+            + words(0xFFB2B2B2, 0xFFFFFFFF, bits(11.0), 0, 0x94282400)
+            + struct.pack('<HH', 0, 1) + words(BASE + 0x24, 0, 0, 0, 0)
+            + words(BASE, 0, 3, BASE + 0x40, BASE + 0x2C) + struct.pack('<HH', 1, 0) + words(0, 0, 0, bits(1.0))
+            + words(0x17, BASE + 0x58, 0, 0, 0, 0, 0, 0, bits(1.0), bits(1.0), bits(1.0), 0, 0)
+            + entry(first) + entry(BASE + 0x80)
+            + struct.pack('<hhHh', *(table[name] for name in ('count', 'motion_count', 'flags', 'users')))
+            + words(*(table[name] for name in ('clip', 'entries', 'motions', 'pvm', 'texlist', 'file', 'data')))
+            + bytes(0x20))
 
 
 class CommandLine(unittest.TestCase):
     def test_each_command_line_runs_its_function_on_its_operands(self):
-        for line, name in (('IMAGE SOURCE OUT', 'generate'), ('--declared CONFIG OUT', 'declarations'),
-                           ('--rows IMAGE', 'rows'), ('--bodies IMAGE SOURCE LISTING OUT CONFIG', 'bodies'),
+        for line, name in (('IMAGE SOURCE OUT', 'generate'), ('--bodies IMAGE SOURCE LISTING OUT CONFIG', 'bodies'),
                            ('--texts SOURCE OUT', 'text_stubs'), ('--values SOURCE OUT', 'value_stubs')):
             with self.subTest(line=line), mock.patch.object(data, name) as function:
                 data.main(line.split())
@@ -522,16 +425,16 @@ class CommandLine(unittest.TestCase):
         image = Memory('TEST.BIN', b'', BASE)
         for error in (LayoutError('struct a: no layout'), EmitError(image, BASE, 'a float no literal gives back'),
                       ReadError(image, BASE, "can't be a model")):
-            with self.subTest(error=error), mock.patch.object(data, 'rows', side_effect=error), \
+            with self.subTest(error=error), mock.patch.object(data, 'generate', side_effect=error), \
                     self.assertRaisesRegex(SystemExit, f': {re.escape(str(error))}$'):
-                data.main(['--rows', 'IMAGE'])
+                data.main(['IMAGE', 'SOURCE', 'OUT'])
 
     def test_a_file_it_cant_read_fails_naming_it(self):
         # an image make hasn't decoded, a source, a stub listing and a header the dependency file names, each
         # missing from a tree that holds the rest
         stub_bodies = ['--bodies', 'TEST.BIN', 'src/a.c', 'build/stub/src/a.lis', 'out', 'test']
         for missing, args, files in (
-                ('TEST.BIN', ['--rows', 'TEST.BIN'], GENERATE),
+                ('TEST.BIN', ['TEST.BIN', 'gen/test/d_0c000000.c', str(GENERATED)], GENERATE),
                 ('src/a.c', ['--values', 'src/a.c', 'values.inc'], {}),
                 ('build/stub/src/a.lis', stub_bodies, BODIES),
                 ('src/a.h', stub_bodies, BODIES)):
@@ -541,6 +444,9 @@ class CommandLine(unittest.TestCase):
 
 
 class Texts(unittest.TestCase):
+    def test_no_bytes_are_an_empty_string(self):
+        self.assertEqual(quote(b''), '""')
+
     def test_the_stub_takes_a_placeholder_for_each(self):
         with tree({'a.c': '#define TEXT_1_LENGTH 3\n'}):
             data.main(('--texts', 'a.c', 'text.inc'))
@@ -564,34 +470,19 @@ class Texts(unittest.TestCase):
             data.texts(Path('a.c'))
 
 
-class Publish(unittest.TestCase):
-    def test_a_failed_write_leaves_the_old_file_whole(self):
-        with tree({'a.c': 'old'}):
-            # a lone surrogate, which write_text can't encode
-            with self.assertRaises(UnicodeEncodeError):
-                data.publish(Path('a.c'), '\udc80')
-            self.assertEqual(Path('a.c').read_text(), 'old')
-            self.assertEqual(sorted(path.name for path in Path().iterdir()), ['a.c'])
-
-    def test_a_path_it_cant_write_fails_naming_it(self):
-        with tree({'out/a': ''}):
-            with self.assertRaisesRegex(SystemExit, r': out: Is a directory$'):
-                data.publish(Path('out'), 'text')
-            self.assertEqual(sorted(path.name for path in Path().iterdir()), ['out'])
-
-
 # a gen/ range of a table that points past it, at a name and at an address with none
 GENERATE = {
     'config/1st_read/symbols.txt': '',
     'config/test/splits.txt': 'D  0x0c000000  0x0c000100\ngen/test/d_0c000000.c  D  0x0c000000  0x0c000040\n',
     'config/test/symbols.txt': '0x0c000080  later\n',
+    'config/test/data.txt': '0x0c000000  pointers[1]\n0x0c000004  motion\n0x0c000010  words[12]\n',
     'TEST.BIN': words(BASE + 0x80, BASE + 0x90, 2, 3) + bytes(0xF0),
-    'build/gen/test/declared.txt': '',
 }
 GENERATED = Path('build/gen/test/d_0c000000.c')
 
 
 def generate():
+    """data.generate on test's gen/ range."""
     data.generate('TEST.BIN', 'gen/test/d_0c000000.c', str(GENERATED))
 
 
@@ -602,28 +493,69 @@ class Generate(unittest.TestCase):
             self.assertIn('later', GENERATED.read_text())
             self.assertEqual(GENERATED.with_suffix('.syms').read_text(), '0x0c000090  dat_0c000090\n')
             self.assertEqual(sorted(path.name for path in GENERATED.parent.iterdir()),
-                             ['d_0c000000.c', 'd_0c000000.syms', 'declared.txt'])
+                             ['d_0c000000.c', 'd_0c000000.c.d', 'd_0c000000.syms'])
+            # no row of a C type, so no text the C depends on
+            self.assertEqual(GENERATED.with_suffix('.c.d').read_text(), 'build/gen/test/d_0c000000.c:\n')
 
     def test_a_range_past_the_image_fails(self):
         with tree(dict(GENERATE, **{'TEST.BIN': bytes(0x20)})), self.assertRaisesRegex(
                 SystemExit, r'gen/test/d_0c000000\.c: 0x0c000000 to 0x0c000040 lies outside TEST\.BIN'):
             generate()
 
-    def test_a_name_inside_a_string_fails_naming_the_source(self):
-        string = data.Item(BASE + 0x100, BASE + 0x110, 'string', text=b'abc')
-        with self.assertRaisesRegex(SystemExit, r'gen/test/d_0c000000\.c: mid, at 0x0c000104, falls inside char '
-                                                r'0x0c000100'):
-            data.cut([string], {BASE + 0x104: 'mid'}, 'gen/test/d_0c000000.c')
+    def test_a_name_inside_a_string_fails(self):
+        string = Item(BASE + 0x100, BASE + 0x110, 'string', text='abc')
+        with self.assertRaisesRegex(EmitError, r'^TEST\.BIN: 0x0c000104: mid falls inside char 0x0c000100$'):
+            Items(image(bytes(0x110)), [string], [(BASE + 0x100, BASE + 0x110)], {BASE + 0x104: 'mid'})
 
-    def test_declared_txt_is_required(self):
-        files = {path: text for path, text in GENERATE.items() if path != 'build/gen/test/declared.txt'}
-        with tree(files), self.assertRaisesRegex(SystemExit, r'declared\.txt: missing'):
+    def test_takes_no_definition_but_data_txt_s(self):
+        # a range data.txt gives no row, and one whose rows run past it
+        for rows, problem in (('', r'gen/test/d_0c000000\.c: no row of config/test/data\.txt lies in its range$'),
+                              ('0x0c000000  words[17]\n', r'dat_0c000000, to 0x0c000044, lies outside the ranges')):
+            with self.subTest(rows=rows), tree(dict(GENERATE, **{'config/test/data.txt': rows})):
+                with self.assertRaisesRegex(SystemExit, problem):
+                    generate()
+
+    def test_a_c_type_row_takes_its_type_and_its_header(self):
+        # a.c's header defines struct pair, which lays out the row's 16 words as 8 pairs, a pointer and a count each:
+        # the first pair points at later. a.c lies outside the range
+        files = dict(GENERATE, **{
+            'config/test/splits.txt': (GENERATE['config/test/splits.txt']
+                                       + 'modules/test/a.c  D  0x0c000040  0x0c000080\n'),
+            'modules/test/a.c': '#include "test/pair.h"\n',
+            'modules/test/pair.h': 'struct pair { void *data; long count; };\n',
+            'config/test/data.txt': '0x0c000000  struct pair[8]\n'})
+        with tree(files):
+            generate()
+            text = GENERATED.read_text()
+            depends = GENERATED.with_suffix('.c.d').read_text()
+        self.assertIn('#include <ninja.h>\n#include "test/pair.h"\n', text)
+        self.assertEqual(depends, 'build/gen/test/d_0c000000.c: modules/test/a.c modules/test/pair.h\n'
+                                  'modules/test/a.c:\nmodules/test/pair.h:\n')
+        self.assertIn('struct pair dat_0c000000[] = {\n    { later, 201326736 },\n', text)
+        with tree(dict(files, **{'config/test/data.txt': '0x0c000000  struct none[8]\n'})), \
+                self.assertRaisesRegex(SystemExit, r"config/test/data\.txt:1: struct none: no kind, and no type the "
+                                                   r"image's declarations lay out"):
+            generate()
+
+    def test_vouched_changes_no_c_and_marks_pointers_mixed_or_a_c_type_alone(self):
+        # the matching build binds a pointer by number, so the mark leaves its C as it was
+        with tree(GENERATE):
+            generate()
+            unmarked = GENERATED.read_text()
+        rows = GENERATE['config/test/data.txt'].replace('pointers[1]', 'pointers[1]  vouched')
+        with tree(dict(GENERATE, **{'config/test/data.txt': rows})):
+            generate()
+            self.assertEqual(GENERATED.read_text(), unmarked)
+        with tree(dict(GENERATE, **{'config/test/data.txt': rows.replace('motion', 'motion  vouched')})), \
+                self.assertRaisesRegex(SystemExit, r'config/test/data\.txt:2: motion: vouched, and only pointers, mixed '
+                                                   r'or a C type holds words a row vouches for$'):
             generate()
 
     def test_the_c_comes_last(self):
-        with tree(GENERATE), mock.patch('data.publish', wraps=data.publish) as publish:
+        with tree(GENERATE), mock.patch('data.publish', wraps=publish) as published:
             generate()
-        self.assertEqual([call.args[0].name for call in publish.call_args_list], ['d_0c000000.syms', 'd_0c000000.c'])
+        self.assertEqual([call.args[0].name for call in published.call_args_list],
+                         ['d_0c000000.syms', 'd_0c000000.c.d', 'd_0c000000.c'])
 
     def test_a_row_in_d_names_no_section(self):
         with tree(GENERATE):
@@ -658,7 +590,7 @@ class Generate(unittest.TestCase):
     def test_a_string_in_constants_is_const(self):
         files = dict(GENERATE, **{
             'config/test/splits.txt': 'C  0x0c000000  0x0c000100\ngen/test/d_0c000000.c  C  0x0c000000  0x0c000008\n',
-            'TEST.BIN': b'abcdef\0\0' + words(BASE) + bytes(0xF4)})
+            'config/test/data.txt': '0x0c000000  string[8]\n', 'TEST.BIN': b'abcdef\0\0' + words(BASE) + bytes(0xF4)})
         with tree(files):
             generate()
             self.assertIn('char const dat_0c000000[8] = "abcdef";', GENERATED.read_text())
@@ -667,7 +599,7 @@ class Generate(unittest.TestCase):
         # its last string is a char array, not words and a byte
         files = dict(GENERATE, **{
             'config/test/splits.txt': 'C  0x0c000000  0x0c000100\ngen/test/d_0c000000.c  C  0x0c000000  0x0c000007\n',
-            'TEST.BIN': b'abcdef\0\0' + words(BASE) + bytes(0xF4)})
+            'config/test/data.txt': '0x0c000000  string[7]\n', 'TEST.BIN': b'abcdef\0\0' + words(BASE) + bytes(0xF4)})
         with tree(files):
             generate()
             text = GENERATED.read_text()
@@ -715,7 +647,7 @@ BODIES = {
     'config/test/splits.txt': 'D  0x0c000000  0x0c000100\nsrc/a.c  D  0x0c000000  0x0c000020\n',
     'config/test/symbols.txt': '0x0c000080  names\n',
     'TEST.BIN': words(BASE + 0x80, 3, 7, 8) + b'abcd\0' + bytes(0xEB),
-    'src/a.h': 'extern NJS_TEXNAME names[];\n',
+    'src/a.h': 'extern NJS_TEXNAME names[3];\n',
     # a header the source doesn't include, which declares names another way
     'src/0.h': 'extern NJS_MODEL names;\n',
     **stub(table=True),
@@ -777,10 +709,10 @@ class Bodies(unittest.TestCase):
                 'bodies.txt': 'texlist  0x0c000000  8  NJS_TEXLIST\ntable  0x0c000008  8  Uint32\n',
             })
 
-    def test_takes_a_section_placed_in_rows_from_its_first_start_to_its_highest_end(self):
-        # src/a.c's D in two rows, as link.py places it, from the first row's start to the highest end: the bodies
-        # come out as from one row, texlist at the section's start and the text at its end
-        for rows in (('0x0c000000  0x0c000010', '0x0c000010  0x0c000020'),
+    def test_takes_a_section_placed_in_rows_that_meet(self):
+        # src/a.c's D in rows that meet, with one ending inside texlist, or out of address order: the bodies come
+        # out as from one row, texlist at the section's start and the text at its end
+        for rows in (('0x0c000000  0x0c000004', '0x0c000004  0x0c000020'),
                      ('0x0c000000  0x0c000008', '0x0c000010  0x0c000020', '0x0c000008  0x0c000010')):
             with self.subTest(rows=rows):
                 splits = 'D  0x0c000000  0x0c000100\n' + ''.join(f'src/a.c  D  {row}\n' for row in rows)
@@ -817,15 +749,37 @@ class Bodies(unittest.TestCase):
     def test_a_text_past_the_image_fails(self):
         files = dict(BODIES, **stub(table=True, text=True))
         with tree(dict(files, **{'TEST.BIN': words(BASE + 0x80, 3, 7, 8) + b'abc'})), self.assertRaisesRegex(
-                SystemExit, r'TEXT_1 and its null, 0x0c000010 to 0x0c000015, lie outside'):
+                SystemExit, r'TEXT_1 with its null, 0x0c000010 to 0x0c000015, lies outside TEST\.BIN'):
             bodies()
 
+    def test_a_body_text_or_value_lies_in_its_sources_rows_and_in_no_code(self):
+        # table with no bytes, in the hole between src/a.c's rows, or in code;
+        # TEXT_1's null past src/a.c's rows; and VALUE_3 past its 4 bytes
+        hole = 'D  0x0c000000  0x0c000100\nsrc/a.c  D  0x0c000000  0x0c000008\nsrc/a.c  D  0x0c000010  0x0c000020\n'
+        short = 'D  0x0c000000  0x0c000100\nsrc/a.c  D  0x0c000000  0x0c000014\n'
+        four = 'D  0x0c000000  0x0c000100\nsrc/a.c  D  0x0c000000  0x0c000004\n'
+        empty = BODIES['build/stub/src/a.lis'].replace(directive(8, "H'00000000,H'00000000") + '\n', '')
+        for files, code, problem in (
+                (dict(BODIES, **{'build/stub/src/a.lis': empty}), [], 'table has no bytes in its stub listing'),
+                (dict(BODIES, **{'config/test/splits.txt': hole}), [],
+                 r"table, 0x0c000008 to 0x0c000010, lies outside its D's rows in config/test/splits\.txt"),
+                (BODIES, [(BASE + 0xC, BASE + 0x10)], r"table, 0x0c000008 to 0x0c000010, lies in TEST\.BIN's code"),
+                (dict(BODIES, **stub(table=True, text=True), **{'config/test/splits.txt': short}), [],
+                 r"TEXT_1 with its null, 0x0c000010 to 0x0c000015, lies outside its D's rows"),
+                (dict(laid(KIND_SOURCE, HELD), **{'config/test/splits.txt': four}), [],
+                 r"VALUE_3, 0x0c000004 to 0x0c000008, lies outside its D's rows")):
+            with self.subTest(problem=problem), tree(files), \
+                    mock.patch.object(data.Config, 'code', return_value=(code, [])), \
+                    self.assertRaisesRegex(SystemExit, problem):
+                bodies()
+
     def test_a_late_failure_leaves_the_former_group_whole(self):
-        # a text the stub build has no placeholder for, found after the bodies
-        files = dict(BODIES, **stub(table=True, text=True), **FORMER)
-        files['build/stub/src/a.lis'] = files['build/stub/src/a.lis'].replace("H'01", "H'02")
+        # table as floats, whose first, 0x00000007, is a subnormal no literal spells: the emitter fails on it after
+        # it writes texlist's body
+        files = dict(BODIES, **FORMER)
+        files['src/a.c'] = files['src/a.c'].replace('Uint32 table', 'Float table')
         with tree(files):
-            with self.assertRaisesRegex(SystemExit, 'ends 0 strings with TEXT_1'):
+            with self.assertRaisesRegex(SystemExit, r'src/a\.c: .*0x00000007 is no float'):
                 bodies()
             self.assertEqual(group(), {'texlist.inc': 'old\n', 'dropped.inc': 'old\n', 'bodies.txt': 'old\n'})
 
@@ -854,7 +808,7 @@ class Bodies(unittest.TestCase):
         files = dict(BODIES, **stub(headers=('src/a.h', 'src/b.h')))
         files['src/b.h'] = '\nextern NJS_MODEL names;\n'
         with tree(files), self.assertRaisesRegex(
-                SystemExit, r'src/b\.h:2: extern NJS_MODEL names; conflicts with src/a\.h:1: extern NJS_TEXNAME names\[\];'):
+                SystemExit, r'src/b\.h:2: extern NJS_MODEL names; conflicts with src/a\.h:1: extern NJS_TEXNAME names\[3\];'):
             bodies()
 
     def test_a_missing_dependency_file_fails(self):
@@ -893,6 +847,25 @@ class Bodies(unittest.TestCase):
             self.assertEqual(group()['bodies.txt'],
                              'texlist  0x0c000000  8  NJS_TEXLIST\ntable  0x0c000008  8  Uint32\n')
 
+    def test_an_assembled_listing_keeps_its_sections_full_names(self):
+        # asmsh's sections DAT0 and DAT1, which SHC's rows would both show as
+        # DAT, and fail on
+        text = assembled_listing(
+            [(0, 'L1:                              ; static: first'), (0, ".DATA.L     H'00000000", '00000000'),
+             (0, '.SECTION    DAT1,DATA,ALIGN=4'), (0, 'L2:                              ; static: second'),
+             (0, ".DATA.L     H'00000000,H'00000000", '0000000000000000')])
+        text = text.replace('.SECTION    D,', '.SECTION    DAT0,').replace(
+            'D                                REL-DATA    000000020',
+            'DAT0                             REL-DATA    000000004\n'
+            'DAT1                             REL-DATA    000000008')
+        shc = '\n'.join(['DAT 00000000              _first:                          ; static: first',
+                         directive(0, "H'00000000"), 'D0       SECTION (DAT0):                            00000004 Byte(s)',
+                         'D1       SECTION (DAT1):                            00000004 Byte(s)'])
+        with tree({'a.lis': text, 'b.lis': shc + '\n'}):
+            self.assertEqual(data.listing(Path('a.lis'))[0], {'first': ('DAT0', 0, 4), 'second': ('DAT1', 0, 8)})
+            with self.assertRaisesRegex(SystemExit, r'b\.lis:1: no one section starts DAT$'):
+                data.listing(Path('b.lis'))
+
     def test_an_assembled_listings_long_line_goes_on_in_its_code(self):
         # a line too long for the listing is cut short, and its code goes on
         # in rows of their own
@@ -928,6 +901,49 @@ class Bodies(unittest.TestCase):
                 'DATA     SECTION (D):                               00000004 Byte(s)']
         with tree({'a.lis': ('\r\n'.join(rows) + '\r\n').encode('latin-1')}):
             self.assertEqual(data.strings(Path('a.lis')), [('D', 0, b'\x85@\0')])
+
+    def test_a_line_marker_starts_its_section_for_the_strings_too(self):
+        # -optimize=0 names P on a line marker ahead of a function, whose
+        # pool's label is then code's and starts no string, and a string in D
+        rows = ['P                         ; File a.c      , Line 3        ; block',
+                '    00000000              L1:                              ; function: f',
+                f'    00000000 {"D000":10} {"MOV.L":12}L2,R0', '    00000004              L2:',
+                f'    00000004 {"<00000000>":10} {".DATA.L":12}_table', 'D   00000000              L3:',
+                directive(0, '"ab"', '.SDATA'), directive(2, "H'00", '.DATA.B'),
+                'PROGRAM  SECTION (P):                               00000008 Byte(s)',
+                'DATA     SECTION (D):                               00000004 Byte(s)']
+        with tree({'a.lis': '\n'.join(rows) + '\n'}):
+            self.assertEqual(data.strings(Path('a.lis')), [('D', 0, b'ab\0')])
+
+    def test_a_listing_fails_naming_the_line_of_a_datum_it_cant_size_or_place(self):
+        # a datum past its section's 4 bytes, below a label whose comment goes
+        # on a line of its own; a count and a string SHC doesn't write; and a
+        # file that gives no section's size
+        name, size = 'a' * 31, 'DATA     SECTION (D):                               00000004 Byte(s)'
+        for rows, problem in (
+                ([f'D   00000000              _{name}:', f'{"":59}; static: {name}', directive(0, "H'00000000"),
+                  label(4, 'x'), directive(4, '1, 2, 3, 4'), size], r'a\.lis:4: x runs past its section, D, of 4 bytes$'),
+                ([label(0, 'x'), directive(0, "H'10,0", '.DATAB.B'), size],
+                 r"a\.lis:2: H'10,0: its count isn't a decimal number$"),
+                ([label(0, 'x'), directive(0, '"abc', '.SDATA'), size], r'a\.lis:2: \.SDATA "abc: no whole string$'),
+                ([], r"a\.lis: gives no section's size")):
+            with self.subTest(problem=problem), tree({'a.lis': '\n'.join(rows) + '\n'}), \
+                    self.assertRaisesRegex(SystemExit, problem):
+                data.listing(Path('a.lis'))
+
+    def test_a_string_fails_naming_the_line_of_a_row_that_doesnt_give_its_bytes(self):
+        # a byte SHC doesn't write, a row that starts past the string's bytes,
+        # and a string past its section's 4 bytes
+        size = 'DATA     SECTION (D):                               00000004 Byte(s)'
+        for rows, problem in (
+                ([directive(0, "H'4G", '.DATA.B')], r"a\.lis:2: H'4G: no byte$"),
+                ([directive(0, '"ab"', '.SDATA'), directive(3, "H'00", '.DATA.B')],
+                 r"a\.lis:3: \.DATA\.B starts at 00000003, and its string's bytes end at 00000002$"),
+                ([directive(0, '"abcd"', '.SDATA'), directive(4, "H'00", '.DATA.B')],
+                 r'a\.lis:1: its string runs past its section, D, of 4 bytes$')):
+            with self.subTest(problem=problem), tree({'a.lis': '\n'.join(['D   00000000              L1:', *rows, size])}), \
+                    self.assertRaisesRegex(SystemExit, problem):
+                data.strings(Path('a.lis'))
 
     def test_a_comment_holds_no_body_and_no_include(self):
         for commented in ('NJS_TEXLIST bogus = {\n#include "a/bogus.inc"\n};', '#include "a/stray.inc"'):
@@ -1026,12 +1042,27 @@ class Records(unittest.TestCase):
         with tree(files), self.assertRaisesRegex(SystemExit, "a body points at path_step, which it doesn't declare"):
             bodies()
 
+    def test_a_string_declares_no_function_a_record_can_name(self):
+        # path_step's prototype on a line that a splice continues a string onto
+        lines = ['struct path { Sint16 count; void (*step)(void); };', 'const char *note = "\\', 'void path_step(void);";',
+                 'static struct path paths[1] = {', '#include "a/paths.inc"', '};']
+        files = laid(lines, ('paths', struct.pack('<h2xI', 3, BASE + 0xc0)))
+        files['config/test/symbols.txt'] += '0x0c0000c0  path_step\n'
+        with tree(files), self.assertRaisesRegex(SystemExit, "a body points at path_step, which it doesn't declare"):
+            bodies()
+
     def test_records_of_a_multidimensional_array_take_its_braces(self):
         lines = ['#define ROW 2', 'struct pair { Sint16 a, b; };',
                  'static struct pair grid[2][ROW] = {', '#include "a/grid.inc"', '};']
         self.assertEqual(body('grid', lines, ('grid', struct.pack('<8h', *range(1, 9)))),
                          '    {\n        { 1, 2 },\n        { 3, 4 },\n    },\n'
                          '    {\n        { 5, 6 },\n        { 7, 8 },\n    },\n')
+
+    def test_a_body_of_no_whole_number_of_its_elements_fails_naming_its_source(self):
+        lines = ['static NJS_POINT2 points[1] = {', '#include "a/points.inc"', '};']
+        with tree(laid(lines, ('points', bytes(12)))), self.assertRaisesRegex(
+                SystemExit, r': src/a\.c: TEST\.BIN: 0x0c000000: points is 12 bytes, no whole number of 8-byte NJS_POINT2$'):
+            bodies()
 
     def test_an_inner_extent_in_octal_is_octal(self):
         lines = ['struct pair { Sint16 a, b; };', 'static struct pair grid[2][010] = {', '#include "a/grid.inc"', '};']
@@ -1078,18 +1109,18 @@ class Records(unittest.TestCase):
                  '#include "a/points.inc"', '};', 'static struct span spans[1] = {', '#include "a/spans.inc"', '};']
         for lines, held, error in (
                 (rows, [('pictures', bytes(12)), ('frames', words(0x8428))],
-                 'TEST.BIN: 0x0c00000c: a pointer to const Uint8[] holds 0x00008428, no address'),
+                 'TEST.BIN: 0x0c00000c: a pointer to const Uint8[BYTES] holds 0x00008428, no address'),
                 (rows, [('pictures', bytes(12)), ('frames', words(BASE + 6))],
                  'TEST.BIN: 0x0c00000c: a pointer to an array of const Uint8 holds 0x0c000006, where pictures '
                  'holds none'),
                 (spans, [('points', bytes(48)), ('spans', words(BASE + 4))],
                  'TEST.BIN: 0x0c000030: a pointer to an array of NJS_POINT3 holds 0x0c000004, inside an element')):
             with self.subTest(error=error), tree(laid(lines, *held)), \
-                    self.assertRaisesRegex(EmitError, f'^{re.escape(error)}$'):
+                    self.assertRaisesRegex(SystemExit, f': src/a\\.c: {re.escape(error)}$'):
                 bodies()
 
     def test_a_pointer_to_an_element_of_a_name_from_elsewhere_names_the_element(self):
-        # BODIES's tables put names at 0x0c000080, and a.h declares it an array of NJS_TEXNAME
+        # BODIES's tables put names at 0x0c000080, and a.h declares it an array of three NJS_TEXNAME
         lines = ['struct entry { NJS_TEXNAME *name; };', 'static struct entry entries[2] = {',
                  '#include "a/entries.inc"', '};']
         self.assertEqual(body('entries', lines, ('entries', words(BASE + 0x98, BASE + 0x80))),
@@ -1097,6 +1128,19 @@ class Records(unittest.TestCase):
         with tree(laid(lines, ('entries', words(BASE + 0x84, 0)))), self.assertRaisesRegex(
                 SystemExit, 'a body points 4 bytes into names, and not at an element of it'):
             bodies()
+
+    def test_a_pointer_to_an_element_no_declared_extent_holds_fails(self):
+        # names' fourth element, past the three a.h declares, and its third, where a.h declares no extent
+        lines = ['struct entry { NJS_TEXNAME *name; };', 'static struct entry entries[1] = {',
+                 '#include "a/entries.inc"', '};']
+        for header, value, index in (('extern NJS_TEXNAME names[3];\n', BASE + 0xA4, 3),
+                                     ('extern NJS_TEXNAME names[];\n', BASE + 0x98, 2)):
+            files = laid(lines, ('entries', words(value)))
+            files['src/a.h'] = header
+            with self.subTest(header=header), tree(files), self.assertRaisesRegex(
+                    SystemExit, f'a body points at element {index} of names, and its declarations give names no '
+                                'extent that holds it$'):
+                bodies()
 
     def test_a_pointer_to_a_function_a_header_declares_is_its_name(self):
         lines = ['struct kind { Sint16 level; void (*step)(void); };', 'static struct kind kinds[2] = {',
@@ -1182,6 +1226,48 @@ class Records(unittest.TestCase):
                  'static struct quad quad = {', '#include "a/quad.inc"', '};']
         self.assertEqual(body('quad', lines, ('corner', struct.pack('<2h', 1, 2)), ('quad', words(BASE, BASE, BASE))),
                          '    (NJS_TEX *)&corner, &corner, (void *)&corner,\n')
+
+    def test_a_pointer_to_an_array_that_drops_a_const_casts(self):
+        # span.rows drops the const of points' rows, so it takes a cast, which
+        # spells the member's extent as CORNERS. span.kept keeps the const and
+        # takes no cast
+        lines = ['#define CORNERS 2', 'static const NJS_POINT3 points[2][2] = {', '#include "a/points.inc"', '};',
+                 'struct span { NJS_POINT3 (*rows)[CORNERS]; const NJS_POINT3 (*kept)[CORNERS]; };',
+                 'static struct span span = {', '#include "a/span.inc"', '};']
+        held = [('points', bytes(48)), ('span', words(BASE, BASE + 24))]
+        self.assertEqual(body('span', lines, *held), '    (NJS_POINT3 (*)[CORNERS])&points[0], &points[1],\n')
+
+    def test_a_pointer_to_an_array_of_another_shape_casts(self):
+        # grid's rows are arrays of 3, which rows takes as they are and wide takes as 4; all takes the whole of grid,
+        # 2 rows, and half takes it as 1
+        lines = ['static int grid[2][3];',
+                 'struct view { int (*rows)[3]; int (*wide)[4]; int (*all)[2][3]; int (*half)[1][3]; };',
+                 'static struct view view = {', '#include "a/view.inc"', '};']
+        held = [('grid', bytes(24)), ('view', words(BASE + 12, BASE + 12, BASE, BASE))]
+        self.assertEqual(body('view', lines, *held), '    &grid[1], (int (*)[4])&grid[1], &grid, (int (*)[1][3])&grid,\n')
+
+    def test_a_pointer_to_an_array_from_elsewhere_takes_its_address(self):
+        # all and two point at names, an array of 3 or of no extent, as arrays of 3 and of 2: two takes a cast where
+        # names has 3
+        lines = ['struct view { NJS_TEXNAME (*all)[3]; NJS_TEXNAME (*two)[2]; };', 'static struct view view = {',
+                 '#include "a/view.inc"', '};']
+        files = laid(lines, ('view', words(BASE + 0x80, BASE + 0x80)))
+        for header, view in (('extern NJS_TEXNAME names[3];\n', '    &names, (NJS_TEXNAME (*)[2])&names,\n'),
+                             ('extern NJS_TEXNAME names[];\n', '    &names, &names,\n')):
+            files['src/a.h'] = header
+            with self.subTest(header=header), tree(files):
+                bodies()
+                self.assertEqual(group()['view.inc'], view)
+
+    def test_a_qualifier_counts_at_its_own_level(self):
+        # holder.added adds a const to the ints that list's pointers point at, which takes a cast. holder.top adds one
+        # to the pointers themselves, and holder.any takes kept, whose pointers point at const ints but aren't const,
+        # as void: neither takes one
+        lines = ['static int *list[2];', 'static const int *kept[2];',
+                 'struct holder { const int **added; int *const *top; void *any; };',
+                 'static struct holder holder = {', '#include "a/holder.inc"', '};']
+        held = [('list', bytes(8)), ('kept', bytes(8)), ('holder', words(BASE, BASE, BASE + 8))]
+        self.assertEqual(body('holder', lines, *held), '    (const int * *)list, list, kept,\n')
 
     def test_an_array_of_pointers_takes_a_body(self):
         lines = ['static NJS_POINT3 points[2] = {', '#include "a/points.inc"', '};',
@@ -1324,88 +1410,6 @@ class Values(unittest.TestCase):
         with tree(laid(lines, ('values', bytes(8)))), self.assertRaisesRegex(
                 SystemExit, "a/values.inc holds its values, and can't be values's body"):
             bodies()
-
-
-# an image whose generated range holds a name its own source declares
-DECLARATIONS = {
-    'config/1st_read/symbols.txt': '',
-    'config/test/splits.txt': 'D  0x0c000000  0x0c000100\nmodules/test/a.c  D  0x0c000000  0x0c000040\n'
-                              'gen/test/d_0c000040.c  D  0x0c000040  0x0c000080\n'
-                              'modules/shared/c.c  D  0x0c000080  0x0c000100\n',
-    'config/test/symbols.txt': '0x0c000040  model\n',
-    'modules/test/a.c': 'extern NJS_MODEL model;\n',
-    'modules/shared/c.c': '',
-}
-DECLARED_TXT = Path('build/gen/test/declared.txt')
-
-
-class Declarations(unittest.TestCase):
-    def declared(self, files):
-        with tree(dict(DECLARATIONS, **files)):
-            data.declarations('test', str(DECLARED_TXT))
-            return DECLARED_TXT.read_text()
-
-    def test_lists_the_types_the_sources_agree_on(self):
-        self.assertEqual(self.declared({'modules/test/b.c': 'extern NJS_MODEL model[];\n'}), 'model  NJS_MODEL\n')
-
-    def test_the_images_own_sources_decide_first(self):
-        self.assertEqual(self.declared({'modules/shared/c.c': 'extern NJS_OBJECT model;\n'}), 'model  NJS_MODEL\n')
-
-    def test_conflicting_types_fail_naming_both(self):
-        with self.assertRaisesRegex(SystemExit, r'modules/test/b\.c:1: extern NJS_OBJECT model; conflicts with '
-                                                r'modules/test/a\.c:1: extern NJS_MODEL model;'):
-            self.declared({'modules/test/b.c': 'extern NJS_OBJECT model;\n'})
-
-    def test_a_struct_typed_extern_gives_no_type(self):
-        self.assertEqual(self.declared({'modules/test/a.c': 'extern struct model model;\n'}), '')
-
-    def test_a_comment_declares_nothing_and_keeps_the_lines_after_it(self):
-        self.assertEqual(self.declared({'modules/test/b.c': '/*\nextern NJS_OBJECT model;\n*/\n'}),
-                         'model  NJS_MODEL\n')
-        with self.assertRaisesRegex(SystemExit, r'modules/test/b\.c:4: extern NJS_OBJECT model; conflicts'):
-            self.declared({'modules/test/b.c': '/*\n * a\n */\nextern NJS_OBJECT model;\n'})
-
-    def test_declared_txt_is_written_only_where_its_bytes_differ(self):
-        # bytes no text holds, as a damaged run can leave, and then the text it would write, which it leaves be
-        self.assertEqual(self.declared({str(DECLARED_TXT): b'\xff'}), 'model  NJS_MODEL\n')
-        with tree(dict(DECLARATIONS, **{str(DECLARED_TXT): 'model  NJS_MODEL\n'})), \
-                mock.patch('data.publish') as publish:
-            data.declarations('test', str(DECLARED_TXT))
-        publish.assert_not_called()
-
-
-class Rows(unittest.TestCase):
-    def test_a_file_short_of_its_images_sections_fails(self):
-        # test's D runs to 0x0c000100: the whole TEST.BIN reaches it, and a file cut short, as a compressed one is,
-        # doesn't
-        with tree(GENERATE), contextlib.redirect_stdout(io.StringIO()) as out:
-            data.rows('TEST.BIN')
-        self.assertTrue(out.getvalue().startswith('# test: 0x0c000000 to '))
-        with tree(dict(GENERATE, **{'TEST.BIN': bytes(0x80)})), self.assertRaisesRegex(
-                SystemExit, r": TEST\.BIN: ends at 0x0c000080, short of the end of test's last section that isn't bss, "
-                            r"0x0c000100; IMAGE is the image's file, uncompressed$"):
-            data.rows('TEST.BIN')
-
-    def test_a_row_that_starts_before_the_game_data_owns_its_part_of_it(self):
-        # src/a.c's row starts 4 bytes before 1ST_READ.BIN's game data, and src/b.c's runs to the data's end. The
-        # gap between them holds words of no model, motion or path, and the file runs on to its end
-        last = data.FIRST_GAME_DATA[1]
-        files = {'config/1st_read/splits.txt': 'src/a.c  D  0x8c1755e0  0x8c175600\n'
-                                               f'src/b.c  D  0x8c175640  {last:#010x}\n',
-                 'config/1st_read/symbols.txt': '', 'src/a.c': '', 'src/b.c': '',
-                 '1ST_READ.BIN': bytes(0x8C1755E0 - data.FIRST_BASE) + words(*range(1, 25))
-                 + bytes(FIRST_FILE_END - 0x8C175640)}
-        with tree(files), contextlib.redirect_stdout(io.StringIO()) as out:
-            data.main(['--rows', '1ST_READ.BIN'])
-        self.assertEqual(out.getvalue(), '# 1st_read: 0x8c175600 to 0x8c175640: no generated row; '
-                                         'no recognized model, motion or path\n')
-
-    def test_a_comment_declares_no_variable(self):
-        # the variables whose bytes --rows keeps out of the rows it proposes
-        files = dict(DECLARATIONS, **{'config/test/symbols.txt': '0x0c000010  count\n0x0c000020  kept\n',
-                                      'modules/test/a.c': '/*\nextern Sint16 count;\n*/\nextern Sint16 kept;\n'})
-        with tree(files):
-            self.assertEqual(data.variables(data.Config('test')), {BASE + 0x20: 2})
 
 
 if __name__ == '__main__':
