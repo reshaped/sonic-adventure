@@ -1146,7 +1146,15 @@ static void police_draw_lights(struct task_work *work,
             (njCos(work->ang.y) * record->turn_speed * (360.0F / 65536.0F));
         police_exhaust.color.a =
             (1.0F + (POLICE_THROTTLE(record) * 1.5F)) * POLICE_GLOW(record);
+#ifdef NONMATCHING
+        /* the panlights' steps read the growth. the second picture's pass
+         * makes no panlight, so it leaves the growth as the steps set it */
+        if (!frame_redrawing) {
+            police_exhaust.growth = (-POLICE_THROTTLE(record) + 2.0F) * 0.5F;
+        }
+#else
         police_exhaust.growth = (-POLICE_THROTTLE(record) + 2.0F) * 0.5F;
+#endif
         panlight_create(&police_exhaust);
         direction.x = -1.6F;
         direction.y = -0.6F;
@@ -1225,10 +1233,10 @@ static void police_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct lockon_target *record = LOCKON_TARGET(task);
-#ifdef GCC
-    /* the split frame's second picture draws from a copy of the record, so
-     * that the action's frame, which police_draw_car wraps, stays as the
-     * steps left it */
+#ifdef NONMATCHING
+    /* the second picture's pass draws from a copy of the record.
+     * enemy_spring_scale changes its scale_speed, and police_draw_car wraps
+     * its action's frame. the record keeps both as the steps left them */
     struct lockon_target copy;
 
     if (frame_redrawing) {
@@ -1303,7 +1311,7 @@ static void police_hover(struct task_work *work, struct lockon_target *record)
             work->ang.z = angle_approach(work->ang.z, 0, 0xf0);
         }
     } else {
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset clearance the tag below names: with no floor,
          * clearance is DOWNWASH_REACH, so the car raises no dust, as in the
          * image. GCC can't see that height then goes unread, so height

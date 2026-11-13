@@ -211,7 +211,7 @@ static void drop_target_piece_run(struct task *task)
     int sinking;
     struct task_work *player;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets sinking and down: drop_target_init
      * makes pieces 0, 1 and 2 alone */
     sinking = DROP_TARGET_0_SINKING;
@@ -415,7 +415,13 @@ static void drop_target_piece_init(struct task *task, int piece)
      * piece's. pieces 1 and 2 clear SHAPE_OFF in shapes[1] and shapes[2],
      * which start at the copy's end and 52 bytes past it (MUL.L R2,R13 at
      * 0x0c90566a, MOV.L R1,@R2 at 0x0c90567c) */
+#ifdef NONMATCHING
+    /* repairs the store the tag names: this side clears SHAPE_OFF in the
+     * piece's shape, the record's one */
+    task->work->collision->shapes[0].flags &= ~SHAPE_OFF;
+#else
     task->work->collision->shapes[piece].flags &= ~SHAPE_OFF;
+#endif
     PIECE(task->work)->piece = piece;
 }
 

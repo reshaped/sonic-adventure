@@ -1,0 +1,10 @@
+datum  base64_alphabet  D  0x00000000  64
+datum  chao_page  D  0x00000040  1425
+datum  player_page  D  0x000005d1  3334
+datum  cart_page  D  0x000012d7  1272
+datum  mission_page  D  0x000017cf  1247
+datum  chao_page_size  D  0x00001cb0  4
+datum  player_page_size  D  0x00001cb4  4
+datum  cart_page_size  D  0x00001cb8  4
+datum  mission_page_size  D  0x00001cbc  4
+datum  mail_cursor  B  0x00000000  4

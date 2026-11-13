@@ -1,0 +1,15 @@
+datum  erobo_actions  D  0x00000000  336
+datum  hint_given  D  0x00000150  4
+datum  erobo_shapes  D  0x00000154  260
+datum  erobo_modes  D  0x00000258  48
+datum  deck_middle  C  0x00000000  12
+datum  start_pos  C  0x0000000c  12
+datum  boss_name  C  0x00000018  5
+datum  eye_offset  C  0x00000020  12
+datum  node_origin  C  0x0000002c  12
+datum  hint_pages  C  0x00000038  24
+datum  erobo_task  B  0x00000000  4
+datum  start_time  B  0x00000004  4
+datum  pose_matrix  B  0x00000008  64
+text  TEXT_1  C  0x00000050  31
+text  TEXT_2  C  0x00000070  31

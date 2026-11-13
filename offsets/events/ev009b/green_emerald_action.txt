@@ -1,0 +1,4 @@
+datum  ev009b_green_emerald_motion  D  0x00000000  12
+datum  ev009b_green_emerald_action  D  0x0000000c  8
+datum  ev009b_purple_emerald_textures  D  0x00000014  12
+text  TEXT_1  C  0x00000000  16

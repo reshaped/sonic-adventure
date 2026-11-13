@@ -718,7 +718,7 @@ void sound_slot_stop(int slot)
  * sends volume to its port as it is */
 static void sound_slot_set_volume(int volume, int slot)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* a skip sends the least volume, so the queue runs on unheard */
     if (event_skipping) {
         volume = VOLUME_LEAST;
@@ -944,7 +944,7 @@ static int sound_slot_alloc(int priority, int se)
     int found;
     int i;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture plays no sound */
     if (frame_redrawing) {
         return -1;
@@ -1020,9 +1020,9 @@ int sound_play(int se, int id, int priority, int volume)
     /* @hack spelling: an accepted request returns the 44 left in R0, the offset
      * of pos.z, which MOV #44,R0 at 0x8c0992be loads for the store above. no
      * caller reads the result, so with return slot, 12 of 49 words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1073,9 +1073,9 @@ int sound_play_at(int se, int id, int priority, int volume, Float x, Float y,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0993b8). no caller reads the result, so with return slot, 81 of 101
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1104,9 +1104,9 @@ int sound_play_held(int se, int id, int priority, int volume)
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c099456). no caller reads the result, so with return slot, 12 of 49
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1118,7 +1118,7 @@ static int sound_slot_find(int se, int id)
     int i;
     int found;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture refreshes no sound */
     if (frame_redrawing) {
         return -1;
@@ -1165,9 +1165,9 @@ int sound_play_for(int se, int id, int priority, int volume, int updates)
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0995d8). no caller reads the result, so with return slot, 6 of 60
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1220,9 +1220,9 @@ int sound_play_at_for(int se, int id, int priority, int volume, Float x,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0996e4). no caller reads the result, so with return slot, 8 of 107
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1270,9 +1270,9 @@ int sound_play_around(int se, int id, int priority, int volume, Float x,
     /* @hack spelling: the 44 left in R0, as in sound_play (MOV #44,R0 at
      * 0x8c0997f0). no caller reads the result, so with return slot, 6 of 103
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is slot, the one the request
-     * took */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is slot, the one the
+     * request took */
     return slot;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */

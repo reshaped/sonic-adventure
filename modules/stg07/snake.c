@@ -403,7 +403,7 @@ static void snake_segment_draw(struct task *task)
 
     snake = task->parent;
     texture_set_stage();
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets object: each segment's kind comes
      * from its spec, which gives one the switch has a case for */
     object = &snake_body_object;

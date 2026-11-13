@@ -1,0 +1,10 @@
+datum  ev00b5_e101  D  0x00000000  4
+datum  ev00b5_fade  D  0x00000004  4
+datum  ev00b5_textures  D  0x00000008  24
+text  TEXT_1  C  0x00000000  29
+text  TEXT_2  C  0x00000020  56
+text  TEXT_3  C  0x00000058  59
+text  TEXT_4  C  0x00000094  50
+text  TEXT_5  C  0x000000c8  27
+text  TEXT_6  C  0x000000e4  43
+text  TEXT_7  C  0x00000110  20

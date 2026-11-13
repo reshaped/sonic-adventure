@@ -18,7 +18,7 @@
 
 extern NJS_TEXLIST obj_mountain_texlist;
 extern NJS_ACTION bat_action;
-#ifdef GCC
+#ifdef NONMATCHING
 /* the wings' UVs, as bat_draw takes them: the 3 their strips share, then
  * the 4th the image's draw reads past them */
 static NJS_COLOR bat_wing_uvs[4] = {
@@ -202,11 +202,11 @@ static void bat_draw(struct task *task)
         TURN_VIA(njRotateX, work->ang.x - 0x4000, ang);
         TURN_VIA(njRotateY, work->ang.y + 0x8000, ang);
         VARS(work)->action = &bat_action;
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps the image's UVs with no read past. each wing is a strip of 4
          * points, whose meshset takes the 3 UVs at 0x0ca95538 in STG05.BIN.
-         * the image's draw reads a 4th past them, the first word of the
-         * meshset at 0x0ca95544, as u -16384 and v 1. GCC's wings take
+         * the image's draw reads a 4th past them, as u -16384 and v 1. that is
+         * the first word of the meshset at 0x0ca95544. this side's wings take
          * bat_wing_uvs, which holds all 4 */
         bat_action.object->child->child->model->meshsets->vertuv = bat_wing_uvs;
         bat_action.object->child->sibling->child->model->meshsets->vertuv =

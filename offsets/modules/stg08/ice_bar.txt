@@ -1,0 +1,6 @@
+datum  ice_bar_glint_texanims  D  0x00000000  160
+datum  ice_bar_glint_sprite  D  0x000000a0  32
+datum  ice_bar_block_shape  D  0x000000c0  52
+datum  ice_bar_mist  D  0x000000f4  60
+datum  ice_bar_splash_origin  D  0x00000130  12
+datum  ice_bar_glint_origin  D  0x0000013c  12

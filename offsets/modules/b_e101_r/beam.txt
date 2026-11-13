@@ -1,0 +1,4 @@
+datum  floor_center  D  0x00000000  12
+datum  ball_frames  D  0x0000000c  352
+datum  beam_texture  D  0x0000016c  44
+datum  beam_shape  D  0x00000198  52

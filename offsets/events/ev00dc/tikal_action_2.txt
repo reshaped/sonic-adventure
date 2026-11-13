@@ -1,0 +1,2 @@
+datum  ev00dc_tikal_motion_2  D  0x00000000  12
+datum  ev00dc_tikal_action_2  D  0x0000000c  8

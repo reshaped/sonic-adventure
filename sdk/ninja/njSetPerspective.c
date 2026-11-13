@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set _nj_screen_.dist to _nj_screen_.w / (2 tan(ang / 2)), the distance at
  * which the screen's width spans an angle of view of ang. unlike njSetCamera,
  * it leaves out _nj_scr_aspect_x_ */

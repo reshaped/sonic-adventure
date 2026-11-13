@@ -2,7 +2,7 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* stddef.h's size_t, unsigned int, which GCC's built-in functions and
  * SH4ZAM's headers declare with. the unsigned long below would conflict */
 #include <stddef.h>

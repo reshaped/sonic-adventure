@@ -1,0 +1,2 @@
+datum  ev0053_textures  D  0x00000000  8
+text  TEXT_1  C  0x00000000  42

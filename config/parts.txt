@@ -1,0 +1,104 @@
+# What each source is part of, its thing, and who reads what it computes,
+# its bin. tools/parts.py reads the table for the checks that ask:
+# tests/test_zam.py, which lets a file mark a function SHZ_FAST_MATH only
+# where its bin is picture, engine/tests/boundary.py, which takes from it
+# the directories of the backend and the runtime, the contracts, the adapter,
+# the slice's runner and shim, and the Dreamcast's drawers, and the sources
+# of play math and of the contracts, and tests/test_make.py, which takes play
+# math's sources too.
+#
+# A row is PATH THING BIN. PATH is a file, or a directory, which ends in /,
+# and a file takes the row with the longest PATH that is the file or a
+# directory above it. Each C, C++ and assembly source, header and shader that
+# git tracks under src/, sdk/, modules/, events/, loader/ and engine/ takes a
+# row, and some such file takes each row: tests/test_parts.py holds both.
+# The rows speak for the code a build compiles, the PC's shaders among it. A
+# script, a make file or a linker script under a directory's row is none of
+# the row's, and tools/parts.py gives it no thing or bin.
+#
+# The things and the bins are tools/parts.py's THINGS and BINS, which alone
+# set their names. The two lists below say what each is, a name three spaces
+# in and then its meaning, and tests/test_names.py holds them to the tool's:
+# each name once, and no other.
+#
+# THING is one of:
+#   game       SEGA's game, and the port's code in it: its fixes, its C in
+#              place of the game's assembly, and 16:9, 60 fps, the overlay
+#              and the skip
+#   sdk        SEGA's libraries, and the port's C in place of their functions
+#   play-math  the SH-4's float operations that play reads, as a host computes
+#              them to the SH-4's bits
+#   drawer     the Dreamcast's draws of the game's models, sprites and screen
+#              draws, each sent before its call returns
+#   recorder   a host's adapter: what turns the game's draws and sound into
+#              the contracts' records and calls, and the client that gives a
+#              capture's records to a backend
+#   contract   the engine's C ABI, a game's part of it, and a capture's
+#              records
+#   backend    a machine's pictures and services: the Dreamcast's batch
+#              kernels and frame owner, the PC's backend, the runtime's core,
+#              which a machine that keeps its draws links, and what a host
+#              gives the game's C in place of the SH-4 and SEGA's libraries
+#   tool       a test's own program
+#
+# BIN is one of:
+#   play     a game step reads what the file computes. A file whose bin isn't
+#            known is play
+#   picture  a game step reads nothing the file computes but what it brings
+#            from outside the game, as a pad's bits, the clock's time or a
+#            save's bytes. What lies below the draw calls is picture, and so
+#            are the PC's services
+#   both     the file holds a play half and a picture half, and its row ends
+#            with a # comment that says what each is
+#   none     neither: a test's own code
+#
+# path                         thing      bin
+engine/dc/batch.h              backend    picture
+engine/dc/dreamcast.h          game       picture
+engine/dc/math.c               game       play
+engine/dc/mesh.c               game       play
+engine/dc/ninja/               sdk        play
+engine/dc/njSprite.c           sdk        both    # Ninja's sprite entries keep the split frame's record and set Ninja's texture and color mode, and the object holds the picture's aspect and squeeze and includes the sprite sends, sa1/sprite.c
+engine/dc/njsprite.h           sdk        both    # the sprite layers' share: sprite_begin sets Ninja's texture and color mode, and the header includes the sprite sends, sa1/sprite.h
+engine/dc/overlay.c            game       picture
+engine/dc/owner.c              backend    picture
+engine/dc/owner.h              backend    picture
+engine/dc/sa1/                 drawer     picture
+engine/dc/sa_dc.h              backend    picture
+engine/dc/sprite.c             game       both    # sprite_draw_3d keeps which step draws, the frame's timer and the split frame's record, and includes the sprite sends, sa1/sprite.h
+engine/dc/wide.c               game       picture
+engine/include/                contract   picture
+engine/include/sa_pc.h         backend    picture
+engine/native/                 backend    play
+engine/native/mesh.c           game       play
+engine/numeric/                play-math  play
+engine/pc/                     backend    picture
+engine/runtime/                backend    picture
+engine/sa1/                    recorder   play
+engine/sa1/basic.cpp           recorder   picture
+engine/sa1/basic.h             recorder   picture
+engine/sa1/client.cpp          recorder   picture
+engine/sa1/client.h            recorder   picture
+engine/sa1/hooks.c             game       picture
+engine/sa1/overlay.c           game       picture
+engine/sa1/rules.h             drawer     picture # the Dreamcast walk's numbers and its drawn_mode and set_header, moved here whole, where both builds' -Iengine/sa1 finds them: a host's recorder reads them too
+engine/sa1/sa_capture.h        contract   picture
+engine/sa1/sa_client.h         recorder   picture
+engine/sa1/sa_sa1.h            contract   picture
+engine/tests/                  tool       none
+events/                        game       play
+events/shared/sdk/             sdk        play
+loader/                        game       play
+loader/sdk/                    sdk        play
+modules/                       game       play
+modules/movie/sdk/             sdk        play
+sdk/                           sdk        play
+sdk/ninja/njDebug.c            sdk        both    # the print keeps its size, its color and its strip, and njCharacter includes its send, sa1/text.h
+sdk/ninja/njDraw.c             sdk        both    # Ninja's screen polygons keep the split frame's record and open their strip through Ninja, and include their send, sa1/polygon.h
+sdk/ninja/njDrawLine2D.c       sdk        both    # Ninja's 2D lines open their strips' list through Ninja, and include their sends, sa1/line2d.h
+sdk/ninja/njDrawLine3D.c       sdk        both    # Ninja's 3D lines move and clip their ends and open their strips' list through Ninja, and include their send, sa1/line3d.h
+sdk/ninja/njDrawPolygon2D.c    sdk        both    # Ninja's 2D polygons keep the split frame's record and open their strip through Ninja, and include their sends, sa1/polygon2d.h
+sdk/ninja/njModelE.c           sdk        both    # Ninja's easy draws keep the light and its projection, the model clip and the tree, and include their walk, sa1/easy.h
+src/                           game       play
+src/draw/model.c               game       both    # the layer keeps what play reads, draw_in_view's test and which step draws, and includes the model walk, sa1/model.c
+src/system/present.c           game       both    # the split frame runs each task's step and draw callback and stops the frame's timer across its draws, which is play's, and keeps a step's draws and draws the second picture from them, which is the picture's

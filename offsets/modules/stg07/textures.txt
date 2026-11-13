@@ -1,0 +1,3 @@
+datum  ruin_act0_water  D  0x00000000  48
+datum  ruin_act1_water  D  0x00000030  108
+datum  ruin_act2_water  D  0x0000009c  4

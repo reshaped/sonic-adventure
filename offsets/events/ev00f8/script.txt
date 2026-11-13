@@ -1,0 +1,12 @@
+datum  ev00f8_flash  D  0x00000000  4
+datum  ev00f8_textures  D  0x00000004  16
+text  TEXT_1  C  0x0000000c  33
+text  TEXT_2  C  0x00000030  41
+text  TEXT_3  C  0x0000005c  43
+text  TEXT_4  C  0x0000009c  48
+text  TEXT_5  C  0x000000d4  48
+text  TEXT_6  C  0x0000010c  29
+text  TEXT_7  C  0x00000088  5
+text  TEXT_8  C  0x00000090  9
+text  TEXT_9  C  0x000000cc  5
+text  TEXT_10  C  0x00000104  5

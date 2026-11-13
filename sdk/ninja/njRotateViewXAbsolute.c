@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set v's direction, vx to vz, to its absolute direction, avx to avz, rotated
  * by ang about x. a null v selects the current view */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c65b2c0 follows the

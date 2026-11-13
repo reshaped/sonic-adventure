@@ -90,10 +90,7 @@
      TSP_MIPMAP_D)
 
 struct nj_parameterkm _nj_parameterkm_;
-/* the LIST_TOP bits of the list the last njStart function opened */
 Uint32 _nj_sq_base_;
-/* the address of the write pointer of the list the last njStart function
- * opened. njEndVertex sets the write pointer through it */
 Uint32 **_nj_listtype_;
 
 extern Sint32 _nj_texglobal_color_;

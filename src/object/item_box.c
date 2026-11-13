@@ -13,7 +13,7 @@
 #include "object/item_box_air.h"
 #include "object/models.h"
 #include "object/placement.h"
-#ifdef GCC
+#ifdef NONMATCHING
 #include "player/e102_shot.h"
 #endif
 #include "player/lockon.h"
@@ -312,6 +312,16 @@ static void item_box_draw(struct task *task)
     struct task_work *work = task->work;
     Float scale;
 
+#ifdef NONMATCHING
+    /* an open box's step draws its base alone, so the second picture's
+     * pass draws just the base here. a mirror's reflection also calls
+     * this, and draws the box whole, as at 30 fps */
+    if (present_drawing(task) &&
+        (work->mode == ITEM_BOX_OPEN || work->mode == ITEM_BOX_OPENED)) {
+        item_box_draw_open(task);
+        return;
+    }
+#endif
     item_kinds[ITEM_1UP].texture = item_1up_textures[get_character()];
     if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 20.0F)) {
         return;
@@ -368,11 +378,12 @@ static void item_give_speed_up(struct task_work *work)
 {
     struct collision_work *hit = work->collision->hit;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the slot for E-102's shot. the image takes as the player the
-     * byte at the shot's work + 8 (MOV.B @(8,R4),R0 at 0x8c0609b2), the low
-     * byte of its shooter's work's address (MOV.L R4,@(8,R14) at
-     * 0x8c0dcfb0). GCC gives a shot's speed up to the E-102 who fired it */
+     * byte at the shot's work + 8 (MOV.B @(8,R4),R0 at 0x8c0609b2). it holds
+     * the low byte of the shooter's work's address (MOV.L R4,@(8,R14) at
+     * 0x8c0dcfb0). this side gives a shot's speed up to the E-102 who fired
+     * it */
     struct task_work *shooter = e102_shot_shooter(hit->owner);
 
     player_give_speed_up(

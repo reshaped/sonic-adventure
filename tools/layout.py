@@ -265,7 +265,7 @@ class Types:
             self.read(text)
 
     def read(self, text):
-        # tools/image.py and cdata.py take this module without csource.py,
+        # tools/items.py and cdata.py take this module without csource.py,
         # which read() and spelled() alone need
         from csource import macro_directives
         for _, name, macro in macro_directives(text):

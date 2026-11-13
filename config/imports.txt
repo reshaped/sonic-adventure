@@ -11,8 +11,8 @@
 # exactly one of their spans holds the name's address. An image provides a
 # name where its objects export it, as tools/gcclink.py's exports() has it,
 # and its own symbols.txt gives the name no other address. A name needs a
-# row too where only a GCC guard or a source in gcc/ defines it, and the
-# tables give it no address.
+# row too where only a guard or a source config/dreamcast.mk names defines
+# it, and the tables give it no address.
 #
 # An import's provider must be live with the image: a state of the memory
 # contract holds both and lets one take names from the other. The exception
@@ -20,30 +20,37 @@
 # it, and the row's reason opens with hand-off:
 #
 # image    name                               provider    symbol                         view  reason
-*          draw_colors                        1st_read    draw_colors                    0x8c  only gcc/src/draw/model.c defines it, and the tables give it no address
-*          frame_later_draws                  1st_read    frame_later_draws              0x8c  only gcc/src/system/present.c defines it, and the tables give it no address
-*          frame_redrawing                    1st_read    frame_redrawing                0x8c  only gcc/src/system/present.c defines it, and the tables give it no address
-*          frame_split                        1st_read    frame_split                    0x8c  only gcc/src/system/present.c defines it, and the tables give it no address
-*          path_sample_from                   1st_read    path_sample_from               0x8c  only src/path/path.c's GCC side defines it, and the tables give it no address
-*          port_draw_aspect                   1st_read    port_draw_aspect               0x8c  only gcc/sdk/ninja/njSprite.c defines it, and the tables give it no address
-*          port_view_aspect                   1st_read    port_view_aspect               0x8c  only gcc/src/system/wide.c defines it, and the tables give it no address
-*          port_wide_anchor                   1st_read    port_wide_anchor               0x8c  only njGlobal.c's GCC side defines it, and the tables give it no address
-*          port_wide_cover                    1st_read    port_wide_cover                0x8c  only njGlobal.c's GCC side defines it, and the tables give it no address
-*          port_wide_squeezes                 1st_read    port_wide_squeezes             0x8c  only gcc/sdk/ninja/njSprite.c defines it, and the tables give it no address
-*          port_wide_x                        1st_read    port_wide_x                    0x8c  only gcc/sdk/ninja/njSprite.c defines it, and the tables give it no address
-*          present_untimed                    1st_read    present_untimed                0x8c  only gcc/src/system/present.c defines it, and the tables give it no address
-*          skip_owed                          1st_read    skip_owed                      0x8c  only gcc/src/event/skip.c defines it, and the tables give it no address
-*          stage_limit_cleared                1st_read    stage_limit_cleared            0x8c  only src/stage/stage.c's GCC side defines it, and the tables give it no address
+*          draw_action_like_ninja             1st_read    draw_action_like_ninja         0x8c  only src/draw/model.c defines it, and the tables give it no address
+*          draw_colors                        1st_read    draw_colors                    0x8c  only src/draw/model.c defines it, and the tables give it no address
+*          draw_tree_like_ninja               1st_read    draw_tree_like_ninja           0x8c  only src/draw/model.c defines it, and the tables give it no address
+*          event_skipping                     1st_read    event_skipping                 0x8c  only src/event/skip.c defines it, and the tables give it no address
+*          frame_later_draws                  1st_read    frame_later_draws              0x8c  only src/system/present.c defines it, and the tables give it no address
+*          frame_redrawing                    1st_read    frame_redrawing                0x8c  only src/system/present.c defines it, and the tables give it no address
+*          frame_split                        1st_read    frame_split                    0x8c  only src/system/present.c defines it, and the tables give it no address
+*          path_sample_from                   1st_read    path_sample_from               0x8c  only src/path/path.c's non-matching side defines it, and the tables give it no address
+*          polygon_find_sides_indexed         1st_read    polygon_find_sides_indexed     0x8c  only src/collision/polygon.c's non-matching side defines it, and the tables give it no address
+*          port_band                          1st_read    port_band                      0x8c  only engine/dc/wide.c defines it, and the tables give it no address
+*          port_draw_aspect                   1st_read    port_draw_aspect               0x8c  only engine/dc/njSprite.c defines it, and the tables give it no address
+*          port_view_aspect                   1st_read    port_view_aspect               0x8c  only src/system/pace.c defines it, and the tables give it no address
+*          port_wide_anchor                   1st_read    port_wide_anchor               0x8c  only njGlobal.c's non-matching side defines it, and the tables give it no address
+*          port_wide_cover                    1st_read    port_wide_cover                0x8c  only njGlobal.c's non-matching side defines it, and the tables give it no address
+*          port_wide_squeezes                 1st_read    port_wide_squeezes             0x8c  only engine/dc/njSprite.c defines it, and the tables give it no address
+*          port_wide_x                        1st_read    port_wide_x                    0x8c  only engine/dc/njSprite.c defines it, and the tables give it no address
+*          present_run                        1st_read    present_run                    0x8c  only src/system/present.c defines it, and the tables give it no address
+*          present_untimed                    1st_read    present_untimed                0x8c  only src/system/present.c defines it, and the tables give it no address
+*          present_welded                     1st_read    present_welded                 0x8c  only src/system/present.c defines it, and the tables give it no address
+*          skip_owed                          1st_read    skip_owed                      0x8c  only src/event/skip.c defines it, and the tables give it no address
+*          stage_limit_cleared                1st_read    stage_limit_cleared            0x8c  only src/stage/stage.c's non-matching side defines it, and the tables give it no address
 1st_read   draw_palettes                      1st_read    draw_colors                    -     palette.src's name for draw_colors, an object that starts with the palettes
 1st_read   kmi_profile_unsigned_fallback      1st_read    kmiGetProfileInt               -     kmiGetProfileInt declared with a KMDWORD fallback, for kmiInitializeDriver's call
 1st_read   pad_jump_buttons_signed            1st_read    pad_jump_buttons               -     pad_jump_buttons as a Sint32, for race_sonic_drive's read
 adv0100    draw_palettes                      1st_read    draw_colors                    0x8c  palette.src's name for draw_colors, an object that starts with the palettes
 advertise  menus_set_character_number         1st_read    set_character_number           0x8c  set_character_number without a prototype, so trial.c's call passes its argument as an int
 advertise  menus_set_stage_act                1st_read    stage_set_stage_act            0x8c  stage_set_stage_act without a prototype, so trial.c's call passes its arguments as ints
-ev0001     dat_0cac6330                       adv00       dat_0cac6330                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb218c8, though stg10 defines it too
-ev0001     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb10e24, though adv0100 defines it too
-ev0050     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb13c58, though adv0100 defines it too
-ev0051     dat_0cacc504                       adv00       dat_0cacc504                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb25a4c, though stg06 defines it too
-ev0051     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb13c58, though adv0100 defines it too
+ev0001     dat_0cac6330                       adv00       dat_0cac6330                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb218c8. At its address stg10 holds a model's uvs, which its content names dat_0cac6330 too
+ev0001     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb10e24. At its address adv0100 holds a model's strips, which its content names dat_0cae9ee0 too
+ev0050     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb13c58. At its address adv0100 holds a model's strips, which its content names dat_0cae9ee0 too
+ev0051     dat_0cacc504                       adv00       dat_0cacc504                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb25a4c. At its address stg06 holds a model's normals, which its content names dat_0cacc504 too
+ev0051     dat_0cae9ee0                       adv00       dat_0cae9ee0                   0x0c  Station Square's model of a person, which the event animates with adv00's motion dat_0cb13c58. At its address adv0100 holds a model's strips, which its content names dat_0cae9ee0 too
 movie      mwmng_error_register_args          movie       mwMngError                     -     the variadic mwMngError with fixed arguments, which a call passes in R4 and R5
 sboard     big_kaeru_object                   1st_read    frog_object                    0x8c  sand_frog.c's name for Froggy's model

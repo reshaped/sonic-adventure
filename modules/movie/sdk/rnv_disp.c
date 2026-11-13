@@ -290,7 +290,7 @@ void mwRnvCalcVtex(struct rnv_obj *rnv)
             vtx[i].uOffsetRGB.dwPacked = ofst;
         }
         vtx[i].u.fZ = rnv->plz;
-#ifdef GCC
+#ifdef NONMATCHING
         /* the port's 16:9 squeezes the movie about the screen's middle, as
          * it squeezes the 2D draws, so the movie keeps its shape. the bands
          * beside it show movie_play's back color, black */

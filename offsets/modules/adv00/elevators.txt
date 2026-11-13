@@ -1,0 +1,4 @@
+datum  elevator_shapes  D  0x00000000  260
+datum  highway_elevator_shapes  D  0x00000104  260
+datum  twinkle_light_textures  D  0x00000208  12
+datum  twinkle_light_places  D  0x00000214  232

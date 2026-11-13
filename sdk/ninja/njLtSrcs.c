@@ -38,7 +38,7 @@ static void lt_rgb_lights_body(void);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* lt_power's body. SHC gives lt_power, a static function, a numbered label,
  * so the body names its own entry, _lt_power, for the calculators' JSRs */
 /* @asm open: no inspect rule reads its table switch on R4, which ends in BRAF
@@ -122,11 +122,13 @@ _lt_power:
 #endif
 /* clang-format on */
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* lt_power_body's text defines _lt_power, the label GCC would give
  * lt_power. lt_power takes another, so the calculators' JSRs to _lt_power
  * reach the body */
 static Float lt_power(Float value, Int step) __asm__("_lt_power_c");
+#endif
 #endif
 
 /* 1 for step 0. for steps 1 to 16, value to the power 0.5, 1, 1.5, 2, 3, 4,
@@ -140,7 +142,7 @@ static Float lt_power(Float value, Int step)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* fpow_tbl[row][(Int)(value * 256)], or 0 where that index passes 255. row
  * must be from 0 to 16, and value above -1 / 256: a lower value indexes
  * before the row */
@@ -213,7 +215,8 @@ Float njLightSqrt(Float value)
 static void lt_rgb_00(NJS_LIGHT *light, NJS_ARGB *color, NJS_POINT3 *point,
                       NJS_VECTOR *normal)
 {
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
     /* repairs the @bug memory above: a calculator must leave color, point
      * and normal in R5 to R7, and GCC's code may change all three. the
      * variables below hold those registers only at the asm at the end, which
@@ -227,20 +230,23 @@ static void lt_rgb_00(NJS_LIGHT *light, NJS_ARGB *color, NJS_POINT3 *point,
     register NJS_VECTOR *kept_normal __asm__("r7") = normal;
 
 #endif
+#endif
     _nj_ptr_rgb_lt_argb_->a += light->ltcal.mdif.a;
     _nj_ptr_rgb_lt_argb_->r += light->ltcal.mdif.r;
     _nj_ptr_rgb_lt_argb_->g += light->ltcal.mdif.g;
     _nj_ptr_rgb_lt_argb_->b += light->ltcal.mdif.b;
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
     __asm__ volatile(""
                      :
                      : "r"(kept_color), "r"(kept_point), "r"(kept_normal)
                      : "memory");
 #endif
+#endif
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* type 0x01, NJD_AMBIENT: add mamb's r, g and b to color[0]'s */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c625e00 follows the
  * body's own return at 0x8c625df8 */
@@ -2512,7 +2518,7 @@ static void lt_clear_color(NJS_ARGB *color)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* lt_rgb_lights's body. it loads _nj_ptr_rgb_lt_argb_, _nj_ptr_rgb_lt_pnt_ and
  * _nj_ptr_rgb_lt_nml_ into R5 to R7 once, then calls each queued light's
  * calculator in queue order. before each call it clears FR3 and FR11: a

@@ -1,11 +1,11 @@
 """Check config/1st_read/census.txt, 1ST_READ.BIN's census, against the
-numbers for RAM it explains and against make gcc's objects, and check the
+numbers for RAM it explains and against make dc's objects, and check the
 motion files' addresses in 1ST_READ.BIN's image.
 
     python3 tools/census.py [--generated] [--disc]
-    python3 tools/census.py --gcc [--add IMAGE SOURCE ...]
+    python3 tools/census.py --dc [--replace SRC SOURCE ...] [--add IMAGE SOURCE ...]
 
-make gcc's link lays out 1ST_READ.BIN and the images beside it anew. A
+make dc's link lays out 1ST_READ.BIN and the images beside it anew. A
 number 1ST_READ.BIN holds for a place outside its image stays right only
 where that place keeps its address. The census explains each such number
 by a row, whose fields and dispositions the table's header gives. A row
@@ -13,46 +13,53 @@ explains the numbers of its file in its span, which lies in one view of
 RAM: 0x0c, 0x8c or 0xac. It counts the numbers in its span, not which they
 are, so a number that takes another's place passes.
 
-Without --gcc, the census reads the files 1ST_READ.BIN's SHC build reads.
-Its candidates are their numbers for RAM past 1ST_READ.BIN's image. The
-files are:
+Without --dc, the census reads the files 1ST_READ.BIN's SHC build reads.
+Its candidates are their numbers for RAM past 1ST_READ.BIN's image. A C
+source's reads, build/reads/<source less .c>.d, name the files it
+includes, as the host's C compiler finds them in the directories SHC
+searches. They name a body the source takes from the disc by its stub,
+under build/stub/, which needs no disc
+(TOOLCHAIN.md#stub-and-full-builds). The files are:
 
 - each source 1ST_READ.BIN's splits.txt places, other than a gen/ range;
-- each .h, .inc and .c file under SOURCE_ROOTS that a C source's .d file
-  names;
+- each .h, .inc and .c file under SOURCE_ROOTS that a C source's reads
+  name;
 - config/1st_read/symbols.txt, each of whose rows gives a number;
 - with --generated, the C make writes from the disc for 1ST_READ.BIN's gen/
   ranges;
-- with --generated, each file under build/gen/ that a full build's .d file
-  names (TOOLCHAIN.md#stub-and-full-builds).
+- with --generated, the file under build/gen/ at the path of each file
+  under build/stub/ that a C source's reads name: the body make writes
+  from the disc, which a full build reads in the stub's place.
 
-With --gcc, the census reads every image's GCC side instead. An image's GCC
-side is the C make gcc compiles for each source the image's splits.txt
-places, other than a gen/ range. That C is the source, or the C in gcc/
-that replaces a .src file. A .src file that nothing replaces is read as
+With --dc, the census reads every image's non-matching build instead. An
+image's non-matching build is the C make dc compiles for each source the
+image's splits.txt places, other than a gen/ range. That C is the source,
+or the C a --replace gives it, a .src file or a source of inline
+assembly, which compiles to the source's object in its place. A .src file
+that nothing replaces is read as
 assembly. Each file under SOURCE_ROOTS that a compile's .d file names is
-read too. So is each SOURCE an --add gives the image, a C source in gcc/
-that the image links after its own. A GCC side's candidates are its numbers
-for RAM at an address some image's symbols.txt gives a name. The number and
-the address may each lie in any of VIEWS, and in 1ST_READ.BIN's image too.
-The link places that name anew, so the number keeps its meaning only where
-a row of its file says why.
+read too. So is each SOURCE an --add gives the image, a C source that the
+image links after its own. A non-matching build's candidates are its
+numbers for RAM at an address some image's symbols.txt gives a name. The
+number and the address may each lie in any of VIEWS, and in 1ST_READ.BIN's
+image too. The link places that name anew, so the number keeps its meaning
+only where a row of its file says why.
 
 A number of assembly is H'hex or decimal, outside comments and strings. A
 number of C is an integer constant outside comments and strings, or a sum,
-as below. The census without --gcc reads C on both sides of each GCC guard,
-and --gcc reads GCC's side alone. A macro's body is read where the macro is
-defined, so a macro used alone is no number of the file that uses it. A
-file under build/gen/ holds only its integer constants.
+as below. The census without --dc reads C on both sides of each guard,
+and --dc reads the non-matching side alone. A macro's body is read where
+the macro is defined, so a macro used alone is no number of the file that
+uses it. A file under build/gen/ holds only its integer constants.
 
 A sum is MACRO + N or MACRO - N, where N is an integer constant and a
 definition of MACRO gives MACRO a number. Such a definition takes no
 parameters, and its body holds one integer constant: a number for RAM,
-past the image without --gcc. The sum is a number of the file that holds
+past the image without --dc. The sum is a number of the file that holds
 it, and its value is MACRO's number plus or minus N. MACRO's definitions
 are those of each compile that reads the sum's file, on SHC's side of each
-guard without --gcc and on GCC's with it. The census takes no value for a
-sum, and fails, where:
+guard without --dc and on the non-matching side with it. The census takes
+no value for a sum, and fails, where:
 
 - MACRO's definitions aren't all one, or one is an #undef;
 - the sum is no whole operand, as where a * or a [ stands beside it;
@@ -66,12 +73,12 @@ MACRO. A ) before MACRO that closes no cast to names and stars leaves the
 sum no type too. A sum spelled otherwise, as (AREA) + 4 or 4 + AREA, is no
 number.
 
-The census without --gcc counts each row past the image of a file it reads,
+The census without --dc counts each row past the image of a file it reads,
 or of one under build/gen/. To count a row is to hold its COUNT to the
-number of candidates the row explains. --gcc counts each other row: one in
-the image or below it, or of a file the census without --gcc doesn't read.
-It reads 1ST_READ.BIN's SHC .d files to tell the two apart. Either command
-line fails on:
+number of candidates the row explains. --dc counts each other row: one in
+the image or below it, or of a file the census without --dc doesn't read.
+It reads the reads of 1ST_READ.BIN's C sources to tell the two apart. Either
+command line fails on:
 
 - a row out of form or across the image's end, and two rows of one file
   that span one number;
@@ -79,39 +86,41 @@ line fails on:
 - a row it counts whose COUNT isn't the number of candidates it explains.
   Without --generated, the census counts no row of a file under build/gen/;
 - a sum whose value it can't take;
-- a C source of 1ST_READ.BIN's with no .d file under build/ or build/stub/,
-  and a .d file that opens with no rule's TARGET:.
+- a C source of 1ST_READ.BIN's whose reads make hasn't written;
+- reads, or a .d file, that open with no rule's TARGET:.
 
 With --disc, the census reads the motion files too
-(TOOLCHAIN.md#motion-files), each as make gcc decodes it to build/gen/img/.
-make gcc compiles a motion file's data from its content, C that
-tools/content.py writes (GCC.md#content). The link binds each pointer the
+(TOOLCHAIN.md#motion-files), each as make dc decodes it to build/gen/img/.
+make dc compiles a motion file's data from its content, C that
+tools/content.py writes (PORTS.md#content). The link binds each pointer the
 content places to its definition's new address, and leaves any other word
 as the disc holds it. So the census fails on each word of a motion file
 that holds an address in 1ST_READ.BIN's image where its content places no
 pointer, as tools/content.py's pointer_words() gives them. The address may
 lie in any of VIEWS. A word is 32 bits, little-endian and 4-aligned in the
-file. The census fails too on a motion file make gcc hasn't decoded.
+file. The census fails too on a motion file make dc hasn't decoded.
 
 The link places each name an object defines, so a name keeps its address
-only where no object defines it. --gcc fails too on:
+only where no object defines it. --dc fails too on:
 
 - a placed row at an address symbols.txt gives no name;
 - a name symbols.txt gives at a placed row's address that the GCC object of
   the row's source doesn't define global;
 - a census row of symbols.txt, not placed, whose span holds a name that a
   GCC object of 1ST_READ.BIN's defines global;
-- a row it counts of a file that no image's GCC side reads;
+- a row it counts of a file that no image's non-matching build reads;
 - an --add for an image config/ doesn't describe;
-- a .d file make gcc hasn't written, or an object a row of symbols.txt
-  needs that make gcc hasn't built.
+- a .d file make dc hasn't written, or an object a row of symbols.txt
+  needs that make dc hasn't built.
 
 The census sees no number for RAM split across constants, encoded otherwise
-or built at run time, and no float's bits. --gcc sees no number inside an
+or built at run time, and no float's bits. --dc sees no number inside an
 object past its name's address. Of the disc's files, only --disc reads any,
 and only the motion files.
 
-make gcc runs both command lines once the objects they read are built.
+make dc runs both command lines, the first with --generated and --disc,
+once the files they read are built. make dc-check runs the first with
+neither, which reads nothing make writes from the disc.
 """
 
 import argparse
@@ -128,7 +137,7 @@ from config import Config, gcc_object
 from content import pointer_words
 from csource import GCC, SHC, code, macro_directives, pairs, tokens
 from gcclink import RAM, exports
-from images import CONFIG, FIRST, FIRST_BASE, FIRST_END, ROOTS, files, images, motions
+from images import CONFIG, FIRST, FIRST_BASE, FIRST_END, SOURCE_ROOTS, files, images, motions
 from tables import ADDRESS, GENERATED, NAME, address, hexa, named, rows
 from tool import content, fail
 
@@ -140,10 +149,6 @@ SYMBOLS = FIRST / 'symbols.txt'
 VIEWS = (0x0C000000, 0x8C000000, 0xAC000000)
 # 1ST_READ.BIN's image, as offsets into RAM
 IMAGE = range(FIRST_BASE % RAM, FIRST_END % RAM)
-# the directories whose files the census reads where a .d file names them:
-# ROOTS, and gcc/, which holds the C GCC compiles in place of a .src file or
-# after an image's own sources
-SOURCE_ROOTS = (*ROOTS, 'gcc')
 # each disposition, with the number of fields it takes before the reason
 DISPOSITIONS = {'anchor': 3, 'placed': 1, 'data': 0}
 COUNT = re.compile(r'[1-9][0-9]*')
@@ -418,9 +423,10 @@ def shc_files(sources):
 
     units holds a unit, as macros() takes it, for each source other than a
     gen/ range. A unit holds the source, then for a C source each file under
-    SOURCE_ROOTS that its .d file names. generated holds the C under build/
-    of each gen/ range, and each file under build/gen/ that a full build's
-    .d file names. A C source with no .d file fails."""
+    SOURCE_ROOTS that its reads name. generated holds the C under build/ of
+    each gen/ range, and the file under build/gen/ at the path of each file
+    under build/stub/ that a C source's reads name. A C source whose reads
+    make hasn't written fails."""
     units, generated = [], {}
     for source in sources:
         if GENERATED.fullmatch(source):
@@ -429,14 +435,12 @@ def shc_files(sources):
         units.append([source])
         if not source.endswith('.c'):
             continue
-        full, stub = (Path(root, source).with_suffix('.d') for root in ('build', 'build/stub'))
-        built = [path for path in (full, stub) if path.exists()]
-        if not built:
-            fail(f'{source}: no .d file under build/ or build/stub/, so build it first')
-        # the newer .d file names the files the source's compile reads now
-        units[-1] += dependencies(max(built, key=lambda path: path.stat().st_mtime_ns), SOURCE_ROOTS)
-        if full.exists():
-            generated.update(dict.fromkeys(dependencies(full, ('build/gen',))))
+        reads = Path('build/reads', source).with_suffix('.d')
+        if not reads.exists():
+            fail(f'{reads}: missing, and make dc-check writes it')
+        units[-1] += dependencies(reads, SOURCE_ROOTS)
+        generated.update(dict.fromkeys(str(Path('build/gen', Path(stub).relative_to('build/stub')))
+                                       for stub in dependencies(reads, ('build/stub',))))
     return units, list(generated)
 
 
@@ -462,48 +466,48 @@ def candidates(units, generated):
     return found
 
 
-def gcc_files(name, added):
-    """The files the GCC side of image name reads, as (units, assembly).
-    added is the C in gcc/ that the image links after its own sources.
+def gcc_files(name, added, replaced):
+    """The files the non-matching build of image name reads, as (units,
+    assembly). added is the C that the image links after its own sources,
+    and replaced the C that replaces each source it names, by the source.
 
     units holds a unit, as macros() takes it, for each C source GCC compiles
     for the image. Those are each C source its splits.txt places other than
-    a gen/ range, and the C in gcc/ that replaces each .src file it places.
-    The sources of added come last. A unit holds the source, then each file
+    a gen/ range, each in place of the C replaced gives it. The
+    sources of added come last. A unit holds the source, then each file
     under SOURCE_ROOTS that its .d file names. assembly holds each .src file
-    that nothing replaces. A .d file make gcc hasn't written fails."""
+    that nothing replaces. A .d file make dc hasn't written fails."""
     compiles, assembly = [], []
     for source in Config(name).sources():
-        replaced = Path('gcc', source).with_suffix('.c')
         if GENERATED.fullmatch(source):
             continue
-        if source.endswith('.src') and not replaced.exists():
+        if source.endswith('.src') and source not in replaced:
             assembly.append(source)
             continue
-        compiles.append((str(replaced) if source.endswith('.src') else source,
-                         gcc_object(source, name).with_suffix('.d')))
-    compiles += [(source, Path('build', source).with_suffix('.d')) for source in added]
+        compiles.append((replaced.get(source, source), gcc_object(source, name).with_suffix('.d')))
+    compiles += [(source, Path('build/dc', source).with_suffix('.d')) for source in added]
     units = []
     for source, depends in compiles:
         if not depends.exists():
-            fail(f'{depends}: missing, and make gcc writes it')
+            fail(f'{depends}: missing, and make dc writes it')
         units.append([source, *dependencies(depends, SOURCE_ROOTS)])
     return units, assembly
 
 
-def gcc_candidates(added):
-    """The candidates of every image's GCC side, by file, as candidates()
-    gives them, with a list for each file gcc_files() gives. added gives
-    each image's added sources, by image.
+def gcc_candidates(added, replaced):
+    """The candidates of every image's non-matching build, by file, as
+    candidates() gives them, with a list for each file gcc_files() gives.
+    added gives each image's added sources, by image, and replaced the C
+    that replaces each source, by the source.
 
-    A C file's candidates are those compiled() gives on GCC's side of each
-    guard, with the macros GCC's side defines. A .src file's are those
-    assembled() gives. Each is a number for RAM, in any of VIEWS, whose
-    offset into RAM is that of an address some image's symbols.txt gives a
-    name."""
+    A C file's candidates are those compiled() gives on the non-matching
+    side of each guard, with the macros that side defines. A .src file's
+    are those assembled() gives. Each is a number for RAM, in any of VIEWS,
+    whose offset into RAM is that of an address some image's symbols.txt
+    gives a name."""
     units, assembly = [], []
     for name in images():
-        image_units, image_assembly = gcc_files(name, added.get(name, ()))
+        image_units, image_assembly = gcc_files(name, added.get(name, ()), replaced)
         units += image_units
         assembly += image_assembly
     texts = {path: code(path, compiler=GCC) for path in flat(units)}
@@ -526,14 +530,14 @@ def unplaced():
     1ST_READ.BIN's image where its content places no pointer, as
     tools/content.py's pointer_words() gives them. The address may lie in
     any of VIEWS. A word is 32 bits, little-endian and 4-aligned in the
-    file. A motion file make gcc hasn't decoded to build/gen/img/ fails,
+    file. A motion file make dc hasn't decoded to build/gen/img/ fails,
     naming it."""
     lines, originals = [], files()
     for name in motions():
         original = originals[name]
         decoded = Path('build/gen/img', Path(original).with_suffix('.BIN').name)
         if not decoded.exists():
-            fail(f'{decoded}: missing, and make gcc decodes it from orig/{original} with build/prskit')
+            fail(f'{decoded}: missing, and make dc decodes it from orig/{original} with build/prskit')
         payload = content(decoded)
         words = struct.iter_unpack('<I', payload[:len(payload) // 4 * 4])
         hits = [(4 * index, word) for index, (word,) in enumerate(words) if ram(word) and word % RAM in IMAGE]
@@ -548,9 +552,9 @@ def unplaced():
 
 def misplaced(table, sources, added):
     """A line for each fault of table's rows of symbols.txt against make
-    gcc's objects of 1ST_READ.BIN. sources are those 1ST_READ.BIN's
-    splits.txt places, and added is the C in gcc/ that 1ST_READ.BIN links
-    after its own sources. The faults are:
+    dc's objects of 1ST_READ.BIN. sources are those 1ST_READ.BIN's
+    splits.txt places, and added is the C that 1ST_READ.BIN links after its
+    own sources. The faults are:
 
     - a placed row at an address symbols.txt gives no name;
     - a name symbols.txt gives at a placed row's address that the GCC object
@@ -559,7 +563,7 @@ def misplaced(table, sources, added):
       object defines global. The objects are those of sources, the
       content's among them, and of added.
 
-    An object a row needs that make gcc hasn't built fails, naming it."""
+    An object a row needs that make dc hasn't built fails, naming it."""
     names, lines, objects = {}, [], {}
     for value, name in named(SYMBOLS):
         names.setdefault(value, []).append(name)
@@ -567,12 +571,12 @@ def misplaced(table, sources, added):
     def global_names(obj):
         if obj not in objects:
             if not obj.exists():
-                fail(f'{obj}: missing, and make gcc builds it')
+                fail(f'{obj}: missing, and make dc builds it')
             objects[obj] = exports(elf.read(content(obj), obj))
         return objects[obj]
 
     linked = list(dict.fromkeys([*(gcc_object(source, FIRST.name) for source in sources),
-                                 *(Path('build', source).with_suffix('.o') for source in added)]))
+                                 *(Path('build/dc', source).with_suffix('.o') for source in added)]))
     for row in table:
         if row.disposition == 'placed':
             obj = gcc_object(row.source, FIRST.name)
@@ -620,16 +624,20 @@ def main(argv):
                         help="read 1ST_READ.BIN's generated data too, which make writes from the disc")
     parser.add_argument('--disc', action='store_true',
                         help="check the motion files' words that hold an address in 1ST_READ.BIN's image too")
-    parser.add_argument('--gcc', action='store_true',
-                        help="check the census against make gcc's objects and every image's GCC side instead")
+    parser.add_argument('--dc', action='store_true',
+                        help="check the census against make dc's objects and every image's non-matching build "
+                             'instead')
+    parser.add_argument('--replace', metavar=('SRC', 'SOURCE'), nargs=2, action='append', default=[],
+                        help='with --dc, a C source that make dc compiles to the object of SRC, a .src file or a '
+                             'source of inline assembly; --dc reads that C in place of SRC; each --replace gives one')
     parser.add_argument('--add', metavar=('IMAGE', 'SOURCE'), nargs=2, action='append', default=[],
-                        help='with --gcc, a C source in gcc/ that IMAGE links after its own, which --gcc reads as '
-                             "IMAGE's GCC side; each --add gives one")
+                        help='with --dc, a C source that IMAGE links after its own, which --dc reads as '
+                             "IMAGE's non-matching build; each --add gives one")
     args = parser.parse_args(argv)
-    if args.gcc and (args.generated or args.disc):
-        parser.error('--generated and --disc add to the census without --gcc, so --gcc takes neither')
-    if args.add and not args.gcc:
-        parser.error('--add gives a GCC side a source, which --gcc alone reads')
+    if args.dc and (args.generated or args.disc):
+        parser.error('--generated and --disc add to the census without --dc, so --dc takes neither')
+    if (args.add or args.replace) and not args.dc:
+        parser.error('--add and --replace give a non-matching build a source, which --dc alone reads')
     added = {}
     for name, source in args.add:
         added.setdefault(name, []).append(source)
@@ -641,17 +649,17 @@ def main(argv):
     table = census(sources)
     units, generated = shc_files(sources)
     shc_paths = {str(SYMBOLS), *flat(units)}
-    # the rows the census without --gcc counts: each past the image, of a
-    # file it reads or under build/gen/. --gcc counts the rest
+    # the rows the census without --dc counts: each past the image, of a
+    # file it reads or under build/gen/. --dc counts the rest
     shc_rows = {row for row in table
                 if past(row.start) and (row.file in shc_paths or row.file.startswith('build/gen/'))}
-    if args.gcc:
+    if args.dc:
         lines = misplaced(table, sources, added.get(FIRST.name, ()))
-        found = gcc_candidates(added)
+        found = gcc_candidates(added, dict(args.replace))
         gcc_rows = [row for row in table if row not in shc_rows]
         lines += problems(table, found, [row for row in gcc_rows if row.file in found])
-        lines += [f"{row.at}: the row is --gcc's, and no image's GCC side reads {row.file}" for row in gcc_rows
-                  if row.file not in found]
+        lines += [f"{row.at}: the row is --dc's, and no image's non-matching build reads {row.file}"
+                  for row in gcc_rows if row.file not in found]
     else:
         found = candidates(units, generated if args.generated else [])
         lines = problems(table, found, [row for row in table if row in shc_rows

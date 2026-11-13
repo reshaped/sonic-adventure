@@ -631,7 +631,12 @@ static void jets_init(struct task *task, struct task **hornet)
      * @R2,R1 at 0x0cb8380a) */
     for (i = 0; i < JET_FLAMES; i++) {
         jets->texture_timer[i] = jet_texture_timers[i];
+#ifdef NONMATCHING
+        /* repairs the unset interval the tag names */
+        jets->texture_interval[i] = jet_texture_intervals[i];
+#else
         jets->texture_timer[i] = jet_texture_timers[i];
+#endif
         jets->texture[i] = jet_textures[i];
     }
     for (i = 0; i < JET_GLOWS; i++) {

@@ -151,8 +151,8 @@ static void draw_simple_motion_tree(NJS_OBJECT *object)
              * NJD_EVAL_SKIP turns by the three words at the stack pointer, read
              * at 0x8c656ef8, 0x8c656efc and 0x8c656efe: angx, angy and
              * angz take the PR, R8 and R9 the function saved on entry */
-#ifdef GCC
-            /* repairs the unset angles the tag above names: under GCC, the
+#ifdef NONMATCHING
+            /* repairs the unset angles the tag above names: here, the
              * node turns by object->ang, as in njMotion.c's draw_motion_tree */
             angles = object->ang;
 #endif
@@ -214,8 +214,8 @@ static void draw_simple_shape_tree(NJS_OBJECT *object)
              * NJD_EVAL_SKIP turns by the three words at the stack pointer, read
              * at 0x8c657022, 0x8c657026 and 0x8c657028: angx, angy and
              * angz take the PR, R8 and R9 the function saved on entry */
-#ifdef GCC
-            /* repairs the unset angles the tag above names: under GCC, the
+#ifdef NONMATCHING
+            /* repairs the unset angles the tag above names: here, the
              * node turns by object->ang, as in njMotion.c's draw_shape_tree */
             angles = object->ang;
 #endif

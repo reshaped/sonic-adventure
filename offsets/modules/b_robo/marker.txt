@@ -1,0 +1,5 @@
+datum  marker_points  D  0x00000000  60
+datum  marker_colors  D  0x0000003c  20
+datum  marker_faces  D  0x00000050  16
+datum  marker_lock  B  0x00000000  12
+datum  marker_request  B  0x0000000c  4

@@ -1,0 +1,5 @@
+datum  dat_0ca801f8  D  0x00000000  52
+datum  alife_fruit_models  D  0x00000034  44
+datum  alife_fruit_scales  D  0x00000060  44
+datum  garden_tree_shapes  D  0x0000008c  104
+datum  fruit_shapes  C  0x00000030  156

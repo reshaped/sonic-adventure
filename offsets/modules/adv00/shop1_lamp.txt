@@ -1,0 +1,2 @@
+datum  shop1_lamp_glow_texanim  D  0x00000000  20
+datum  shop1_lamp_glow  D  0x00000014  32

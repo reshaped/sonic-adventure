@@ -42,12 +42,10 @@ class Main(unittest.TestCase):
             deps.main(['build/deps.mk'])
             self.assertNotIn('HERO', Path('build/deps.mk').read_text())
 
-    def test_reads_1st_read_bin_s_imports_only_with_gcc(self):
-        # a row that names no image, which only the --gcc run reads
+    def test_reads_none_of_1st_read_bin_s_imports(self):
+        # a row that names no image, which tools/imports.py refuses
         with tree(dict(IMAGE, **{'config/1st_read/imports.txt': 'a_init  none\n'})):
             deps.main(['build/deps.mk'])
-            with self.assertRaisesRegex(SystemExit, r'config/1st_read/imports\.txt:1: none: no such image'):
-                deps.main(['--gcc', 'build/gcc/deps.mk'])
 
     def test_rewrites_only_a_change(self):
         with tree(IMAGE):
@@ -60,23 +58,6 @@ class Main(unittest.TestCase):
             Path('build/deps.mk').write_bytes(b'\xff')
             deps.main(['build/deps.mk'])
             self.assertEqual(Path('build/deps.mk').read_bytes(), written)
-
-
-class Gcc(unittest.TestCase):
-    def test_has_the_import_check_depend_on_each_import_s_object_once(self):
-        # a.c has bodies, so the rule names its stub's object, once, for a_init and a_start. It names b.src's own
-        # object for b_end, and none for d_value, which the gen/ range holds. Without imports, the rule names no
-        # object.
-        files = dict(IMAGE, **{
-            'config/mod/symbols.txt': MODULE['config/mod/symbols.txt'] + '0x0c900020  b_end\n0x0c900140  d_value\n',
-            'config/1st_read/imports.txt': 'a_init  mod\nb_end  mod\na_start  mod\nd_value  mod\n'})
-        for case, given, rule in (
-                ('imports', files, 'build/gcc/imports.ok: build/stub/modules/mod/a.obj build/modules/mod/b.obj\n'),
-                ('none', IMAGE, 'build/gcc/imports.ok: \n')):
-            with self.subTest(case), tree(given):
-                deps.main(['--gcc', 'build/gcc/deps.mk'])
-                self.assertEqual(Path('build/gcc/deps.mk').read_text(), rule)
-                self.assertFalse(Path('build/deps.mk').exists())
 
 
 if __name__ == '__main__':

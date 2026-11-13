@@ -10,6 +10,10 @@
 
 #include "ninja/njkamui.h"
 
+#ifdef NONMATCHING
+#include "sa1/text.h"
+#endif
+
 /* a store queue writes to the 64 MB area its QACR register selects, at the
  * offset within the area that the queue's own address carries. SQ_AREA is
  * ptr's area as QACR takes it: ptr's bits 28 to 26, in bits 4 to 2 */
@@ -108,6 +112,19 @@ void njPrintColor(Uint32 c)
 /* send character c, its top left corner at x, y in pixels, as a strip of four
  * 32-byte vertices. each vertex is written from its color back to its control
  * word, then sent by the prefetch of its first word */
+#ifdef NONMATCHING
+/* this side is SA1's layer for the print on the Dreamcast. sa1/text.h's send
+ * writes into the print's strip what the C under the #else writes */
+void njCharacter(Sint16 x, Sint16 y, char c)
+{
+    struct sa1_live_character state = {x, y, print_size, print_color};
+    sa_draw_live draw = {&c, &state, SA_SA1_CHARACTER, 0};
+
+    sa1_live_sq = print_sq;
+    sa_present_live(SA_DC_ENGINE, &draw);
+    print_sq = sa1_live_sq;
+}
+#else
 void njCharacter(Sint16 x, Sint16 y, char c)
 {
     Uint8 ch;
@@ -165,6 +182,7 @@ void njCharacter(Sint16 x, Sint16 y, char c)
     prefetch(print_sq);
     print_sq += 8;
 }
+#endif
 
 /* point the store queues at the translucent list and send the font's polygon
  * header. _nj_current_texture becomes -2, so that Ninja's next textured draw

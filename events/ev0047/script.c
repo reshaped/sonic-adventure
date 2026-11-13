@@ -72,7 +72,7 @@
 #define TEXT_52_LENGTH 4
 #include "ev0047/script/text.inc"
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* repairs the scale the (0, 0, 0) call's @bug tag names: by
  * event_sprite_set_scale's prototype, the call passes 0.0F, the scale of 0
  * it spells */

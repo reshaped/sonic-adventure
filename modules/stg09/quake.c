@@ -72,7 +72,7 @@ struct task *quake_start(NJS_POINT3 *pos, Float radius, Float speed)
              * the 0.0F that lion_run loads (FLDI0 at 0x0c910d0e) before both
              * its calls of lion_slam. every quake's strength is 1.0F, and no
              * quake ends */
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps the shipped strength the tag names: power is lion_run's
              * 0.0F */
             power = 0.0F;

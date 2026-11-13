@@ -16,6 +16,15 @@ struct e102;
  * other flags */
 #define LOCKON_HIT 0x1000
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* pack(8), as for NJS_VIEW, aligns the matrix as njtypes.h asks. the record
+ * comes from the heap, whose blocks start on 16 bytes. a matrix 508 bytes in
+ * would lie 4 past an 8-byte boundary. this side's matrix starts 512 bytes
+ * in, and no other member moves. its record is 576 bytes, not 572 */
+#pragma pack(push, 8)
+#endif
+#endif
 /* the record, in place of task_motion, of a task E-102 can lock on to.
  * enemy_alloc_record makes an enemy's, with defaults. lockon_step makes a
  * zeroed one for a target that has none */
@@ -85,6 +94,14 @@ struct lockon_target {
     NJS_ACTION *next_action;
     NJS_MATRIX matrix; /* as it was last drawn */
 };
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma pack(pop)
+_Static_assert(__builtin_offsetof(struct lockon_target, matrix) % 8 == 0 &&
+                   sizeof(struct lockon_target) % 8 == 0,
+               "a target's matrix lies off the 8-byte boundary");
+#endif
+#endif
 
 #define LOCKON_TARGET(task) ((struct lockon_target *)(task)->motion)
 

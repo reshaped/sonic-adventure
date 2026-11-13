@@ -53,7 +53,8 @@ def linked(*sections, symbols=()):
 CODE = section(1, '.text', 0x0C900000, b'\x09\x00\x0b\x00')
 BSS = section(2, '.bss', 0x0C900004, size=8, kind=elf.NOBITS)
 TAIL = section(3, '.tail', 0x0C90000C, b'\x0c\x00\x90\x0c')
-IMAGE = gcclink.Image('stga', 0x0C900000, 0x1000, None, [], {}, {}, {}, [], [], [], [])
+IMAGE = gcclink.Image('stga', 0x0C900000, 0x1000, None, [], {}, {}, {}, [], [], [], [], [], [], [], [], [], [], [],
+                      [])
 
 
 def startup(*ranges):
@@ -199,28 +200,45 @@ class Sequence(unittest.TestCase):
                 self.assertEqual(publish.sequence_problems(linked(symbols=symbols)), problems)
 
 
+# the files make dc's toolchain installs once for its release, by their paths in it: its C compiler, and the
+# programs its link-time compile runs
+INSTALLED = [f'libexec/gcc/sh-elf/16.2.0/{name}' for name in ('cc1', 'lto1', 'lto-wrapper', 'collect2',
+                                                              'liblto_plugin.so')]
+
+
 class Toolchain(unittest.TestCase):
-    def test_takes_the_toolchain_s_one_cc1_and_fails_on_none_or_several(self):
-        cc1 = 'sh-elf/libexec/gcc/sh-elf/16.2.0/cc1'
+    def test_takes_each_tool_the_manifest_names_and_fails_on_none_or_several_of_one_the_toolchain_installs(self):
+        # the driver, then what the toolchain installs for its release, cc1 and the link-time compile's programs,
+        # then the assembler, the linker and build/prskit: the order of the manifest's tool rows
+        whole = {f'sh-elf/{path}': '' for path in INSTALLED}
+        cc1, lto1 = f'sh-elf/{INSTALLED[0]}', f'sh-elf/{INSTALLED[1]}'
         for files, problem in (({'sh-elf/bin/sh-elf-gcc': ''}, 'no cc1, which the toolchain installs'),
-                               ({cc1: '', 'sh-elf/libexec/gcc/sh-elf/16.1.0/cc1': ''},
-                                'holds 2 cc1, .*/16.1.0/cc1, .*/16.2.0/cc1, and make gcc\'s toolchain installs one')):
+                               ({path: '' for path in whole if path != lto1}, 'no lto1, which the toolchain installs'),
+                               ({path: '' for path in list(whole)[:-1]},
+                                'no liblto_plugin.so, which the toolchain installs'),
+                               ({**whole, 'sh-elf/libexec/gcc/sh-elf/16.1.0/cc1': ''},
+                                'holds 2 cc1, .*/16.1.0/cc1, .*/16.2.0/cc1, and make dc\'s toolchain installs one')):
             with self.subTest(problem), tree(files) as root, mock.patch.object(gcclink, 'SH_ELF', root / 'sh-elf'), \
                     self.assertRaisesRegex(SystemExit, f': {root}/sh-elf/libexec/gcc/sh-elf/: {problem}$'):
-                publish.compiler()
-        with tree({cc1: ''}) as root, mock.patch.object(gcclink, 'SH_ELF', root / 'sh-elf'):
-            self.assertEqual(publish.compiler(), root / cc1)
+                publish.toolchain()
+        with tree(whole) as root, mock.patch.object(gcclink, 'SH_ELF', root / 'sh-elf'):
+            self.assertEqual(publish.toolchain(), [root / 'sh-elf/bin/sh-elf-gcc', *(root / path for path in whole),
+                                                   root / 'sh-elf/bin/sh-elf-as', root / 'sh-elf/bin/sh-elf-ld',
+                                                   publish.PRSKIT])
+            self.assertEqual(tuple(path.name for path in publish.toolchain()), manifest.TOOLS)
 
 
 class Published(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # publish hashes each tool the manifest names, the link-time compile's programs among them
+        test_ld.toolchain((*test_ld.TOOLS, *INSTALLED))
         test_spec.Generator.setUpClass()
         cls.objects = test_spec.Generator.objects
 
     @contextlib.contextmanager
     def linked(self, prskit=PRSKIT, objects=None):
-        """GAME_TREE with stga and ev0001 linked under build/gcc/link/, from spec.py's spec cut to their rows, as
+        """GAME_TREE with stga and ev0001 linked under build/dc/link/, from spec.py's spec cut to their rows, as
         1ST_READ.BIN's head takes an object of strt1.src's, which GAME_TREE lacks, and publish's memory contract cut to
         the two, so that its check is of each image the spec holds. prskit stands in for build/prskit, and ev0001's
         script takes stage_flag from stga and ev0001_tally, a second name for its count. objects replace or add to the
@@ -230,40 +248,40 @@ class Published(unittest.TestCase):
                                         + 'ev0001  stage_flag  stga  stage_flag  0x0c  the event plays on the beach\n'
                                         'ev0001  ev0001_tally  ev0001  ev0001_count  -  the count under a second '
                                         'name\n'),
-                 'build/gcc/events/ev0001/script.o': test_spec.Generator.tallying}
+                 'build/dc/events/ev0001/script.o': test_spec.Generator.tallying}
         with tree({**GAME_TREE, **self.objects, **files, **(objects or {}), 'prskit': prskit}) as root, \
                 mock.patch.object(gcclink, 'SH_ELF', test_ld.TOOLCHAIN), \
                 mock.patch.object(publish, 'PRSKIT', root / 'prskit'), \
                 mock.patch.object(publish, 'images', lambda: ['ev0001', 'stga']):
             (root / 'prskit').chmod(0o755)
-            Path('build/gcc/link').mkdir(parents=True)
-            spec.main(['build/gcc/link/spec.txt'])
-            rows = Path('build/gcc/link/spec.txt').read_text().splitlines(True)
-            Path('build/gcc/link/spec.txt').write_text(''.join(row for row in rows if row.startswith('#')
+            Path('build/dc/link').mkdir(parents=True)
+            spec.main(['build/dc/link/spec.txt'])
+            rows = Path('build/dc/link/spec.txt').read_text().splitlines(True)
+            Path('build/dc/link/spec.txt').write_text(''.join(row for row in rows if row.startswith('#')
                                                                or row.split()[1] in ('stga', 'ev0001')))
-            ld.main(['build/gcc/link/spec.txt', 'build/gcc/link'])
+            ld.main(['build/dc/link/spec.txt', 'build/dc/link'])
             yield root
 
     def test_writes_each_image_s_file_and_then_the_manifest(self):
         with self.linked() as root:
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             lines = (root / 'manifest.txt').read_text().splitlines()
             # tools/manifest.py's reader takes it whole, and its writer writes it again byte for byte
             written = (root / 'manifest.txt').read_bytes()
             self.assertEqual(manifest.text(manifest.recorded(written, 'manifest.txt')).encode(), written)
             files = {line.split()[3]: line.split()[2] for line in lines if line.startswith('file ')}
-            for path in ('build/gcc/SONICADV/STGA.BIN', 'build/gcc/SONICADV/STGA.PRS', 'build/gcc/SONICADV/EV0001.BIN',
-                         'build/gcc/link/ev0001/final.elf'):
+            for path in ('build/dc/SONICADV/STGA.BIN', 'build/dc/SONICADV/STGA.PRS', 'build/dc/SONICADV/EV0001.BIN',
+                         'build/dc/link/ev0001/final.elf'):
                 self.assertEqual(files[path], hashlib.sha256((root / path).read_bytes()).hexdigest(), path)
             inputs = [(name, hashlib.sha256(Path(path).read_bytes()).hexdigest(), path)
-                      for name, image in gcclink.read('build/gcc/link/spec.txt').items() for path in image.inputs]
-            event = (root / 'build/gcc/SONICADV/EV0001.BIN').read_bytes()
-            found = elf.read((root / 'build/gcc/link/ev0001/final.elf').read_bytes(), 'final.elf')
-            stga = elf.read((root / 'build/gcc/link/stga/final.elf').read_bytes(), 'final.elf')
+                      for name, image in gcclink.read('build/dc/link/spec.txt').items() for path in image.inputs]
+            event = (root / 'build/dc/SONICADV/EV0001.BIN').read_bytes()
+            found = elf.read((root / 'build/dc/link/ev0001/final.elf').read_bytes(), 'final.elf')
+            stga = elf.read((root / 'build/dc/link/stga/final.elf').read_bytes(), 'final.elf')
         self.assertIn(f'image    stga  0x0c900000  0x00280000  {hexa(publish.bound(stga, "image_end"))}', lines)
         # the tools, prskit among them, and the spec
-        self.assertEqual({Path(line.split()[2]).name for line in lines if line.startswith('tool ')},
-                         {'sh-elf-gcc', 'cc1', 'sh-elf-as', 'sh-elf-ld', 'prskit'})
+        self.assertEqual(tuple(Path(line.split()[2]).name for line in lines if line.startswith('tool ')),
+                         manifest.TOOLS)
         self.assertIn('spec.txt', [Path(line.split()[2]).name for line in lines if line.startswith('spec ')])
         # each image's inputs, in link order
         self.assertEqual([tuple(line.split()[1:]) for line in lines if line.startswith('input ')], inputs)
@@ -277,33 +295,73 @@ class Published(unittest.TestCase):
         self.assertEqual(head.value, 0x0CB80000)
         self.assertEqual(len(event), bss.address - 0x0CB80000)
 
+    def test_gives_the_hash_of_each_link_time_object_the_record_beside_an_image_s_final_link_names(self):
+        # tools/ld.py's link-time compile records, under DIR/IMAGE/lto/, the link-time object it wrote for each
+        # object it took, and the image holds that object's code, where its input's hash is of the object GCC
+        # compiled alone. The manifest gives each link-time object's hash in a compiled row after the image's
+        # inputs, in the record's order, and none for an object GCC kept nothing of, as ev0001's script.o here.
+        # tools/manifest.py's reader holds the rows to the record. Each path is one of the tree's own objects, by
+        # its path from the tree's root: an image's last input is the toolchain's libgcc.a, by an absolute path
+        taken = {'ev0001': ('build/dc/events/ev0001/head.o', 'build/dc/events/ev0001/script.o'),
+                 'stga': ('build/dc/modules/stga/a.o',)}
+        with self.linked() as root:
+            images_of, made = gcclink.read('build/dc/link/spec.txt'), {}
+            for name, paths in taken.items():
+                self.assertEqual(images_of[name].inputs[:len(paths)], list(paths))
+                made[name] = f'build/dc/link/{name}/lto/{paths[0]}'
+                (root / made[name]).parent.mkdir(parents=True)
+                (root / made[name]).write_text(f'what GCC kept of {paths[0]}\n')
+                (root / f'build/dc/link/{name}/lto/objects.txt').write_text(
+                    f'{paths[0]} {made[name]}\n' + ''.join(f'{path} -\n' for path in paths[1:]))
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            written = (root / 'manifest.txt').read_bytes()
+            lines = written.decode().splitlines()
+            compiled = {name: f'compiled {name}  {hashlib.sha256((root / path).read_bytes()).hexdigest()}  {path}'
+                        for name, path in made.items()}
+            self.assertEqual([line for line in lines if line.startswith('compiled ')], list(compiled.values()))
+            for name, row in compiled.items():
+                self.assertTrue(lines[lines.index(row) - 1].startswith(f'input    {name}  '), name)
+                self.assertFalse(lines[lines.index(row) + 1].startswith('input '), name)
+                self.assertEqual(manifest.recorded(written, 'manifest.txt').images[name].compiled, [made[name]])
+            # the manifest can't take a link-time object's place, and one that is gone leaves no manifest
+            with self.assertRaisesRegex(SystemExit, f": {made['stga']}: a file publish reads or writes, which the "
+                                                    "manifest can't take the place of$"):
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', made['stga']])
+            (root / made['stga']).unlink()
+            with self.assertRaisesRegex(SystemExit, f": {made['stga']}: No such file or directory$"):
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            self.assertFalse((root / 'manifest.txt').exists())
+            (root / 'build/dc/link/stga/lto/objects.txt').write_text('a.o\n')
+            with self.assertRaisesRegex(SystemExit, ': build/dc/link/stga/lto/objects.txt:1: not a row: '):
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+
     def test_fails_where_the_manifest_would_take_the_place_of_a_file_it_reads_or_writes_and_removes_nothing(self):
         # the spec, an input, a final link and a file publish writes, and a spec that the .partial file beside the
         # manifest links to
         with self.linked() as root:
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            Path('manifest.txt.partial').symlink_to(root / 'build/gcc/link/spec.txt')
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            Path('manifest.txt.partial').symlink_to(root / 'build/dc/link/spec.txt')
             files = {path: path.read_bytes() for path in root.rglob('*') if path.is_file()}
-            taken = gcclink.read('build/gcc/link/spec.txt')['stga'].inputs[0]
-            for manifest_, problem in (('build/gcc/link/spec.txt', 'build/gcc/link/spec.txt'), (taken, taken),
-                                      ('build/gcc/link/stga/final.elf', 'build/gcc/link/stga/final.elf'),
-                                      ('build/gcc/SONICADV/STGA.BIN', 'build/gcc/SONICADV/STGA.BIN'),
+            taken = gcclink.read('build/dc/link/spec.txt')['stga'].inputs[0]
+            for manifest_, problem in (('build/dc/link/spec.txt', 'build/dc/link/spec.txt'), (taken, taken),
+                                      ('build/dc/link/stga/final.elf', 'build/dc/link/stga/final.elf'),
+                                      ('build/dc/SONICADV/STGA.BIN', 'build/dc/SONICADV/STGA.BIN'),
                                       ('manifest.txt', 'manifest.txt.partial')):
                 with self.subTest(manifest_), self.assertRaisesRegex(
                         SystemExit, f": {problem}: a file publish reads or writes, which the manifest can't take the "
                                     'place of$'):
-                    publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', manifest_])
+                    publish.main(['build/dc/link/spec.txt', 'build/dc/link', manifest_])
                 self.assertEqual({path: path.read_bytes() for path in root.rglob('*') if path.is_file()}, files)
 
     def test_fails_on_an_image_of_the_spec_config_doesn_t_describe_and_removes_nothing(self):
         with self.linked() as root:
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            spec = Path('build/gcc/link/spec.txt')
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            spec = Path('build/dc/link/spec.txt')
             spec.write_text('image     zz  0x0c900000  0x00001000\n' + spec.read_text())
             files = {path: path.read_bytes() for path in root.rglob('*') if path.is_file()}
-            with self.assertRaisesRegex(SystemExit, ": build/gcc/link/spec.txt: links zz, an image config/ doesn't "
+            with self.assertRaisesRegex(SystemExit, ": build/dc/link/spec.txt: links zz, an image config/ doesn't "
                                                     'describe$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             self.assertEqual({path: path.read_bytes() for path in root.rglob('*') if path.is_file()}, files)
 
     def test_a_manifest_that_can_t_take_its_name_leaves_none(self):
@@ -313,7 +371,7 @@ class Published(unittest.TestCase):
         with self.linked() as root:
             with mock.patch.object(publish.os, 'replace', refused), \
                     self.assertRaisesRegex(SystemExit, ': manifest.txt: Input/output error$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             self.assertEqual(sorted(path.name for path in root.glob('manifest.txt*')), [])
             # and where the partial manifest can't be removed either, the rename's failure is the run's
             unlink = Path.unlink
@@ -326,7 +384,7 @@ class Published(unittest.TestCase):
             with mock.patch.object(publish.os, 'replace', refused), mock.patch.object(Path, 'unlink', unlinking), \
                     contextlib.redirect_stderr(io.StringIO()) as printed, \
                     self.assertRaisesRegex(SystemExit, ': manifest.txt: Input/output error$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             self.assertRegex(printed.getvalue(), ': manifest.txt.partial: Permission denied\n$')
 
     def test_holds_a_startup_s_image_and_movie_bin_to_their_tables(self):
@@ -338,23 +396,24 @@ class Published(unittest.TestCase):
                                   'stga: its link gives no bounds for PSGSFD00 or PSGSFD01, which '
                                   'MPVASEC_CheckSectionSeq reads')):
             with self.subTest(problem), self.linked(), patched, self.assertRaisesRegex(SystemExit, f'(?m): {problem}$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
 
     def test_holds_each_prs_file_and_the_work_past_an_image_to_the_memory_contract(self):
-        # the stand-in for prskit writes each .PRS as its .BIN and 2 MB and a byte more, which the work area doesn't
-        # hold, and decompresses it to the .BIN
-        large = ('#!/bin/sh\ncase $1 in compress) { cat "$2"; head -c 2097153 /dev/zero; } > "$3";; '
-                 '*) head -c -2097153 "$2" > "$3";; esac\n')
+        # the stand-in for prskit writes each .PRS as 2 MB and a byte more, which the work area doesn't hold, and then
+        # its .BIN, and decompresses it to the .BIN, the bytes past them: tail counts a file's bytes from 1
+        over = 0x200000 + 1
+        large = (f'#!/bin/sh\ncase $1 in compress) {{ head -c {over} /dev/zero; cat "$2"; }} > "$3";; '
+                 f'*) tail -c +{over + 1} "$2" > "$3";; esac\n')
         with self.linked(large), self.assertRaisesRegex(SystemExit, '(?m): stga: its PRS file takes 0x200800 bytes '
-                                                                    'in whole sectors, and the work area '
-                                                                    'loader_read_prs reads it to holds 0x200000$'):
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                                                                    'in whole sectors, and loader_read_prs reads it '
+                                                                    'to a work area of 0x200000$'):
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
         # stga's stage_work_end points to work past its end, as Zero's eggmanrobo_bss_end does to its banks: the
         # checks take the work from there, rounded up to 32, as long as the banks' longer file, EROBO.PB, in whole
         # sectors. ev0001, which memory.WORK doesn't name, has none. memory.TAILS makes a.c's .data stga's tail, which
         # the link puts in .tail, where the body ends. ev0001's file ends at its bss, short of its end and of its last
         # sector's
-        stga = {'build/gcc/modules/stga/a.o': test_spec.compiled(
+        stga = {'build/dc/modules/stga/a.o': test_spec.compiled(
             GAME_TREE['modules/stga/a.c'] + '\nchar *stage_work_end = (char *)0x8ccf0004;\n')}
         extents = {}
 
@@ -365,10 +424,10 @@ class Published(unittest.TestCase):
         with mock.patch.dict(memory.WORK, {'stga': ('stage_work_end', 'EROBO')}), \
                 mock.patch.dict(memory.TAILS, {'stga': (('DTAIL', 'modules/stga/a.c', '.data'),)}), \
                 self.linked(objects=stga) as root, mock.patch.object(memory, 'check', check):
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            tail = next(section for section in elf.read((root / 'build/gcc/link/stga/final.elf').read_bytes(),
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            tail = next(section for section in elf.read((root / 'build/dc/link/stga/final.elf').read_bytes(),
                                                         'final.elf').sections if section.name == '.tail')
-            event = len((root / 'build/gcc/SONICADV/EV0001.BIN').read_bytes())
+            event = len((root / 'build/dc/SONICADV/EV0001.BIN').read_bytes())
         self.assertEqual(extents['stga'].work, (0x8CCF0020, 0x8CCF0020 + 0x4A000))
         self.assertIsNone(extents['ev0001'].work)
         self.assertEqual(extents['stga'].body, tail.address)
@@ -381,7 +440,7 @@ class Published(unittest.TestCase):
     def test_tries_to_remove_each_file_and_keeps_the_failure_that_stopped_the_run(self):
         # STGA.BIN can't be removed once write_images() writes it. The check fails the run, which then removes the other
         # files, writes STGA.BIN's failure to stderr, and raises the check's
-        unlink, stuck = Path.unlink, Path('build/gcc/SONICADV/STGA.BIN')
+        unlink, stuck = Path.unlink, Path('build/dc/SONICADV/STGA.BIN')
 
         def unlinking(path, missing_ok=False):
             if path in (stuck, Path('manifest.txt')) and path.exists():
@@ -393,17 +452,17 @@ class Published(unittest.TestCase):
                     mock.patch.object(Path, 'unlink', unlinking), \
                     contextlib.redirect_stderr(io.StringIO()) as printed, \
                     self.assertRaisesRegex(SystemExit, ': stga: a problem$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            self.assertEqual(sorted((root / 'build/gcc/SONICADV').glob('*')), [root / stuck])
-            self.assertRegex(printed.getvalue(), ': build/gcc/SONICADV/STGA.BIN: Permission denied\n$')
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            self.assertEqual(sorted((root / 'build/dc/SONICADV').glob('*')), [root / stuck])
+            self.assertRegex(printed.getvalue(), ': build/dc/SONICADV/STGA.BIN: Permission denied\n$')
             # a run that can't remove the manifest a run before wrote removes each file it writes, then fails
             stuck.unlink()
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             with mock.patch.object(Path, 'unlink', unlinking), \
                     self.assertRaisesRegex(SystemExit, ': manifest.txt: Permission denied\n.*: '
-                                                       'build/gcc/SONICADV/STGA.BIN: Permission denied$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            self.assertEqual(sorted((root / 'build/gcc/SONICADV').glob('*')), [root / stuck])
+                                                       'build/dc/SONICADV/STGA.BIN: Permission denied$'):
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            self.assertEqual(sorted((root / 'build/dc/SONICADV').glob('*')), [root / stuck])
 
     def test_a_hangup_or_term_stops_build_prskit_and_leaves_no_file(self):
         # publish.py's command line, with a build/prskit that holds the compress of ev0001, the first image, until the
@@ -413,7 +472,7 @@ class Published(unittest.TestCase):
                 Path('build/prskit').write_text('#!/bin/sh\necho $$ > held.pid && mv held.pid held\nexec sleep 30\n')
                 Path('build/prskit').chmod(0o755)
                 publishing = subprocess.Popen([sys.executable, str(ROOT / 'tools/publish.py'),
-                                               'build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'],
+                                               'build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'],
                                               env=dict(os.environ, SH_ELF=str(test_ld.TOOLCHAIN)),
                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 while not Path('held').exists() and publishing.poll() is None:
@@ -422,7 +481,7 @@ class Published(unittest.TestCase):
                 self.assertEqual(publishing.wait(10), status)
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(Path('held').read_text()), 0)
-                self.assertEqual(list((root / 'build/gcc/SONICADV').glob('*')), [])
+                self.assertEqual(list((root / 'build/dc/SONICADV').glob('*')), [])
                 self.assertFalse((root / 'manifest.txt').exists())
 
     def test_fails_on_a_prs_file_build_prskit_fails_to_write(self):
@@ -430,12 +489,12 @@ class Published(unittest.TestCase):
         failing = '#!/bin/sh\ncp "$2" "$3"\necho no room\nexit 1\n'
         with self.linked(failing), self.assertRaisesRegex(SystemExit, r'(?m): no room\n.*: ev0001: \S+/prskit '
                                                                       'compress failed$'):
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
         # and where what it prints isn't UTF-8
         failing = '#!/bin/sh\nprintf "\\377 no room\\n"\nexit 1\n'
         with self.linked(failing), self.assertRaisesRegex(SystemExit, '(?m): \ufffd no room\n.*: ev0001: \\S+/prskit '
                                                                       'compress failed$'):
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
 
     def test_fails_on_a_prs_file_that_doesn_t_decompress_to_its_bin(self):
         # the stand-in for prskit decompresses a .PRS to its .BIN and more, and then fails to decompress it. Each run
@@ -444,50 +503,50 @@ class Published(unittest.TestCase):
         refused = ('#!/bin/sh\ncase $1 in compress) cat "$2" > "$3";; *) echo "prskit: $2: a copy reaches back past the '
                    'start of the output at 0x0" >&2; exit 1;; esac\n')
         for prskit, problem in (
-                (more, r'ev0001: build/gcc/SONICADV/EV0001\.PRS decompresses to other bytes than '
-                       r'build/gcc/SONICADV/EV0001\.BIN'),
+                (more, r'ev0001: build/dc/SONICADV/EV0001\.PRS decompresses to other bytes than '
+                       r'build/dc/SONICADV/EV0001\.BIN'),
                 (refused, r'prskit: /dev/stdin: a copy reaches back past the start of the output at 0x0\n'
-                          r'.*: ev0001: \S+/prskit decompress of build/gcc/SONICADV/EV0001\.PRS failed')):
+                          r'.*: ev0001: \S+/prskit decompress of build/dc/SONICADV/EV0001\.PRS failed')):
             with self.subTest(problem), self.linked(prskit) as root:
                 with self.assertRaisesRegex(SystemExit, f'(?m): {problem}$'):
-                    publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-                self.assertEqual(list((root / 'build/gcc/SONICADV').glob('*')), [])
+                    publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+                self.assertEqual(list((root / 'build/dc/SONICADV').glob('*')), [])
                 self.assertFalse((root / 'manifest.txt').exists())
 
     def test_hashes_each_final_link_and_file_from_the_bytes_its_checks_read(self):
         # stga's final link changes once write_images() reads it, as the memory check runs: the manifest gives the hash
         # of the bytes publish checked, which the file no longer holds
         def changing(terms, extents):
-            final = Path('build/gcc/link/stga/final.elf')
+            final = Path('build/dc/link/stga/final.elf')
             checked.append(final.read_bytes())
             final.write_bytes(checked[0] + b'more')
             return []
 
         checked = []
         with self.linked() as root, mock.patch.object(memory, 'check', changing):
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             rows = [line.split() for line in (root / 'manifest.txt').read_text().splitlines()]
-        self.assertIn(['file', 'stga', hashlib.sha256(checked[0]).hexdigest(), 'build/gcc/link/stga/final.elf'], rows)
+        self.assertIn(['file', 'stga', hashlib.sha256(checked[0]).hexdigest(), 'build/dc/link/stga/final.elf'], rows)
 
     def test_a_failed_check_leaves_no_manifest_and_no_file(self):
         with self.linked() as root:
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             with mock.patch.object(memory, 'check', lambda terms, extents: ['stga: a problem']), \
                     self.assertRaisesRegex(SystemExit, ': stga: a problem$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             self.assertFalse((root / 'manifest.txt').exists())
-            self.assertEqual(list((root / 'build/gcc/SONICADV').glob('*')), [])
+            self.assertEqual(list((root / 'build/dc/SONICADV').glob('*')), [])
 
     def test_a_name_the_final_link_doesn_t_define_leaves_no_manifest_and_no_file(self):
         # a constant of ev0001's that the spec gives once ld.py has linked it
         with self.linked() as root:
-            publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
-            spec = Path('build/gcc/link/spec.txt')
+            publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
+            spec = Path('build/dc/link/spec.txt')
             spec.write_text(spec.read_text() + 'constant  ev0001  pad_spare  0x8c5f0004\n')
-            with self.assertRaisesRegex(SystemExit, ': build/gcc/link/ev0001/final.elf: defines no _pad_spare$'):
-                publish.main(['build/gcc/link/spec.txt', 'build/gcc/link', 'manifest.txt'])
+            with self.assertRaisesRegex(SystemExit, ': build/dc/link/ev0001/final.elf: defines no _pad_spare$'):
+                publish.main(['build/dc/link/spec.txt', 'build/dc/link', 'manifest.txt'])
             self.assertFalse((root / 'manifest.txt').exists())
-            self.assertEqual(list((root / 'build/gcc/SONICADV').glob('*')), [])
+            self.assertEqual(list((root / 'build/dc/SONICADV').glob('*')), [])
 
 
 if __name__ == '__main__':

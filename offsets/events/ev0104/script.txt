@@ -1,0 +1,7 @@
+datum  ev0104_floor  D  0x00000000  4
+datum  ev0104_textures  D  0x00000004  8
+text  TEXT_1  C  0x00000000  28
+text  TEXT_2  C  0x00000024  55
+text  TEXT_3  C  0x0000001c  4
+text  TEXT_4  C  0x00000020  4
+text  TEXT_5  C  0x0000005c  2

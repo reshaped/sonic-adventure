@@ -188,6 +188,13 @@ void collision_mesh_link_pools(void);
  * 0, or to null past the pool's end. nothing points the cursor into the
  * pool, so a call reads a radius through null */
 void polygon_pool_seek_free(void);
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* forget the meshes' boxes and give their words back to the heap for the
+ * land's file to take */
+void collision_index_release(void);
+#endif
+#endif
 /* set the object of object's mesh to null, as object leaves the world. a
  * later update frees the mesh */
 void collision_mesh_forget(NJS_OBJECT *object);
@@ -248,6 +255,17 @@ Bool polygon_sweep_model(struct polygon_ball *ball, NJS_OBJECT *object,
  * other way, even for an object with no mesh. flags goes unread */
 Bool polygon_find_sides(struct sides_query *query, NJS_OBJECT *object,
                         Uint32 flags);
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* this side's calls outside polygon.c take this search, which gives
+ * polygon_find_sides' result and query. once the mesh's boxes are whole, it
+ * reads only the polygons a side's line may cross. a point past polygon.c's
+ * BOX_FAR of 0 on any axis takes polygon_find_sides itself */
+Bool polygon_find_sides_indexed(struct sides_query *query, NJS_OBJECT *object,
+                                Uint32 flags);
+#define polygon_find_sides polygon_find_sides_indexed
+#endif
+#endif
 /* take the surface of object's own model nearest the query's point
  * straight above or below it. the query's radius and speed widen a reach
  * test each triangle must pass. a shipped bug has that test measure to

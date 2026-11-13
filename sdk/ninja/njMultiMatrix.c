@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* md = ms * md, for row-major matrices. a null md selects the current matrix,
  * in XMTRX. ms is read whole before md is written, so the two may overlap.
  * FPSCR.SZ and FPSCR.PR must be 0 on entry: the body's FMOV.S moves need SZ

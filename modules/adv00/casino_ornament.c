@@ -101,9 +101,9 @@ static void casino_ornament_draw_still(struct task *task);
  * and 0x0c90ad9c. without it, the stores share 0x0c90ad98, 3 of the 76
  * words of casino_ornament_init differ, and the code from 0x0c90adc0 on
  * lies 32 bytes early */
-#ifdef GCC
-/* GCC's link binds a name only to a definition of that name, and nothing
- * defines this second name, so GCC's side uses casino_ornament_draw_still */
+#ifdef NONMATCHING
+/* nothing defines the second name, and GCC's link binds a name only to its
+ * own definition. so this side names casino_ornament_draw_still */
 #define casino_ornament_step_still casino_ornament_draw_still
 #else
 extern void casino_ornament_step_still(struct task *task);
@@ -270,7 +270,7 @@ static void casino_ornament_step(struct task *task)
      * 0x0c90ad30). the callee leaves stage << 8 | act there unnarrowed
      * (0x8c052ac8, 0x8c052acc). as a Uint16, an EXTU.W R0,R0 comes first
      * and 9 of 78 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the shipped play: stage << 8 | act fits a Uint16, so stage.h's
      * return compares the same */
     if (ORNAMENT_STAGE_ACT(work) != stage_get_stage_act()) {

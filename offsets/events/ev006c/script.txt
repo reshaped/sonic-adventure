@@ -1,0 +1,8 @@
+datum  ev006c_fade  D  0x00000000  4
+datum  ev006c_textures  D  0x00000004  8
+text  TEXT_1  C  0x00000004  17
+text  TEXT_2  C  0x00000020  28
+text  TEXT_3  C  0x00000044  48
+text  TEXT_4  C  0x00000000  4
+text  TEXT_5  C  0x00000018  5
+text  TEXT_6  C  0x0000003c  5

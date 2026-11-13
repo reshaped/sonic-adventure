@@ -292,7 +292,16 @@ Sint32 vmsfs_scanfile(Sint32 drive, const char *fname, Uint16 *chain);
 /* a drive's command, which the drive's fiber runs */
 struct vmsfs_command {
     Sint32 unk_00;
+    /* @hack type: busy isn't volatile, though the drive's fiber, which
+     * buExecServer runs in an interrupt, clears it while the game waits on
+     * buStat. each pass of a wait calls buStat, so the image reads it again
+     * all the same. declared volatile, 3 of the 280 words of vmsfs_c_dispatch,
+     * vmsfs_c_getstate and vmsfs_c_setparam differ */
+#ifdef NONMATCHING
+    volatile Sint32 busy;
+#else
     Sint32 busy;
+#endif
     Sint32 op;
     Sint32 unk_0c;
     Sint32 drive;

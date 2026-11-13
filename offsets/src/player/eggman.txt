@@ -1,0 +1,9 @@
+datum  eggman_mode_names  D  0x00000000  144
+datum  eggman_actions  D  0x00000090  400
+datum  eggman_shapes  D  0x00000220  52
+datum  elbow_vertices  D  0x00000254  20
+datum  finger_vertices  D  0x00000268  16
+datum  knee_vertices  D  0x00000278  20
+datum  ankle_vertices  D  0x0000028c  20
+datum  toe_vertices  D  0x000002a0  32
+datum  eggman_welds  D  0x000002c0  360

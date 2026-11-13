@@ -1,0 +1,9 @@
+datum  start_pos  D  0x00000000  12
+datum  camera_pos  D  0x0000000c  12
+datum  flight_targets  D  0x00000018  36
+datum  shapes  D  0x0000003c  104
+datum  actions  D  0x000000a4  144
+datum  smoke_params  D  0x00000134  60
+datum  boss_title  C  0x00000000  6
+datum  attachment_origin  C  0x00000008  12
+datum  drawn_boss  B  0x00000000  4

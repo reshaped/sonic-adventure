@@ -1,0 +1,16 @@
+datum  event_highway_object  D  0x00000000  52
+datum  event_highway_texnames  D  0x00000034  144
+datum  event_highway_texlist  D  0x000000c4  8
+datum  event_highway  D  0x000000cc  4
+text  TEXT_1  C  0x00000000  12
+text  TEXT_2  C  0x0000000c  12
+text  TEXT_3  C  0x00000018  12
+text  TEXT_4  C  0x00000024  13
+text  TEXT_5  C  0x00000034  13
+text  TEXT_6  C  0x00000044  13
+text  TEXT_7  C  0x00000054  13
+text  TEXT_8  C  0x00000064  13
+text  TEXT_9  C  0x00000074  13
+text  TEXT_10  C  0x00000084  11
+text  TEXT_11  C  0x00000090  11
+text  TEXT_12  C  0x0000009c  12

@@ -15,7 +15,7 @@ and so are a unary -'s operand and a product with a negated factor, where
 the - negates a floating value. An assignment bounds a run, so
 c - -(a * b) adds the product, where x -= -(a * b) subtracts it negated.
 
-GCC, under the -ffp-contract=on gcc.mk gives an object R26 or R32 builds,
+GCC, under the -ffp-contract=on dc.mk gives an object R26 or R32 builds,
 fuses a product a run subtracts, or subtracts from, too, by FNEG and FMAC.
 It also fuses a constant product whose value rounds, which SHC folds, as
 -frounding-math leaves the product to run time. So the tool wraps each

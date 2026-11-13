@@ -1,0 +1,31 @@
+#version 450
+// the area filter: a pixel of the smaller image is the mean of the target's
+// pixels it covers, each weighed by how much of it lies under, so a whole
+// ratio is a box of them and any other loses none between
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D target;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D scaled;
+
+void main()
+{
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 to = imageSize(scaled);
+    ivec2 from = imageSize(target);
+
+    if (at.x >= to.x || at.y >= to.y) {
+        return;
+    }
+    vec2 ratio = vec2(from) / vec2(to);
+    vec2 low = vec2(at) * ratio;
+    vec2 high = low + ratio;
+    ivec2 last = min(ivec2(ceil(high)), from);
+    vec4 sum = vec4(0.0);
+    for (int y = int(low.y); y < last.y; y++) {
+        float h = min(high.y, float(y + 1)) - max(low.y, float(y));
+        for (int x = int(low.x); x < last.x; x++) {
+            float w = min(high.x, float(x + 1)) - max(low.x, float(x));
+            sum += imageLoad(target, ivec2(x, y)) * (w * h);
+        }
+    }
+    imageStore(scaled, at, sum / (ratio.x * ratio.y));
+}

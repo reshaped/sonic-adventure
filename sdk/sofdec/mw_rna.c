@@ -613,7 +613,7 @@ void mwRnaSetPlaySw(MWRNA rna, Sint32 sw)
         return;
     }
     err = 0;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that msg is set wherever it is read: the call below reads
      * it only where err isn't 0, and each path that leaves err nonzero sets
      * msg */
@@ -700,9 +700,9 @@ void mwlRnaStartTrans(MWRNA_OBJ *rna)
     char *src;
     Sint32 dst;
 
-#ifdef GCC
-    /* repairs size, unset for a ring of no channels: GCC's is 0, as nothing
-     * is copied */
+#ifdef NONMATCHING
+    /* repairs size, unset for a ring of no channels: this side's is 0, as
+     * nothing is copied */
     size = 0;
 #endif
     room = ((rna->bufsize - rna->ndata) >> 4) << 4;
@@ -746,9 +746,9 @@ void mwlRnaInsrtSlntDat(MWRNA_OBJ *rna)
     Sint32 i;
     Sint32 dst;
 
-#ifdef GCC
-    /* repairs size, unset for a ring of no channels: GCC's is 0, as nothing
-     * is copied */
+#ifdef NONMATCHING
+    /* repairs size, unset for a ring of no channels: this side's is 0, as
+     * nothing is copied */
     size = 0;
 #endif
     room = rna->bufsize - rna->ndata - rna->nflsh;

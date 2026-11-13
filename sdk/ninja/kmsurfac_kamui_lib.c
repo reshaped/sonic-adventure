@@ -313,6 +313,11 @@ KMSTATUS kmActivateFrameBuffer(PKMSURFACEDESC pPrimarySurfaceDesc,
     return status;
 }
 
+/* make dc takes the six calls engine/mk/owner.mk's OWNER_SURFACE names from
+ * engine/dc/owner.c. it compiles none of SEGA's, nor the helpers only they
+ * call */
+#ifdef NONMATCHING
+#else
 /* send each list of the write slot whose size isn't 0 to the tile accelerator
  * by DMA, followed by its end-of-list parameter. list skip isn't sent. while
  * common_modifier is TRUE, the common modifier buffer goes ahead of each
@@ -558,11 +563,15 @@ static KMSTATUS set_texture_render_format(PKMSURFACEDESC surface)
         (kmiDeviceExtension.fb_write_control & ~FB_PACK) | (KMDWORD)surface;
     return KMSTATUS_SUCCESS;
 }
+#endif
 
 void kmiInitRenderer(void)
 {
 }
 
+/* make dc takes these from engine/dc/owner.c too */
+#ifdef NONMATCHING
+#else
 KMSTATUS kmRender(void)
 {
     PKMDWORD volatile *start[LISTS];
@@ -1062,11 +1071,6 @@ KMSTATUS kmRenderTexture(PKMSURFACEDESC pTextureSurface)
      * pointer, which the image stores (MOV.L R15,@R3 at 0x8c61f7a0); set
      * explicitly, to &saved_tag, the function is 4 bytes longer and 50 of 742
      * words differ */
-#ifdef GCC
-    /* sets stack to the stack pointer, the value stack_pointer is declared
-     * to hold and the image stores */
-    stack = (KMDWORD)__builtin_stack_address();
-#endif
     /* NOLINTNEXTLINE(clang-diagnostic-uninitialized) */
     kmiDeviceExtension.stack_pointer = stack;
     return KMSTATUS_SUCCESS;
@@ -1121,13 +1125,7 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &vertex_timeout, loaded for the
          * wait's compare (0x8c61f856); returned explicitly, 187 of 237 words
          * differ and kmSetFramebufferTexture starts 20 bytes early */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -1, kmRenderTexture's
-         * when its wait for the tile accelerator gives up */
-        return (KMSTATUS)-1;
-#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
-#endif
     }
     kmiDeviceExtension.vsync_count = 0;
     timeout = 0;
@@ -1148,13 +1146,7 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8c61f88c); returned explicitly, 72 of 237 words
          * differ, and a pool word */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -2, kmRenderTexture's
-         * when its wait for an earlier render gives up */
-        return (KMSTATUS)-2;
-#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
-#endif
     }
     kmiDeviceExtension.texture_render = 1;
     saved_clip_x = kmiDeviceExtension.fb_clip_x;
@@ -1192,13 +1184,7 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8c61f924); returned explicitly, 78 of 237 words
          * differ, and 18 pool words */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -3, kmRenderTexture's
-         * when its wait for its own render gives up */
-        return (KMSTATUS)-3;
-#else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
-#endif
     }
     slot &= 1;
     kmiWriteRegister(SOFT_RESET, RESET_TA);
@@ -1221,6 +1207,8 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
     kmiDeviceExtension.slot_state[kmiDeviceExtension.write_slot] = SLOT_IN_TA;
     return KMSTATUS_SUCCESS;
 }
+
+#endif
 
 /* describe the frame buffer fb_start[vertex_bank] in surface as a stride
  * texture of 1024 by 1024 texels with a BitDepth of KMI_BITDEPTH_16. its format
@@ -1285,6 +1273,9 @@ KMSTATUS kmSetFramebufferTexture(PKMSURFACEDESC surface)
     return KMSTATUS_SUCCESS;
 }
 
+/* make dc takes this from engine/dc/owner.c too */
+#ifdef NONMATCHING
+#else
 void kmResetPointer(void)
 {
     KMDWORD bank;
@@ -1309,3 +1300,4 @@ void kmResetPointer(void)
     }
     kmiFlipVertexBuffer(vertex_bank);
 }
+#endif

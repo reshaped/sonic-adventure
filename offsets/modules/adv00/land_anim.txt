@@ -1,0 +1,15 @@
+datum  gesui_parts  D  0x00000000  16
+datum  gesui_anim  D  0x00000010  12
+datum  station_a_parts  D  0x0000001c  16
+datum  station_a_anim  D  0x0000002c  12
+datum  station_b_parts  D  0x00000038  16
+datum  station_b_anim  D  0x00000048  12
+datum  station_c_parts  D  0x00000054  16
+datum  station_c_anim  D  0x00000064  12
+datum  hotel_a_parts  D  0x00000070  32
+datum  hotel_a_anim  D  0x00000090  12
+datum  hotel_b_parts  D  0x0000009c  16
+datum  hotel_b_anim  D  0x000000ac  12
+datum  hotel_c_parts  D  0x000000b8  24
+datum  hotel_c_anim  D  0x000000d0  12
+datum  land_anims  D  0x000000dc  28

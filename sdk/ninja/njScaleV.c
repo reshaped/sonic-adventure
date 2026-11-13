@@ -2,7 +2,8 @@
 
 /* set m to S * m, where S scales by v's x, y and z. a null m selects the
  * current matrix, in XMTRX */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* ninja_zam.h defines no njScaleV macro, so every call reaches this
  * definition */
 void njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
@@ -11,7 +12,6 @@ void njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629578 follows the
  * body's own return at 0x8c629574 */
 #pragma inline_asm(njScaleV)
@@ -105,6 +105,6 @@ void njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
         RTS
         FMOV.S      FR1,@R4
 }
-#endif
 /* clang-format on */
+#endif
 #endif

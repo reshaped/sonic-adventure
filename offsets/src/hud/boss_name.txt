@@ -1,0 +1,7 @@
+datum  b32ascii_textures  D  0x00000000  12
+datum  b32ascii_texlist  D  0x0000000c  8
+datum  boss_name_sprite  D  0x00000014  32
+datum  boss_name_color  D  0x00000034  16
+datum  boss_name_stage  B  0x00000000  2
+datum  boss_name_act  B  0x00000002  2
+text  TEXT_1  C  0x00000000  13

@@ -1,12 +1,14 @@
 #include <string.h>
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #include <zam.h>
 #include <sh4zam/shz_mem.h>
 #include <stdint.h>
 
 /* the shipped memcpy below defines memmove, since it copies blocks that
- * overlap as memmove must. GCC's own memcpy comes after it */
+ * overlap as memmove must. this side's own memcpy comes after it */
 #define memcpy memmove
+#endif
 #endif
 
 /* it copies backward when s1 is above s2, so blocks that overlap copy as
@@ -35,7 +37,8 @@ void *memcpy(void *s1, const void *s2, size_t n)
     return s1;
 }
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef memcpy
 
 /* blocks that overlap copy by memmove, as the shipped memcpy copies them.
@@ -58,4 +61,5 @@ void *memcpy(void *s1, const void *s2, size_t n)
     }
     return shz_memcpy1(s1, s2, n);
 }
+#endif
 #endif

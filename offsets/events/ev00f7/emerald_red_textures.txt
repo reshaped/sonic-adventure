@@ -1,0 +1,4 @@
+datum  ev00f7_emerald_red_textures  D  0x00000000  12
+datum  ev00f7_emerald_red_texlist  D  0x0000000c  8
+datum  dat_0cbeb5a4  D  0x00000014  20
+text  TEXT_1  C  0x00000000  15

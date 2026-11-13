@@ -64,6 +64,16 @@ struct beach_wind_vars {
 /* the set editor draws level slices of the box this far apart */
 #define SLICE_GAP 128
 
+/* the passes the step's loop makes */
+#ifdef NONMATCHING
+/* repairs the read the tag in beach_wind_step names: the loop takes player 0
+ * alone. the image's loop matches it where the bytes past player 0's work
+ * hold no position in the box */
+#define WIND_PASSES 1
+#else
+#define WIND_PASSES 2
+#endif
+
 /* each step player 0 is in the box, put it in the updraft. after more than
  * DWELL_WAIT steps there, the updraft pushes it. the push is (power - its
  * upward speed) / 10 */
@@ -135,7 +145,7 @@ void beach_wind_step(struct task *task)
          * second pass reads a position at address 96 (0x0c90d56a) */
         player = player_work[0];
         motion = player_motion[0];
-        for (i = 0; i < 2; i++, player++, motion++) {
+        for (i = 0; i < WIND_PASSES; i++, player++, motion++) {
             if (player == NULL) {
                 continue;
             }

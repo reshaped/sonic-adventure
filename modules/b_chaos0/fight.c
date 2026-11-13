@@ -22,7 +22,7 @@ extern NJS_MATRIX chaos0_node_matrix;
 extern NJS_MATRIX *chaos0_stretch_hand_matrix;
 /* the row chaos0_set_shapes last took */
 extern Sint8 chaos0_shape_row;
-#ifdef GCC
+#ifdef NONMATCHING
 /* B_CHAOS0's tables place these six in bss that no source holds, after
  * boss.c's. the port defines them here */
 NJS_POINT3 chaos0_hands[2];

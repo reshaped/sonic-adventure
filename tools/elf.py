@@ -5,7 +5,7 @@ read() gives an ELF file's sections, symbols and relocations, members() an
 archive's members, and opened() an object or an archive, read once while
 its real path, modification time and size hold. tools/spec.py,
 tools/ld.py, tools/verify.py, tools/decls.py and tools/publish.py read make
-gcc's objects and links through them, and tools/census.py its objects.
+dc's objects and links through them, and tools/census.py its objects.
 """
 
 import os
@@ -20,9 +20,9 @@ SYMTAB, RELA, NOBITS = 2, 4, 8
 ALLOC = 2
 # the symbol bindings: STB_LOCAL, STB_GLOBAL and STB_WEAK
 LOCAL, GLOBAL, WEAK = 0, 1, 2
-# the symbol types that name a section and a source file: STT_SECTION and
-# STT_FILE
-SECTION_SYMBOL, FILE_SYMBOL = 3, 4
+# the symbol types that name a datum, a section and a source file:
+# STT_OBJECT, STT_SECTION and STT_FILE
+OBJECT_SYMBOL, SECTION_SYMBOL, FILE_SYMBOL = 1, 3, 4
 # the section indexes of an undefined symbol and an absolute one: SHN_UNDEF
 # and SHN_ABS
 UNDEFINED, ABSOLUTE = 0, 0xFFF1

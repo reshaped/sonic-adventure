@@ -81,22 +81,19 @@ void fill_bytes(void *mem, int value, int count);
  * positive multiple of 32, and mem a multiple of 4 */
 void fill_blocks(void *mem, Uint32 value, int size);
 
-#ifdef GCC
-/* under GCC, a C call of vector_inner_product_across,
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* on this side, a C call of vector_inner_product_across,
  * vector_magnitude_across, vector_unit_across or point_calc_xy runs its
- * helper inline. as in ninja_zam.h, the helper is named zam_ and the
- * function's name, and a macro of the name calls it. math.src stays each
- * function's definition, which a function pointer still reaches. each
- * helper runs math.src's arithmetic on the same operands, but for the
- * registers its comment says a caller left. each FIPR takes its two vectors
- * in math.src's order.
+ * helper inline. the helper's name is zam_ and the function's name, as in
+ * ninja_zam.h. a macro of the function's name calls it. engine/dc/math.c,
+ * which make dc compiles in place of math.src, defines each function, which
+ * a function pointer still reaches. each helper runs math.src's arithmetic
+ * on the same operands, but for registers its comment says a caller left.
+ * each FIPR takes its two vectors in math.src's order.
  *
- * the other functions have no helper, so a C call reaches math.src. of
- * them, vector_inner_product, vector_magnitude, point_project_centered,
- * point_distance, point_distance_across, point_distance_squared and
- * point_distance_squared_across would each run no fewer instructions
- * inlined than the call. their bodies load a vector by post-increment,
- * where GCC's inlined loads compute each member's address */
+ * the other functions have no helper, so a C call reaches math.c's
+ * definition */
 
 /* v's x and z, with 0 for y, as math.src's _across bodies load them. like
  * them, it reads no y, which some callers leave unset */
@@ -166,6 +163,7 @@ ALWAYS_INLINE void zam_point_calc_xy(NJS_MATRIX *matrix, NJS_POINT3 *point,
 ZAM_ASSERT_COMPATIBLE(point_calc_xy);
 #define point_calc_xy(matrix, point, out) zam_point_calc_xy(matrix, point, out)
 
+#endif
 #endif
 
 #endif

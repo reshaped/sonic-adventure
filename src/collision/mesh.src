@@ -84,6 +84,7 @@ BK_SIZE:        .EQU    8
         .EXPORT     _collision_mesh_take_buckets
         .EXPORT     _polygon_find_floor
         .EXPORT     _polygon_find_heights
+        .EXPORT     _mesh_test_heights
         .EXPORT     _matrix_calc_point
         .EXPORT     _collision_mesh_list
 

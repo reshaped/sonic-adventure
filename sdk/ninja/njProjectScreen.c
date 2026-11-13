@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* project p3, transformed by m, onto the screen into p2. with x, y and z the
  * transformed point, p2->x = _nj_screen_.cx + _nj_screen_.dist * x / z *
  * _nj_scr_aspect_x_, and p2->y likewise from y and _nj_scr_aspect_y_. a null m

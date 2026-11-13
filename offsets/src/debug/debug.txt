@@ -1,0 +1,11 @@
+datum  debug_flag  D  0x00000000  2
+datum  debug_axis_points  D  0x00000004  72
+datum  debug_axis_colors  D  0x0000004c  24
+datum  debug_axes  D  0x00000064  16
+datum  frame_file_name  D  0x00000074  14
+datum  hex_digits  D  0x00000082  17
+datum  frame_file_count  D  0x00000094  2
+datum  light_entries  D  0x00000098  32
+datum  light_items  D  0x000000b8  192
+datum  light_menu  D  0x00000178  20
+datum  stage_names  D  0x0000018c  1376

@@ -1,0 +1,7 @@
+datum  ring_texlist  D  0x00000000  8
+datum  ring_texanims  D  0x00000008  160
+datum  ring_shape  D  0x000000a8  52
+datum  dat_8c1d5454  D  0x000000dc  8
+datum  ring_stagger  D  0x000000e4  4
+datum  dat_8c7a14c8  B  0x00000000  64
+datum  ring_sprite  B  0x00000040  32

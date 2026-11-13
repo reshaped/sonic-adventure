@@ -1,0 +1,7 @@
+datum  lamps_desc  C  0x00000000  24
+datum  lamp_textures  C  0x00000018  32
+datum  lamp_patterns  C  0x00000038  71
+datum  hall_rows  C  0x00000080  108
+datum  hall_lamps  C  0x000000ec  20
+datum  course_rows  C  0x00000100  36
+datum  course_lamps  C  0x00000124  20

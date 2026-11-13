@@ -585,10 +585,9 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
         }
         total = 0;
         largest = -1;
-#ifdef GCC
-        /* repairs largest_index where every size has its top bit set, so that
-         * the signed test below finds none above -1: GCC then takes the
-         * excess from the first list's size */
+#ifdef NONMATCHING
+        /* repairs the unset largest_index the tag below names: this side then
+         * takes the excess from sizes[0] */
         largest_index = 0;
 #endif
         for (i = 0; i < 5; i++) {
@@ -606,6 +605,13 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
         }
         if (total > available) {
             excess = total - available;
+            /* @bug uninitialized: where every size has its top bit set, the
+             * signed test above holds for none (CMP/GT at 0x8ce12e7a), and
+             * this indexes sizes by largest_index's frame slot unwritten
+             * (MOV.L @(8,R15),R4 at 0x8ce12e92). a share that comes to -1
+             * word or less gives its size that bit. nothing in LOADER.BIN
+             * calls njInitVertexBuffer or njChangeTextureMemorySize, this
+             * function's two callers */
             sizes[largest_index] -= excess;
             sizes[largest_index] &= ~31UL;
         }

@@ -1,7 +1,8 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* the cosine of n. only n's low 16 bits count, as 65536 is a full turn */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njCos
 Float njCos(Angle n)
 {
@@ -9,7 +10,6 @@ Float njCos(Angle n)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c627d58 follows the
  * body's own return at 0x8c627d52 */
 #pragma inline_asm(njCos)
@@ -21,6 +21,6 @@ Float njCos(Angle n)
         RTS
         FMOV.S      FR1,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif

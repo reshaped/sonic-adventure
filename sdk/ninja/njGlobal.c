@@ -1,6 +1,6 @@
 /* Ninja's global state */
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* the eleven bss objects and _unit_matrix_, each on a 32-byte boundary. R10,
  * which compiles this file, aligns no object inside a section to 32 bytes */
 /* @asm open: no inspect rule reads the bytes its .RES.B reserves */
@@ -200,9 +200,9 @@ Sint32 _nj_palette_bpp_;
 Sint32 _nj_palette_mode_;
 Int _nj_matrix_flag_;
 void (*_nj_motion_callback_)(NJS_OBJECT *obj);
-#ifdef GCC
-/* port.h's pivot and cover for the 2D draws' squeeze, WIDE_MIDDLE and FALSE
- * at boot */
+#ifdef NONMATCHING
+/* port.h's pivot and cover for the 2D draws' squeeze, WIDE_MIDDLE and
+ * FALSE at boot */
 Float port_wide_anchor;
 Int port_wide_cover;
 #endif

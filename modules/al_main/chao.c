@@ -554,7 +554,15 @@ void alife_chao_create_garden(int garden)
         /* @bug arithmetic: the count, second + 16, passes 31 from second
          * 16 on. SHLD at 0x0c900c98 shifts by the count's low five bits,
          * and drops the bits shifted past 31 */
+#ifdef NONMATCHING
+        /* keeps the shift the tag names. C leaves a count of 32 or more
+         * undefined. a minute shifted to bit 31 or past overflows its int.
+         * this side shifts a Uint32 by the count's low five bits, as SHLD
+         * does */
+        seed = (Uint32)date.minute << ((date.second + 16) & 31);
+#else
         seed = date.minute << (date.second + 16);
+#endif
         srand(seed);
     }
     while (node) {

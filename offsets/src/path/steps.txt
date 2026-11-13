@@ -1,0 +1,5 @@
+datum  path_draw_points  D  0x00000000  48
+datum  path_draw_colors  D  0x00000030  16
+datum  path_draw_lines  D  0x00000040  16
+datum  path_cameras  D  0x00000050  1568
+datum  path_camera_list  D  0x00000670  56

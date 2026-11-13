@@ -162,7 +162,7 @@ static Sint32 make_map(Sint32 used, Sint8 *map, Sint32 map_packets)
             *map++ = 0;
             used -= 8;
         } else if (used > 0) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* the eight shifts push all of bits' first value out of the
              * byte, so 0 gives the byte the image stores */
             Sint8 bits = 0;

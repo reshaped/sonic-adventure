@@ -255,10 +255,12 @@ Sint32 gdFsRead(GDFS gdfs, Sint32 nsct, void *buf)
             break;
         }
         for (delay = READ_DELAY; delay != 0; delay--) {
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
             /* GCC deletes an empty loop. the asm keeps each pass, so the wait
              * takes as long as the shipped loop */
             __asm__ volatile("");
+#endif
 #endif
         }
         tries++;

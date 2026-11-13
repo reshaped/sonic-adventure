@@ -97,7 +97,7 @@ SYE_G2_ERR syG2DmaGetEndCounter(SYE_G2_DMA_TYPE type, Uint32 *counter);
 
 /* a channel's G2 DMA registers, in the system bus's register area */
 struct g2_dma_registers {
-#ifdef GCC
+#ifdef NONMATCHING
     /* G2_DMA_CHANNEL_REGISTERS and syG2DmaEndIntrruptHandler cast away the
      * volatile of sygG2WrkPtr->registers. GCC can drop or reorder a store
      * through the plain pointer, so each register is volatile itself */
@@ -189,6 +189,12 @@ extern Uint8 sygG2WrkImg[sizeof(struct g2_work) + 32];
 extern Uint32 sygG2DmaSuspendAll;
 /* the last value written to the G2 DMA protection register */
 extern Uint32 syG2DmaProtect;
+
+/* the system bus's normal interrupt status register, through P2. writing 1
+ * to a bit clears it. bits 15 to 18 are the G2 DMA channels' end bits, in
+ * SYE_G2_DMA_TYPE order */
+#define G2_INT_STATUS ((volatile Uint32 *)0xa05f6900)
+#define G2_INT_DMA_END_SHIFT 15
 
 /* reset a channel's state and disable its DMA */
 SYE_G2_ERR syG2DmaReset(struct g2_dma_channel *channel);

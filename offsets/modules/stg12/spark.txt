@@ -1,0 +1,3 @@
+datum  shelter_spark_shape  D  0x00000000  52
+datum  shelter_spark_frames  D  0x00000034  320
+datum  shelter_spark_sprite  D  0x00000174  32

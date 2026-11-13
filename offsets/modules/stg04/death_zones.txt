@@ -1,0 +1,4 @@
+datum  highway_act0_death_zones  D  0x00000000  48
+datum  highway_act1_death_zones  D  0x00000030  16
+datum  highway_act2_death_zones  D  0x00000040  16
+datum  highway_death_zones  D  0x00000050  12

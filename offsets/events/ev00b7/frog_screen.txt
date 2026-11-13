@@ -1,0 +1,3 @@
+datum  ev00b7_frog_screen_pairs  D  0x00000000  16
+datum  ev00b7_frog_screen_welds  D  0x00000010  16
+datum  ev00b7_frog_screen  D  0x00000020  4

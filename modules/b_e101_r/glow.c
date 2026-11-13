@@ -67,7 +67,14 @@ void e101_mk2_glow_step(void)
 /* the glow draws unlit, with half its fade as its alpha */
 void e101_mk2_glow_draw(void)
 {
+#ifdef NONMATCHING
+    /* where step 1 drew the boss, the second picture shows that draw, and its
+     * pass calls no callback. so the glow draws on step 1 too */
+    if (glow_fade != 0.0F && FRAME_DRAWS() && glow_object != NULL) {
+        present_untimed(TRUE);
+#else
     if (glow_fade != 0.0F && frame_step == 0 && glow_object != NULL) {
+#endif
         njControl3D(NJD_CONTROL_3D_CONSTANT_ATTR |
                     NJD_CONTROL_3D_CONSTANT_MATERIAL);
         njSetConstantAttr(~(NJD_SA_MASK | NJD_DA_MASK),
@@ -75,5 +82,8 @@ void e101_mk2_glow_draw(void)
         draw_set_material(glow_fade * 0.5F, 1.0F, 1.0F, 1.0F);
         njSetTexture(e101_r_texlist);
         njDrawObject(glow_object);
+#ifdef NONMATCHING
+        present_untimed(FALSE);
+#endif
     }
 }

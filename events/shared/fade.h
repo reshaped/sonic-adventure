@@ -5,9 +5,12 @@
 
 #include "system/task.h"
 
-/* a fade speed too small to show. from alpha 0, a fade at this speed stays
- * clear, and from 1, one at -EVENT_FADE_STILL stays opaque, until
- * event_fade_set_speed changes the speed */
+/* a fade speed too small to show. a fade from alpha 0 at this speed stays
+ * clear until event_fade_set_speed changes the speed. one from 1 at
+ * -EVENT_FADE_STILL stays all but opaque until then. the FPU rounds toward
+ * zero, so each step lowers that alpha to the next float below. the draw
+ * truncates alpha * 255, so the fade draws at 254 of 255 from its first
+ * draw. that lasts 2^24 / 255 steps */
 #define EVENT_FADE_STILL 1e-32F
 
 /* create a fade of the color from alpha. the alpha changes by speed each step:

@@ -338,7 +338,7 @@ KMSTATUS kmCreateTABuffer(PKMVERTEXBUFFDESC pBufferDesc, KMINT32 TABuffer)
                             options & ~kmiSystemConfig.strip_buffer, 0);
         kmiDeviceExtension.ta_busy = 1;
     } else {
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset status the tag below names: a call that leaves
          * the configuration waiting returns KMSTATUS_SUCCESS, as nothing
          * failed */
@@ -531,10 +531,10 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
         }
         total = 0;
         largest = -1;
-#ifdef GCC
-        /* repairs largest_index where every size has its top bit set, so that
-         * the signed test below finds none above -1: GCC then takes the
-         * excess from the first list's size */
+#ifdef NONMATCHING
+        /* this side repairs the unset largest_index the tag below names. where
+         * no size passes the test, it takes the excess from the first list's
+         * size */
         largest_index = 0;
 #endif
         for (i = 0; i < 5; i++) {
@@ -556,6 +556,14 @@ KMSTATUS kmSetSystemConfiguration(PKMSYSTEMCONFIGSTRUCT pSystemConfigStruct)
              * 0x8c660846). folded into the subtraction, it is computed in
              * total's R6, and 109 of 738 words differ */
             excess = total - available;
+            /* @bug uninitialized: this indexes sizes by an unset largest_index
+             * where every size has its top bit set. the signed test above
+             * then holds for none (CMP/GT at 0x8c6607a8 and four more). the
+             * index is R7, largest_index's register, unwritten (MOV R7,R4 at
+             * 0x8c66083a). a share that comes to -1 word or less gives its
+             * size that bit. the shares are njInitSystem's zeros until
+             * njInitVertexBuffer sets them. njInitVertexBuffer's calls in
+             * 1ST_READ.BIN and MOVIE.BIN give none below 0 */
             sizes[largest_index] -= excess;
             sizes[largest_index] &= ~31UL;
         }

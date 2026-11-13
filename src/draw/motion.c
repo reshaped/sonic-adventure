@@ -662,10 +662,23 @@ void motion_weld(struct task_work *work, struct motion *motion)
                 normals_a = weld->object_a->model->normals;
                 points_b = weld->object_b->model->points;
                 normals_b = weld->object_b->model->normals;
+#ifdef NONMATCHING
+                /* WELD_BOTH's and WELD_TO_A's code reads only b's inverse,
+                 * and WELD_TO_B's only a's */
+                if (weld->kind == WELD_TO_B) {
+                    njSetMatrix(&motion_weld_inverse_a, &motion_weld_matrix_a);
+                    njInvertMatrix(&motion_weld_inverse_a);
+                }
+                if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_A) {
+                    njSetMatrix(&motion_weld_inverse_b, &motion_weld_matrix_b);
+                    njInvertMatrix(&motion_weld_inverse_b);
+                }
+#else
                 njSetMatrix(&motion_weld_inverse_a, &motion_weld_matrix_a);
                 njSetMatrix(&motion_weld_inverse_b, &motion_weld_matrix_b);
                 njInvertMatrix(&motion_weld_inverse_a);
                 njInvertMatrix(&motion_weld_inverse_b);
+#endif
                 /* WELD_BOTH takes WELD_TO_A's code: b's vertices follow a's */
                 switch (weld->kind) {
                 case WELD_BOTH:

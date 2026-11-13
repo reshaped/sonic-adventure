@@ -843,8 +843,9 @@ Sint32 mpvdec_DecSlice(struct mpv_obj *mpv, Uint8 **data, Sint32 *size,
 #pragma section SFD02
 
 /* clang-format off */
-#ifndef __clang__
-#ifndef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#else
 /* PSGSFD02's first 7680 bytes, reserved and left unwritten, from 0x8ceb2be0 to
  * mpvdec_DecIpicMb at 0x8ceb49e0. this #pragma asm block opens PSGSFD02 with
  * its own .SECTION line. SHC writes the block ahead of the section line it
@@ -1063,8 +1064,9 @@ finish:
 }
 
 /* clang-format off */
-#ifndef __clang__
-#ifndef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#else
 /* 7280 bytes reserved and left unwritten, from mpvdec_DecIpicMb's end at
  * 0x8ceb4bd0 to mpvdec_DecPpicMb at 0x8ceb6840 */
 /* @asm open: no inspect rule reads the bytes its .RES.B reserves */
@@ -1244,8 +1246,9 @@ picture_done:
 }
 
 /* clang-format off */
-#ifndef __clang__
-#ifndef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#else
 /* 6856 bytes reserved and left unwritten, from mpvdec_DecPpicMb's end at
  * 0x8ceb6bd0 to mpvdec_ResetMv at 0x8ceb8698. they put mpvdec_ResetMv,
  * mpvdec_ResetDc and mpvdec_MotionSub out of mpvdec_DecPpicMb's BSR reach.

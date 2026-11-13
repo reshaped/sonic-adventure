@@ -120,6 +120,71 @@ static void prop_destroy(struct task *task)
     task_kill(task);
 }
 
+#ifdef NONMATCHING
+static void spotlight_draw(struct task *task);
+
+/* draw the pole as pole_draw does, with the scroll and the swing its steps
+ * left */
+static void pole_draw_posed(struct task *task)
+{
+    struct task_work *work = task->work;
+    NJS_OBJECT *object;
+    Uint16 i;
+    Angle ang;
+
+    for (i = 0; i < POLE_UVS; i++) {
+        POLE_VARS(work)
+            ->object->model->meshsets[POLE_MESHSET]
+            .vertuv[i]
+            .tex.v += SCROLL(work);
+    }
+    njSetTexture(&obj_shareobj_texlist);
+    njPushMatrix(NULL);
+    njTranslateV(NULL, &work->pos);
+    TURN_VIA(njRotateZ, work->ang.z, ang);
+    TURN_VIA(njRotateX, work->ang.x, ang);
+    TURN_VIA(njRotateY, work->ang.y, ang);
+    object = POLE_VARS(work)->object;
+    njTranslateV(NULL, (NJS_VECTOR *)object->pos);
+    draw_model(object->model);
+    njPushMatrix(NULL);
+    object = object->child;
+    njTranslateV(NULL, (NJS_VECTOR *)object->pos);
+    TURN_VIA(njRotateX, POLE_VARS(work)->beam[BEAM_SWING], ang);
+    draw_model(object->model);
+    njPopMatrix(1);
+    njPopMatrix(1);
+    for (i = 0; i < POLE_UVS; i++) {
+        POLE_VARS(work)
+            ->object->model->meshsets[POLE_MESHSET]
+            .vertuv[i]
+            .tex.v -= SCROLL(work);
+    }
+}
+
+/* move v by amount in each uv that work's arch scrolls. another prop has
+ * none */
+static void arch_scroll(struct task_work *work, int amount)
+{
+    NJS_MESHSET *meshset;
+    Uint16 count;
+    Uint16 i;
+
+    if (VARS(work)->object == &arch_1_object) {
+        meshset = &arch_1_object.model->meshsets[ARCH_1_MESHSET];
+        count = ARCH_1_UVS;
+    } else if (VARS(work)->object == &arch_2_object) {
+        meshset = &arch_2_object.model->meshsets[ARCH_2_MESHSET];
+        count = ARCH_2_UVS;
+    } else {
+        return;
+    }
+    for (i = 0; i < count; i++) {
+        meshset->vertuv[i].tex.v += amount;
+    }
+}
+#endif
+
 /* draw VARS(work)->object's tree at the task's pos and angles, only on a
  * frame's first step */
 static void prop_draw(struct task *task)
@@ -127,6 +192,26 @@ static void prop_draw(struct task *task)
     struct task_work *work = task->work;
     Angle ang;
 
+#ifdef NONMATCHING
+    /* the pole's callback is this too, but its tree holds the beam unswung
+     * and the uvs unscrolled */
+    if (frame_redrawing && VARS(work)->object == &twinkle_pole_object) {
+        pole_draw_posed(task);
+        return;
+    }
+    /* a spotlight's callback is this too, but its tree holds the lamp
+     * unturned. the pass calls it where the spotlight's step drew nothing on
+     * step 1 */
+    if (frame_redrawing && VARS(work)->object == spotlight_object) {
+        spotlight_draw(task);
+        return;
+    }
+    /* an arch's step scrolls its uvs only around its own call of this. so the
+     * pass scrolls them here, by the scroll the last step left */
+    if (frame_redrawing) {
+        arch_scroll(work, -SCROLL(work));
+    }
+#endif
     if (frame_step == 0) {
         njSetTexture(&obj_shareobj_texlist);
         njPushMatrix(NULL);
@@ -137,6 +222,11 @@ static void prop_draw(struct task *task)
         draw_tree(VARS(work)->object);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing) {
+        arch_scroll(work, SCROLL(work));
+    }
+#endif
 }
 
 /* advance the scroll, and draw the arch with ARCH_1_MESHSET's uvs scrolled

@@ -1029,7 +1029,7 @@ static void download_step(struct task *task)
  * the step, reads the press */
 static void download_draw(struct task *task)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture shows no retry prompt and retries
      * no mission: the prompt is the pause's */
     if (frame_redrawing) {
@@ -1421,10 +1421,10 @@ static void download_item_draw(struct task *task)
         }
         texlist = &bank_b_texlist;
         break;
-#ifdef GCC
+#ifdef NONMATCHING
     default:
-        /* repairs the unset texlist the tag names: GCC draws nothing, as the
-         * model switch's default does */
+        /* repairs the unset texlist the tag names: this side draws nothing, as
+         * the model switch's default does */
         return;
 #endif
     }

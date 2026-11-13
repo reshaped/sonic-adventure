@@ -1,0 +1,17 @@
+datum  mwg_sfd_mps_trentry  CSG  0x00000000  60
+datum  mwg_sfd_mpv_trentry  CSG  0x0000003c  60
+datum  mwg_sfd_mps_initpara  CSG  0x00000078  16
+datum  mwg_sfd_mpv_initpara  CSG  0x00000088  16
+datum  mwg_sfd_mpv_trsetup  CSG  0x00000098  36
+datum  mwg_ply_mps_trsetup  DSG  0x00000000  36
+datum  mwg_sfd_mps_crepara  DSG  0x00000024  60
+datum  mwg_sfd_mpv_crepara  DSG  0x00000060  60
+datum  mwg_sfd_mpvpara  DSG  0x0000009c  36
+datum  mwg_sfd_adxtpara  DSG  0x000000c0  28
+datum  mwply_work_size  DSG  0x000000dc  4
+datum  dat_8cedd674  DSG  0x000000e0  4
+datum  mwg_sfd_libwk  BSG  0x00000000  16112
+datum  mwg_sfd_sjadr  BSG  0x00003ef0  4
+datum  mwg_sfd_errcode  BSG  0x00003ef4  64
+datum  mwg_sfd_errcnt  BSG  0x00003f34  4
+text  TEXT_1  CSG  0x000000bc  33

@@ -519,7 +519,7 @@ static NJS_OBJECT *tree_copy(NJS_OBJECT *object)
 
     /* every caller passes a tree, so this test holds, and copy is set where
      * it is returned */
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets copy: object->model's read above
      * already takes object as non-NULL, so the test holds */
     copy = NULL;

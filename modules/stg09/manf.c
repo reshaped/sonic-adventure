@@ -61,11 +61,25 @@ static Bool manf_pose(Float frame, NJS_POINT3 *point, NJS_VECTOR *vector,
     /* Ninja needs a matrix on an 8-byte boundary, and the stack is aligned
      * only to 4. matrix points at the boundary at or below room's start, and
      * pad keeps that boundary inside the struct */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    /* GCC warns of this struct, which aligns only to 4 and holds an
+     * NJS_MATRIX (njtypes.h). only the address rounded down to 8 reaches
+     * Ninja, so the warning is off around the struct */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wif-not-aligned"
+#endif
+#endif
     struct {
         NJS_MATRIX *matrix;
         Float pad;
         NJS_MATRIX room;
     } pose;
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma GCC diagnostic pop
+#endif
+#endif
     NJS_POINT3 tip;
     Float *at;
 
@@ -125,8 +139,9 @@ static void manf_init(struct task *task)
         /* @bug memory: a count of 2 shapes from manf_shape, which is
          * one (MOV #2,R3 at 0x0c90fa9c). the record's second shape copies
          * the 52 bytes past manf_shape, counter.c's data at 0x0cb13bf8 */
-#ifdef GCC
-        /* repairs the count the tag names: GCC's flap has its one shape */
+#ifdef NONMATCHING
+        /* repairs the count the tag names: this side's flap has its one
+         * shape */
         collision_init(task, &manf_shape, COLLISION_OBJECT, 1, 1);
 #else
         collision_init(task, &manf_shape, COLLISION_OBJECT, 1, 2);

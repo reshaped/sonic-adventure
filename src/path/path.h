@@ -110,7 +110,7 @@ Bool path_create_manager(void);
  * long. returns TRUE, or FALSE with the sample left alone when the distance
  * is off a path that stops */
 Bool path_sample(struct path *path, struct path_sample *sample);
-#ifdef GCC
+#ifdef NONMATCHING
 /* where path_sample's search of one path stopped: the distance it searched
  * for, as wrapped, the point it stopped at and the lengths before that point
  * summed. an index below 0 holds no search */

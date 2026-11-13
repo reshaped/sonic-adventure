@@ -1,0 +1,5 @@
+datum  e102_dust  D  0x00000000  60
+datum  e102_spark_points  D  0x0000003c  24
+datum  e102_spark_colors  D  0x00000054  8
+datum  e102_spark_line  D  0x0000005c  16
+datum  e102_spark_speed  D  0x0000006c  12

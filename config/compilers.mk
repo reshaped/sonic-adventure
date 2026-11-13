@@ -74,9 +74,17 @@ R32_C := sdk/shinobi/gdDec.c sdk/sofdec/adx_dcda.c \
          sdk/shinobi/gdfshn.c sdk/shinobi/gdfsif.c
 # SDK 1.30J's Kamui members build as game code, with R32 and the game's flags
 KAMUI_C := $(wildcard sdk/ninja/*_kamui_lib.c)
+# The game's C that no SHC compiles, each whole under #ifdef NONMATCHING:
+# no SHC route or splits.txt takes it. config/dreamcast.mk links each into
+# 1ST_READ.BIN, model.c in model.src's place
+# (PORTS.md#where-the-code-lives), and the native slice compiles each too
+NONMATCHING_C := src/system/pace.c src/system/port.c src/system/present.c \
+    src/event/skip.c src/draw/model.c
 
-# Compiler flags change object bytes; TOOLCHAIN.md#flags says how
-SHCFLAGS := -cpu=sh4 -endian=little
+# Compiler flags change object bytes; TOOLCHAIN.md#flags says how. SHC's
+# builds define DREAMCAST, one of the two switches a guard tests, and not
+# NONMATCHING (PORTS.md#switches)
+SHCFLAGS := -cpu=sh4 -endian=little -define=DREAMCAST
 GAME     := $(SHCFLAGS) -fpu=single -speed -extra=a=800 -macsave=0
 SDK      := $(SHCFLAGS)
 RUNTIME  := $(SHCFLAGS) -fpu=single
@@ -94,8 +102,11 @@ ASMFLAGS := -cpu=sh4 -endian=little -sjis -private
 # constants as SHC reads them under the first two. Under -aggressive=2 it
 # fails on a division SHC computes by a reciprocal no normal float holds
 # exactly. So each line below that adds one of the four to a source, or
-# takes -fpu=single from it, names the source's GCC object too
-own = $(foreach s,$1,$(eval build/$s.obj build/stub/$s.obj build/gcc/$s.o: private GAME += $2))
+# takes -fpu=single from it, names the source's GCC object too. The native
+# slice's object of a source, obj/SOURCE.o under the slice's directory,
+# passes through tools/floats.py as well. own names it by a pattern, since
+# make reads this file before the slice names its directory
+own = $(foreach s,$1,$(eval build/$s.obj build/stub/$s.obj build/dc/$s.o: private GAME += $2)$(eval %/obj/$s.o: private GAME += $2))
 $(call own,modules/advertise/game_bug modules/al_race/menu \
     modules/al_race/racer \
     modules/b_chaos0/chaos0 modules/b_chaos0/clock modules/b_chaos2/chaos2 \
@@ -111,41 +122,42 @@ $(call own,modules/advertise/character_select,-inline=10)
 $(call own,modules/stg08/snow_door src/path/curve,-aggressive=2)
 $(call own,src/system/binary,-optimize=0)
 # -size takes -speed's place: SHC warns when given both
-build/modules/b_e101_r/files.obj build/stub/modules/b_e101_r/files.obj build/gcc/modules/b_e101_r/files.o: private GAME := $(patsubst -speed,-size,$(GAME)) -optimize=0
+build/modules/b_e101_r/files.obj build/stub/modules/b_e101_r/files.obj build/dc/modules/b_e101_r/files.o: private GAME := $(patsubst -speed,-size,$(GAME)) -optimize=0
 # Event sources omit -extra=a=800, including shared event code
 build/events/% build/stub/events/%: GAME := $(filter-out -extra=a=800,$(GAME))
 # The loader's own code takes -extra=a=c00 in place of -extra=a=800, and sees
-# the SDK's headers and the loader's, not the game's
+# the SDK's headers and the loader's, not the game's, under GCC and in its
+# reads too
 $(LOADER_C:%.c=build/%.obj): GAME := $(patsubst -extra=a=800,-extra=a=c00,$(GAME))
-$(LOADER_C:%.c=build/%.obj) $(LOADER_C:%.c=build/gcc/%.o): GAME_INC := sdk/include,.
+$(LOADER_C:%.c=build/%.obj) $(LOADER_C:%.c=build/dc/%.o) $(LOADER_C:%.c=build/reads/%.d): GAME_INC := sdk/include,.
 build/sdk/ninja/kmutil_workaround_for_sh_lnk.obj: SDK += -size -macsave=0 -extra=a=400
-build/sdk/ninja/njCameraMotion.obj build/gcc/sdk/ninja/njCameraMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njDebug.obj build/gcc/sdk/ninja/njDebug.o: SDK += -double=float -macsave=0 -extra=a=400
-build/sdk/ninja/njCreateLight.obj build/gcc/sdk/ninja/njCreateLight.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njCameraMotion.obj build/dc/sdk/ninja/njCameraMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njDebug.obj build/dc/sdk/ninja/njDebug.o: SDK += -double=float -macsave=0 -extra=a=400
+build/sdk/ninja/njCreateLight.obj build/dc/sdk/ninja/njCreateLight.o: SDK += -double=float -size -macsave=0 -extra=a=400
 build/sdk/ninja/njDeleteLight.obj: SDK += -extra=a=400
 build/sdk/ninja/njDrawLine3D.obj: SDK += -macsave=0
 build/sdk/ninja/njDrawPolygon2D.obj: SDK += -extra=a=400
 build/sdk/ninja/njDrawTriangle3D.obj: SDK += -macsave=0
-build/sdk/ninja/njGenerateFogDensity.obj build/gcc/sdk/ninja/njGenerateFogDensity.o: SDK += -double=float -extra=a=400
+build/sdk/ninja/njGenerateFogDensity.obj build/dc/sdk/ninja/njGenerateFogDensity.o: SDK += -double=float -extra=a=400
 build/sdk/ninja/njGenerateFogTable.obj: SDK += -macsave=0 -extra=a=400
-build/sdk/ninja/njGenerateFogTable3.obj build/gcc/sdk/ninja/njGenerateFogTable3.o: SDK += -double=float -macsave=0 -extra=a=400
-build/sdk/ninja/njGetMotion.obj build/gcc/sdk/ninja/njGetMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njGenerateFogTable3.obj build/dc/sdk/ninja/njGenerateFogTable3.o: SDK += -double=float -macsave=0 -extra=a=400
+build/sdk/ninja/njGetMotion.obj build/dc/sdk/ninja/njGetMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
 build/sdk/ninja/njInitCacheTexture.obj: SDK += -extra=a=400
 build/sdk/ninja/njLoadTextureLN.obj: SDK += -size -extra=a=400
 build/sdk/ninja/njLoadTexturePvmFile.obj: SDK += -size -macsave=0 -extra=a=400
-build/sdk/ninja/njLtSrcs.obj build/gcc/sdk/ninja/njLtSrcs.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njLtSrcs.obj build/dc/sdk/ninja/njLtSrcs.o: SDK += -double=float -size -macsave=0 -extra=a=400
 # njMem_ alone takes bit 0x40, as a=440: under a=400, njMemCopy2's DT lands at
 # 0x8c6572fe, ahead of its load
-build/sdk/ninja/njMem.obj build/gcc/sdk/ninja/njMem.o: SDK += -double=float -size -macsave=0 -extra=a=440
-build/sdk/ninja/njModel.obj build/stub/sdk/ninja/njModel.obj build/gcc/sdk/ninja/njModel.o: private SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njModelE.obj build/gcc/sdk/ninja/njModelE.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njModelS.obj build/gcc/sdk/ninja/njModelS.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMem.obj build/dc/sdk/ninja/njMem.o: SDK += -double=float -size -macsave=0 -extra=a=440
+build/sdk/ninja/njModel.obj build/stub/sdk/ninja/njModel.obj build/dc/sdk/ninja/njModel.o: private SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njModelE.obj build/dc/sdk/ninja/njModelE.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njModelS.obj build/dc/sdk/ninja/njModelS.o: SDK += -double=float -size -macsave=0 -extra=a=400
 build/sdk/ninja/njMotLinkS.obj: SDK += -macsave=0 -extra=a=400
-build/sdk/ninja/njMotLinkSrc.obj build/gcc/sdk/ninja/njMotLinkSrc.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njMotSrc.obj build/gcc/sdk/ninja/njMotSrc.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njMotion.obj build/gcc/sdk/ninja/njMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njMotionE.obj build/gcc/sdk/ninja/njMotionE.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/sdk/ninja/njMotionS.obj build/gcc/sdk/ninja/njMotionS.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMotLinkSrc.obj build/dc/sdk/ninja/njMotLinkSrc.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMotSrc.obj build/dc/sdk/ninja/njMotSrc.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMotion.obj build/dc/sdk/ninja/njMotion.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMotionE.obj build/dc/sdk/ninja/njMotionE.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/sdk/ninja/njMotionS.obj build/dc/sdk/ninja/njMotionS.o: SDK += -double=float -size -macsave=0 -extra=a=400
 build/sdk/ninja/njNearClipping.obj: SDK += -extra=a=400
 build/sdk/ninja/njPalette.obj: SDK += -size -extra=a=400
 build/sdk/ninja/njReleaseTextureAll.obj: SDK += -extra=a=400
@@ -163,20 +175,20 @@ build/sdk/ninja/njtri_wiredpoly.obj: SDK += -extra=a=400
 build/sdk/ninja/njtri_wiredpoly_with_tex.obj: SDK += -extra=a=400
 build/sdk/shinobi/fm.obj: SDK += -size -extra=a=400
 build/sdk/shinobi/fmcrc.obj: SDK += -extra=a=400
-build/sdk/shinobi/gdDec.obj build/gcc/sdk/shinobi/gdDec.o: SDK += -fpu=single -macsave=0
-build/sdk/shinobi/gdctl.obj build/gcc/sdk/shinobi/gdctl.o: SDK += -fpu=single
-build/sdk/shinobi/gdfs.obj build/gcc/sdk/shinobi/gdfs.o: SDK += -fpu=single -size -macsave=0
-build/sdk/shinobi/gdfsdir.obj build/gcc/sdk/shinobi/gdfsdir.o: SDK += -fpu=single -size
-build/sdk/shinobi/gdfshn.obj build/gcc/sdk/shinobi/gdfshn.o: SDK += -fpu=single -size
-build/sdk/shinobi/gdfsif.obj build/gcc/sdk/shinobi/gdfsif.o: SDK += -fpu=single
+build/sdk/shinobi/gdDec.obj build/dc/sdk/shinobi/gdDec.o: SDK += -fpu=single -macsave=0
+build/sdk/shinobi/gdctl.obj build/dc/sdk/shinobi/gdctl.o: SDK += -fpu=single
+build/sdk/shinobi/gdfs.obj build/dc/sdk/shinobi/gdfs.o: SDK += -fpu=single -size -macsave=0
+build/sdk/shinobi/gdfsdir.obj build/dc/sdk/shinobi/gdfsdir.o: SDK += -fpu=single -size
+build/sdk/shinobi/gdfshn.obj build/dc/sdk/shinobi/gdfshn.o: SDK += -fpu=single -size
+build/sdk/shinobi/gdfsif.obj build/dc/sdk/shinobi/gdfsif.o: SDK += -fpu=single
 build/sdk/shinobi/kdapi.obj: SDK += -size -macsave=0 -extra=a=400
-build/sdk/shinobi/lcd.obj build/gcc/sdk/shinobi/lcd.o: SDK += -optimize=0
-build/sdk/shinobi/lcdvms.obj build/gcc/sdk/shinobi/lcdvms.o: SDK += -optimize=0
+build/sdk/shinobi/lcd.obj build/dc/sdk/shinobi/lcd.o: SDK += -optimize=0
+build/sdk/shinobi/lcdvms.obj build/dc/sdk/shinobi/lcdvms.o: SDK += -optimize=0
 build/sdk/shinobi/mpapi.obj: SDK += -macsave=0 -extra=a=400
 build/sdk/shinobi/mpdrv.obj: SDK += -size -macsave=0 -extra=a=400
-build/sdk/shinobi/njpad.obj build/gcc/sdk/shinobi/njpad.o: SDK += -optimize=0
-build/sdk/shinobi/pd_kbd.obj build/gcc/sdk/shinobi/pd_kbd.o: SDK += -optimize=0
-build/sdk/shinobi/pdmain.obj build/gcc/sdk/shinobi/pdmain.o: SDK += -optimize=0 -macsave=0 -extra=a=400
+build/sdk/shinobi/njpad.obj build/dc/sdk/shinobi/njpad.o: SDK += -optimize=0
+build/sdk/shinobi/pd_kbd.obj build/dc/sdk/shinobi/pd_kbd.o: SDK += -optimize=0
+build/sdk/shinobi/pdmain.obj build/dc/sdk/shinobi/pdmain.o: SDK += -optimize=0 -macsave=0 -extra=a=400
 build/sdk/shinobi/pdvib.obj: SDK += -macsave=0 -extra=a=400
 build/sdk/shinobi/rfiber.obj: SDK += -macsave=0 -extra=a=400
 build/sdk/shinobi/sd_2nd_host_cmd_init_lst.obj: SDK += -macsave=0
@@ -217,9 +229,9 @@ build/sdk/shinobi/sg_fhref.obj: SDK += -speed -macsave=0 -extra=a=400
 build/sdk/shinobi/sg_flcommon.obj: SDK += -extra=a=400
 build/sdk/shinobi/sg_playtime.obj: SDK += -speed -extra=a=400
 build/sdk/shinobi/sg_rdalahd.obj: SDK += -extra=a=400
-build/sdk/shinobi/sg_syb2.obj build/gcc/sdk/shinobi/sg_syb2.o: SDK += -optimize=0 -extra=a=400
-build/sdk/shinobi/sg_sybt.obj build/gcc/sdk/shinobi/sg_sybt.o: SDK += -optimize=0
-build/sdk/shinobi/sg_sycf.obj build/gcc/sdk/shinobi/sg_sycf.o: SDK += -optimize=0
+build/sdk/shinobi/sg_syb2.obj build/dc/sdk/shinobi/sg_syb2.o: SDK += -optimize=0 -extra=a=400
+build/sdk/shinobi/sg_sybt.obj build/dc/sdk/shinobi/sg_sybt.o: SDK += -optimize=0
+build/sdk/shinobi/sg_sycf.obj build/dc/sdk/shinobi/sg_sycf.o: SDK += -optimize=0
 build/sdk/shinobi/sg_syfb.obj: SDK += -extra=a=400
 build/sdk/shinobi/sg_syrtc.obj: SDK += -macsave=0 -extra=a=400
 build/sdk/shinobi/sg_userflag.obj: SDK += -speed -extra=a=400
@@ -241,11 +253,11 @@ build/sdk/shinobi/vmscmd.obj: SDK += -extra=a=400
 build/sdk/shinobi/vmsio.obj: SDK += -size -macsave=0 -extra=a=400
 build/sdk/shinobi/vmsphys.obj: SDK += -size -macsave=0 -extra=a=400
 build/sdk/shinobi/vmsutil.obj: SDK += -size -extra=a=400
-build/sdk/shinobi/ov_main.obj build/gcc/sdk/shinobi/ov_main.o: SDK += -fpu=single -speed -extra=a=c00
+build/sdk/shinobi/ov_main.obj build/dc/sdk/shinobi/ov_main.o: SDK += -fpu=single -speed -extra=a=c00
 build/sdk/sofdec/adx_bsc.obj: SDK += -size -macsave=0 -extra=a=400
-build/sdk/sofdec/adx_dcd.obj build/gcc/sdk/sofdec/adx_dcd.o: SDK += -double=float -extra=a=400
+build/sdk/sofdec/adx_dcd.obj build/dc/sdk/sofdec/adx_dcd.o: SDK += -double=float -extra=a=400
 build/sdk/sofdec/adx_dcd2.obj: SDK += -macsave=0 -extra=a=400
-build/sdk/sofdec/adx_dcda.obj build/gcc/sdk/sofdec/adx_dcda.o: SDK += -fpu=single -extra=a=400
+build/sdk/sofdec/adx_dcda.obj build/dc/sdk/sofdec/adx_dcda.o: SDK += -fpu=single -extra=a=400
 build/sdk/sofdec/adx_fs.obj: SDK += -size -extra=a=400
 build/sdk/sofdec/adx_sjd.obj: SDK += -size -extra=a=400
 build/sdk/sofdec/adx_spsd.obj: SDK += -size -extra=a=400
@@ -253,14 +265,14 @@ build/sdk/sofdec/adx_stms.obj: SDK += -macsave=0 -extra=a=400
 build/sdk/sofdec/adx_tlk2.obj: SDK += -extra=a=400
 build/sdk/sofdec/adx_tsvr.obj: SDK += -size -macsave=0 -extra=a=400
 build/sdk/sofdec/adx_xpnd.obj: SDK += -macsave=0 -extra=a=400
-build/sdk/sofdec/adx_tlk.obj build/stub/sdk/sofdec/adx_tlk.obj build/gcc/sdk/sofdec/adx_tlk.o: private SDK += -size -macsave=0 -extra=a=400 -double=float
+build/sdk/sofdec/adx_tlk.obj build/stub/sdk/sofdec/adx_tlk.obj build/dc/sdk/sofdec/adx_tlk.o: private SDK += -size -macsave=0 -extra=a=400 -double=float
 build/sdk/sofdec/mw_rna.obj build/stub/sdk/sofdec/mw_rna.obj: private SDK += -size -macsave=0 -extra=a=400
 build/sdk/sofdec/mw_sdcs.obj build/stub/sdk/sofdec/mw_sdcs.obj: private SDK += -size -macsave=0 -extra=a=400
 build/sdk/sofdec/sj_mem.obj: SDK += -size -extra=a=400
 build/sdk/sofdec/sj_rbf.obj: SDK += -size -extra=a=400
 build/src/system/thread.obj: SDK += -speed
-build/src/draw/action.obj build/gcc/src/draw/action.o: SDK += -double=float -size -macsave=0 -extra=a=400
-build/src/draw/action_link.obj build/gcc/src/draw/action_link.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/src/draw/action.obj build/dc/src/draw/action.o: SDK += -double=float -size -macsave=0 -extra=a=400
+build/src/draw/action_link.obj build/dc/src/draw/action_link.o: SDK += -double=float -size -macsave=0 -extra=a=400
 build/modules/movie/sdk/cmpint64.obj: SDK += -size
 build/modules/movie/sdk/sfd_buf.obj: SDK += -macsave=0
 build/modules/movie/sdk/sfd_lib.obj: SDK += -macsave=0
@@ -311,11 +323,11 @@ build/loader/sdk/kmvtxlst_workaround_for_sh_lnk.obj: SDK += -extra=a=400
 build/loader/sdk/tactrl_workaround_for_sh_lnk.obj: SDK += -macsave=0 -extra=a=400
 build/loader/sdk/video_workaround_for_sh_lnk.obj: SDK += -size -macsave=0 -extra=a=400
 # These runtime members build without -fpu=single, in double precision
-build/sdk/runtime/_duchek.obj build/gcc/sdk/runtime/_duchek.o: RUNTIME := $(SHCFLAGS)
-build/sdk/runtime/_log10.obj build/gcc/sdk/runtime/_log10.o: RUNTIME := $(SHCFLAGS)
-build/sdk/runtime/_unpack.obj build/gcc/sdk/runtime/_unpack.o: RUNTIME := $(SHCFLAGS)
-build/sdk/runtime/_xti.obj build/gcc/sdk/runtime/_xti.o: RUNTIME := $(SHCFLAGS)
-build/sdk/runtime/_xtostr.obj build/gcc/sdk/runtime/_xtostr.o: RUNTIME := $(SHCFLAGS)
+build/sdk/runtime/_duchek.obj build/dc/sdk/runtime/_duchek.o: RUNTIME := $(SHCFLAGS)
+build/sdk/runtime/_log10.obj build/dc/sdk/runtime/_log10.o: RUNTIME := $(SHCFLAGS)
+build/sdk/runtime/_unpack.obj build/dc/sdk/runtime/_unpack.o: RUNTIME := $(SHCFLAGS)
+build/sdk/runtime/_xti.obj build/dc/sdk/runtime/_xti.o: RUNTIME := $(SHCFLAGS)
+build/sdk/runtime/_xtostr.obj build/dc/sdk/runtime/_xtostr.o: RUNTIME := $(SHCFLAGS)
 # The runtime members in events/shared/sdk/ take the C runtime's flags
 build/events/shared/sdk/%.obj: GAME := $(RUNTIME)
 # These SDK members link code, constants, data and bss into PSG, CSG, DSG and

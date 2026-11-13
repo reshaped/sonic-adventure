@@ -789,7 +789,7 @@ static void bubbles_step(struct task *task)
             /* @hack spelling: speed stepped to y and indexed on to z through a
              * Float walk; through the members, 203 of 482 words differ */
             speed_axis = &bubble->speed.x;
-#ifdef GCC
+#ifdef NONMATCHING
             /* the step follows the +=, which tools/floats.py then writes as
              * an addition, so that GCC fuses the product as SHC does */
             *speed_axis += ((rand() * RAND_SCALE) - 0.5F) * wobble;
@@ -1266,6 +1266,12 @@ static void dash_step(struct task *task)
                 TURN(njRotateY, work->ang.y);
                 TURN(njRotateZ, work->ang.z);
                 njScaleV(NULL, &work->scl);
+                /* @bug arithmetic: inverts a matrix scaled by 0 on x. where
+                 * the player's middle hadn't moved from the streak's start
+                 * by the first step, that step's scl.x is 0 (FMUL at
+                 * 0x8c0bbc98), so njInvertMatrix (JSR at 0x8c0bbe4e) finds a
+                 * determinant of 0 and fills the matrix with 3.4e38, which
+                 * then turns the streak's points */
                 njInvertMatrix(NULL);
                 njMultiMatrix(NULL, &dash_matrix);
                 for (i = 0, point++; i < count; i += 2, point += 2) {

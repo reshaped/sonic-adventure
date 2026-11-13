@@ -1,0 +1,2 @@
+datum  trail_frame  D  0x00000000  20
+datum  trail_sprite  D  0x00000014  32

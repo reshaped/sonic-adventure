@@ -1,0 +1,4 @@
+datum  breath_2nd_pvm  C  0x00000000  18
+datum  sea_pos  C  0x00000014  12
+datum  chaos7_fog  D  0x00000000  512
+datum  dat_0ca6b4c8  B  0x00000000  1

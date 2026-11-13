@@ -1,0 +1,4 @@
+datum  lens_texlist  D  0x00000000  8
+datum  lens_frames  D  0x00000008  160
+datum  lens_sprite  D  0x000000a8  32
+datum  lens_ghosts  D  0x000000c8  264

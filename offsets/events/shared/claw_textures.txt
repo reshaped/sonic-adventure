@@ -1,0 +1,13 @@
+datum  event_claw_textures  D  0x00000000  84
+datum  event_claw_texlist  D  0x00000054  8
+datum  event_claw_materials  D  0x0000005c  80
+datum  event_claw_strips_0  D  0x000000ac  40
+datum  event_claw_strips_1  D  0x000000d4  46
+datum  event_claw_strips_2  D  0x00000102  62
+text  TEXT_1  C  0x00000000  4
+text  TEXT_2  C  0x00000004  6
+text  TEXT_3  C  0x0000000c  8
+text  TEXT_4  C  0x00000014  8
+text  TEXT_5  C  0x0000001c  5
+text  TEXT_6  C  0x00000024  7
+text  TEXT_7  C  0x0000002c  5

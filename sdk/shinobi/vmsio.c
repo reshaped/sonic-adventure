@@ -93,7 +93,7 @@ Sint32 vmsio_get_media_info(Sint32 drive, struct vmsfs_media *media)
             if (kdDevGetStorageInfo(&storage, kdGetDeviceInfo(device)) < 0) {
                 goto gone;
             }
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the division by 0 phases: a card with none is no disk */
             if (storage.readcount == 0 || storage.writecount == 0) {
                 goto gone;

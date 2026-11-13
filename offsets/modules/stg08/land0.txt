@@ -1,0 +1,2 @@
+datum  icecap_act0_land_entries  D  0x00000000  2124
+datum  icecap_act0_land  D  0x0000084c  36

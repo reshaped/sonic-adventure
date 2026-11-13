@@ -1,0 +1,1 @@
+datum  ev00fa_tornado_object  D  0x00000000  52

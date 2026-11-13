@@ -3,6 +3,8 @@
 -pedantic
 -ffreestanding
 -nostdinc
+-include
+engine/native/intrinsics.h
 -Isdk/include
 -Isdk
 -Isrc

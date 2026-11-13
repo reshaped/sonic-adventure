@@ -49,6 +49,16 @@ void event_white_start(int in_steps, int out_steps)
     struct task_work *work;
     struct white *white;
 
+#ifdef NONMATCHING
+    /* while event_skipping is TRUE, each wait lasts one step, and the previous
+     * white can still be running. this start kills it, since its last step
+     * would set event_white to NULL while this white runs. at EV009A's third
+     * start, that step falls in the wait below, and the start then reads
+     * through NULL */
+    if (event_skipping && event_white != NULL) {
+        task_kill(event_white);
+    }
+#endif
     event_white = task_create(TASK_WORK, 5, event_white_init);
     event_wait(1);
     white = VARS(event_white->work)->white;
@@ -69,6 +79,14 @@ void event_white_start_hold(int in_steps, int hold, int out_steps)
     struct task_work *work;
     struct white *white;
 
+#ifdef NONMATCHING
+    /* this start kills the previous white for the reason event_white_start
+     * gives. left running, EV00FE's first white would also outlast the event,
+     * out of event_white_kill's reach */
+    if (event_skipping && event_white != NULL) {
+        task_kill(event_white);
+    }
+#endif
     event_white = task_create(TASK_WORK, 5, event_white_init);
     event_wait(1);
     white = VARS(event_white->work)->white;

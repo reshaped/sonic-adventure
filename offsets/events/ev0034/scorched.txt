@@ -1,0 +1,4 @@
+datum  scorched_actions  D  0x00000000  32
+datum  scorched_elbow_vertices  D  0x00000020  20
+datum  scorched_finger_vertices  D  0x00000034  16
+datum  scorched_welds  D  0x00000044  120

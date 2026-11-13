@@ -1,0 +1,12 @@
+datum  item_box_air_puff_speed  C  0x00000000  12
+datum  item_box_air_shape  D  0x00000000  52
+datum  item_box_air_overrides  D  0x00000034  16
+datum  item_box_air_burst_overrides  D  0x00000044  24
+datum  shown_face  D  0x0000005c  20
+datum  shown_rings  D  0x00000070  20
+datum  item_names  D  0x00000084  36
+datum  item_rings_given  B  0x00000000  4
+datum  item_box_air_current  B  0x00000004  4
+datum  item_explosion_pos  B  0x00000008  12
+datum  item_explosion_radius  B  0x00000014  4
+datum  shown  B  0x00000018  332

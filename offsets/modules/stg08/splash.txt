@@ -1,0 +1,2 @@
+datum  icecap_splash_texanims  D  0x00000000  160
+datum  icecap_splash_sprite  D  0x000000a0  32

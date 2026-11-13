@@ -5,7 +5,7 @@
 
 /* the vsyncs to a frame, and the vsyncs left in the frame running */
 extern int frame_interval;
-#ifdef GCC
+#ifdef NONMATCHING
 extern volatile int frame_countdown;
 #else
 extern int frame_countdown;
@@ -35,10 +35,8 @@ void frame_vsync(void);
 void fun_8c054be0(void);
 void fun_8c054be4(void);
 
-#ifdef GCC
-/* port.h, by its path from here: a game source's compile doesn't search
- * the tree's root */
-#include "../../gcc/src/system/port.h"
+#ifdef NONMATCHING
+#include "port.h"
 #endif
 
 #endif

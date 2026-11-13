@@ -1,0 +1,5 @@
+datum  ev0066_rise_points  D  0x00000000  32
+datum  ev0066_rise  D  0x00000020  8
+datum  ev0066_light  D  0x00000028  4
+datum  ev0066_textures  D  0x0000002c  8
+text  TEXT_1  C  0x00000000  2

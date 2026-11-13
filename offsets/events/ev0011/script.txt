@@ -1,0 +1,9 @@
+datum  ev0011_person  D  0x00000000  4
+datum  ev0011_fade  D  0x00000004  4
+datum  ev0011_textures  D  0x00000008  8
+text  TEXT_1  C  0x0000000c  12
+text  TEXT_2  C  0x00000018  14
+text  TEXT_3  C  0x0000002c  22
+text  TEXT_4  C  0x00000044  24
+text  TEXT_5  C  0x00000028  2
+text  TEXT_6  C  0x0000005c  2

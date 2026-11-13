@@ -4,6 +4,48 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#ifdef NONMATCHING
+#include "sa1/polygon2d.h"
+
+/* the most corners the squeeze copies, as many as the #else's fill takes */
+#define CORNERS 32
+
+/* draw a polygon of n corners at priority pri, as the C under the #else
+ * does. this side is SA1's layer for Ninja's 2D polygons on the Dreamcast.
+ * port.h's present_record keeps the draw for a picture to come, or refuses
+ * it. where the 2D draws squeeze, the draw takes a copy of p with x
+ * squeezed. an untextured polygon that covers the screen keeps x, as does a
+ * draw of more than CORNERS. sa1/polygon2d.h's sends fill or outline the
+ * polygon as attr says */
+void njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
+{
+    struct sa1_live_polygon_2d state = {n, pri, attr};
+    sa_draw_live draw = {p, &state, SA_SA1_POLYGON_2D, 0};
+    NJS_POINT2COL squeezed;
+    NJS_POINT2 points[CORNERS];
+    Int i;
+
+    if (!present_record(PRESENT_POLYGON_2D, p, n, 0, pri, attr)) {
+        return;
+    }
+    if (n <= CORNERS && port_wide_squeezes() &&
+        ((attr & NJD_USE_TEXTURE) ||
+         !port_wide_covers(&p->p->x, n, sizeof(*p->p) / sizeof(Float)))) {
+        for (i = 0; i < n; i++) {
+            points[i].x = port_wide_x(p->p[i].x);
+            points[i].y = p->p[i].y;
+        }
+        squeezed = *p;
+        squeezed.p = points;
+        draw.geometry = &squeezed;
+    }
+    njGetkmPointer();
+    START_VERTEX(sa1_live_sq, attr);
+    sa_present_live(SA_DC_ENGINE, &draw);
+    njEndVertex(sa1_live_sq);
+    njSetkmPointer();
+}
+#else
 /* step sq back a word and store value there */
 #define SQ_PUT(type, value) (*(type *)--sq = (value))
 
@@ -338,29 +380,6 @@ static void outline_textured(NJS_POINT2COL *p, Int n)
 void njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
 {
     Int kind;
-#ifdef GCC
-    /* the split frame keeps the draw for a picture to come. where the 2D
-     * draws squeeze, the draw takes a copy of p with its points' x
-     * squeezed, but an untextured polygon that covers the screen keeps x.
-     * the copy has room for CORNERS points, the most a filled polygon may
-     * have, so a draw of more keeps its x */
-    NJS_POINT2COL squeezed;
-    NJS_POINT2 points[CORNERS];
-    Int i;
-
-    present_record(PRESENT_POLYGON_2D, p, n, 0, pri, attr);
-    if (n <= CORNERS && port_wide_squeezes() &&
-        ((attr & NJD_USE_TEXTURE) ||
-         !port_wide_covers(&p->p->x, n, sizeof(*p->p) / sizeof(Float)))) {
-        for (i = 0; i < n; i++) {
-            points[i].x = port_wide_x(p->p[i].x);
-            points[i].y = p->p[i].y;
-        }
-        squeezed = *p;
-        squeezed.p = points;
-        p = &squeezed;
-    }
-#endif
 
     njGetkmPointer();
     kind = (attr & NJD_USE_TEXTURE) > 0;
@@ -370,3 +389,4 @@ void njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
     njEndVertex(sq);
     njSetkmPointer();
 }
+#endif

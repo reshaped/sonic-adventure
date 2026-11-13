@@ -1,0 +1,9 @@
+datum  event_orbs_glow_materials  D  0x00000000  20
+datum  event_orbs_glow_meshes  D  0x00000014  8
+datum  event_orbs_glow_uvs  D  0x0000001c  16
+datum  event_orbs_glow_normals  D  0x0000002c  12
+datum  event_orbs_glow_meshsets  D  0x00000038  24
+datum  event_orbs_glow_points  D  0x00000050  48
+datum  event_orbs_glow_model  D  0x00000080  40
+datum  event_orbs_glow_object  D  0x000000a8  52
+datum  event_orbs_task  D  0x000000dc  4

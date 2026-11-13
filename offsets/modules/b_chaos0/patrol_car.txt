@@ -1,0 +1,8 @@
+datum  car_texanims  D  0x00000000  40
+datum  headlight_plus_z  D  0x00000028  12
+datum  headlight_minus_z  D  0x00000034  12
+datum  tail_lights  D  0x00000040  24
+datum  beacon_lamps  D  0x00000058  48
+datum  beacon_angles  D  0x00000088  16
+datum  car_sprite  B  0x00000000  32
+datum  car_matrix  B  0x00000020  64

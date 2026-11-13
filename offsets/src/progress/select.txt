@@ -1,0 +1,16 @@
+datum  select_rows  D  0x00000000  158
+datum  select_characters  D  0x0000009e  12
+datum  select_character_names  D  0x000000ac  24
+datum  select_character_texnames  D  0x000000c4  72
+datum  select_character_texlist  D  0x0000010c  8
+datum  select_character_texanims  D  0x00000114  120
+datum  select_result  B  0x00000000  2
+datum  select_character_count  B  0x00000002  2
+datum  select_stage  B  0x00000004  1
+datum  select_act  B  0x00000005  1
+text  TEXT_1  C  0x00000068  6
+text  TEXT_2  C  0x00000070  6
+text  TEXT_3  C  0x00000078  6
+text  TEXT_4  C  0x00000080  6
+text  TEXT_5  C  0x00000088  6
+text  TEXT_6  C  0x00000090  6

@@ -1,0 +1,4 @@
+datum  event_chaos0_water_textures  D  0x00000000  12
+datum  event_chaos0_water_texlist  D  0x0000000c  8
+datum  event_chaos0_water_material  D  0x00000014  20
+text  TEXT_1  C  0x00000000  12

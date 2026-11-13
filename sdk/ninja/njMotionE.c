@@ -4,8 +4,10 @@
  * not the short way round */
 #include <ninja.h>
 #include <sg_xpt.h>
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #include "ninja/njmotion_zam.h"
+#endif
 #endif
 
 static void translate_keys(NJS_OBJECT *object);
@@ -413,9 +415,10 @@ static Float sample_shape(NJS_MKEY_P *keys, Uint32 index, Uint32 count,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float w);
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* returns x * x + y * y + z * z + w * w, by one FIPR. SHC expands the body at
  * each call. size=4 is its length in bytes. without it, SHC can write a
  * literal pool ahead of the expansion, behind a BRA that skips the pool, and
@@ -864,8 +867,8 @@ static void draw_easy_motion_tree(NJS_OBJECT *object)
              * NJD_EVAL_SKIP turns by the three words at the stack pointer, read
              * at 0x8c61614c, 0x8c61614e and 0x8c616150: angx, angy and angz
              * take the PR, R8 and R9 the function saved on entry */
-#ifdef GCC
-            /* repairs the unset angles the tag above names: under GCC, the
+#ifdef NONMATCHING
+            /* repairs the unset angles the tag above names: here, the
              * node turns by object->ang, as in draw_easy_shape_tree */
             angles = object->ang;
 #endif

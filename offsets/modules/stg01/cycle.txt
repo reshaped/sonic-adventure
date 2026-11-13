@@ -1,0 +1,8 @@
+datum  beach_act0_sand_cycles  D  0x00000000  144
+datum  beach_act0_wave_cycles  D  0x00000090  204
+datum  beach_act1_sand_cycles  D  0x0000015c  144
+datum  beach_act1_wave_cycles  D  0x000001ec  168
+datum  beach_act1_water_cycles  D  0x00000294  12
+datum  beach_act2_sand_cycles  D  0x000002a0  360
+datum  beach_act2_wave_cycles  D  0x00000408  108
+datum  beach_act2_water_cycles  D  0x00000474  12

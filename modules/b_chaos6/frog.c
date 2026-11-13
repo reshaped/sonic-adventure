@@ -379,7 +379,7 @@ static void chaos6_frog_swim(struct task *task)
      * sweep turns its ball's up by it. nothing stores to R15+4 to R15+15
      * before the JSR at 0x0c906c24. fish.c's frog_pull zeroes its slope
      * first */
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the unset slope the tag names: zeroed, as frog_pull's is, it
      * turns the ball's up by nothing */
     slope.x = slope.y = slope.z = 0;
@@ -480,10 +480,10 @@ void chaos6_frog_step(struct task *task)
         chaos6_frog_draw(task);
         frog_drawn = 0;
         frog_task = task;
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the ride's phases, which the start leaves unset. the
          * image's ride steps from the words an earlier module left in
-         * B_CHAOS6's bss, at 0x0ca91cf8 and 0x0ca91cfc. GCC's starts at
+         * B_CHAOS6's bss, at 0x0ca91cf8 and 0x0ca91cfc. this side's starts at
          * phase 0 */
         frog_phase_across = 0;
         frog_phase_up = 0;

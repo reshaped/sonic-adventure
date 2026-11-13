@@ -1,0 +1,8 @@
+datum  dat_8c26ce80  D  0x00000000  20
+datum  dat_8c26ce94  D  0x00000014  48
+datum  dat_8c26cec4  D  0x00000044  96
+datum  dat_8c26cf24  D  0x000000a4  24
+datum  dat_8c26cf3c  D  0x000000bc  72
+datum  dat_8c26cf84  D  0x00000104  72
+datum  dat_8c26cfcc  D  0x0000014c  40
+datum  sonic_ice_piece_object  D  0x00000174  52

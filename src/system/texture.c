@@ -149,7 +149,7 @@
  * in: OBJ_REGULAR.PRS's read, of 155785 bytes, runs the whole 1792. the
  * rounding is the AND R0,R1 at 0x8c09f0a0, and at 0x8c09f180 in
  * texture_load_prs_file, whose room ends at WORK_AREA */
-#ifdef GCC
+#ifdef NONMATCHING
 /* repairs the room the tag names: it holds the file's whole sectors, so the
  * read ends at its area's end */
 #define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)
@@ -648,7 +648,7 @@ static struct act_textures twinkle_acts[] = {
 };
 
 /* act_list leaves highway's acts out, so texture_load_act refuses them */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC keeps the table nothing reads, as SHC does, so that highway's land
  * texlists' rows in config/1st_read/imports.txt bind in either build */
 static struct act_textures highway_acts[3] __attribute__((used));
@@ -1019,7 +1019,7 @@ void texture_release_stage(void)
     }
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* whether textures are stage_act's. stage_act must be the current stage's
  * act, so that B_CHAOS7 is loaded when it is Chaos 7's. Chaos 7's textures
  * lie in B_CHAOS7, and while another module holds MODULE_AREA, their
@@ -1043,7 +1043,7 @@ Bool texture_load_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
-#ifdef GCC
+#ifdef NONMATCHING
         if (act_textures_match(textures, stage_act)) {
 #else
         if (textures->stage_act == stage_act) {
@@ -1091,7 +1091,7 @@ Bool texture_release_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
-#ifdef GCC
+#ifdef NONMATCHING
         if (act_textures_match(textures, stage_act)) {
 #else
         if (textures->stage_act == stage_act) {
@@ -1172,7 +1172,7 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* GCC deletes an empty loop, so the asm keeps the wait between
              * tries */
             __asm__ volatile("");
@@ -1210,7 +1210,7 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* GCC deletes an empty loop, so the asm keeps the wait between
              * tries */
             __asm__ volatile("");

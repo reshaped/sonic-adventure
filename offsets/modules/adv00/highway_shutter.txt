@@ -1,0 +1,15 @@
+datum  highway_shutter_shapes  D  0x00000000  468
+datum  highway_shutter_wall_materials  D  0x000001d4  20
+datum  highway_shutter_wall_meshes  D  0x000001e8  14
+datum  highway_shutter_wall_meshsets  D  0x000001f8  24
+datum  highway_shutter_wall_points  D  0x00000210  72
+datum  highway_shutter_wall_normals  D  0x00000258  72
+datum  highway_shutter_wall_model  D  0x000002a0  40
+datum  highway_shutter_wall  D  0x000002c8  52
+datum  highway_shutter_broken_wall_materials  D  0x000002fc  20
+datum  highway_shutter_broken_wall_meshes  D  0x00000310  56
+datum  highway_shutter_broken_wall_meshsets  D  0x00000348  24
+datum  highway_shutter_broken_wall_points  D  0x00000360  192
+datum  highway_shutter_broken_wall_normals  D  0x00000420  192
+datum  highway_shutter_broken_wall_model  D  0x000004e0  40
+datum  highway_shutter_broken_wall  D  0x00000508  52

@@ -1,0 +1,12 @@
+datum  abc_widths  D  0x00000000  128
+datum  abc_textures  D  0x00000080  12
+datum  abc_texlist  D  0x0000008c  8
+datum  abc_font  D  0x00000094  40
+datum  staffroll_widths  D  0x000000bc  128
+datum  staffroll_textures  D  0x0000013c  12
+datum  staffroll_texlist  D  0x00000148  8
+datum  staffroll_font  D  0x00000150  40
+datum  advertise_font_loaded  B  0x00000000  4
+datum  advertise_font_current  B  0x00000004  40
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  14

@@ -1,0 +1,11 @@
+datum  ev0024_wreckage_textures  D  0x00000000  120
+text  TEXT_1  C  0x00000000  14
+text  TEXT_2  C  0x00000010  11
+text  TEXT_3  C  0x0000001c  16
+text  TEXT_4  C  0x0000002c  11
+text  TEXT_5  C  0x00000038  12
+text  TEXT_6  C  0x00000044  12
+text  TEXT_7  C  0x00000050  12
+text  TEXT_8  C  0x0000005c  16
+text  TEXT_9  C  0x0000006c  12
+text  TEXT_10  C  0x00000078  12

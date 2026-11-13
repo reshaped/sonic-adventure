@@ -887,9 +887,9 @@ void mwPlyFinishSofdec(void)
      * P1, though code that writes CCR must run uncached. the BSR at
      * 0x8ced11ba calls it at its P1 address, where mwPlyInitSofdec calls
      * mwl_cache_index_on through P2 (OR R3,R2 at 0x8ced105e) */
-#ifdef GCC
-    /* repairs the cached write the tag names: GCC calls mwl_cache_index_off
-     * through P2 too */
+#ifdef NONMATCHING
+    /* repairs the cached write the tag names: this side calls
+     * mwl_cache_index_off through P2 too */
     ((void (*)(void))P2(mwl_cache_index_off))();
 #else
     mwl_cache_index_off();

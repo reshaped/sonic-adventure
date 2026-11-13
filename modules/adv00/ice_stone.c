@@ -66,8 +66,8 @@ static char *ice_stone_found[] = {
 /* @hack spelling: each of the three tests as &, not &&, with which SHC reads
  * both flags and ands them without a branch (AND R3,R0 at 0x0c90d770).
  * every store to the six flags is 1 or 0, so & and && agree. with &&, the
- * function grows, and ice_stone.c's P runs 64 bytes past its row, count
- * unmeasured */
+ * function grows, ice_stone.c's P runs 64 bytes past its row, and 51 of 76
+ * words differ */
 static Bool ice_stone_available(struct task *task)
 {
     Uint8 act = stage_get_stage_act();

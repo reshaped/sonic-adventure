@@ -77,7 +77,7 @@ struct choice {
 };
 
 extern Uint16 message_window_memory[];
-#ifdef GCC
+#ifdef NONMATCHING
 /* the message window's texture, in pixels: WINDOW_WIDTH by MESSAGE_HEIGHT,
  * each rounded up to a power of two as bitmap_init rounds them */
 #define MESSAGE_TEXTURE_PIXELS (512 * 64)
@@ -111,7 +111,7 @@ static const Sint8 font_widths[ASCII_GLYPHS] = {
 Sint8 messages_shown;
 static Sint8 pages_active;
 static struct bitmap *texture_queue[QUEUE_SIZE];
-#ifdef GCC
+#ifdef NONMATCHING
 /* the split frame reads it: a frame with a bitmap waiting after step 0
  * shows one picture */
 int texture_queue_count;
@@ -964,7 +964,7 @@ void bitmap_flush_queue(void)
          * they hold, and stores its texlist into them (0x8c058c26,
          * 0x8c058c28) */
         for (i = 0; i < texture_queue_count; ++i, ++bitmap) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the step the tag names: each pass takes the queue's
              * next bitmap */
             bitmap = texture_queue[i];
@@ -1011,7 +1011,7 @@ Angle angle_approach(Angle from, Angle to, Angle step)
     return (Uint16)to;
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 #undef angle_difference
 #undef angle_distance
 #endif
@@ -1089,7 +1089,7 @@ Bool draw_on_screen(struct task_work *work)
     njProjectScreen(NULL, &work->pos, &point);
     njPopMatrix(1);
     distance = njDistanceP2P(&camera_work->pos, &work->pos);
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the value the tag below names: a margin of 0 */
     margin = 0.0F;
 #endif
@@ -1100,7 +1100,7 @@ Bool draw_on_screen(struct task_work *work)
     if (distance != 0.0F) {
         margin = 3000.0F / distance;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* x as port.h's window holds it, so that 16:9 widens the test */
     point.x = port_view_x(point.x);
 #endif
@@ -1316,12 +1316,108 @@ void model_calc_face_normals(NJS_MODEL *model)
     }
 }
 
+#ifdef NONMATCHING
+/* model_point_normals_once has stack room to count this many points. no
+ * model the game passes model_calc_point_normals has more */
+#define ONCE_POINTS 32
+
+/* an index at or past points adds nothing, since model_calc_point_normals'
+ * loop never reaches it */
+static void point_add_normal(NJS_VECTOR *sums, Float *counts, Uint32 points,
+                             Uint32 point, Float x, Float y, Float z)
+{
+    if (point < points) {
+        counts[point] += 1.0F;
+        sums[point].x += x;
+        sums[point].y += y;
+        sums[point].z += z;
+    }
+}
+
+/* model_calc_point_normals' loop walks the strips once for each point, and
+ * this walks them once. each point's sum starts at 0.0F and adds the same
+ * face normals in the same order. a triangle adds once to each point it
+ * names. so each sum, count and quotient is the same. it zeroes every sum
+ * before it reads a strip. so model->normals must overlap no meshset, strip
+ * or face normal, as in every model the game passes. it returns TRUE once
+ * every point's normal is written. it writes nothing and returns FALSE for
+ * a model past ONCE_POINTS points or with polygons other than strips. no
+ * model the game passes has either */
+static Bool model_point_normals_once(NJS_MODEL *model)
+{
+    Uint32 points = model->nbPoint;
+    NJS_VECTOR *sums = model->normals;
+    NJS_MESHSET *meshset = model->meshsets;
+    Float counts[ONCE_POINTS];
+    Uint32 meshset_index;
+    Uint32 point;
+
+    if (points > ONCE_POINTS) {
+        return FALSE;
+    }
+    for (meshset_index = 0; meshset_index < model->nbMeshset; ++meshset_index) {
+        if ((meshset[meshset_index].type_matId & NJD_MESHSET_MASK) !=
+            NJD_MESHSET_TRIMESH) {
+            return FALSE;
+        }
+    }
+    for (point = 0; point < points; ++point) {
+        sums[point].x = sums[point].y = sums[point].z = 0.0F;
+        counts[point] = 0.0F;
+    }
+    for (meshset_index = 0; meshset_index < model->nbMeshset;
+         ++meshset, ++meshset_index) {
+        NJS_VECTOR *normals = meshset->normals;
+        Uint16 *indices = (Uint16 *)meshset->meshes;
+        Uint32 strip;
+
+        for (strip = 0; strip < meshset->nbMesh; ++strip) {
+            int length = *indices++ & STRIP_LENGTH;
+            int triangle;
+
+            /* this side keeps the play of model_calc_face_normals' bug
+             * tag: each strip reads its normals from the meshset's first */
+            for (triangle = 0; triangle < length - 2; ++triangle) {
+                Uint32 v0 = indices[triangle];
+                Uint32 v1 = indices[triangle + 1];
+                Uint32 v2 = indices[triangle + 2];
+                Float x = normals[triangle].x;
+                Float y = normals[triangle].y;
+                Float z = normals[triangle].z;
+
+                point_add_normal(sums, counts, points, v0, x, y, z);
+                if (v1 != v0) {
+                    point_add_normal(sums, counts, points, v1, x, y, z);
+                }
+                if (v2 != v0 && v2 != v1) {
+                    point_add_normal(sums, counts, points, v2, x, y, z);
+                }
+            }
+            /* a strip of fewer than 2 points still passes 2 indices, as in
+             * model_calc_point_normals */
+            indices += length < 2 ? 2 : length;
+        }
+    }
+    for (point = 0; point < points; ++point) {
+        sums[point].x /= counts[point];
+        sums[point].y /= counts[point];
+        sums[point].z /= counts[point];
+    }
+    return TRUE;
+}
+#endif
+
 void model_calc_point_normals(NJS_MODEL *model)
 {
     Uint32 points = model->nbPoint;
     NJS_VECTOR *point_normals = model->normals;
     Uint32 point;
 
+#ifdef NONMATCHING
+    if (model_point_normals_once(model)) {
+        return;
+    }
+#endif
     for (point = 0; point < points; ++point) {
         NJS_VECTOR *normal = &point_normals[point];
         NJS_MESHSET *meshset;
@@ -1687,7 +1783,7 @@ int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
              * any, up's floats when ang isn't null. when the hit is the
              * nearest, offset takes that (0x8c059c8a to 0x8c059c98,
              * 0x8c059cb6 to 0x8c059cc2), and ang adds offset */
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the unset turn the tag names: an owner without a
              * force turns nothing, as an object without an owner does */
             turn.x = 0;

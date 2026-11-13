@@ -1,0 +1,4 @@
+datum  smoke_frames  D  0x00000000  160
+datum  smoke_anim  D  0x000000a0  20
+datum  smoke_params  D  0x000000b4  60
+datum  smoke_pool  D  0x000000f0  16

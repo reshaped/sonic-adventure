@@ -39,5 +39,11 @@ struct nj_parameterkm {
     Uint32 *trans_modifier;
 };
 extern struct nj_parameterkm _nj_parameterkm_;
+/* the top six bits of the open list's write pointer. each njStart function
+ * sets them. njEndVertex puts them back on the store queue address it takes */
+extern Uint32 _nj_sq_base_;
+/* the address of the open list's write pointer in _nj_parameterkm_.
+ * njEndVertex sets the pointer through it */
+extern Uint32 **_nj_listtype_;
 
 #endif

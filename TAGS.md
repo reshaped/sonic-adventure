@@ -40,7 +40,7 @@ For an `@bug` tag, see the `uninitialized` one in `src/object/spring.c`.
 
 An `@hack` tag marks a choice in the source kept only because SHC's output needs it, where plainer C would express the same behavior. An `@bug` tag marks an evidenced defect of the shipped game that the source keeps, whether the source makes it or SHC's code does. Ordinary code takes neither. A construct the behavior needs is no hack, however unusual it looks: a cast C needs for the call the image makes takes no tag. Nor is data the image holds and no code reads: the source defines it because the bytes are there, not to steer SHC's code, so it takes no tag. An initializer, zeros included, that holds a static datum in the image's data rather than its bss is data the image holds too; a local's initializer is code, and takes a tag when nothing reads it.
 
-A tag records one finding. Tags stack only where their findings are separate, as a `volatile` stacks with the unset read it steers. No tag certifies the code around it. Where a guard gives GCC other C, a tag describes the shipped side, and [GCC.md](GCC.md#guards) says what GCC's side does. Lint doesn't find every hack or bug; it checks only the patterns [What lint checks](#what-lint-checks) names.
+A tag records one finding. Tags stack only where their findings are separate, as a `volatile` stacks with the unset read it steers. No tag certifies the code around it. A tag outside a guard describes the matching side; [PORTS.md](PORTS.md#switches) describes the non-matching side. Lint doesn't find every hack or bug; it checks only the patterns [What lint checks](#what-lint-checks) names.
 
 ### Hacks
 
@@ -154,7 +154,7 @@ Padding between functions, an unaligned game-code pool, data in code, sharing an
 
 ### Assembly evidence
 
-`make review` runs `tools/tags.py --review`: lint's tag checks, then a list of each `open` tag with its place and text, and a count of the inline bodies, `#pragma asm` blocks and `.src` functions by their tags' kinds. The count shows that each tag is there and well formed, not that its argument holds. It runs no inspect.
+`make review` runs `tools/tags.py --review` over the matching C and assembly sources. It checks their tags, lists each `open` tag with its place and text, and counts inline bodies, `#pragma asm` blocks and `.src` functions by tag kind. `make lint` checks `engine/` as well. Neither checks a tag's argument or runs inspect.
 
 ### Checking a basis
 
@@ -183,7 +183,7 @@ Its `P` row starts at `0x8c09f200`, so the cited address is offset `0x7c`, which
 
 ### Bases no tool checks
 
-Some assembly functions rely on an agreement with their callers or with the interrupt system that C's calling convention can't express. Its evidence spans the function and the places that enter it, more than inspect can see from one function. The tag names those places and the addresses each part rests on:
+Some assembly functions rely on an agreement with their callers or with the interrupt system that C's calling convention can't express. Evidence for such a contract spans the function and the places that enter it, more than inspect can see from one function. The tag names those places and the addresses each part rests on:
 
 | Rule | Basis |
 |---|---|
@@ -209,7 +209,7 @@ A `name` basis needs all four: the member's name contains `asm`; asmsh wrote it;
 
 ## What lint checks
 
-`make lint` runs `tools/tags.py` over every `.c`, `.h` and `.src` file under `src/`, `sdk/`, `modules/`, `events/` and `loader/`, and every `.c` and `.h` file under `gcc/`. It fails on:
+`make lint` runs `tools/tags.py` over every `.c`, `.h` and `.src` file under `src/`, `sdk/`, `modules/`, `events/` and `loader/`, and every `.c`, `.h` and `.cpp` file under `engine/`. It fails on:
 
 - a malformed tag, a tag in a `/** */` comment, or a kind its tag doesn't take;
 - a `#pragma inline_asm` spelled other than `#pragma inline_asm(NAME)` or `#pragma inline_asm(NAME(size=N))`, or with no braces below it;
@@ -225,7 +225,7 @@ A `name` basis needs all four: the member's name contains `asm`; asmsh wrote it;
 | `#pragma asm` block | Its source's rows |
 | `.src` function | Its label's function, or a function of its source that the tag names; where the tables name no label of its run, the last named one above it |
 
-Lint checks no tag's argument, no `@hack` tag's count, and no `@hack` or `@bug` tag's place beyond the `@hack redundant` rule above.
+Lint checks no tag's argument, no `@hack` tag's count, and no `@hack` or `@bug` tag's place beyond the `@hack redundant` rule above. Over the same C and C++ files, lint checks the guards with `tools/guards.py` ([Switches](PORTS.md#switches)).
 
 ## Reviewing a tag
 

@@ -1,0 +1,15 @@
+datum  fold_angles  C  0x00000000  48
+datum  dat_0c908980  C  0x00000030  144
+datum  leg_parts  C  0x000000c0  4
+datum  first_legs  C  0x000000c4  4
+datum  walk_poses  C  0x000000c8  192
+datum  leg_models  D  0x00000000  16
+datum  bounce  D  0x00000010  12
+datum  leg_copies  B  0x00000000  496
+datum  blend_left  B  0x000001f0  4
+datum  active_leg  B  0x000001f4  4
+datum  pose_mode  B  0x000001f8  1
+datum  stomps_left  B  0x000001fc  4
+datum  fell  B  0x00000200  4
+datum  cockpit_hit  B  0x00000204  4
+datum  fall_pair  B  0x00000208  4

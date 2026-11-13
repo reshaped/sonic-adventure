@@ -1,0 +1,2 @@
+datum  mystic_ruins_chaos_emeralds  D  0x00000000  56
+datum  mystic_ruins_chaos_emerald_count  D  0x00000038  4

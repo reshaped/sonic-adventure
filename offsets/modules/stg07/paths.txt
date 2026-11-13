@@ -1,0 +1,16 @@
+datum  dat_0ca58d90  D  0x00000000  740
+datum  dat_0ca59074  D  0x000002e4  16
+datum  dat_0ca59084  D  0x000002f4  1720
+datum  dat_0ca5973c  D  0x000009ac  16
+datum  dat_0ca5974c  D  0x000009bc  1520
+datum  dat_0ca59d3c  D  0x00000fac  16
+datum  dat_0ca59d4c  D  0x00000fbc  800
+datum  dat_0ca5a06c  D  0x000012dc  16
+datum  dat_0ca5a07c  D  0x000012ec  1260
+datum  ruin_boulder_path  D  0x000017d8  16
+datum  dat_0ca5a578  D  0x000017e8  1100
+datum  dat_0ca5a9c4  D  0x00001c34  16
+datum  dat_0ca5a9d4  D  0x00001c44  1620
+datum  ruin_slide_path  D  0x00002298  16
+datum  ruin_act0_paths  D  0x000022a8  16
+datum  ruin_act1_paths  D  0x000022b8  16

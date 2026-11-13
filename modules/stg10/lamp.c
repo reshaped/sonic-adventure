@@ -228,7 +228,7 @@ void pin_lamp_step(struct task *task)
     struct final_lamp_work *work = (struct final_lamp_work *)task->work;
 
     /* @hack redundant: pos tested twice, as the image tests it (ADD #32,R2 at
-     * 0x0c9154a6 and 0x0c9154d8); tested once, 84 of 109 words differ */
+     * 0x0c9154a6 and 0x0c9154d8); tested once, 17 of 42 words differ */
     /* NOLINTBEGIN(misc-redundant-expression) */
     if (!WORK_SAME_PLACE(struct final_lamp_work, pos) ||
         !WORK_SAME_PLACE(struct final_lamp_work, id) ||
@@ -248,7 +248,7 @@ void side_lamp_step(struct task *task)
     struct final_lamp_work *work = (struct final_lamp_work *)task->work;
 
     /* @hack redundant: pos tested twice, as the image tests it (ADD #32,R2 at
-     * 0x0c9154fa and 0x0c91552c); tested once, 85 of 110 words differ */
+     * 0x0c9154fa and 0x0c91552c); tested once, 18 of 43 words differ */
     /* NOLINTBEGIN(misc-redundant-expression) */
     if (!WORK_SAME_PLACE(struct final_lamp_work, pos) ||
         !WORK_SAME_PLACE(struct final_lamp_work, id) ||

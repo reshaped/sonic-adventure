@@ -26,6 +26,16 @@
 /* the players the path holds, as bit 1 << n for player n, in work->tick */
 #define HELD_PLAYERS(work) ((work)->tick)
 
+/* the passes windy_spin_path_step's loop makes */
+#ifdef NONMATCHING
+/* repairs the read the tag in windy_spin_path_step names: the loop takes
+ * player 0 alone. the image's loop matches it where the bytes past player 0's
+ * work hold no position within SPIN_REACH */
+#define SPIN_PASSES 1
+#else
+#define SPIN_PASSES 2
+#endif
+
 enum path_mode { PATH_SET_UP, PATH_RUN };
 
 void windy_wind_path_step(struct task *task)
@@ -144,7 +154,7 @@ void windy_spin_path_step(struct task *task)
          * 0's work, not player 1's work. player starts at player_work[0],
          * which MOV.L @R11,R11 at 0x0c90945e loads, and player++ steps it by
          * a task_work's 64 bytes, as ADD #64,R11 at 0x0c909518 does */
-        for (number = 0; number < 2; number++, player++) {
+        for (number = 0; number < SPIN_PASSES; number++, player++) {
             if (player == NULL) {
                 continue;
             }

@@ -1,0 +1,13 @@
+datum  rocket_shape  C  0x00000000  52
+datum  rocket_grip_hands  C  0x00000034  96
+datum  rocket_along_hands  C  0x00000094  96
+datum  rocket_up_hands  C  0x000000f4  96
+datum  rocket_jet_texlist  D  0x00000000  8
+datum  rocket_jet_frames  D  0x00000008  60
+datum  rocket_jet_sprite  D  0x00000044  32
+datum  rocket_thrust_texlist  D  0x00000064  8
+datum  rocket_thrust_frames  D  0x0000006c  160
+datum  rocket_thrust_anim  D  0x0000010c  20
+datum  rocket_thrust_pool  D  0x00000120  16
+datum  rocket_thrust_params  D  0x00000130  60
+datum  rockets  B  0x00000000  40

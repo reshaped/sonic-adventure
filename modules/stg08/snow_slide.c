@@ -597,7 +597,7 @@ static void slide_powder_draw(struct task *task)
     /* @hack redundant: a return where the function ends, which makes the frame
      * with ADD #-4,R15 and stores task in it (0x0c906c24, 0x0c906c2a);
      * without it, a push does both, the code after is 2 bytes early and 45
-     * of 80 words differ */
+     * of 46 words differ */
     return; /* NOLINT(readability-redundant-control-flow) */
 }
 
@@ -688,7 +688,7 @@ static void slide_clump_reset(struct task *task)
     NJS_POINT3 *pos;
     NJS_POINT3 *origin;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets pitch: the slide makes clumps of
      * kinds 0, 1 and 2 alone */
     pitch = 0;

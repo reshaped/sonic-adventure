@@ -1242,6 +1242,14 @@ static void rocket_jet_draw(struct task *task)
     if (frame >= 3.0F) {
         frame = 0.0F;
     }
+#ifdef NONMATCHING
+    /* the split frame's second picture draws the jet at the frame step 0
+     * left. stepping it there too would step it twice a frame, where 30 fps
+     * steps it once */
+    if (frame_redrawing) {
+        frame = jet->frame;
+    }
+#endif
     jet->frame = frame;
     if (jet->lit && !frame_step) {
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);

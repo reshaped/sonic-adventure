@@ -193,8 +193,8 @@ void path_run_cubic(void)
     /* @hack type: volatile on count, which has each call read it from
      * @R15 (MOV.L @R15,R5 at 0x8c08e4f6); without it, SHC passes its slot's
      * address, the function runs 2 bytes short and 11 of 22 words differ */
-#ifdef GCC
-    /* repairs the count the first tag names: GCC's is 0, which samples
+#ifdef NONMATCHING
+    /* repairs the count the first tag names: this side's is 0, which samples
      * nothing */
     int count = 0;
 #else
@@ -320,7 +320,7 @@ static void segment_ends(struct path *path, struct path_sample *sample,
     out[1].pos.z = around[2].pos.z;
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* the mark path_sample_from lends path_sample, or null */
 static struct path_mark *sample_mark;
 
@@ -364,15 +364,15 @@ Bool path_sample(struct path *path, struct path_sample *sample)
         sample->distance = float_wrap(sample->distance, path->length);
         break;
     }
-#ifdef GCC
-    /* repairs a path with no points, where the image reads length unset:
-     * GCC's takes no sample, as for a distance off a path that stops */
+#ifdef NONMATCHING
+    /* repairs a path with no points, where the image reads length unset.
+     * this side takes no sample, as for a distance off a path that stops */
     if (path->count == 0) {
         return FALSE;
     }
 #endif
     sum = 0.0F;
-#ifdef GCC
+#ifdef NONMATCHING
     /* the last point's break below ends the search, so it needs no test */
     for (i = search_start(path, sample, &sum), point = &path->points[i];;
          i++, point++) {
@@ -387,19 +387,19 @@ Bool path_sample(struct path *path, struct path_sample *sample)
         if (sum + length > sample->distance) {
             break;
         }
-#ifdef GCC
-        /* repairs a distance at or past the sum of the points' lengths but
-         * within the path's length, a gap rounding leaves between the two. no
-         * point takes it, so the image's loop runs off the last point and
-         * reads the next definition's bytes as a point. GCC's last point
-         * takes it, at its segment's end */
+#ifdef NONMATCHING
+        /* repairs a distance at or past the points' total length, which
+         * rounding can leave below path->length. no point takes it, so the
+         * image's loop runs off the last point. it then reads the next
+         * definition's bytes as a point. this side's last point takes it, at
+         * its segment's end */
         if (i == path->count - 1) {
             break;
         }
 #endif
         sum += length;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     if (sample_mark != NULL && sample_mark->index < 0) {
         sample_mark->distance = sample->distance;
         sample_mark->sum = sum;
@@ -436,7 +436,7 @@ Bool path_sample(struct path *path, struct path_sample *sample)
     return TRUE;
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 Bool path_sample_from(struct path *path, struct path_sample *sample,
                       struct path_mark *mark)
 {
@@ -506,9 +506,9 @@ Float path_find_nearest(struct path *path, NJS_POINT3 *pos, NJS_POINT3 *nearest,
     NJS_POINT3 on;
     int i;
 
-#ifdef GCC
-    /* repairs a path with no segment, where the image returns best unset:
-     * nothing on it is near, so GCC's best is INFINITY */
+#ifdef NONMATCHING
+    /* repairs a path with no segment, where the image returns best unset.
+     * nothing on such a path is near, so this side's best is INFINITY */
     best = INFINITY;
 #endif
     for (i = path->count; i > last; i--) {
@@ -581,9 +581,9 @@ static void spline_find_span(Float distance, struct path_spline *spline,
     Float length;
     int i;
 
-#ifdef GCC
-    /* repairs the unset length the comment above names: with count 4 or
-     * less, GCC's part is measured by span 1's length, the span *index
+#ifdef NONMATCHING
+    /* repairs the unset length the comment above names. with count 4 or
+     * less, this side measures part by span 1's length, the span *index
      * gets */
     length = point->length;
 #endif
@@ -700,8 +700,8 @@ Bool path_spline_sample(struct path_spline *spline, struct path_sample *sample)
      * image calls the function, so no caller reads the result. with return
      * TRUE, SHC loads 1 into R0, the function runs 2 bytes long and 16 of 279
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is TRUE, for the sample it
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is TRUE, for the sample it
      * took */
     return TRUE;
 #endif

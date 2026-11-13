@@ -231,7 +231,7 @@ static void event_noise_draw_noise(struct task *task)
     polygon.col[3].argb.g = 0;
     polygon.col[3].argb.b = 0;
     njDrawPolygon2D(&polygon, 4, -1.5F, NJD_FILL | NJD_TRANSPARENT);
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 keeps the pixels' x: they scatter across the whole
      * screen, and each square stretches with it */
     port_wide_cover = TRUE;
@@ -263,7 +263,7 @@ static void event_noise_draw_noise(struct task *task)
         polygon.col[3].argb.b = 255;
         njDrawPolygon2D(&polygon, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_cover = FALSE;
 #endif
 }

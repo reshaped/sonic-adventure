@@ -11,9 +11,11 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #include <sh4zam/shz_vector.h>
 #include <sh4zam/shz_xmtrx.h>
+#endif
 #endif
 
 /* one vertex in a store queue: VERTEX_BYTES bytes, or VERTEX_WORDS Float
@@ -94,12 +96,16 @@ struct calc_vertex {
 
 /* the store queue address of the next vertex the drawers write. it lives in
  * R8, where the strip helpers' bodies read and step it */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* GCC's spelling of the #pragma global_register below. as under SHC, no
  * function of this object saves R8 in its prologue */
 register Float *sq_cursor __asm__("r8");
 #else
 #pragma global_register(sq_cursor = R8)
+Float *sq_cursor;
+#endif
+#else
 Float *sq_cursor;
 #endif
 
@@ -162,8 +168,10 @@ static void restore_queue_cursor(Float **slot);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 void SimpleCalcModelMatrix(NJS_POINT3 *out, NJS_POINT3 *in);
 void SimpleCalcModelLight(NJS_VECTOR *out, NJS_VECTOR *in, Float scale);
-#ifndef GCC
-/* SHC's strip helpers. GCC's, below, are local to this file */
+#ifdef NONMATCHING
+#else
+/* SHC's strip helpers. the non-matching code's, below, are local to this
+ * file */
 void NJM_SET_POLY_STRIP(struct calc_vertex *vertex, Uint32 pcw);
 void NJM_SET_POLY_X_STRIP(struct calc_vertex *vertex, Uint32 pcw);
 void _NJM_SET_TEX_STRIP(struct calc_vertex *vertex, Uint32 pcw, NJS_TEX *uv);
@@ -185,7 +193,7 @@ void NJM_SET_ENV_X_STRIP_END(void);
 #endif
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R10 at 0x8c62bbb2, in njSimpleCalcModel_Loop1,
  * invalidates a record's cache line */
 #pragma inline_asm(loop1_body)
@@ -666,7 +674,7 @@ void njSimpleCalcModel_Loop4(struct calc_work *work, NJS_MATRIX *m)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set out to the x, y and z of XMTRX times (in, 1). out may be in */
 /* @asm open: no inspect rule reads FV0 filled by three loads and FLDI1 FR3
  * before its FTRV */
@@ -756,8 +764,9 @@ Sint32 _njSimpleCalcModel(NJS_MODEL *model)
     model_clip_or = 0;
     mp = _nj_current_matrix_ptr_;
     screen = &_nj_screen_;
-#ifdef GCC
-    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+#ifdef NONMATCHING
+    /* the picture's aspect, which 16:9 sets in place of Ninja's
+     * (dreamcast.h) */
     projection_x = screen->dist * port_draw_aspect;
 #else
     projection_x = screen->dist * _nj_scr_aspect_x_;
@@ -840,14 +849,14 @@ Sint32 _njSimpleCalcModel(NJS_MODEL *model)
 }
 
 /* an empty function: each strip drawer calls it first, through DRAW_NOOP */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC inlines each call */
 static inline void simple_draw_noop(void)
 {
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(simple_draw_noop)
 static void simple_draw_noop(void)
@@ -865,7 +874,8 @@ static void simple_draw_noop(void)
  * again. between the two, the caller must not address its frame through R15.
  * FPSCR.SZ and FPSCR.PR must be 0 */
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* send_color and send_textured store a packet at sq_cursor in an asm, since
  * SH4ZAM has no store queue send from registers. pcw and vertex's sx, sy and
  * oow open the packet. the asm writes only the store queue area, which no C
@@ -921,18 +931,20 @@ ALWAYS_INLINE void send_textured(const struct calc_vertex *vertex, Uint32 pcw,
     sq_cursor = packet + VERTEX_WORDS / 2;
 }
 #endif
+#endif
 
 /* lit: the material's diffuse color, its red, green and blue times
  * SIMPLE_INTENSITY(vertex->normal). the helper also stores that intensity in
  * vertex->intensity */
-#ifdef GCC
-/* unlike the shipped helper, GCC's neither stores the intensity in
- * vertex->intensity nor writes back its cache line. each reader of
- * vertex->intensity, a smooth clipper or EMIT_SMOOTH_POLYGON, stores it
- * first. FIPR takes the normal, then light2, as the shipped FIPR FV4,FV0
- * does. GCC gives both a fourth lane of 0. the shipped fourth term is 0 times
- * FR7, which the pair load into DR6 fills with vertex->clip. clip's bits read
- * as 0 or a denormal, so that term is 0 too */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* this side's helper neither stores the intensity nor writes back the
+ * vertex's cache line. each reader of vertex->intensity, a smooth clipper or
+ * EMIT_SMOOTH_POLYGON, stores it first. FIPR takes the normal, then light2,
+ * as the shipped FIPR FV4,FV0 does. this side gives both a fourth lane of 0.
+ * the shipped fourth term is 0 times FR7, which the pair load into DR6 fills
+ * with vertex->clip. clip's bits read as 0 or a denormal, so that term is 0
+ * too */
 ALWAYS_INLINE void NJM_SET_POLY_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
     const NJS_ARGB *diffuse = &_nj_light_material_.diffuse;
@@ -946,7 +958,6 @@ ALWAYS_INLINE void NJM_SET_POLY_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm operand: fschg-pairs, FMOV.S @R4+,FR8 at 0x8c62c210 and FMOV.S
  * @R4+,FR10 at 0x8c62c212 load DR8 and DR10 as pairs in the run FSCHG at
  * 0x8c62c202 opens */
@@ -985,12 +996,13 @@ void NJM_SET_POLY_STRIP(struct calc_vertex *vertex, Uint32 pcw)
         PREF        @R8
         ADD         #16,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* unlit: the material's diffuse color as it is */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 ALWAYS_INLINE void NJM_SET_POLY_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
     const NJS_ARGB *diffuse = &_nj_light_material_.diffuse;
@@ -999,7 +1011,6 @@ ALWAYS_INLINE void NJM_SET_POLY_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm open: no inspect rule reads the XD0 and XD2 its FMOV.S FR1,FR0 and
  * FR3,FR2 move after FSCHG */
 #pragma inline_asm(NJM_SET_POLY_X_STRIP(size=32))
@@ -1022,15 +1033,16 @@ void NJM_SET_POLY_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
         PREF        @R8
         ADD         #32,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* lit and textured: u and v are uv's coordinates times 1/256, and the intensity
  * is SIMPLE_INTENSITY(vertex->normal) */
-#ifdef GCC
-/* FIPR takes light2, then the normal, as the shipped FIPR FV8,FV0 does. GCC
- * gives both a fourth lane of 0. the shipped fourth term is 0 times FR11,
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* FIPR takes light2, then the normal, as the shipped FIPR FV8,FV0 does. this
+ * side gives both a fourth lane of 0. the shipped fourth term is 0 times FR11,
  * which the pair move into DR10 fills with iamb. for a finite iamb, that term
  * is 0 too */
 ALWAYS_INLINE void _NJM_SET_TEX_STRIP(struct calc_vertex *vertex, Uint32 pcw,
@@ -1044,7 +1056,6 @@ ALWAYS_INLINE void _NJM_SET_TEX_STRIP(struct calc_vertex *vertex, Uint32 pcw,
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm operand: fipr-registers, FIPR FV8,FV0 at 0x8c62c274 dots light2, moved
  * from the second bank into FV8, with the normal */
 #pragma inline_asm(_NJM_SET_TEX_STRIP(size=62))
@@ -1082,12 +1093,13 @@ void _NJM_SET_TEX_STRIP(struct calc_vertex *vertex, Uint32 pcw, NJS_TEX *uv)
         PREF        @R8
         ADD         #16,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* textured: u and v as _NJM_SET_TEX_STRIP gives them, and the intensity 1 */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 ALWAYS_INLINE void _NJM_SET_TEX_X_STRIP(struct calc_vertex *vertex, Uint32 pcw,
                                         NJS_TEX *uv)
 {
@@ -1096,7 +1108,6 @@ ALWAYS_INLINE void _NJM_SET_TEX_X_STRIP(struct calc_vertex *vertex, Uint32 pcw,
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm open: no inspect rule reads the XD0 its FMOV.S FR1,FR0 moves after
  * FSCHG */
 #pragma inline_asm(_NJM_SET_TEX_X_STRIP(size=52))
@@ -1129,15 +1140,16 @@ void _NJM_SET_TEX_X_STRIP(struct calc_vertex *vertex, Uint32 pcw, NJS_TEX *uv)
         PREF        @R8
         ADD         #16,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* lit and environment mapped: u and v are half the x and y of vertex->normal
  * turned by the current matrix, plus 1/2, and the intensity is
  * SIMPLE_INTENSITY(vertex->normal). one FTRV gives all three, through the
  * matrix NJM_SET_ENV_STRIP_START leaves in XMTRX */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* the normal goes in as a point, with w 1, as the shipped FLDI1 FR3 sets it.
  * so the matrix's translation adds 1/2 to u and v, and iamb to the
  * intensity */
@@ -1150,7 +1162,6 @@ ALWAYS_INLINE void NJM_SET_ENV_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm open: no inspect rule reads FV0 filled by paired loads and FLDI1 FR3
  * before its FTRV */
 #pragma inline_asm(NJM_SET_ENV_STRIP(size=38))
@@ -1176,13 +1187,14 @@ void NJM_SET_ENV_STRIP(struct calc_vertex *vertex, Uint32 pcw)
         PREF        @R8
         ADD         #16,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* environment mapped: u and v as NJM_SET_ENV_STRIP gives them, and the
  * intensity 1 */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 ALWAYS_INLINE void NJM_SET_ENV_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
     shz_vec3_t mapped =
@@ -1192,7 +1204,6 @@ ALWAYS_INLINE void NJM_SET_ENV_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm open: no inspect rule reads FV0 filled by paired loads and FLDI1 FR3
  * before its FTRV */
 #pragma inline_asm(NJM_SET_ENV_X_STRIP(size=40))
@@ -1219,16 +1230,17 @@ void NJM_SET_ENV_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
         PREF        @R8
         ADD         #16,R8
 }
-#endif
 /* clang-format on */
 #endif
+#endif
 
-#ifdef GCC
-/* each helper must run between its kind's START and END. of GCC's helpers,
- * only the environment ones read XMTRX. from an environment START to its END,
- * XMTRX holds the START's matrix in place of the current one, which the END
- * loads back. the others read their terms from memory, so their kinds' STARTs
- * and ENDs do nothing */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* each helper must run between its kind's START and END. of this side's
+ * helpers, only the environment ones read XMTRX. from an environment START to
+ * its END, XMTRX holds the START's matrix, not the current one. the END loads
+ * the current one back. the others read their terms from memory, so their
+ * kinds' STARTs and ENDs do nothing */
 #define NJM_SET_POLY_STRIP_START()
 #define NJM_SET_POLY_X_STRIP_START()
 #define NJM_SET_TEX_STRIP_START()
@@ -1271,7 +1283,6 @@ ALWAYS_INLINE void NJM_SET_ENV_STRIP_END(void)
 #define NJM_SET_ENV_X_STRIP_END() NJM_SET_ENV_STRIP_END()
 #else
 /* clang-format off */
-#ifndef __clang__
 /* save XF0 to XF9 on the stack, and load light2 into XF0 to XF2, the material's
  * diffuse color into XF4 to XF7 and iamb into XF8 */
 /* @asm abi: return-below-entry, the slot of its RTS, at 0x8c62c368, leaves R15
@@ -1575,8 +1586,8 @@ void NJM_SET_ENV_X_STRIP_END(void)
         FMOV.S      @R15+,FR0
         FRCHG
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* @hack spelling: simple_draw_noop called through a pointer to it, which keeps
@@ -5875,10 +5886,10 @@ static void simple_draw_flat_polygons_clip(NJS_MESHSET *meshset,
                  * N-gon whose corners share no clip flag. with none, they are
                  * R12, R14 and R13 as _njSimpleDrawModelSub left them: the
                  * meshset, _nj_light_material_'s address and the material */
-#ifdef GCC
-                /* repairs the unset corners the tag names: GCC lights the
+#ifdef NONMATCHING
+                /* repairs the unset corners the tag names. this side lights the
                  * N-gon from its own first three corners, as the branch above
-                 * does, so its shade holds as it crosses the near plane */
+                 * does. so its shade holds as it crosses the near plane */
                 v0 = WORK_VERTEX(mesh_cursor[0]);
                 v1 = WORK_VERTEX(mesh_cursor[1]);
                 v2 = WORK_VERTEX(mesh_cursor[2]);
@@ -6281,10 +6292,10 @@ static void simple_draw_flat_tex_polygons_clip(NJS_MESHSET *meshset,
                  * N-gon whose corners share no clip flag. with none, they are
                  * R12, R14 and R13 as _njSimpleDrawModelSub left them: the
                  * meshset, _nj_light_material_'s address and the material */
-#ifdef GCC
-                /* repairs the unset corners the tag names: GCC lights the
+#ifdef NONMATCHING
+                /* repairs the unset corners the tag names. this side lights the
                  * N-gon from its own first three corners, as the branch above
-                 * does, so its shade holds as it crosses the near plane */
+                 * does. so its shade holds as it crosses the near plane */
                 v0 = WORK_VERTEX(mesh_cursor[0]);
                 v1 = WORK_VERTEX(mesh_cursor[1]);
                 v2 = WORK_VERTEX(mesh_cursor[2]);
@@ -6910,10 +6921,10 @@ static void simple_draw_flat_env_polygons_clip(NJS_MESHSET *meshset,
                  * N-gon whose corners share no clip flag. with none, they are
                  * R12, R14 and R13 as _njSimpleDrawModelSub left them: the
                  * meshset, _nj_light_material_'s address and the material */
-#ifdef GCC
-                /* repairs the unset corners the tag names: GCC lights the
+#ifdef NONMATCHING
+                /* repairs the unset corners the tag names. this side lights the
                  * N-gon from its own first three corners, as the branch above
-                 * does, so its shade holds as it crosses the near plane */
+                 * does. so its shade holds as it crosses the near plane */
                 v0 = WORK_VERTEX(mesh_cursor[0]);
                 v1 = WORK_VERTEX(mesh_cursor[1]);
                 v2 = WORK_VERTEX(mesh_cursor[2]);
@@ -7422,10 +7433,9 @@ void _njSimpleDrawModelSub(NJS_MODEL *model)
     if (njSimpleCalcModel(model)) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that these are set wherever they are read: the loop's
      * first pass, mesh_index 0, sets each before any read */
-    material = NULL;
     previous_material = 0;
     drawer_flags = 0;
 #endif
@@ -7804,7 +7814,7 @@ void _njSimpleDrawObjectSub(NJS_OBJECT *object)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* store R8, which holds sq_cursor, at *slot. in njSimpleDrawModel the expansion
  * is MOV.L R8,@R4 at 0x8c63bee2, ahead of the load of _njSimpleDrawModel's
  * address */

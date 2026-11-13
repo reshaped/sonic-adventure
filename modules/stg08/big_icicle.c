@@ -823,10 +823,10 @@ static void big_icicle_run(struct task *task)
                          * (0x0c90b35a), and speeds[i] is the word past the
                          * array, turns[0], an Angle, which the image reads as
                          * a Float, at 0x0c90b59a, 0x0c90b5a4 */
-#ifdef GCC
-                        /* repairs the read past speeds the tag names: GCC's
-                         * puff takes 0.9 of the big icicle's own speed, as
-                         * the small icicles' puffs take theirs */
+#ifdef NONMATCHING
+                        /* repairs the read the tag names: this side's puff
+                         * takes 0.9 of the big icicle's own speed. the small
+                         * icicles' puffs take 0.9 of theirs */
                         velocity.y = icicle->speed * 0.9F;
 #else
                         velocity.y = icicle->speeds[i] * 0.9F;

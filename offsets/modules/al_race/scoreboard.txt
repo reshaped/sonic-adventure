@@ -1,0 +1,14 @@
+datum  child_rival_names  C  0x00000000  64
+datum  adult_rival_names  C  0x00000040  64
+datum  silver_rival_names  C  0x00000080  64
+datum  gold_rival_names  C  0x000000c0  64
+datum  default_names  C  0x00000100  24
+datum  clock_style  C  0x00000118  28
+datum  best_style  C  0x00000134  28
+datum  clock_labels_at  C  0x00000150  16
+datum  standings_at  C  0x00000160  64
+datum  records_mark  C  0x000001a0  8
+datum  digit_set_0  D  0x00000000  220
+datum  digit_set_1  D  0x000000dc  220
+datum  lane_frames  D  0x000001b8  180
+datum  pointer_frames  D  0x0000026c  40

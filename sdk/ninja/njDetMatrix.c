@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* the determinant of m, or of the current matrix, in XMTRX, when m is null. it
  * expands along the first row, and each cofactor of that row along the second,
  * from the six 2 by 2 minors of the last two rows */

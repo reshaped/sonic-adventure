@@ -1,0 +1,4 @@
+datum  race_game_current  D  0x00000000  4
+datum  race_state_labels  C  0x00000000  760
+datum  board_places  C  0x00000304  96
+datum  garden_kinds  C  0x00000364  4

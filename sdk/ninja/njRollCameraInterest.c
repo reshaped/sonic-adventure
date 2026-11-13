@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* roll c by ang: add ang to c->roll, and turn c->lx and c->ly by ang about
  * c's direction, vx to vz, scaling each to unit length. that direction must be
  * unit length, as njRotate's axis must be. _nj_camera_matrix_ is left holding

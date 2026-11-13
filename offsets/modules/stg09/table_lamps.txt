@@ -1,0 +1,1 @@
+datum  table_lamp_places  D  0x00000000  532

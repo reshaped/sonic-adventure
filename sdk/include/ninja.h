@@ -336,13 +336,7 @@ Float njScalor2(NJS_VECTOR *v);
 
 /* SHC intrinsics: fabsf, sqrtf, FSRRA, the reciprocal square root, and FSCA, an
  * angle's sine and cosine */
-#ifdef __clang__
-#define _builtin_fabsf __builtin_fabsf
-#define _builtin_sqrtf __builtin_sqrtf
-Float _builtin_fsrra(Float n);
-void _builtin_fsca(Angle ang, Float *sin, Float *cos);
-#endif
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC's builtins give FABS and FSQRT, where SH4ZAM's shz_sqrtf approximates
  * the root by FSRRA. ninja_zam.h defines _builtin_fsrra and _builtin_fsca */
 #define _builtin_fabsf __builtin_fabsf
@@ -487,6 +481,25 @@ void *njStartVertexNonTexOpaque(void);
 void *njStartVertexNonTexTrans(void);
 void *njStartVertexTexOpaque(void);
 void *njStartVertexTexTrans(void);
+#ifdef NONMATCHING
+/* set the color mode attr asks for, and write a polygon header by the
+ * matching call above. NJD_USE_TEXTURE picks a textured one, and
+ * NJD_TRANSPARENT the translucent list. sq takes the store queue address for
+ * the first vertex. this side's 2D polygons, 2D lines and 3D lines call it */
+#define START_VERTEX(sq, attr)                                                 \
+    do {                                                                       \
+        Int trans = ((attr) & NJD_TRANSPARENT) > 0;                            \
+        if ((attr) & NJD_USE_TEXTURE) {                                        \
+            njSetkmColorMode((trans ? COLOR_MODE_TRANS : COLOR_MODE_OPAQUE) |  \
+                             COLOR_MODE_TEXTURE);                              \
+            (sq) = trans ? njStartVertexTexTrans() : njStartVertexTexOpaque(); \
+        } else {                                                               \
+            njSetkmColorMode(trans ? COLOR_MODE_TRANS : COLOR_MODE_OPAQUE);    \
+            (sq) = trans ? njStartVertexNonTexTrans()                          \
+                         : njStartVertexNonTexOpaque();                        \
+        }                                                                      \
+    } while (0)
+#endif
 /* the same, with the four words of color after the header's first four: the
  * color the vertices' intensities scale */
 void *njStartVertexNonTexOpaqueIntens(Uint32 *color);
@@ -1261,13 +1274,16 @@ extern Float _nj_cnk_easy_multilight_buffer_[16];
 extern NJS_TEXSURFACE _nj_framebuffer_surface0_;
 extern NJS_TEXSURFACE _nj_framebuffer_surface1_;
 void njInitSprite(void);
-#ifdef GCC
-/* port.h declares the port's own calls and state, among them the 16:9
- * squeeze of the 2D draws. its path is relative to this header, since not
- * every compile searches the tree's root */
-#include "../../gcc/src/system/port.h"
+#ifdef NONMATCHING
+/* port.h declares the non-matching code's calls and state. through
+ * engine/dc/dreamcast.h it declares the Dreamcast engine's too, among them
+ * the 16:9 squeeze of the 2D draws. its path is relative to this header,
+ * since not every compile searches the tree's root */
+#include "../../src/system/port.h"
 
+#ifdef DREAMCAST
 #include <ninja_zam.h>
+#endif
 #endif
 
 #endif

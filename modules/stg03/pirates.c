@@ -67,6 +67,9 @@ enum pirates_mode {
 };
 
 static void pirates_ship_step(struct task *task);
+#ifdef NONMATCHING
+static void pirates_ship_set_lamps(struct task *task, Uint32 texture);
+#endif
 
 /* the two ships. the second faces the other way, and starts half a turn
  * around from the first, at the bottom. the first starts at the slowest turn,
@@ -97,6 +100,13 @@ static void pirates_ship_draw(struct task *task)
     Angle ang;
     NJS_OBJECT *object;
 
+#ifdef NONMATCHING
+    /* the step darkens the lamps only around its own call of this. the
+     * second picture's pass darkens them so */
+    if (frame_redrawing && work->tick > LAMPS_LIT) {
+        pirates_ship_set_lamps(task, LAMPS_DARK_TEXTURE);
+    }
+#endif
     if (frame_step == 0) {
         texture_set_stage();
         njPushMatrix(NULL);
@@ -124,6 +134,11 @@ static void pirates_ship_draw(struct task *task)
         njPopMatrix(1);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing && work->tick > LAMPS_LIT) {
+        pirates_ship_set_lamps(task, LAMPS_LIT_TEXTURE);
+    }
+#endif
 }
 
 /* set the texture of the lamps' materials. both ships and their world objects

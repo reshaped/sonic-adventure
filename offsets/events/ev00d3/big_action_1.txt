@@ -1,0 +1,13 @@
+datum  ev00d3_big_motion_1  D  0x00000000  12
+datum  ev00d3_big_action_1  D  0x0000000c  8
+datum  ev00d3_frog_textures  D  0x00000014  96
+datum  ev00d3_frog_texlist  D  0x00000074  8
+datum  dat_0cb929fc  D  0x0000007c  20
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  8
+text  TEXT_3  C  0x00000010  8
+text  TEXT_4  C  0x00000018  8
+text  TEXT_5  C  0x00000020  8
+text  TEXT_6  C  0x00000028  8
+text  TEXT_7  C  0x00000030  8
+text  TEXT_8  C  0x00000038  8

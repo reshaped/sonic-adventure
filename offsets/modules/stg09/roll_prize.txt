@@ -1,0 +1,16 @@
+datum  bomb_flash_anim  D  0x00000000  160
+datum  bomb_flash  D  0x000000a0  32
+datum  sparkle_flash_anim  D  0x000000c0  160
+datum  sparkle_flash  D  0x00000160  32
+datum  explosion_flash_anim  D  0x00000180  160
+datum  explosion_flash  D  0x00000220  32
+datum  hit_flash_anim  D  0x00000240  160
+datum  hit_flash  D  0x000002e0  32
+datum  splash_flash_anim  D  0x00000300  160
+datum  splash_flash  D  0x000003a0  32
+datum  snow_flash_anim  D  0x000003c0  160
+datum  snow_flash  D  0x00000460  32
+datum  roll_prize_flashes  D  0x00000480  24
+datum  roll_prize_places  D  0x00000498  792
+datum  roll_prize_counts  D  0x000007b0  6
+datum  roll_prize_models  D  0x000007b8  264

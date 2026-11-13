@@ -1,0 +1,2 @@
+datum  ev0011_sonic_motion_4  D  0x00000000  12
+datum  ev0011_sonic_action_4  D  0x0000000c  8

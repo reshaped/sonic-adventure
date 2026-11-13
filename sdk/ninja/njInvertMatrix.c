@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* invert m in place and return TRUE. when njDetMatrix gives m a determinant of
  * 0, fill m with 3.4e38 and return FALSE instead. a null m selects the current
  * matrix, in XMTRX */

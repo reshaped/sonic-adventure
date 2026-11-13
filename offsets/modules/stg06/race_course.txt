@@ -1,0 +1,2 @@
+datum  sky_deck_race_points  C  0x00000000  1776
+datum  sky_deck_race_count  C  0x000006f0  4

@@ -276,8 +276,8 @@ void egg_carrier_inside_sky_step(struct task *task)
             /* @hack redundant: a break that repeats the case's own, which ends
              * the case on the tail it shares with INSIDE_INIT: the BRA at
              * 0x0c92004e, with the mode's store in its delay slot, which
-             * INSIDE_INIT's BRA at 0x0c92002e reaches too. without it, count
-             * unmeasured: the step outgrows PHEAD's row, and the link fails */
+             * INSIDE_INIT's BRA at 0x0c92002e reaches too. without it, PHEAD
+             * runs 32 bytes past its row, and 31 of 47 words differ */
             break;
         }
         break;

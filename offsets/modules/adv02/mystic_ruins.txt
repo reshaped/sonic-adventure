@@ -1,0 +1,9 @@
+datum  mystic_ruins_sky_models  D  0x00000000  36
+datum  mystic_ruins_sky_texlists  D  0x00000024  12
+datum  dat_0ca9aad8  D  0x00000030  12
+datum  light_turns  D  0x0000003c  72
+datum  uv_scrolls  D  0x00000084  60
+datum  station_cycle_objects  D  0x000000c0  12
+datum  station_cycle_2_objects  D  0x000000cc  20
+datum  island_cycle_objects  D  0x000000e0  12
+datum  mystic_ruins_act_tasks  B  0x00000000  40

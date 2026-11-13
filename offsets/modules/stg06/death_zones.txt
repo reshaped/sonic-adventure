@@ -1,0 +1,4 @@
+datum  sky_deck_act0_death_zones  D  0x00000000  16
+datum  sky_deck_act1_death_zones  D  0x00000010  16
+datum  sky_deck_act2_death_zones  D  0x00000020  24
+datum  sky_deck_death_zones  D  0x00000038  12

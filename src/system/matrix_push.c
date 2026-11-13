@@ -7,8 +7,9 @@
 static void push_body(void);
 
 /* clang-format off */
-#ifndef __clang__
-#ifndef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#else
 /* expanded into matrix_push_unit. when the stack is full, its RTS returns
  * FALSE from matrix_push_unit at once, and it pushes nothing. otherwise it
  * writes XMTRX, the current matrix, back to the top's slot, and moves the
@@ -78,12 +79,12 @@ static void push_body(void)
 
 Bool matrix_push_unit(void)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* SHC expands push_body here, so its RTS returns FALSE from
      * matrix_push_unit itself. GCC makes an inline body a function of its
-     * own, whose RTS would return to matrix_push_unit, so GCC pushes in C.
-     * njPushMatrix pushes nothing on a full stack and returns FALSE. after
-     * a push, XMTRX and the new top's slot each take the unit matrix */
+     * own, whose RTS would return to matrix_push_unit. this side pushes in C
+     * instead. njPushMatrix pushes nothing on a full stack and returns FALSE.
+     * after a push, XMTRX and the new top's slot each take the unit matrix */
     if (!njPushMatrix(NULL)) {
         return FALSE;
     }

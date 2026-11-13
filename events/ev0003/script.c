@@ -82,10 +82,10 @@ static struct task *ev0003_fade = NULL;
 /* the plane's flight in 54 points, as seen from the side. x runs along its
  * course, and y is its height. ev0003_flight_to_world places a point in
  * Station Square */
-#ifdef GCC
-/* repairs the read the tag in ev0003_plane_step names: GCC's flight
- * repeats its last point, so the last curve reaches that point in the
- * direction from the one before */
+#ifdef NONMATCHING
+/* repairs the read the tag in ev0003_plane_step names. this side's
+ * ev0003_flight[54] repeats ev0003_flight[53], so the last curve reaches that
+ * point in the direction from ev0003_flight[52] */
 static NJS_POINT2 ev0003_flight[55] = {
 #include "ev0003/script/ev0003_flight.inc"
     {3.8375F, -0.3136F},

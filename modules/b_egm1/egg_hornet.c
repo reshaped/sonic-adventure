@@ -447,6 +447,13 @@ static void egg_hornet_draw(struct task *task)
 {
     struct egg_hornet *record = task->extra;
 
+#ifdef NONMATCHING
+    /* the second picture's pass draws the boss only where its last step
+     * did. while hurt, the step draws in two steps of every four */
+    if (frame_redrawing && (HURT_LEFT(task->work) & 3) > 1) {
+        return;
+    }
+#endif
     egg_hornet_barrier_draw(&record->barrier);
     draw_control_save();
     njControl3D(NJD_CONTROL_3D_CONSTANT_MATERIAL);

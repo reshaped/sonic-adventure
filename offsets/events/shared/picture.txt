@@ -1,0 +1,2 @@
+datum  event_picture_texanim  D  0x00000000  20
+datum  event_picture_sprite  D  0x00000014  32

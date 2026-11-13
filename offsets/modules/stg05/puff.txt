@@ -1,0 +1,6 @@
+datum  puff_smoke_frames  D  0x00000000  200
+datum  puff_flame_frames  D  0x000000c8  160
+datum  puff_groups  B  0x00000000  16
+datum  puff_smoke_sprite  B  0x00000010  32
+datum  puff_flame_sprite  B  0x00000030  32
+datum  puff_frames  B  0x00000050  4

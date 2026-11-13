@@ -1,0 +1,12 @@
+datum  piece_materials  D  0x00000000  20
+datum  piece_meshes0  D  0x00000014  264
+datum  piece_meshes1  D  0x0000011c  3520
+datum  piece_uvs0  D  0x00000edc  528
+datum  piece_uvs1  D  0x000010ec  7040
+datum  piece_meshsets  D  0x00002c6c  48
+datum  piece_points  D  0x00002c9c  5568
+datum  piece_normals  D  0x0000425c  5568
+datum  piece_model  D  0x0000581c  40
+datum  piece_object  D  0x00005844  52
+datum  piece_shape  D  0x00005878  52
+datum  piece_speeds  C  0x00000000  48

@@ -1,11 +1,11 @@
-"""Plan make gcc's link: write the spec of its images, which tools/ld.py
+"""Plan make dc's link: write the spec of its images, which tools/ld.py
 links by, from config/'s tables, the images' GCC objects and the memory
 contract.
 
 spec.py writes SPEC, the spec of every image config/ describes, in name
 order. It reads config/'s tables, config/imports.txt among them, and the
 sources tools/memory.py's memory contract reads. It reads each image's GCC
-objects under build/gcc/, and each object an --add option gives the image.
+objects under build/dc/, and each object an --add option gives the image.
 It reads each archive an --archive option names, and libgcc.a from the
 toolchain SH_ELF in the environment names, tools/sh-elf by default. For an
 image that places a gen/ range, it reads the record tools/content.py writes
@@ -31,9 +31,14 @@ tools/gcclink.py gives, in this order:
 
 - image: its origin and the length of its load area, and its entry, where
   memory.ENTRIES gives one;
+- starts: the output sections of its data that start on the 16 KB of the
+  SH-4's operand cache, as starts() gives them from
+  config/IMAGE/kernel.txt and the --starts option, where it gives any;
 - input: the GCC objects of its sources, in the order relink gives the
-  sources. Its content, build/gcc/gen/IMAGE/content.o, holds the data of
-  all its gen/ ranges, and stands where the first one does. Then come each
+  sources. Its content, build/dc/gen/IMAGE/content.o, holds the data of
+  all its gen/ ranges, and stands where the first one does, or first of
+  all where the image takes the --starts option's output sections, .data
+  among them, as inputs() says. Then come each
   object an --add option gives the image, in their order; each archive
   --archive names, in their order; and libgcc.a;
 - import, alias and constant: a binding for each name the image takes from
@@ -49,9 +54,25 @@ tools/gcclink.py gives, in this order:
   In memory.FISH_IMAGE, STG08, a tail row follows for each allocated
   section of nonzero size of the fish models' object: in CFISH where the
   section's name starts .rodata, and in DFISH where it starts .data;
-- kernel: each section of the image's kernel, as kernel() reads
-  config/IMAGE/kernel.txt: its source's GCC object and the section that
-  holds its function, in the table's order.
+- kernel: each section of the image's kernels, as kernel() reads
+  config/IMAGE/kernel.txt: its kernel, its source's GCC object and the
+  section that holds its function, in the table's order;
+- window: each window the table's window rows give: its kernel, its lines
+  and its offset where the row gives one, in the table's order;
+- warm: each section the table's warm rows place: its source's GCC object
+  and the section that holds its function, in the table's order;
+- data: each section the table's data rows place: its source's GCC object
+  and the section that holds its name, in the table's order;
+- over: each pair of kernels the table's over rows name, then the other
+  image where the row names one, in the table's order;
+- last: the GCC object of each source the table's last rows name, in the
+  table's order;
+- cold: the GCC object of each source the table's cold rows name, in the
+  table's order;
+- heat, text and searched: what config/IMAGE/order.txt records of the
+  search for the warm rows' order, as searched() reads it: the heat's
+  path, config/IMAGE/heat.txt, and its hash, then the table's text row,
+  where it has one, and its searched rows.
 
 The link takes archive members as gcclink.py's selected() does. So each
 image links its own copy of each member it takes, and no image's link waits
@@ -162,12 +183,15 @@ spec.py fails on a reviewed row or a content's record that breaks a rule
 above, and on:
 
 - an --add for an image config/ doesn't describe;
+- a --starts option that outputs() refuses;
 - a SPEC and FILE that name one file, or either that names an input of the
   link;
 - a toolchain that holds no libgcc.a, or several;
 - an image whose objects aren't all built, naming each such image, how
   many of its objects are missing and the first three;
 - a row of config/imports.txt that doesn't parse;
+- a row of config/IMAGE/kernel.txt that kernel() or rowed() refuses;
+- a row of config/IMAGE/order.txt that searched() refuses;
 - a content's record that can't be read, or a row of one that record()
   refuses;
 - a content's record that gives a name the tables give elsewhere, in
@@ -211,6 +235,11 @@ OWN = '-'
 KINDS = ('content', 'second', 'static', 'interior', 'storage', 'ambiguous', 'untabled', 'nowhere')
 # how many names a problem gives of a list it counts
 MOST_SHOWN = 3
+# the words that open a kernel table's over, window, warm, data, last and
+# cold rows
+OVER, WINDOW, WARM, DATA, LAST, COLD = 'over', 'window', 'warm', 'data', 'last', 'cold'
+# the words that open its starts and packed rows, which starts() reads
+STARTS, PACKED = 'starts', 'packed'
 
 # what spec.py reads of an object. defined is the global or weak names it
 # defines in its allocated sections, as gcclink.exports() gives them, and
@@ -218,6 +247,11 @@ MOST_SHOWN = 3
 # undefined, as the object spells them, so a C name keeps its leading
 # underscore
 Unit = namedtuple('Unit', 'defined statics taken')
+# an image's kernel table as kernel() reads it: each kernel row's kernel,
+# object and section; each window row's fields after window; each warm and
+# data row's object and section; each over row's fields after over; and
+# each last and cold row's object
+Table = namedtuple('Table', 'kernel windows warm data over last cold')
 # a reviewed row: its provider, its symbol and its view, OWN for an alias;
 # where, its path:line; and whether it is a hand-off
 Row = namedtuple('Row', 'provider symbol view where handoff')
@@ -313,12 +347,21 @@ def shown(names):
     return ', '.join(names[:MOST_SHOWN]) + (', ...' if len(names) > MOST_SHOWN else '')
 
 
-def inputs(config):
+def inputs(config, first=False):
     """The GCC objects of config's image's sources, as gcc_object() names
     them, in the order relink gives the sources. The gen/ ranges share the
-    image's content's object, which stands where the first one does. Fails
-    as config.py's order() does."""
-    return list(dict.fromkeys(gcc_object(source, config.name) for source in order(config)))
+    image's content's object, which stands where the first one does.
+
+    Where first, the content's object comes ahead of every other instead.
+    The content holds most of what an image reads of its data, its models
+    among it, and ld lays an output section's data out file by file. So
+    the content then opens each output section that takes its data, and no
+    change to another object's data moves it there. Config refuses a gen/
+    range that lies in code, so the content holds none, and its place moves
+    no code. Fails as config.py's order() does."""
+    found = list(dict.fromkeys(gcc_object(source, config.name) for source in order(config)))
+    content = gcc_object('gen/', config.name)
+    return [content, *(path for path in found if path != content)] if first and content in found else found
 
 
 def record(config):
@@ -371,12 +414,13 @@ def addresses(config, recorded):
     return found
 
 
-def bind(known, contract, archives, added):
+def bind(known, contract, archives, added, first=()):
     """Each image's link and the names it takes that nothing binds, as
     (links, unbound) by image. known is the images config/ describes, and
     contract their memory contract. archives is the archives each image
     links ahead of libgcc.a. added is the objects each image links after its
-    sources', by image.
+    sources', by image. first is the images whose content's object links
+    first, as inputs() says.
 
     An image's link is its inputs, in link order, and its bindings:
     {'import': {name: (provider, symbol, view)}, 'alias': {name: symbol},
@@ -391,10 +435,10 @@ def bind(known, contract, archives, added):
     configs = {image: Config(image) for image in known}
     objects, missing = {}, []
     for image in known:
-        objects[image] = inputs(configs[image]) + added.get(image, [])
+        objects[image] = inputs(configs[image], image in first) + added.get(image, [])
         lacking = [str(path) for path in objects[image] if not path.is_file()]
         if lacking:
-            missing.append(f'{image}: waits for {len(lacking)} of its {len(objects[image])} objects, which make gcc '
+            missing.append(f'{image}: waits for {len(lacking)} of its {len(objects[image])} objects, which make dc '
                            f"didn't build: {shown(lacking)}")
     if missing:
         fail(*missing)
@@ -432,7 +476,10 @@ def bind(known, contract, archives, added):
                 bindings[kind][wanted] = value
             else:
                 unbound[image][wanted] = (value, undefined[taken] == [str(generated)])
-        if generated in read:
+        # the object at that path is the image's content only where the
+        # image places a gen/ range: an --add can give another image one
+        # that an earlier build left there
+        if any(source.startswith('gen/') for source in configs[image].sources()):
             problems += recorded_problems(image, recorded, read[generated], bindings, undefined, unbound[image])
         links[image] = (objects[image] + searched, bindings)
     stale = [f'{row.where}: ' + (f'no image without a row of its own takes {wanted}' if image == EVERY
@@ -577,47 +624,213 @@ def bound_to(image, wanted, bindings, undefined):
     return None
 
 
-def kernel(image):
-    """The sections of image's kernel, config/IMAGE/kernel.txt, as a list of
-    (object, section). A row is SOURCE FUNCTION. SOURCE is one of image's
-    placements, as its tables spell it, and FUNCTION a C name. Each row
-    gives the GCC object of SOURCE and the allocated section of it that
-    defines FUNCTION, in the table's order. An image without the table has
-    no kernel.
+def kernel(image, added):
+    """image's kernel table, config/IMAGE/kernel.txt, as a Table. A row that
+    starts with over is over KERNEL KERNEL [OTHER], one that starts with
+    window is window KERNEL LINES [OFFSET], one that starts with warm is
+    warm SOURCE FUNCTION, one that starts with data is data SOURCE NAME, one
+    that starts with last is last SOURCE, one that starts with cold is cold
+    SOURCE, and any other KERNEL SOURCE FUNCTION, but a row that starts with
+    starts or packed, which starts() reads.
+    KERNEL and OTHER, another image, are in the spec's spelling, LINES and
+    OFFSET as the spec spells a number, and FUNCTION and NAME are C names.
+    SOURCE is one of image's placements, as its tables spell it, or a C
+    source P.c whose object, build/dc/P.o, is one of added, the objects
+    the --add options give image. A row of a kernel gives its KERNEL, the GCC
+    object of SOURCE and the allocated section of it that defines FUNCTION,
+    and a warm row the object and the section.
+    A data row gives the GCC object of SOURCE and the allocated section of
+    it that defines NAME, which is no code, and a last or cold row the GCC
+    object of SOURCE. Each list is in the table's order. An image without
+    the table has none.
 
     A row fails, naming its path:line, where it doesn't parse, where its
-    SOURCE is none of image's placements, where its object defines no
-    FUNCTION in an allocated section, and where an earlier row's section
-    holds FUNCTION too. It fails as content() and elf.read() do on the
-    object."""
-    path, found = CONFIG / image / 'kernel.txt', []
+    KERNEL's rows stand apart, where its SOURCE is neither of those, where
+    its object defines no FUNCTION in an allocated section, or no NAME in
+    one that is no code, where an earlier row's section holds FUNCTION or
+    NAME too, and where an earlier row of its kind, last or cold, names its
+    object. An over row fails where it names one kernel twice, or a kernel
+    of image's that no row makes. tools/ld.py checks OTHER's, and each
+    window's, of which one whose KERNEL is warm is the warm rows'. It fails as content() and elf.read() do on the object."""
+    path, table = CONFIG / image / 'kernel.txt', Table([], [], [], [], [], [], [])
     if not path.exists():
-        return found
-    placed = Config(image).sources()
+        return table
+    spelling = gcclink.SPELLINGS['KERNEL']
+    rowed, over, closing = [], [], {LAST: [], COLD: []}
     for where, fields in rows(path):
-        if len(fields) != 2 or not gcclink.C_NAME.fullmatch(fields[1]):
-            fail(f'{where}: not a row: SOURCE FUNCTION')
-        source, function = fields
-        if source not in placed:
-            fail(f'{where}: config/{image}/ places no {source}')
-        obj = gcc_object(source, image)
+        if fields[0] in (STARTS, PACKED):
+            continue
+        if fields[0] == OVER:
+            if len(fields) not in (3, 4) or not all(spelling.fullmatch(field) for field in fields[1:]):
+                fail(f'{where}: not a row: over KERNEL KERNEL [OTHER]')
+            over.append((where, tuple(fields[1:])))
+            continue
+        if fields[0] == WINDOW:
+            if (len(fields) not in (3, 4) or not spelling.fullmatch(fields[1])
+                    or not all(gcclink.NUMBER.fullmatch(field) for field in fields[2:])):
+                fail(f'{where}: not a row: window KERNEL LINES [OFFSET]')
+            table.windows.append(tuple(fields[1:]))
+            continue
+        if fields[0] in (WARM, DATA):
+            if len(fields) != 3 or not gcclink.C_NAME.fullmatch(fields[2]):
+                fail(f'{where}: not a row: {fields[0]} SOURCE ' + ('FUNCTION' if fields[0] == WARM else 'NAME'))
+            rowed.append((where, fields))
+            continue
+        if fields[0] in (LAST, COLD):
+            if len(fields) != 2:
+                fail(f'{where}: not a row: {fields[0]} SOURCE')
+            closing[fields[0]].append((where, fields[1]))
+            continue
+        if len(fields) != 3 or not spelling.fullmatch(fields[0]) or not gcclink.C_NAME.fullmatch(fields[2]):
+            fail(f'{where}: not a row: KERNEL SOURCE FUNCTION')
+        kernels = [row[0] for _, row in rowed if row[0] not in (WARM, DATA)]
+        if kernels and kernels[-1] != fields[0] and fields[0] in kernels:
+            fail(f"{where}: {fields[0]}'s rows stand apart")
+        rowed.append((where, fields))
+    kernels = {fields[0] for _, fields in rowed if fields[0] not in (WARM, DATA)}
+    for where, row in over:
+        # a row that names OTHER names one of image's kernels, its first
+        own = row[:1] if len(row) == 3 else row
+        for name in own:
+            if name not in kernels:
+                fail(f'{where}: no row makes {name} a kernel')
+        if len(own) == 2 and own[0] == own[1]:
+            fail(f'{where}: names {own[0]} twice')
+    table.over.extend(row for _, row in over)
+    placed, taken = Config(image).sources(), []
+
+    def gcc_object_of(where, source):
+        # source's GCC object, as a row at where names it
+        if source in placed:
+            return gcc_object(source, image)
+        obj = Path('build/dc', source).with_suffix('.o')
+        if not (source.endswith('.c') and obj in added):
+            fail(f'{where}: config/{image}/ places no {source}, and no --add gives {image} its object')
+        return obj
+
+    for where, (name, source, function) in rowed:
+        obj = gcc_object_of(where, source)
         read = elf.read(content(obj), obj)
         allocated = elf.allocated_sections(read)
         sections = {allocated[symbol.section].name for symbol in read.symbols
                     if symbol.name == f'_{function}' and elf.names_definition(symbol) and symbol.section in allocated}
+        if name == DATA:
+            sections = {section for section in sections if not gcclink.code(section)}
         if len(sections) != 1:
-            fail(f'{where}: {obj} defines no {function} in an allocated section')
+            fail(f'{where}: {obj} defines no {function} in an allocated section'
+                 + (' that is no code' if name == DATA else ''))
         section = sections.pop()
-        if (obj, section) in found:
+        if (obj, section) in taken:
             fail(f"{where}: {function} lies in {obj}'s {section}, which an earlier row places")
-        found.append((obj, section))
+        taken.append((obj, section))
+        if name in (WARM, DATA):
+            (table.warm if name == WARM else table.data).append((obj, section))
+        else:
+            table.kernel.append((name, obj, section))
+    for kind, named in ((LAST, table.last), (COLD, table.cold)):
+        for where, source in closing[kind]:
+            obj = gcc_object_of(where, source)
+            if obj in named:
+                fail(f'{where}: an earlier {kind} row names {obj}')
+            named.append(obj)
+    return table
+
+
+def searched(image):
+    """The spec's heat, text and searched rows for image, from its record
+    of the search for its warm rows' order, config/IMAGE/order.txt, which
+    tools/order.py writes: none where it has no record. The record's first
+    row is heat HASH, the SHA-256 of config/IMAGE/heat.txt. Its second may
+    be text ADDRESS, where the image's .text started, and each other is
+    searched PATH INPUT PLACE SIZE, each field as the spec spells it. A record without a text row gives the spec
+    none, and tools/ld.py then fails the link and names what writes one.
+    A row that is none of these where it stands fails, naming its
+    path:line. So does a second searched row of one PATH and INPUT, as a
+    merge of two records leaves, and it names the first: the spec would
+    give the section two places, and tools/order.py, which reads the spec,
+    could write no record."""
+    path, out, held = CONFIG / image / 'order.txt', [], {}
+    if not path.exists():
+        return out
+    forms = {'heat': 'heat HASH', 'text': 'text ADDRESS', 'searched': 'searched PATH INPUT PLACE SIZE'}
+    for where, fields in rows(path):
+        kinds = ('heat',) if not out else ('text', 'searched') if len(out) == 1 else ('searched',)
+        given = [image, *([str(CONFIG / image / 'heat.txt')] if fields[0] == 'heat' else []), *fields[1:]]
+        if fields[0] not in kinds or not gcclink.fits(fields[0], given):
+            fail(f'{where}: not a row: ' + ', or '.join(forms[kind] for kind in kinds))
+        if fields[0] == 'searched' and tuple(fields[1:3]) in held:
+            fail(f"{where}: a second searched row of {fields[1]}'s {fields[2]}, which {held[tuple(fields[1:3])]} "
+                 'places; remove one of the two')
+        held[tuple(fields[1:3])] = where
+        out.append(f'{fields[0]:8}  ' + '  '.join(given))
+    return out
+
+
+def outputs(given):
+    """The output sections a --starts option names, in gcclink.STARTS'
+    order. given is the option's OUTPUTS: some of gcclink.STARTS, joined by
+    commas, each once, or nothing for none. Any other fails, naming the
+    setting make dc gives the option from."""
+    wanted = given.split(',') if given else []
+    if any(output not in gcclink.STARTS or wanted.count(output) > 1 for output in wanted):
+        fail(f"--starts {given}: not {', '.join(gcclink.STARTS[:-1])} or {gcclink.STARTS[-1]}, or several of them "
+             "joined by commas, each once; make dc gives it config/dreamcast.mk's DC_STARTS")
+    return [output for output in gcclink.STARTS if output in wanted]
+
+
+def rowed(image):
+    """The output sections of its data that image's kernel table,
+    config/IMAGE/kernel.txt, says it starts on the 16 KB of the SH-4's
+    operand cache, in gcclink.STARTS' order, or None where the table says
+    nothing of them, or the image has no table. A row that starts with
+    starts is starts OUTPUT [OUTPUT] [OUTPUT], and names them, each as the
+    spec spells one. A row that is packed alone says the image starts none,
+    as an image whose load area has no room for them must.
+
+    A row fails, naming its path:line, where it starts with starts or packed
+    and takes neither form, where it names an OUTPUT twice, and where an
+    earlier row of the table is one of the two."""
+    path, found, said = CONFIG / image / 'kernel.txt', None, None
+    for where, fields in rows(path) if path.exists() else ():
+        if fields[0] not in (STARTS, PACKED):
+            continue
+        if fields[0] == PACKED and len(fields) != 1:
+            fail(f'{where}: not a row: packed')
+        if fields[0] == STARTS and not gcclink.fits(STARTS, [image, *fields[1:]]):
+            fail(f"{where}: not a row: starts OUTPUT [OUTPUT] [OUTPUT], OUTPUT {', '.join(gcclink.STARTS[:-1])} or "
+                 f'{gcclink.STARTS[-1]}')
+        twice = next((output for output in fields[1:] if fields[1:].count(output) > 1), None)
+        if twice:
+            fail(f'{where}: names {twice} twice')
+        if said:
+            fail(f'{where}: the row at {said} says already which of its output sections start')
+        found, said = [output for output in gcclink.STARTS if output in fields[1:]], where
     return found
 
 
-def lines(known, links, contract):
+def starts(config, default):
+    """The output sections of its data that config's image starts on the
+    16 KB of the SH-4's operand cache, in gcclink.STARTS' order, and whether
+    they are default's, as a pair. The image's kernel table gives its own,
+    as rowed() reads them. An image whose table says nothing of them takes
+    default, the --starts option's, where its tables place code, in a
+    section whose name starts with P. Where they place none it starts none,
+    since no code's size moves its data. It fails as rowed() does."""
+    own = rowed(config.name)
+    if own is not None:
+        return own, False
+    if not any(name.startswith('P') for _, name, _, _ in config.placements):
+        return [], False
+    return list(default), True
+
+
+def lines(known, links, contract, added, begun):
     """The spec's lines for known's images, in known's order. links is
-    bind()'s, and contract the memory contract. An image's rows come in the
-    module docstring's order, and its bindings of each kind in name order.
+    bind()'s, contract the memory contract, added the objects each image's
+    --add options give, by image, and begun the output sections starts()
+    gives each image.
+    An image's rows come in the module docstring's order, and its bindings
+    of each kind in name order.
     An allocated section of nonzero size of the fish models' object whose
     name starts neither .rodata nor .data fails, naming the object."""
     out = []
@@ -626,6 +839,8 @@ def lines(known, links, contract):
         entry = memory.ENTRIES.get(image)
         out.append(f'image     {image}  {hexa(contract.origins[image])}  {hexa(contract.lengths[image])}'
                    + (f'  {entry}' if entry else ''))
+        if begun[image]:
+            out.append(f'starts    {image}  ' + '  '.join(begun[image]))
         out += [f'input     {image}  {path}' for path in paths]
         for wanted, (provider, symbol, spelled) in sorted(bindings['import'].items()):
             out.append(f'import    {image}  {wanted}  {provider}  {symbol}  {spelled}')
@@ -646,7 +861,15 @@ def lines(known, links, contract):
                         fail(f'{fish}: holds {section.name}, which the fish models of the tail leave out')
                     out.append(f'tail      {image}  {"CFISH" if section.name.startswith(".rodata") else "DFISH"}  '
                                f'{fish}  {section.name}')
-        out += [f'kernel    {image}  {obj}  {section}' for obj, section in kernel(image)]
+        table = kernel(image, added.get(image, []))
+        out += [f'kernel    {image}  {name}  {obj}  {section}' for name, obj, section in table.kernel]
+        out += [f'window    {image}  ' + '  '.join(row) for row in table.windows]
+        out += [f'warm      {image}  {obj}  {section}' for obj, section in table.warm]
+        out += [f'data      {image}  {obj}  {section}' for obj, section in table.data]
+        out += [f'over      {image}  ' + '  '.join(row) for row in table.over]
+        out += [f'last      {image}  {obj}' for obj in table.last]
+        out += [f'cold      {image}  {obj}' for obj in table.cold]
+        out += searched(image)
     return out
 
 
@@ -687,6 +910,10 @@ def main(argv):
     parser.add_argument('--add', metavar=('IMAGE', 'PATH'), nargs=2, action='append', default=[],
                         help="an object that replaces no source's, which IMAGE links after its sources' objects; "
                              'given again, another, in order')
+    parser.add_argument('--starts', metavar='OUTPUTS', default='',
+                        help="the output sections of its data, of .rodata, .data and .bss, joined by commas, that "
+                             "each image starts on the 16 KB of the SH-4's operand cache, where its tables place "
+                             'code and its kernel table has no starts or packed row')
     parser.add_argument('--list', metavar='FILE', type=Path,
                         help="write each name nothing binds there, an image, a kind and a name to a line, with gen/ "
                              "after one only its image's content takes")
@@ -698,9 +925,15 @@ def main(argv):
         if image not in known:
             fail(f'--add {image} {path}: no image config/ describes {image}')
         added.setdefault(image, []).append(Path(path))
+    default = outputs(args.starts)
+    begun, first = {}, set()
+    for image in known:
+        begun[image], taken = starts(Config(image), default)
+        if taken and '.data' in default:
+            first.add(image)
     if args.list and same_file(args.spec, args.list):
         fail('SPEC and --list name the same file')
-    links, unbound = bind(known, contract, args.archive, added)
+    links, unbound = bind(known, contract, args.archive, added, first)
     read = [path for paths, _ in links.values() for path in paths]
     for output in [args.spec, *([args.list] if args.list else [])]:
         clash = next((path for path in read if same_file(output, path)), None)
@@ -709,8 +942,8 @@ def main(argv):
     for path in dict.fromkeys(map(str, read)):
         if not gcclink.PATH.fullmatch(path):
             fail(f"{path}: not a path the spec can give: letters, digits, _, ., / and -, not starting with -")
-    text = ''.join(f'{line}\n' for line in ["# make gcc's images, as tools/spec.py writes them",
-                                            *lines(known, links, contract)])
+    text = ''.join(f'{line}\n' for line in ["# make dc's images, as tools/spec.py writes them",
+                                            *lines(known, links, contract, added, begun)])
     if args.list:
         save(args.list, ''.join(f'{image}  {kind}  {wanted}' + ('  gen/' if only else '') + '\n'
                                 for image, kinds in unbound.items() for wanted, (kind, only) in kinds.items()).encode())

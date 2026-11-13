@@ -79,6 +79,15 @@ extern NJS_OBJECT side_arm_claw_object_2[];
 #define PIECE_SPEED_KEPT 0.99F
 #define PIECE_SPIN_KEPT 0.9F
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* pack(8), as for NJS_VIEW, aligns each matrix as njtypes.h asks. the burst
+ * comes from heap_alloc, whose blocks start on 16 bytes. at 20 bytes in, its
+ * pieces would put every matrix 4 past an 8-byte boundary. this side's
+ * pieces start 24 bytes in, and its burst is 472 bytes, not 468 */
+#pragma pack(push, 8)
+#endif
+#endif
 struct side_arm_piece {
     NJS_MATRIX matrix; /* its node's matrix as the arm burst */
     NJS_POINT3 pos; /* how far it has flown from that node */
@@ -97,6 +106,15 @@ struct side_arm_burst {
     Sint32 sway; /* steps since the arm last came back to frame 0 */
     struct side_arm_piece pieces[PIECES];
 };
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma pack(pop)
+_Static_assert(__builtin_offsetof(struct side_arm_piece, matrix) % 8 == 0 &&
+                   sizeof(struct side_arm_piece) % 8 == 0 &&
+                   __builtin_offsetof(struct side_arm_burst, pieces) % 8 == 0,
+               "a piece's matrix lies off the 8-byte boundary");
+#endif
+#endif
 
 struct side_arm_part {
     NJS_OBJECT *object;
@@ -334,6 +352,11 @@ static void side_arm_reset(struct task *task)
     work->tick = 0;
     burst->roll = 0;
     burst->yaw = work->ang.y;
+#ifdef NONMATCHING
+    /* repairs the unset sway the tag in side_arm_run names. the count
+     * starts at 0, as each return to frame 0 sets it */
+    burst->sway = 0;
+#endif
     collision->shapes[1].flags &= ~SHAPE_OFF;
     collision->shapes[2].flags &= ~SHAPE_OFF;
     collision->shapes[3].flags &= ~SHAPE_OFF;

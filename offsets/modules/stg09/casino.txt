@@ -1,0 +1,3 @@
+datum  casino_request  D  0x00000000  4
+datum  casino_rings_deposited  D  0x00000004  4
+datum  casino_fog  D  0x00000008  512

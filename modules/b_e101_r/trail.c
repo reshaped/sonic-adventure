@@ -8,6 +8,9 @@
 #include "b_e101_r/files.h"
 #include "b_e101_r/trail.h"
 #include "draw/draw.h"
+#ifdef NONMATCHING
+#include "draw/model.h"
+#endif
 #include "system/frame.h"
 #include "system/task.h"
 #include "system/util.h"
@@ -118,12 +121,28 @@ void e101_mk2_trail_grow(struct e101_mk2 *boss, Sint32 flag, Sint32 *copies)
 /* draw object at matrix, scaled by scale, on a frame's first step only */
 static void trail_draw_copy(NJS_MATRIX *matrix, NJS_OBJECT *object, Float scale)
 {
+#ifdef NONMATCHING
+    /* where step 1 drew the boss, the second picture shows that draw, and its
+     * pass calls no callback. so the copy draws on step 1 too */
+    if (FRAME_DRAWS()) {
+        present_untimed(TRUE);
+#else
     if (!frame_step) {
+#endif
         njPushMatrix(NULL);
         njMultiMatrix(NULL, matrix);
         njScale(NULL, scale, scale, scale);
+#ifdef NONMATCHING
+        /* the trail's constant attributes make its material unlit and
+         * translucent, as model.h's draw_tree_like_ninja asks */
+        draw_tree_like_ninja(object);
+#else
         njDrawObject(object);
+#endif
         njPopMatrix(1);
+#ifdef NONMATCHING
+        present_untimed(FALSE);
+#endif
     }
 }
 
@@ -236,7 +255,15 @@ static void pose_draw(struct pose *pose, NJS_ACTION *action, Float scale,
     Angle ang;
 
     pose_sway = pose->sway;
+#ifdef NONMATCHING
+    /* where step 1 drew a task, the second picture shows that draw in place
+     * of its pass's. so a pose draws on step 1 too, for the boss's blur and
+     * for an afterimage */
+    if (FRAME_DRAWS()) {
+        present_untimed(TRUE);
+#else
     if (!frame_step) {
+#endif
         draw_set_material(alpha, alpha, alpha, alpha);
         njPushMatrix(NULL);
         njTranslateV(NULL, &pose->pos);
@@ -246,8 +273,18 @@ static void pose_draw(struct pose *pose, NJS_ACTION *action, Float scale,
         TURN_VIA(njRotateY, -pose->ang.y, ang);
         TURN_VIA(njRotateX, pose->ang.x, ang);
         njScale(NULL, scale, scale, scale);
+#ifdef NONMATCHING
+        /* a blur's constant attributes make every material unlit and
+         * translucent, as model.h's draw_action_like_ninja asks. an
+         * afterimage's lit copy draws by njAction, as model.h says */
+        draw_action_like_ninja(action, pose->frame);
+#else
         njAction(action, pose->frame);
+#endif
         njPopMatrix(1);
+#ifdef NONMATCHING
+        present_untimed(FALSE);
+#endif
     }
 }
 
@@ -316,7 +353,7 @@ void e101_mk2_afterimage_create(struct e101_mk2 *boss, NJS_ACTION *action)
             /* @bug memory: with the newest pose in slot 0, the index
              * is -1, from ADD #-1,R3 at 0x0c90483e. the afterimage then draws
              * the 40 bytes before poses, at 0x0c92e848, as its pose */
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the index the tag names: RING takes it to the ring's
              * last slot, which holds the pose before the newest */
             image->pose = &poses[RING(pose_head - 1)];

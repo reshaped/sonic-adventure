@@ -1,0 +1,16 @@
+datum  sonic_names  D  0x00000000  80
+datum  tails_names  D  0x00000050  40
+datum  knuckles_names  D  0x00000078  40
+datum  amy_names  D  0x000000a0  24
+datum  big_names  D  0x000000b8  32
+datum  e102_names  D  0x000000d8  40
+datum  story_lists  D  0x00000100  48
+datum  field_names  D  0x00000130  72
+datum  field_list  D  0x00000178  8
+datum  other_names  D  0x00000180  40
+datum  other_list  D  0x000001a8  8
+datum  title_card_texture  D  0x000001b0  12
+datum  title_card_texlist  D  0x000001bc  8
+datum  story_list_of  D  0x000001c4  8
+datum  dat_8c1d52bc  D  0x000001cc  4
+datum  title_card  B  0x00000000  12

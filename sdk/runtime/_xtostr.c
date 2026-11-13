@@ -36,7 +36,7 @@ void _xtostr(va_list *arguments, char *text, int conversion,
     int i;
     int j;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* a float argument arrives as a double, which is float under
      * -m4-single-only. GCC compiles va_arg of float to a trap */
     value = va_arg(*arguments, double);

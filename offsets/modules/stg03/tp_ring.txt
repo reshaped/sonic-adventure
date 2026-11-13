@@ -1,0 +1,3 @@
+datum  tp_ring_texanims  D  0x00000000  160
+datum  tp_ring_shape  D  0x000000a0  52
+datum  tp_ring_sprite  B  0x00000000  32

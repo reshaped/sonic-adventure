@@ -1,0 +1,2 @@
+datum  snow_burst_texanims  D  0x00000000  200
+datum  snow_burst_sprite  B  0x00000000  32

@@ -66,7 +66,17 @@ void point_toward(NJS_POINT3 *start, NJS_POINT3 *target, Float distance,
     way.x = target->x - start->x;
     way.y = target->y - start->y;
     way.z = target->z - start->z;
+    /* @bug logic: the test for a way of no length never holds: njUnitVector
+     * returns NaN for it, 0 times FSRRA's infinity, not 0 (FCMP/EQ at
+     * 0x8c05a5e0), so where target is start, out is NaN, not start */
+#ifdef NONMATCHING
+    /* repairs the test the tag names: njUnitVector returns NaN where
+     * way's squared length is 0 or isn't finite. else it returns a length
+     * over 0 */
+    if (!(njUnitVector(&way) > 0.0F)) {
+#else
     if (njUnitVector(&way) == 0.0F) {
+#endif
         *out = *start;
     } else {
         way.x *= distance;

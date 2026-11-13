@@ -16,7 +16,7 @@
 /* @hack type: int, not stage.h's Uint16, which SHC shifts down by SHAD
  * without extending it first (0x8c0161d4, 0x8c01624a); as stage.h declares
  * it, EXTU.W and SHLR8, and 5 of 92 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #else
 extern int stage_get_stage_act(void);

@@ -897,7 +897,7 @@ void knuckles_trail_draw(struct task_work *work)
     if (++trail.count > TRAIL_RINGS) {
         trail.count = TRAIL_RINGS;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* no callback draws the trail for the second picture's pass, so step 1
      * draws it for that picture where port.h's FRAME_DRAWS says. where it
      * says not, the trail shows in the first picture alone */
@@ -908,7 +908,7 @@ void knuckles_trail_draw(struct task_work *work)
         NJS_COLOR col;
         int j;
 
-#ifdef GCC
+#ifdef NONMATCHING
         present_untimed(TRUE);
 #endif
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
@@ -945,7 +945,7 @@ void knuckles_trail_draw(struct task_work *work)
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_BOTHSRCALPHA);
-#ifdef GCC
+#ifdef NONMATCHING
         present_untimed(FALSE);
 #endif
     }

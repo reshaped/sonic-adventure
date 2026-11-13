@@ -1,23 +1,23 @@
 """Respell the decimal floating constants of a source's preprocessed C as
 SHC reads them, fold its static initializers as SHC does, and rewrite the
 products and += that GCC would fuse otherwise than SHC, by
-tools/float_fuse.py's rule, for make gcc. Or check an assembly text's
+tools/float_fuse.py's rule, for make dc. Or check an assembly text's
 floating constants.
 
     python3 tools/floats.py --shc RELEASE [FLAG]... [--system DIR]... C
     python3 tools/floats.py --assembly TEXT
 
 C is a source's C as GCC's preprocessor writes it, such as
-build/gcc/src/main.i, which the tool rewrites in place. RELEASE, r10, r26
+build/dc/src/main.i, which the tool rewrites in place. RELEASE, r10, r26
 or r32, is the SHC that builds the source, and each FLAG one of its
 -fpu=single, -double=float and -aggressive=2 that its build takes, the
 tool reading no other of its flags. Each DIR holds system headers,
-as SH4ZAM's include directory does for make gcc. The tool fails on each
+as SH4ZAM's include directory does for make dc. The tool fails on each
 problem below and in its modules' docstrings, naming its file and line, and
 then leaves C as it was. All it doesn't rewrite stays byte for byte.
 
 What the tool holds to is what its tests and the tree's builds show: under
-GCC 16.2 as gcc.mk pins it and GCCFLAGS as config/gcc.mk gives them, for
+GCC 16.2 as dc.mk pins it and GCCFLAGS as config/gcc.mk gives them, for
 R10, R26 and R32 as config/compilers.mk builds each source, and for the
 tree as it stands. It holds C to the rules its docstrings give and the
 spellings they name, not to SHC: where neither reaches, GCC computes what C
@@ -30,7 +30,7 @@ Code and an automatic object's initializer keep their arithmetic as C
 groups it. Under -frounding-math, which GCC calls experimental, GCC 16.2
 leaves to run time each operation of constants whose value rounds, of the
 kinds the tree's code holds. tests/test_floats.py's Gcc tests hold it to
-that at each level and contraction make gcc gives, for an inexact sum,
+that at each level and contraction make dc gives, for an inexact sum,
 difference, product, quotient and square root, a product inside a product,
 and a product an integer conversion takes. The console's FPU rounds such an
 operation toward zero in binary32, as each SHC release's folder rounds a
@@ -61,7 +61,7 @@ GCC 16.2 reads L after R, as the addend of the multiply-add it builds, as
 tests/test_floats.py's Gcc tests hold it to at -Os and -O2 for a call in R,
 where L is a name and where it is *p.
 
-GCC.md#floats gives what make gcc does with C and TEXT.
+PORTS.md#floats gives what make dc does with C and TEXT.
 """
 
 import argparse

@@ -9,6 +9,107 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+/* the evalflags that leave a node's position, angles and scale out */
+#define EVAL_UNIT (NJD_EVAL_UNIT_POS | NJD_EVAL_UNIT_ANG | NJD_EVAL_UNIT_SCL)
+
+#ifdef NONMATCHING
+#include "sa1/easy.h"
+
+/* make dc builds the easy draws from the C below, SA1's layer for them on
+ * the Dreamcast. the layer keeps the light and projection njSetEasyLight
+ * takes, the model clip and Ninja's count of projected points. sa1/easy.h's
+ * walk projects, lights and sends each model as the C under the #else does.
+ * easy.h lists where it departs from that C. its projection also takes the
+ * picture's aspect, which 16:9 sets in place of Ninja's (dreamcast.h). the
+ * walk reads and writes Ninja's globals through the names below */
+extern Uint32 sa1_live_control __asm__("__nj_control_3d_flag_");
+extern Uint32 sa1_live_attr_and __asm__("__nj_constant_attr_and_");
+extern Uint32 sa1_live_attr_or __asm__("__nj_constant_attr_or_");
+extern struct nj_parameterkm sa1_live_header __asm__("__nj_parameterkm_");
+extern Uint32 sa1_live_texture __asm__("__nj_current_texture");
+extern Uint32 sa1_live_texture_bank __asm__("__nj_current_texture_bank");
+extern NJS_TEXLIST *sa1_live_texlist __asm__("__nj_current_texlist");
+extern Uint32 sa1_live_sq_base __asm__("__nj_sq_base_");
+extern Uint32 **sa1_live_list __asm__("__nj_listtype_");
+extern Uint32 *sa1_live_color_mode __asm__("__nj_color_mode_");
+
+/* the light's color, which njSetEasyLightColor sets. the walk sets its
+ * alpha from each translucent textured meshset's material */
+static NJS_ARGB light_tint = {1.0F, 1.0F, 1.0F, 1.0F};
+/* the state every draw hands the walk */
+static struct sa1_live_easy easy;
+
+void njSetEasyLight(Float x, Float y, Float z)
+{
+    easy.light.x = x;
+    easy.light.y = y;
+    easy.light.z = z;
+    easy.screen.scale_x = _nj_screen_.dist * port_draw_aspect;
+    easy.screen.scale_y = _nj_screen_.dist * _nj_scr_aspect_y_;
+    easy.screen.cx = _nj_screen_.cx;
+    easy.screen.cy = _nj_screen_.cy;
+}
+
+void njSetEasyLightIntensity(Float inten, Float ambient)
+{
+    easy.negative_diffuse = -inten;
+    easy.ambient = ambient;
+}
+
+void njSetEasyLightColor(Float r, Float g, Float b)
+{
+    light_tint.r = r;
+    light_tint.g = g;
+    light_tint.b = b;
+}
+
+NJS_VECTOR *port_easy_light(void)
+{
+    return &easy.light;
+}
+
+/* draw model as njEasyDrawModel does, between the caller's njGetkmPointer
+ * and njSetkmPointer. a model of more points than Ninja's vertex buffer
+ * holds draws nothing. under NJD_CONTROL_3D_MODEL_CLIP, nor does one whose
+ * sphere lies wholly outside the near, far or 2D clip */
+void _njEasyDrawModel(NJS_MODEL *model)
+{
+    sa_draw_live draw = {model, &easy, SA_SA1_EASY, 0};
+    NJS_POINT3 center;
+    Float r;
+    Float projection_x;
+    Float projection_y;
+    Float inverse_z;
+
+    if (model->nbPoint > _nj_vertex_num_) {
+        return;
+    }
+    if (_nj_control_3d_flag_ & NJD_CONTROL_3D_MODEL_CLIP) {
+        njCalcPoint(0, &model->center, &center);
+        r = model->r;
+        if (!(center.z + r > _nj_near_clip_) || center.z - r > _nj_far_clip_) {
+            return;
+        }
+        projection_x = _nj_screen_.dist * port_draw_aspect;
+        projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
+        inverse_z = 1.0F / (center.z + r);
+        if ((projection_x * (center.x - r) * inverse_z) + _nj_screen_.cx >
+                _nj_2d_clip_[1].x ||
+            (projection_x * (center.x + r) * inverse_z) + _nj_screen_.cx <
+                _nj_2d_clip_[0].x ||
+            (projection_y * (center.y - r) * inverse_z) + _nj_screen_.cy >
+                _nj_2d_clip_[1].y ||
+            (projection_y * (center.y + r) * inverse_z) + _nj_screen_.cy <
+                _nj_2d_clip_[0].y) {
+            return;
+        }
+    }
+    _nj_calc_vertex_ += model->nbPoint;
+    easy.tint = &light_tint;
+    easy.points = (struct sa1_easy_point *)_nj_vertex_buf_;
+    sa_present_live(SA_DC_ENGINE, &draw);
+}
+#else
 /* a strip's point count: the low 15 bits of its first word, whose top bit is
  * NJD_TRIMESH_END */
 #define STRIP_COUNT 0x7fff
@@ -17,7 +118,6 @@
 /* the low 30 bits of a material's attr_texId: its texture's number in the
  * current texture list */
 #define MATERIAL_TEXTURE 0x3fffffff
-#define EVAL_UNIT (NJD_EVAL_UNIT_POS | NJD_EVAL_UNIT_ANG | NJD_EVAL_UNIT_SCL)
 
 #define MODE_TEX_OPAQUE                                                        \
     (COLOR_MODE_OPAQUE | COLOR_MODE_TEXTURE | COLOR_MODE_INTENSITY)
@@ -94,7 +194,7 @@ static NJS_ARGB light_tint = {1.0F, 1.0F, 1.0F, 1.0F};
 static Sint32 easy_calc_body(struct calc_work *work);
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R7 at 0x8c629992 and 0x8c6299a2 invalidates
  * the line of each two points written */
 #pragma inline_asm(easy_calc_body)
@@ -1765,12 +1865,7 @@ void _njEasyDrawModel(NJS_MODEL *model)
         if (center.z - r > _nj_far_clip_) {
             return;
         }
-#ifdef GCC
-        /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
-        projection_x = _nj_screen_.dist * port_draw_aspect;
-#else
         projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
-#endif
         projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
         inverse_z = 1.0F / (center.z + r);
         bound = (projection_x * (center.x - r) * inverse_z) + _nj_screen_.cx;
@@ -1935,12 +2030,7 @@ void njSetEasyLight(Float x, Float y, Float z)
     calc.light_direction.x = x;
     calc.light_direction.y = y;
     calc.light_direction.z = z;
-#ifdef GCC
-    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
-    calc.projection_x = _nj_screen_.dist * port_draw_aspect;
-#else
     calc.projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
-#endif
     calc.projection_y = _nj_screen_.dist * _nj_scr_aspect_y_;
     calc.center_x = _nj_screen_.cx;
     calc.center_y = _nj_screen_.cy;
@@ -1959,11 +2049,6 @@ void njSetEasyLightColor(Float r, Float g, Float b)
     light_tint.b = b;
 }
 
-#ifdef GCC
-NJS_VECTOR *port_easy_light(void)
-{
-    return &calc.light_direction;
-}
 #endif
 
 /* draw obj as njEasyDrawObject does, inside the caller's own njGetkmPointer

@@ -1,0 +1,5 @@
+datum  robo_tv_shape  D  0x00000000  52
+datum  robo_tv_frames  D  0x00000034  556
+datum  robo_tv_frames_2  D  0x00000260  84
+datum  robo_tv_rows  D  0x000002b4  8
+template  corners  C  0x00000024  16

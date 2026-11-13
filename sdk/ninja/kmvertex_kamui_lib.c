@@ -320,10 +320,18 @@ void kmiCreateGlobalParameter(void)
     CREATE_GLOBAL_PARAMETER(out, start);
 }
 
+#ifdef NONMATCHING
+static inline __attribute__((always_inline))
+KMSTATUS process_render_state(PKMVERTEXCONTEXT pVertexContext, KMDWORD changes)
+#else
 KMSTATUS kmProcessVertexRenderState(PKMVERTEXCONTEXT pVertexContext)
+#endif
 {
     KMDWORD value;
+#ifdef NONMATCHING
+#else
     KMDWORD changes;
+#endif
     KMDWORD isp = pVertexContext->ISPPARAMBUFFER;
     KMDWORD tsp = pVertexContext->TSPPARAMBUFFER;
     KMDWORD texture = pVertexContext->TexturePARAMBUFFER;
@@ -331,7 +339,10 @@ KMSTATUS kmProcessVertexRenderState(PKMVERTEXCONTEXT pVertexContext)
     /* the TSP word's filter code for each FilterMode */
     KMDWORD filter_codes[4] = {0, 2, 1, 3};
 
+#ifdef NONMATCHING
+#else
     changes = pVertexContext->RenderState;
+#endif
 
     if (changes & KM_DEPTHMODE) {
         isp = (isp & ~ISP_DEPTH) | ((KMDWORD)pVertexContext->DepthMode << 29);
@@ -630,6 +641,29 @@ KMSTATUS kmProcessVertexRenderState(PKMVERTEXCONTEXT pVertexContext)
     pVertexContext->GLOBALPARAMBUFFER = value;
     return KMSTATUS_SUCCESS;
 }
+
+#ifdef NONMATCHING
+/* a draw may set its blend for each sprite, as a rain splash in Chaos 0 does.
+ * where RenderState marks only blends, this side drops each other field's test.
+ * that path stands alone, so that the sprite kernel can take it */
+static KMSTATUS process_blends(PKMVERTEXCONTEXT pVertexContext, KMDWORD changes)
+    __attribute__((noipa));
+static KMSTATUS process_blends(PKMVERTEXCONTEXT pVertexContext, KMDWORD changes)
+{
+    return process_render_state(
+        pVertexContext, changes & (KM_SRCBLENDINGMODE | KM_DSTBLENDINGMODE));
+}
+
+KMSTATUS kmProcessVertexRenderState(PKMVERTEXCONTEXT pVertexContext)
+{
+    KMDWORD changes = pVertexContext->RenderState;
+
+    if (!(changes & ~(KM_SRCBLENDINGMODE | KM_DSTBLENDINGMODE))) {
+        return process_blends(pVertexContext, changes);
+    }
+    return process_render_state(pVertexContext, changes);
+}
+#endif
 
 KMSTATUS kmSetVertexRenderState(PKMVERTEXCONTEXT pVertexContext)
 {

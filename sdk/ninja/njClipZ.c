@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set the near and far clip planes to z = n and z = f, each clamped to
  * [-65535, -1]. _nj_near_clip_ and _nj_far_clip_ take them negated, as
  * distances */

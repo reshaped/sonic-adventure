@@ -13,7 +13,8 @@
  * is draw_unlit_offsets, which follows draw_palettes */
 #define DRAW_PALETTES 8
 #define DRAW_PALETTE_ENTRIES 256
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 extern Uint32 draw_palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2];
 #endif
 /* the palette the player characters shade from. other characters and some
@@ -23,10 +24,15 @@ extern Uint32 draw_palettes[DRAW_PALETTES][DRAW_PALETTE_ENTRIES * 2];
  * index. they are 0 until a stage's module fills them, or until a palettes
  * file longer than draw_palettes runs on over them, as light.h says */
 #define DRAW_UNLIT_OFFSETS 512
-#ifdef GCC
+#ifdef NONMATCHING
 /* the most points a model may have. the largest in the game's images has
  * 1900 */
 #define DRAW_MOST_POINTS 2048
+/* how far into _nj_vertex_buf_, src/main.c's texture_buffer, the draws'
+ * scratch may reach. model.c starts it at most 16 KB in, the operand cache's
+ * size. each point takes 32 bytes of it */
+#define DRAW_SCRATCH_START 0x4000
+#define DRAW_SCRATCH_SIZE (DRAW_SCRATCH_START + (DRAW_MOST_POINTS * 32))
 /* draw_palettes, then draw_unlit_offsets, as one object. C defines no read
  * past an array's end, so model.c reads the palettes through words, which
  * spans both arrays. the draws read an unlit point's offset color by the
@@ -74,6 +80,32 @@ void draw_model_nested(NJS_MODEL *model);
 void draw_models_begin(void);
 void draw_model_unculled(NJS_MODEL *model);
 void draw_models_end(void);
+#ifdef NONMATCHING
+/* draw_tree and draw_action for models Ninja's constant attributes make
+ * unlit and translucent in the constant material. these forms need
+ * NJD_CONTROL_3D_CONSTANT_ATTR and NJD_CONTROL_3D_CONSTANT_MATERIAL, with
+ * NJD_FLAG_IGNORE_LIGHT and NJD_FLAG_USE_ALPHA in _nj_constant_attr_or_.
+ * without them draw_tree_like_ninja draws by njDrawObject, and
+ * draw_action_like_ninja by njAction, as for an afterimage's lit copy. the
+ * task that draws in these forms needs a draw callback other than its step.
+ * a frame's second picture calls that callback. it replays other tasks'
+ * models by draw_model, without these forms.
+ *
+ * no point shades, and no meshset's header takes an offset color. a point
+ * takes the constant material's color and alpha. a meshset whose material
+ * lacks NJD_FLAG_DOUBLE_SIDE loses its back faces through the header's cull
+ * mode. Ninja's _cull drawers drop them too.
+ *
+ * the forms depart from njDrawModel in three ways. njDrawModel clamps the
+ * constant material's color and alpha between 0 and 1. the forms clamp its
+ * color alone. a draw drops a model whose bounding sphere is out of view.
+ * the sphere takes the model's own radius, whatever the matrix's scale.
+ * njDrawModel tests a sphere only under NJD_CONTROL_3D_MODEL_CLIP. a
+ * single-sided quad or polygon loses each of its triangles that faces away.
+ * Ninja's keeps or drops it whole as its first triangle faces */
+void draw_tree_like_ninja(NJS_OBJECT *object);
+void draw_action_like_ninja(NJS_ACTION *action, Float frame);
+#endif
 /* whether the current matrix places the sphere of radius about (x, y, z) in
  * view. FALSE on any step but a frame's first. FALSE too when the sphere lies
  * wholly nearer than _nj_near_clip_ or past _nj_far_clip_. FALSE when the edge
@@ -84,6 +116,14 @@ void draw_models_end(void);
  * bottom test scales y as the side tests do, and compares it with the clip's
  * right edge, not its bottom */
 Bool draw_in_view(Float x, Float y, Float z, Float radius);
+#ifdef NONMATCHING
+/* draw_in_view's test on any step, for what step 1 draws for a frame's
+ * second picture */
+Bool draw_in_view_any_step(Float x, Float y, Float z, Float radius);
+/* forget the land's shading, which the draws bake and keep across pictures,
+ * for a land about to load */
+void draw_bake_forget(void);
+#endif
 
 /* the direction of the light the models shade by, in view space.
  * draw_set_light sets it and a copy of it. draw_divide_light sets it to the

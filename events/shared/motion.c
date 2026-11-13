@@ -695,6 +695,11 @@ void event_motion_alloc(struct task_work *work)
     if (motion != NULL) {
         motion->state = EVENT_MOTION_START;
         motion->weld_mode = PLAYER_WELD_MAKE;
+#ifdef NONMATCHING
+        /* repairs the unset start the tag in event_motion_enter names. the
+         * first looping action starts at frame 0, as each later one does */
+        motion->start = 0.0F;
+#endif
         EVENT_MOTION(work) = motion;
     }
 }

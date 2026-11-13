@@ -1,0 +1,7 @@
+datum  _mp_Per2APTable  C  0x00000000  24
+datum  _mp_RootDeviceNo  C  0x00000018  16
+datum  _mp_MajorVersion  C  0x00000028  4
+datum  _mp_MinorVersion  C  0x0000002c  4
+datum  _mp_Context  B  0x00000000  4340
+datum  _mp  B  0x000010f4  4
+datum  _mp_GunModeInfo  B  0x000010f8  12

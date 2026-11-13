@@ -1,0 +1,6 @@
+datum  ev00b8_light_points  D  0x00000000  1136
+datum  ev00b8_light_path  D  0x00000470  8
+datum  ev00b8_light  D  0x00000478  4
+datum  ev00b8_fade  D  0x0000047c  4
+datum  ev00b8_frog  D  0x00000480  4
+datum  ev00b8_textures  D  0x00000484  16

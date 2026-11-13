@@ -1,0 +1,3 @@
+datum  mountain_lamp_glow_frame  D  0x00000000  20
+datum  mountain_lamp_glow_sprite  D  0x00000014  32
+datum  mountain_lamp_shape  D  0x00000034  52

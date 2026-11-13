@@ -27,7 +27,16 @@ typedef struct adxpd_obj {
 } ADXPD_OBJ;
 
 /* 1 once a stereo decode has returned an odd block count */
+/* @hack type: adxpd_internal_error isn't volatile, though the movie player's
+ * vertical blank runs the decode that sets it while movie_main's frame loop
+ * tests it. each pass of the loop calls njWaitVSync first, so the image reads
+ * it again all the same. declared volatile, 13 of the 345 words of
+ * adxpd_error, stream_step and movie_main differ */
+#ifdef NONMATCHING
+volatile Sint32 adxpd_internal_error = 0;
+#else
 Sint32 adxpd_internal_error = 0;
+#endif
 ADXPD_OBJ adxpd_obj[ADXPD_MAX_OBJ];
 
 void ADXPD_Init(void)

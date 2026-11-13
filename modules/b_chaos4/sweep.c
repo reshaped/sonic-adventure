@@ -315,9 +315,9 @@ void chaos4_sweep_draw(struct task_work *work)
          * so the hand's joint, the sixth, turns by turn[5], which is
          * spin[0] (turn from node at 0x0c904846 to 0x0c904856, read at
          * 0x0c90487e) */
-#ifdef GCC
-        /* keeps the turn the tag names: GCC's hand turns by spin[0], as the
-         * image's does */
+#ifdef NONMATCHING
+        /* keeps the turn the tag names: this side's hand turns by spin[0], as
+         * the image's does */
         turn = node < SWEEP_SPRINGS ? &arm->turn[node] : &arm->spin[0];
 #else
         turn = &arm->turn[node];
@@ -391,7 +391,7 @@ void chaos4_sweep_shapes(struct task_work *work)
             /* @bug memory: as in chaos4_sweep_draw, the hand's joint
              * turns by turn[5], which is spin[0] (turn from node at
              * 0x0c904a40 to 0x0c904a50, read at 0x0c904a72) */
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps the turn the tag names, as in chaos4_sweep_draw */
             turn = node < SWEEP_SPRINGS ? &arm->turn[node] : &arm->spin[0];
 #else

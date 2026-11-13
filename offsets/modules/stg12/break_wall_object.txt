@@ -1,0 +1,1 @@
+datum  break_wall_broken_world_object  D  0x00000000  52

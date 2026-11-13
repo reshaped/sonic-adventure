@@ -1,0 +1,10 @@
+datum  twinkle_coaster_shape  D  0x00000000  52
+datum  twinkle_coaster_sparkle_frames  D  0x00000034  60
+datum  twinkle_coaster_sparkle_anim  D  0x00000070  20
+datum  twinkle_coaster_sparkle_pool  D  0x00000084  16
+datum  twinkle_coaster_sparkle_params  D  0x00000094  60
+datum  twinkle_coaster_cars  D  0x000000d0  180
+datum  twinkle_coaster_end  C  0x00000000  12
+datum  twinkle_coaster_sparkle_right  C  0x0000000c  12
+datum  twinkle_coaster_sparkle_left  C  0x00000018  12
+datum  twinkle_coaster_sparkle_speed  C  0x00000024  12

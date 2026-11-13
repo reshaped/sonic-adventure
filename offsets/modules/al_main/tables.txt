@@ -1,0 +1,3 @@
+datum  chao_collisions  D  0x00000000  156
+datum  animal_part_chances  D  0x0000009c  420
+datum  animal_skill_bonuses  D  0x00000240  88

@@ -16,9 +16,6 @@
 #include "stg02/debris.h"
 #include "stg02/tornado.h"
 #include "stg02/windy.h"
-#ifdef GCC
-#include "system/frame.h"
-#endif
 #include "system/task.h"
 #include "system/texture.h"
 #include "system/util.h"
@@ -257,7 +254,7 @@ static void windy_sky_draw(struct task *task)
          * step too */
     case SKY_MODE(0, SKY_DRAW):
         /* the storm gathers for every character but E-102 */
-#ifdef GCC
+#ifdef NONMATCHING
         /* the storm darkens windy_fog_color, which the next step reads. the
          * second picture's pass draws again and leaves it as the steps did,
          * so the storm gathers as at 30 fps */
@@ -423,7 +420,7 @@ static void windy_storm(struct task *task)
         return;
     }
     distance = njDistanceP2P(&player->work->pos, &eye);
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that closing is set wherever it is read: the submode
      * holds only the four storm modes, and each but STORM_CLEAR, which
      * returns, sets it */

@@ -232,9 +232,9 @@ void alife_take_animal(struct task_work *work, struct alife_chao *chao)
              * sound_play's address: 0x68. for a Chao of any type but
              * CHAO_CHAOS, status_give_parts then reads row 104 of
              * child_part_objects or adult_part_objects, which hold 15 rows */
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the unset kind the tag names: where held or its task
-             * is null, GCC's Chao takes nothing from the animal */
+             * is null, the Chao takes nothing */
             if (entry->held && entry->held->task) {
                 entry->held->task->motion->speed = rotated;
                 kind = entry->held->task->work->tick;

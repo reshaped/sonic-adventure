@@ -50,9 +50,9 @@ void njChangeGlobal(void);
 void njSetCurrentContext(Int n);
 void njInitContext(KMVERTEXCONTEXT *context);
 void njExeEORFunction(void);
-#ifdef GCC
+#ifdef NONMATCHING
 /* the 32 Floats after _nj_cnk_easy_multilight_buffer_ in njGlobal.c's
- * block, which njInitGlobal's GCC side fills by name */
+ * block, which njInitGlobal's non-matching side fills by name */
 extern Float _nj_cnk_easy_multilight_buffer_dst_[32];
 #endif
 
@@ -221,9 +221,9 @@ void njInitSystem(Int mode, Int frame, Int count)
     } else {
         anti_alias = FALSE;
     }
-#ifdef GCC
-    /* repairs the unset bpp the tag below names: for a format no case lists,
-     * GCC passes -1, which kmSetDisplayMode rejects, setting no display
+#ifdef NONMATCHING
+    /* repairs the unset bpp the tag below names. for a format no case lists,
+     * this side passes -1. kmSetDisplayMode rejects it and sets no display
      * mode */
     bpp = (KMBPPMODE)-1;
 #endif
@@ -349,9 +349,9 @@ void njChangeSystem(Int mode, Int frame, Int count)
     } else {
         anti_alias = FALSE;
     }
-#ifdef GCC
-    /* repairs the unset bpp the tag below names: for a format no case lists,
-     * GCC passes -1, which kmSetDisplayMode rejects, setting no display
+#ifdef NONMATCHING
+    /* repairs the unset bpp the tag below names. for a format no case lists,
+     * this side passes -1. kmSetDisplayMode rejects it and sets no display
      * mode */
     bpp = (KMBPPMODE)-1;
 #endif
@@ -456,7 +456,7 @@ void njInitGlobal(void)
          * in _nj_cnk_easy_multilight_buffer_dst_ (0x8c657980 in 1ST_READ.BIN).
          * the store after the loop puts 3 in dst's first word as index 16
          * (0x8c65798c) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* the copy's last 32 Floats go to _nj_cnk_easy_multilight_buffer_dst_
          * by name, where the tag says the image's land. the 3 then goes over
          * dst's first word, as in the image */
@@ -975,7 +975,14 @@ void njColorBlendingMode(Int target, Int mode)
         _nj_current_ctx_->DSTBlendingMode = mode;
     }
     kmProcessVertexRenderState(_nj_current_ctx_);
+#ifdef NONMATCHING
+    /* kmSetVertexRenderState builds Kamui's global parameter from the
+     * context. Ninja's draws don't read it. the movie, the one user of
+     * Kamui's strips, builds it before each strip. kmSetUserClipping reads
+     * only its group and clip bits, which no blend changes */
+#else
     kmSetVertexRenderState(_nj_current_ctx_);
+#endif
 }
 
 void njSpecularMode(Int mode)

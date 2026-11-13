@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set m to Rx * Ry * Rz * m, where Rx rotates by angx about x, Ry by angy
  * about y and Rz by angz about z. a null m selects the current matrix, in
  * XMTRX */

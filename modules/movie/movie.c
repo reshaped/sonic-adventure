@@ -186,7 +186,7 @@ int movie_main(int list)
              * keeps movie_main's frame at 12 bytes (ADD #-12,R15 at
              * 0x8ceb0030); joined by &&, the frame takes 16, and 224 of 280
              * words differ */
-#ifdef GCC
+#ifdef NONMATCHING
             /* Start skips any movie, not the opening alone */
             {
 #else

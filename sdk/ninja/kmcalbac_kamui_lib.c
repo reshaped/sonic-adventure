@@ -192,9 +192,9 @@ KMSTATUS kmGetCurrentScanline(KMINT32 *line)
         position = status & SCAN_LINE;
     } else {
         position = 0;
-#ifdef GCC
-        /* repairs the unset status the tag below names: GCC's status is 0,
-         * so the test of its bit 18 below adds no line */
+#ifdef NONMATCHING
+        /* repairs the unset status the tag below names. this side's status is
+         * 0, so the test of its bit 18 below adds no line */
         status = 0;
 #endif
     }

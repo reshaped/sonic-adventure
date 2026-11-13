@@ -54,7 +54,7 @@ TABLES = dict(MODULE, **{
 
 # an inline body written out of line, one only expanded in host, and host
 C = '''/* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* return */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x0c900014 follows
  * the body's own return at 0x0c900010 */
@@ -84,7 +84,7 @@ void host(void)
 # C with a block that reserves 8 bytes after host, and a block of comments only
 BLOCKS = C + '''
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: 8 bytes reserved after host, from 0x0c900018 */
 #pragma asm
         .RES.B      8
@@ -673,8 +673,8 @@ class Contracts(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, rf'(?m)a\.c:{line(tagged, "#pragma asm")}: a #pragma asm block whose '
                                                 r'@asm tag is abi, which GCC compiles and no --contract can name$'):
             abi('c_next', c=tagged)
-        # but takes one on the shipped side of a GCC guard
-        abi('c_next', c=tagged.replace('/* @asm abi', '#ifndef GCC\n/* @asm abi').replace(
+        # but takes one on the matching side of a guard
+        abi('c_next', c=tagged.replace('/* @asm abi', '#ifdef NONMATCHING\n#else\n/* @asm abi').replace(
             '        ;\n#pragma endasm\n', '        ;\n#pragma endasm\n#endif\n'))
 
     def test_reads_only_the_images_that_place_its_sources(self):
@@ -684,8 +684,8 @@ class Contracts(unittest.TestCase):
             tags.main(['--abi', '--contract=c_next', 'modules/mod/a.c', 'modules/mod/c.src'])
 
 
-# ABI with its bodies in the #else of an #ifdef GCC whose other side defines outline in C
-GUARDED = ('#ifdef GCC\nvoid outline(void)\n{\n}\n#else\n' +
+# ABI with its bodies in the #else of an #ifdef NONMATCHING whose other side defines outline in C
+GUARDED = ('#ifdef NONMATCHING\nvoid outline(void)\n{\n}\n#else\n' +
            ABI.replace('#endif\n/* clang-format on */\n', '#endif\n/* clang-format on */\n#endif\n'))
 
 
@@ -693,7 +693,7 @@ def walk(*body, head='static void walk(Uint32 *line)', host='    walk(0);\n'):
     """a.c with one inline body, walk, and a C function, host. walk's head is head and its lines are body, where a line
     that ends in : is a label. host's statements are host."""
     lines = ''.join(f'{line}\n' if line.endswith(':') else f'        {line}\n' for line in body)
-    return ('/* clang-format off */\n#ifndef __clang__\n/* @asm open: a walk */\n#pragma inline_asm(walk)\n'
+    return ('/* clang-format off */\n#ifdef DREAMCAST\n/* @asm open: a walk */\n#pragma inline_asm(walk)\n'
             f'{head}\n{{\n{lines}}}\n#endif\n/* clang-format on */\n\nint host(void)\n{{\n{host}}}\n')
 
 
@@ -788,8 +788,8 @@ class CallSafety(unittest.TestCase):
         # through a macro too
         self.unsafe(c.replace(on, '    WALK();\n') + '#define WALK() walk(0)\n',
                     rf'its RTS at line {line(c, "RTS")} leaves it, and host goes on past its call')
-        # and where GCC's side of a guard goes on, though the shipped side returns the call's value
-        guarded = c.replace(f'int host(void)\n{{\n{on}}}\n', f'#ifdef GCC\nint host(void)\n{{\n{on}}}\n#else\n'
+        # and where the non-matching side of a guard goes on, though the matching side returns the call's value
+        guarded = c.replace(f'int host(void)\n{{\n{on}}}\n', f'#ifdef NONMATCHING\nint host(void)\n{{\n{on}}}\n#else\n'
                             'int host(void)\n{\n    return walk(0);\n}\n#endif\n')
         self.unsafe(guarded, rf'its RTS at line {line(c, "RTS")} leaves it, and host goes on past its call')
         # but not where its host returns the call's value, or ends on the call
@@ -860,14 +860,14 @@ class CallSafety(unittest.TestCase):
         check(c)
         self.assertEqual(review(c), ['modules/mod/a.c:4: #pragma inline_asm(walk): a walk', NEXT])
 
-    def test_reads_no_body_on_the_shipped_side_of_a_gcc_guard(self):
+    def test_reads_no_body_on_the_matching_side_of_a_guard(self):
         c = walk('MOV.L @R4,R1', 'OR R12,R1', 'OCBI @R1')
-        abi('c_next', c=c.replace('#ifndef __clang__\n', '#ifndef __clang__\n#ifndef GCC\n').replace(
+        abi('c_next', c=c.replace('#ifdef DREAMCAST\n', '#ifdef DREAMCAST\n#ifdef NONMATCHING\n#else\n').replace(
             '#endif\n', '#endif\n#endif\n'))
 
 
 class Guards(unittest.TestCase):
-    def test_takes_no_contract_for_a_body_on_the_shipped_side_of_a_gcc_guard(self):
+    def test_takes_no_contract_for_a_body_on_the_matching_side_of_a_guard(self):
         abi('c_next', c=GUARDED)
         with self.assertRaisesRegex(SystemExit, r'(?m): outline: --contract names no function whose @asm tag is abi '
                                                 r'or that may not be call-safe$'):
@@ -878,7 +878,7 @@ class Guards(unittest.TestCase):
                                                 r'#pragma inline_asm\(outline\) has no @asm tag$'):
             abi('c_next', c=untagged)
 
-    def test_names_a_source_whose_assembly_is_on_the_shipped_side_of_a_gcc_guard(self):
+    def test_names_a_source_whose_assembly_is_on_the_matching_side_of_a_guard(self):
         # SHC compiles that side, so its route still takes the source through assembly
         with tree({'modules/mod/a.c': GUARDED}), contextlib.redirect_stdout(io.StringIO()) as out:
             tags.main(['--inline', 'modules/mod/a.c'])

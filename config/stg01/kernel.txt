@@ -1,0 +1,38 @@
+# STG01.PRS's kernel, pieces: the code each flying piece of a broken pier
+# section runs, a step and a draw, then the step and the draw of the big
+# rock the orca topples and of each piece it breaks into. The orca's chase
+# steps up to about 230 pieces a frame, each among 1ST_READ.BIN's draw
+# code. tools/ld.py lays a kernel out first in the image's code, and
+# STG01.PRS's code starts on set 0 of the SH-4's 8 KB instruction cache,
+# so the kernel takes sets 0 to 31. There 1ST_READ.BIN's kernels hold the
+# motion trees, the rare draw code and the near clip, which seldom run
+# among the kernel's code. STG01.PRS imports from 1ST_READ.BIN, so ld.py
+# fails a link where a line of any of 1ST_READ.BIN's kernels takes one of
+# those sets, unless an over row names that kernel and pieces. In SEGA's
+# order the steps and the draws lay on the draw code's sets, and every
+# piece missed its own lines and the draw's. Laid out so, step 0 takes 0.14
+# to 0.22 ms less in the chase, in a model of the SH-4's caches at
+# 18.4-cycle fills, more than linking the same code another way moves it: so
+# this image, alone of the stage modules, carries a kernel. A console's own
+# figures still want comparison.
+#
+# A row is as in config/1st_read/kernel.txt, or over KERNEL KERNEL OTHER,
+# which lets the first KERNEL's lines take the sets of the second's, a
+# kernel of OTHER, another image.
+#
+# ld.py starts the image's .data, which holds its models, on the 16 KB of
+# the SH-4's operand cache, so that no change to the size of its code or
+# of its read-only data moves a model to another set of the cache.
+
+starts   .data
+
+pieces   modules/stg01/pier.c       beach_pier_piece_step
+pieces   modules/stg01/pier.c       beach_pier_piece_draw
+pieces   modules/stg01/big_rock.c   beach_big_rock_step
+pieces   modules/stg01/big_rock.c   beach_big_rock_draw
+pieces   modules/stg01/big_rock.c   beach_big_rock_piece_step
+pieces   modules/stg01/big_rock.c   beach_big_rock_piece_draw
+
+over     pieces   rare     1st_read
+over     pieces   walk     1st_read
+over     pieces   clip     1st_read

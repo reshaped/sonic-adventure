@@ -1,9 +1,9 @@
 """The declarations check, the last check tools/verify.py runs: each name
-make gcc's images define or take must have types that agree in every object
+make dc's images define or take must have types that agree in every object
 that declares it, as GCC's debugging information gives them.
 
 failures() checks the images of a spec as tools/ld.py linked them. GCC_ABI,
-verify.py's FLAGS, gives the -m and -fpack-struct= options make gcc compiles
+verify.py's FLAGS, gives the -m and -fpack-struct= options make dc compiles
 its C with, which the check's model of GCC's SH ABI assumes. Each C unit's
 DW_AT_producer must give each of them, and no other -m or -fpack-struct
 option. It must give none of -fno-pack-struct, -fpcc-struct-return,
@@ -11,11 +11,14 @@ option. It must give none of -fno-pack-struct, -fpcc-struct-return,
 value or how a type lays out. The check fails on a unit compiled otherwise.
 
 The check reads each input of each image's final pass, as the pass's map
-names it: each object, and each archive member the link takes. Of the
-libgcc.a of the toolchain SH_ELF names, tools/sh-elf by default, it reads
-the members' symbols but not their DWARF. GCC compiles libgcc under the
-toolchain's defaults, which DW_AT_producer doesn't record. So a declaration
-of a name the link binds to a member of libgcc.a fails.
+names it: each object, and each archive member the link takes. A link-time
+object, which tools/ld.py's link-time compile writes with no DWARF, gives
+the declarations of the object it stands for, whose DWARF tells the code
+GCC compiled it from. Of the libgcc.a of the toolchain SH_ELF names,
+tools/sh-elf by default, it reads the members' symbols but not their
+DWARF. GCC compiles libgcc under the toolchain's defaults, which
+DW_AT_producer doesn't record. So a declaration of a name the link binds
+to a member of libgcc.a fails.
 
 GCC compiles each C object with DWARF. The DWARF gives each external name
 the object defines, and each it declares that its source uses. For each, it
@@ -26,7 +29,7 @@ holds no symbol of it, so its declaration goes unchecked. So does one that
 only sizeof reads, which has no entry. GCC declares a routine it calls on
 its own at <built-in>, without the type of its calls, as for the memcpy a
 structure's copy calls. The check skips that declaration. An object
-assembled from make gcc's assembly holds no DWARF, so a name that assembly
+assembled from make dc's assembly holds no DWARF, so a name that assembly
 defines has only the types its C declarations give it. An object GCC
 compiled, as its .comment says, that defines or takes a name and holds no
 DWARF fails.
@@ -56,20 +59,21 @@ Two types of a name disagree where GCC's code through one can give another
 value than the image's code does, or fault where it doesn't. The matching
 build, make's own, compiles the game's and the SDK's sources with SHC. It
 shows that SHC's code for each object, compiled from the object's own
-declarations, gives the image's bytes. make gcc holds each image's content,
+declarations, gives the image's bytes. make dc holds each image's content,
 build/gen/IMAGE/content.c, to the image's bytes too. -fpack-struct=4 keeps
 SHC's layout under GCC. So under GCC, each such object reads or places each
 part of the name at the offset the image does. That holds however another
 object lays the name out. Neither the matching build nor the content shows
-anything of the code under gcc/ and tools/: the port's sources, SH4ZAM's,
-and the toolchain's headers where SH_ELF is tools/sh-elf.
+anything of the code under engine/ and tools/: the Dreamcast engine's
+sources, SH4ZAM's, and the toolchain's headers where SH_ELF is tools/sh-elf.
 
-A declaration is matched where its object's source lies outside gcc/ and
+A declaration is matched where its object's source lies outside engine/ and
 tools/. Its own place, and the place of each typedef, structure, union,
 enumeration and member its type reaches, must lie outside them too. Each
 such place must be a line of a file of the tree that the check can read, on
-no guard's GCC side, as csource.py's gcc_side() finds it. A type reaches
-itself, and each type its members, elements, pointees and parameters reach.
+no guard's non-matching side, as csource.py's nonmatching_side() finds it.
+A type reaches itself, and each type its members, elements, pointees and
+parameters reach.
 A structure or a union DWARF declares without its members counts for none.
 Any other declaration is unmatched, as one whose file or line DWARF doesn't
 give is. Two matched declarations disagree only where:
@@ -166,7 +170,7 @@ a type as storage: in laying out an object, or a structure or a union a
 call passes or returns.
 
 tools/dwarf.py reads each object's DWARF as GCC and GNU as write it for make
-gcc, and fails on DWARF it doesn't read. An extent DWARF gives by a
+dc, and fails on DWARF it doesn't read. An extent DWARF gives by a
 reference or an expression varies, as a variable-length array's does. C
 allows such an extent in an external name's type only behind a pointer. The
 check reads it there as an unknown extent, and spells it [*]. The check
@@ -188,7 +192,7 @@ where its DWARF holds:
 - an array without a subrange, or with a negative extent;
 - a member packed below its alignment.
 
-No object make gcc links holds a variable or a member without a type. Nor
+No object make dc links holds a variable or a member without a type. Nor
 does one hold a type without a size, an array without a subrange or with a
 negative extent, or a member packed below its alignment.
 
@@ -236,7 +240,7 @@ from pathlib import Path
 import dwarf
 import elf
 import gcclink
-from csource import blanked, gcc_side
+from csource import blanked, nonmatching_side
 from dwarf import FLAGS, REFERENCES, STRINGS, Ate, At, Form, Tag, Unread
 from tables import rows
 from tool import content, fail
@@ -262,9 +266,10 @@ RECORDS = (Tag.STRUCTURE_TYPE, Tag.UNION_TYPE)
 KINDS = {Ate.FLOAT: 'float', Ate.BOOLEAN: 'boolean', Ate.SIGNED: 'signed', Ate.SIGNED_CHAR: 'signed',
          Ate.UNSIGNED: 'unsigned', Ate.UNSIGNED_CHAR: 'unsigned'}
 # the directories of the code that neither the matching build nor the
-# content holds to an image's bytes: the port's sources under gcc/, and
-# SH4ZAM's under tools/, where the toolchain's headers lie too by default
-GCC_ONLY = ('gcc/', 'tools/')
+# content holds to an image's bytes: the Dreamcast engine's sources under
+# engine/, and SH4ZAM's under tools/, where the toolchain's headers lie too
+# by default
+UNHELD = ('engine/', 'tools/')
 # the forms of a constant the check reads
 CONSTANTS = frozenset((Form.DATA1, Form.DATA2, Form.DATA4, Form.DATA8, Form.DATA16, Form.SDATA, Form.UDATA,
                        Form.IMPLICIT_CONST))
@@ -916,7 +921,7 @@ def units(found):
 
 
 def canonical(path):
-    """path as the tree names it: relative to the tree's root, where make gcc
+    """path as the tree names it: relative to the tree's root, where make dc
     runs, with no . or .. part. A path outside the tree is absolute."""
     relative = os.path.relpath(path)
     return os.path.abspath(path) if relative == '..' or relative.startswith('../') else relative
@@ -1248,10 +1253,10 @@ class Check:
         # name; each input, by the map's name for it; and the source of each
         # unit
         self.finals, self.inputs, self.sources = {}, {}, set()
-        # each file matched_at() has read: its lines on GCC's side of a
-        # guard, counting from 1, and its count of lines, or None where it
-        # can't be read
-        self.gcc_sides = {}
+        # each file matched_at() has read: its lines on the non-matching side
+        # of a guard, counting from 1, and its count of lines, or None where
+        # it can't be read
+        self.nonmatching_sides = {}
         # agree() of each pair of shapes agrees() has compared, by the pair,
         # its direction and its rule
         self.agreements = {}
@@ -1268,32 +1273,38 @@ class Check:
                        for name, symbol in gcclink.exports(found).items()}
             declarations = None
             if path != self.runtime:
-                sources, declarations = declared(found, self.abi)
+                source = gcclink.compiled_whole(self.out, path)
+                if source is None:
+                    sources, declarations = declared(found, self.abi)
+                else:
+                    sources, declarations = declared(elf.opened(source)[0][1], self.abi)
+                    declarations = [each._replace(input=found.where) for each in declarations]
                 self.sources |= sources
             self.inputs[where] = Input(defined, declarations)
         return self.inputs[where]
 
     def matched(self, declaration):
         """Whether declaration, as Declared, is matched: its object's source
-        lies outside GCC_ONLY, and matched_at() takes its own place and each
+        lies outside UNHELD, and matched_at() takes its own place and each
         of its origins."""
-        return not declaration.source.startswith(GCC_ONLY) and all(
+        return not declaration.source.startswith(UNHELD) and all(
             self.matched_at(file, line) for file, line in ((declaration.file, declaration.line), *declaration.origins))
 
     def matched_at(self, file, line):
         """Whether line of file, as Unit.place() gives them, can hold a
         matched declaration or type. It can where file lies in the tree
-        outside GCC_ONLY, and the check can read it. line must be one of the
-        file's, on no guard's GCC side, as csource.py's gcc_side() finds it. A
-        place without a file or a line can't."""
-        if file is None or line is None or os.path.isabs(file) or file.startswith(GCC_ONLY):
+        outside UNHELD, and the check can read it. line must be one of the
+        file's, on no guard's non-matching side, as csource.py's
+        nonmatching_side() finds it. A place without a file or a line can't."""
+        if file is None or line is None or os.path.isabs(file) or file.startswith(UNHELD):
             return False
-        if file not in self.gcc_sides:
+        if file not in self.nonmatching_sides:
             lines = blanked(content(file).decode('latin-1')).split('\n') if Path(file).is_file() else None
-            self.gcc_sides[file] = None if lines is None else ({at + 1 for at in gcc_side(lines)}, len(lines))
-        if self.gcc_sides[file] is None:
+            self.nonmatching_sides[file] = None if lines is None else ({at + 1 for at in nonmatching_side(lines)},
+                                                                       len(lines))
+        if self.nonmatching_sides[file] is None:
             return False
-        guarded, count = self.gcc_sides[file]
+        guarded, count = self.nonmatching_sides[file]
         return line <= count and line not in guarded
 
     def final(self, name):

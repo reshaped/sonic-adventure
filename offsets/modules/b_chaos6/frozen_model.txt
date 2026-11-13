@@ -1,0 +1,8 @@
+datum  dat_0c9097d8  D  0x00000000  20
+datum  dat_0c9097ec  D  0x00000014  5764
+datum  dat_0c90ae70  D  0x00001698  9036
+datum  dat_0c90d1bc  D  0x000039e4  24
+datum  dat_0c90d1d4  D  0x000039fc  6288
+datum  dat_0c90ea64  D  0x0000528c  6288
+datum  dat_0c9102f4  D  0x00006b1c  40
+datum  chaos6_frozen_object  D  0x00006b44  52

@@ -1,0 +1,4 @@
+datum  palm_base_ground_strip  D  0x00000000  10
+datum  palm_base_ground_meshsets  D  0x0000000c  24
+datum  palm_base_ground_points  D  0x00000024  48
+datum  palm_base_ground_model  D  0x00000054  40

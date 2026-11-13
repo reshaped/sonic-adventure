@@ -5314,7 +5314,7 @@ static int ball_slide_along_walls(struct task_work *work,
         work->ang.y =
             (int)(atan2f(line.line.vz, line.line.vx) * ANGLE_PER_RADIAN) &
             0xffff;
-#ifdef GCC
+#ifdef NONMATCHING
         /* the turn test's distance, for the return below */
         ang = angle_distance(motion->aim.y, work->ang.y);
 #endif
@@ -5329,7 +5329,7 @@ static int ball_slide_along_walls(struct task_work *work,
      * 0x8c07a5e4). angle_distance gives the distance from motion->aim.y to
      * work->ang.y. up to 0x6000, R0 keeps that distance. past 0x6000, R0 keeps
      * work->ang.y once the half turn, 0x8000, is added */
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the value the tag names: the turn test's distance, or past 0x6000
      * the turned heading. callers test the result for 0 and for
      * PLAYER_CRASHED. the distance can be 0, PLAYER_CRASHED's 2 or another
@@ -7537,7 +7537,7 @@ void player_update_welds(struct task_work *work, struct task_motion *motion,
 
     anim = &record->anim;
     weld = anim->welds;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that a weld whose kind reads the points and normals,
      * WELD_BOTH, WELD_TO_A or WELD_TO_B, has the object_b that sets them */
     points_a = points_b = normals_a = normals_b = NULL;
@@ -7599,8 +7599,17 @@ void player_update_welds(struct task_work *work, struct task_motion *motion,
                 if (weld->object_b != NULL) {
                     points_a = weld->object_a->model->points;
                     normals_a = weld->object_a->model->normals;
+#ifdef NONMATCHING
+                    /* only WELD_BOTH and WELD_TO_B read a's inverse */
+                    if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_B) {
+                        njSetMatrix(&player_weld_inverse_a,
+                                    &player_weld_matrix_a);
+                        njInvertMatrix(&player_weld_inverse_a);
+                    }
+#else
                     njSetMatrix(&player_weld_inverse_a, &player_weld_matrix_a);
                     njInvertMatrix(&player_weld_inverse_a);
+#endif
                     if (weld->node_b == 0xff) {
                         weld->node_b =
                             tree_node_index(weld->base, weld->object_b);
@@ -7610,8 +7619,17 @@ void player_update_welds(struct task_work *work, struct task_motion *motion,
                     pose_get_matrix(weld->node_b, &player_weld_matrix_b);
                     points_b = weld->object_b->model->points;
                     normals_b = weld->object_b->model->normals;
+#ifdef NONMATCHING
+                    /* and only WELD_BOTH and WELD_TO_A read b's */
+                    if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_A) {
+                        njSetMatrix(&player_weld_inverse_b,
+                                    &player_weld_matrix_b);
+                        njInvertMatrix(&player_weld_inverse_b);
+                    }
+#else
                     njSetMatrix(&player_weld_inverse_b, &player_weld_matrix_b);
                     njInvertMatrix(&player_weld_inverse_b);
+#endif
                 } else {
                     point.x = point.y = point.z = 0.0F;
                     other.x = other.y = other.z = 0.0F;
@@ -7745,6 +7763,18 @@ void player_look_turn_head(struct player_look *look)
 {
     int ang;
 
+    /* @bug uninitialized: a look's first turn eases the head from the head_y
+     * and head_z its motion holds as the heap left them (MOV.L @(8,R14),R4 at
+     * 0x8c07f88e, MOV.L @(12,R14),R4 at 0x8c07f8c0), and the eyes from eye0_y,
+     * eye1_y and eye0_z in player_look_turn_eyes (MOV.L @(24,R14),R4 at
+     * 0x8c07f938, @(32,R14) at 0x8c07f96a, @(28,R14) at 0x8c07f99c). each look
+     * create takes the motion from heap_alloc (JSR at 0x8c0b9700 in
+     * sonic_look_create), and no LOOK_INIT arm stores a turn. angle_approach
+     * moves an angle at most 0x1000 a call for the head, and 0x800 for an
+     * eye. the heap's word may hold a low half farther than that from the
+     * aim. the first turn then moves it only that much toward the aim, or to
+     * a limit it passes. the head or eye points away from the aim for a step
+     * or more */
     ang = angle_approach(look->head_y, look->head_aim_y, 0x1000);
     /* above 0x8000, the angle turns negative. 0x8000 itself stays
      * positive */
@@ -8432,10 +8462,10 @@ static void player_drown_step(struct task *task)
             case CHARACTER_BIG:
                 voice = VOICE_DROWN_BIG;
                 break;
-#ifdef GCC
+#ifdef NONMATCHING
             default:
-                /* repairs the unset voice the tag below names: E-102, Eggman
-                 * and Tikal have no drown voice, so GCC's drown plays none */
+                /* repairs the unset voice the tag below names. E-102, Eggman
+                 * and Tikal have no drown voice, so this side plays none */
                 stream_stop_music();
                 return;
 #endif
@@ -9390,9 +9420,9 @@ void player_give_speed_up(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081f04), which the test after it makes needless; without it,
      * 27 of 30 words differ */
-#ifdef GCC
-    /* repairs the read past player_work the tag names: GCC gives player 0
-     * the speed up for any player past the last slot */
+#ifdef NONMATCHING
+    /* repairs the read past player_work the tag names. this side gives
+     * player 0 the speed up of any player past the last slot */
     if (player > PLAYER_COUNT - 1) {
 #else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
@@ -9420,19 +9450,17 @@ void player_give_magnetic_barrier(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081f8c), which the test after it makes needless; without it,
      * 43 of 49 words differ */
-#ifdef GCC
-    /* repairs the read the tag names: GCC's player past the last slot
-     * falls back to player 0, and reads neither table past its end */
+#ifdef NONMATCHING
+    /* repairs the read the tag names. this side takes player 0 for a player
+     * past the last slot. it reads neither table past its end */
     if (player > PLAYER_COUNT - 1) {
-        player = 0;
-    }
 #else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
+#endif
         player = 0;
     }
-#endif
     record = player_records[player];
     if (record != NULL) {
         if ((record->effects & PLAYER_MAGNETIC_BARRIER) == 0) {
@@ -9459,19 +9487,17 @@ void player_give_barrier(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c081fee), which the test after it makes needless; without it,
      * 43 of 49 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the read the tag names, as player_give_magnetic_barrier
      * does */
     if (player > PLAYER_COUNT - 1) {
-        player = 0;
-    }
 #else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
+#endif
         player = 0;
     }
-#endif
     record = player_records[player];
     if (record != NULL) {
         if ((record->effects & PLAYER_BARRIER) == 0) {
@@ -9498,19 +9524,17 @@ void player_give_invincibility(Uint8 player)
     /* @hack redundant: player >= 1 is the image's own test (CMP/GE at
      * 0x8c082050), which the test after it makes needless; without it,
      * 49 of 53 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the read the tag names, as player_give_magnetic_barrier
      * does */
     if (player > PLAYER_COUNT - 1) {
-        player = 0;
-    }
 #else
     /* NOLINTNEXTLINE(misc-redundant-expression) */
     if (player >= 1 && player > PLAYER_COUNT - 1 &&
         player_work[player] == NULL) {
+#endif
         player = 0;
     }
-#endif
     record = player_records[player];
     if (record != NULL && !(record->effects & PLAYER_INVINCIBLE)) {
         task = task_create(TASK_WORK, 2, invincibility_start);

@@ -1,48 +1,61 @@
 """Check each of 1ST_READ.BIN's imports against the definition in the image
-it names, and each use of one against the images its stages read.
+it names, or each use of one against the images its stages read.
 
-    python3 tools/imports.py [--add IMAGE SOURCE ...]
+    python3 tools/imports.py --definitions
+    python3 tools/imports.py --uses [--replace SRC SOURCE ...] [--add IMAGE SOURCE ...]
 
 An import is a row of config/1st_read/imports.txt, as tools/config.py's
 imports() reads it: a name 1ST_READ.BIN's sources use for a definition in
 an image that loads beside it. The matching build links the name at the
 address the image's symbols.txt gives the image's own name for it. make
-gcc's coordinated link binds the name to the definition of the image's name
+dc's coordinated link binds the name to the definition of the image's name
 instead. The two builds agree only where the image defines that name at
 that address.
 
-The first check holds each import to the definition at its address. The
+The import check has two halves, one to a command line. --definitions
+reads the objects SHC and asmsh write, so make check runs it. --uses reads
+the tables and C alone, with neither SHC nor the disc, so make dc and make
+dc-check run it.
+
+--definitions holds each import to the definition at its address. The
 placement in the image's splits.txt that holds the address names a source.
 A gen/ range passes, since the build writes its C from the disc at the
 addresses the image's tables give. Any other source's object must define
 the image's name for the import there. The object is the source's under
-build/, or its stub's under build/stub/ where the source has bodies. It is
-the one build/gcc/deps.mk makes the check wait for. Each of its sections
-starts at the source's first placement in that section, as link.py links
-it. An import fails, naming its row, where:
-- no placement holds its address;
+build/, or its stub's under build/stub/ where the source has bodies, as
+make check links it. Each of its sections starts at the source's first
+placement in that section, as link.py links it. An import fails, naming its
+row, where:
 - the object defines no global of that name, as for a static or a place
   inside another definition;
 - the object defines the name at an address, in none of its sections, as
   an .EQU does;
 - the object defines it in another section, in one its section table
   doesn't list, or at another offset.
+An import whose address no placement holds has no object to read, and
+passes here: --uses fails it.
 
-The second check holds each use of an import in 1ST_READ.BIN's C sources to
+--uses first fails each import, naming its row, whose address no placement
+in its image's splits.txt holds: no source or gen/ range of the image lies
+there, so --definitions has nothing to hold the import to.
+
+--uses then holds each use of an import in 1ST_READ.BIN's C sources to
 the stages the source gives it. Images that load at one address can each
 define a name there, as STG01 and STG02 each define their step at
 0x0c900000. A source that names the wrong one builds the same bytes under
-SHC, and links to the wrong image's definition under make gcc. Each stage a
+SHC, and links to the wrong image's definition under make dc. Each stage a
 use takes must read the import's image. A stage reads an image where
 loader_read_stage_files reads it whenever it loads the stage, as
 stages.py's stages() gives a stage's images. The check reads each C
-source for SHC without its guards' GCC sides, and for GCC without
-their shipped sides, as csource.py's code() gives them. GCC compiles the C
-in gcc/ in place of the .src file it replaces, so the check reads that C
-for GCC alone. It reads each SOURCE an --add gives 1st_read, which make gcc
-links after the image's own sources, for GCC alone too. It reads no gen/
+source for SHC without its guards' non-matching sides, and for GCC without
+their matching sides, as csource.py's code() gives them. GCC compiles the C
+a --replace gives a source, a .src file or a C source of inline assembly,
+in that source's place, so the check reads that C for the non-matching
+build alone, and a C source it replaces for SHC alone. It reads each SOURCE an --add gives
+1st_read, which make dc links after the image's own sources, for the
+non-matching build alone too. It reads no gen/
 range. The matching build's link binds each name its generated data takes
-by address, so that C may name any import at the address. make gcc's
+by address, so that C may name any import at the address. make dc's
 content names imports only in path_lists, and tools/content.py picks each
 of those by its row's stage.
 
@@ -115,20 +128,22 @@ table covers each of its rows. A use at file scope outside a table and a
 function has no place, so no row covers it. A row's evidence is a
 reviewer's reading, and the check takes it as given.
 
-The tool writes nothing, and fails with a line for each problem the checks
-find. An import's line names its row. A use's line names its source line,
+The tool writes nothing, and fails with a line for each problem its half
+finds. An import's line names its row. A use's line names its source line,
 its place, and the import's row and image. A use no row covers gets a line
 for each of its stages that doesn't read the image. That line names the
 images loader_read_stage_files reads for the stage. A use with no stage
-that no row covers gets one line. A line for a use only GCC's reading finds
-names its place as GCC's. A row of uses.txt fails where it covers no use
+that no row covers gets one line. A line for a use only the non-matching
+build's reading finds names its place as that build's. A row of uses.txt
+fails where it covers no use
 its stages don't hold. A row for TABLE[N] fails where a row for TABLE gives
 the same source and image. The tool fails at once, naming the file, on:
 - a file of config/, or src/system/loader.c, that tools/config.py or
   tools/stages.py refuses;
 - a file it can't read;
-- a source with neither object built;
-- an object whose records, sections or definitions don't parse;
+- under --definitions, a source whose object isn't built;
+- under --definitions, an object whose records, sections or definitions
+  don't parse;
 - a bracket at file scope that nothing closes, in a source or a file it
   includes, with its line;
 - a macro of a source or a file it includes whose ## can make an import's
@@ -161,23 +176,39 @@ INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*[<"]([^>"]+)[>"]', re.M)
 SPECIFIERS = KEYWORDS - {'sizeof'}
 
 
-def definition_problems():
-    """The first check's lines, one for each import it fails, in the table's order."""
-    lines, configs, objects = [], {}, {}
+def placements():
+    """Each import, in the table's order, as (name, symbol, address, where,
+    config, placement). config is its image's Config, and placement the
+    (source, section) of the placement in config's splits.txt that holds
+    address, or None where none does."""
+    configs = {}
     for name, image, symbol, address, where in imports():
         if image not in configs:
             configs[image] = Config(image)
         config = configs[image]
-        source, section = next(((source, section) for source, section, start, end in config.placements
-                                if start <= address < end), (None, None))
-        if source is None:
-            lines.append(f'{where}: {name}: no row of {config.splits} holds {hexa(address)}')
+        yield name, symbol, address, where, config, next(
+            ((source, section) for source, section, start, end in config.placements if start <= address < end), None)
+
+
+def placement_problems():
+    """--uses' lines for the imports, one for each whose address no placement
+    holds, in the table's order."""
+    return [f'{where}: {name}: no row of {config.splits} holds {hexa(address)}'
+            for name, _, address, where, config, placement in placements() if placement is None]
+
+
+def definition_problems():
+    """--definitions' lines, one for each import it fails, in the table's
+    order. It reads no object for an import that no placement holds, which
+    placement_problems() fails, or that a gen/ range holds."""
+    lines, objects = [], {}
+    for name, symbol, address, where, config, placement in placements():
+        if placement is None or GENERATED.fullmatch(placement[0]):
             continue
-        if GENERATED.fullmatch(source):
-            continue
+        source, section = placement
         obj = Path('build/stub' if has_bodies(source) else 'build', source).with_suffix('.obj')
         if not obj.exists():
-            fail(f'{source}: no {obj}, so build it first')
+            fail(f'{source}: no {obj}, and make check builds it')
         if obj not in objects:
             objects[obj] = list(section_table(obj)), definitions(obj)
         sections, defined = objects[obj]
@@ -518,9 +549,10 @@ def uses_in(source, names, numbers, compiler):
     return result + [(word, line, None, None, None) for word, line in mentions(rest, names)]
 
 
-def use_problems(added=()):
-    """The second check's lines. added is the C in gcc/ that make gcc links
-    into 1ST_READ.BIN after its sources. A use the check fails gets a line
+def use_problems(added=(), replaced=None):
+    """--uses' lines for the uses. added is the C that make dc links into
+    1ST_READ.BIN after its sources, and replaced the C it compiles in place
+    of each source, by the source. A use the check fails gets a line
     for each of its stages that doesn't read the import's image, or one
     where it has no stage. A file a source includes gets one for each macro
     or use in it that names an import. uses.txt gets one for each row that
@@ -531,11 +563,12 @@ def use_problems(added=()):
     taken = {name: (image, where) for name, image, _, _, where in imports()}
     listed = {(source, place, row, image): where for source, place, row, image, _, where in uses()}
     sources = [source for source in Config('1st_read').sources() if not GENERATED.fullmatch(source)]
-    # each C source, which both compilers compile, then the C in gcc/ that GCC compiles in place of a .src file or
-    # adds
-    compiled = [(source, (SHC, GCC)) for source in sources if source.endswith('.c')] + [
-        (str(Path('gcc', source).with_suffix('.c')), (GCC,)) for source in sources
-        if source.endswith('.src') and Path('gcc', source).with_suffix('.c').is_file()] + [
+    # each C source, which both compilers compile, or SHC alone where GCC compiles other C in its place, then the C
+    # that GCC compiles in place of a source or adds
+    replaced = replaced or {}
+    compiled = [(source, (SHC,) if source in replaced else (SHC, GCC)) for source in sources
+                if source.endswith('.c')] + [
+        (replaced[source], (GCC,)) for source in sources if source in replaced] + [
         (source, (GCC,)) for source in added]
     # the first source that includes each file, a source including itself
     texts, includer = {}, {}
@@ -556,9 +589,11 @@ def use_problems(added=()):
     for source, compilers in compiled:
         found = {compiler: uses_in(source, taken, numbers, compiler) for compiler in compilers}
         shipped = found.get(SHC, [])
-        # SHC's uses, then each of GCC's that SHC's reading doesn't find, which the line names as GCC's
-        for (word, line, place, row, held), gcc in [*((use, '') for use in shipped),
-                                                    *((use, "GCC's ") for use in found[GCC] if use not in shipped)]:
+        # SHC's uses, then each of GCC's that SHC's reading doesn't find, which the line names as the non-matching
+        # build's
+        for (word, line, place, row, held), reading in [
+                *((use, '') for use in shipped),
+                *((use, "the non-matching build's ") for use in found.get(GCC, []) if use not in shipped)]:
             image, where = taken[word]
             read = [loads.get(number, (f'stage {number}', [])) for number in sorted(held or ())]
             missing = [(label, loaded) for label, loaded in read if image not in loaded]
@@ -570,12 +605,12 @@ def use_problems(added=()):
                 continue
             if held is None:
                 at = place if row is None else f'{place}[{row}]'
-                lines.append(f'{source}:{line}: {gcc}{at or "file scope"} names {word}, which {where} takes from '
+                lines.append(f'{source}:{line}: {reading}{at or "file scope"} names {word}, which {where} takes from '
                              f'{image}, for no stage this source gives it, and {USES} gives it no row for {image}')
                 continue
             for label, loaded in missing:
                 at = f'{place}[{row}], {label}\'s row,' if row is not None else f'{place}\'s code for {label}'
-                lines.append(f'{source}:{line}: {gcc}{at} names {word}, which {where} takes from {image}, and '
+                lines.append(f'{source}:{line}: {reading}{at} names {word}, which {where} takes from {image}, and '
                              f'loader_read_stage_files reads {", ".join(loaded) or "no image"} for {label}')
     for (source, place, row, image), where in listed.items():
         at = place if row is None else f'{place}[{row}]'
@@ -589,11 +624,28 @@ def use_problems(added=()):
 
 def main(argv):
     parser = argparse.ArgumentParser(prog='imports', description=__doc__.split('\n\n')[0])
+    check = parser.add_mutually_exclusive_group(required=True)
+    check.add_argument('--definitions', action='store_true',
+                       help='hold each import to the definition at its address, in the object SHC or asmsh writes '
+                            'for the source placed there')
+    check.add_argument('--uses', action='store_true',
+                       help="fail each import whose address no placement holds, and hold each use of an import in "
+                            "1ST_READ.BIN's C to the images its stages read")
+    parser.add_argument('--replace', metavar=('SRC', 'SOURCE'), nargs=2, action='append', default=[],
+                        help='with --uses, a C source that compiles to the object of SRC, a .src file or a C source '
+                             'of inline assembly, in its place, which the check reads for the non-matching build '
+                             'alone; each --replace gives one')
     parser.add_argument('--add', metavar=('IMAGE', 'SOURCE'), nargs=2, action='append', default=[],
-                        help="a C source in gcc/ that IMAGE links after its own, which the check reads for GCC alone "
-                             "where IMAGE is 1st_read; each --add gives one")
+                        help="with --uses, a C source that IMAGE links after its own, which the check reads for the "
+                             "non-matching build alone where IMAGE is 1st_read; each --add gives one")
     args = parser.parse_args(argv)
-    lines = definition_problems() + use_problems([source for image, source in args.add if image == '1st_read'])
+    if args.definitions and (args.add or args.replace):
+        parser.error('--add and --replace give the non-matching build a source, which --uses alone reads')
+    if args.definitions:
+        lines = definition_problems()
+    else:
+        lines = placement_problems() + use_problems([source for image, source in args.add if image == '1st_read'],
+                                                    dict(args.replace))
     if lines:
         fail(*lines)
 

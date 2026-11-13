@@ -6,7 +6,7 @@ imports.txt and their rules, and TOOLCHAIN.md#generated-ranges data.txt's.
 Config holds an image's tables to what images.py fixes. A malformed row
 fails, naming its file and line. imports() reads the imports, and
 handoffs() the reason each hand-off among them gives. order() gives an
-image's sources in link order, and gcc_object() names the object make gcc
+image's sources in link order, and gcc_object() names the object make dc
 compiles for a placement.
 """
 
@@ -611,10 +611,10 @@ def order(config):
 
 
 def gcc_object(source, image):
-    """The object make gcc compiles for source, one of image's placements,
+    """The object make dc compiles for source, one of image's placements,
     as a Path. A gen/ range's is the object of image's content,
-    build/gcc/gen/IMAGE/content.o. Any other source's lies at the source's
-    path under build/gcc/, with .o for its suffix."""
+    build/dc/gen/IMAGE/content.o. Any other source's lies at the source's
+    path under build/dc/, with .o for its suffix."""
     if source.startswith('gen/'):
-        return Path('build/gcc/gen', image, 'content.o')
-    return Path('build/gcc', source).with_suffix('.o')
+        return Path('build/dc/gen', image, 'content.o')
+    return Path('build/dc', source).with_suffix('.o')

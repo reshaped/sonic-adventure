@@ -10,7 +10,7 @@
 #include "camera/camera.h"
 #include "draw/draw.h"
 #include "stage/stage.h"
-#ifdef GCC
+#ifdef NONMATCHING
 #include "system/frame.h"
 #endif
 #include "system/task.h"
@@ -246,11 +246,11 @@ void chaos6_sky_step(struct task *task)
         work->mode = SKY_RUN;
         break;
     case SKY_RUN:
-#ifdef GCC
-        /* the second picture's pass draws the sky by chaos6_sky_draw. step
-         * 1 of a split frame draws none, so that the picture adds the sheet
+#ifdef NONMATCHING
+        /* the second picture's pass draws the sky by chaos6_sky_draw. a split
+         * frame's later steps draw none, so that the picture adds the sheet
          * once */
-        if (frame_split && frame_step == 1) {
+        if (frame_split && frame_step != 0) {
             break;
         }
 #endif

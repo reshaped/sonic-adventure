@@ -461,9 +461,9 @@ static struct collision_shape big_bubble_shape = {
 /* @hack type: four Floats, not an NJS_ARGB, so that SHC pools each channel's
  * own address for its store (FMOV.S FR4 at 0x8c06d08c, 0x8c06d094 and
  * 0x8c06d098); as one NJS_ARGB, count unmeasured */
-#ifdef GCC
-/* keeps bubble_ripple_draw's read past bubble_ripple_alpha: GCC's four are
- * the members of one NJS_ARGB */
+#ifdef NONMATCHING
+/* keeps bubble_ripple_draw's read past bubble_ripple_alpha: this side's four
+ * are the members of one NJS_ARGB */
 static NJS_ARGB bubble_ripple_color = {0.0F, 0.0F, 0.0F, 0.0F};
 #define bubble_ripple_alpha bubble_ripple_color.a
 #define bubble_ripple_red bubble_ripple_color.r

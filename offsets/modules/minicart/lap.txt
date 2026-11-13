@@ -1,0 +1,4 @@
+datum  lap_label_frame  C  0x00000000  20
+datum  lap_digit_frames  C  0x00000014  60
+datum  lap_label  C  0x00000050  32
+datum  lap_digit  C  0x00000070  32

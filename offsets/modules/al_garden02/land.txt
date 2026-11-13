@@ -1,0 +1,3 @@
+datum  mystic_ruins_garden_land_pvm  C  0x00000000  9
+datum  mystic_ruins_garden_land_entries  D  0x00000000  1476
+datum  mystic_ruins_garden_land  D  0x000005c4  36

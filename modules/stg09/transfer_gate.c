@@ -209,7 +209,7 @@ static void transfer_gate_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct transfer_gate_kind *kind = VARS(work)->kind;
-#ifdef GCC
+#ifdef NONMATCHING
     /* uv_scroll_move points the meshsets' vertuv here, and model.c's
      * clipped strips read each u and v pair as one longword, which faults
      * on an address off 4. GCC aligns this array only to its Sint16s */

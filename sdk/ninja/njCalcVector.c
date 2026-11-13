@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* vd = (vs, 0) times m, made unit length, to FSRRA's precision, while
  * _nj_matrix_flag_ is set. a null m selects the current matrix, in XMTRX. vd
  * may be vs */

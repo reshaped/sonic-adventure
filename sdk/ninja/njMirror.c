@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set m to a reflection in pl followed by m. pl's normal must be unit length,
  * and its z above 0, or 0 with y not 0, unless the normal is (0, 0, -1). a
  * null m selects the current matrix, in XMTRX

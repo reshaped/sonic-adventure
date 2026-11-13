@@ -114,9 +114,9 @@ NJS_ACTION chaos2_punch_10_action = {
  * chaos_animate_surface writes entry 8's texaddr every step, onto
  * chaos2_effect_textures[2]'s filename (0x0c962584), which nothing reads once
  * the textures load, and the puddle's draw reads it back */
-#ifdef GCC
-/* repairs the write the tag names: GCC's array runs to entry 8, past the six
- * chaos2_texlist loads */
+#ifdef NONMATCHING
+/* repairs the write the tag names: this side's array runs to entry 8, past the
+ * six chaos2_texlist loads */
 static NJS_TEXNAME chaos2_textures[9] = {
     {TEXT_1, 0, 0}, {TEXT_2, 0, 0}, {TEXT_3, 0, 0},
     {TEXT_4, 0, 0}, {TEXT_5, 0, 0}, {TEXT_6, 0, 0},

@@ -1,0 +1,11 @@
+datum  eggman_voices  C  0x00000000  20
+datum  hint_pages  C  0x00000014  32
+datum  hint_voices  C  0x00000034  8
+datum  falls  D  0x00000000  1
+datum  hint_delay  D  0x00000004  4
+datum  hint_legs_shown  D  0x00000008  4
+datum  hint_cockpit_shown  D  0x0000000c  4
+datum  smoke_time  B  0x00000000  1
+datum  smoke_playing  B  0x00000004  4
+text  TEXT_1  C  0x0000003c  35
+text  TEXT_2  C  0x00000060  47

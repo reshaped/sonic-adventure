@@ -51,8 +51,9 @@ void inset_clip(enum inset_clipping clip)
     Float full_bottom;
     int i;
 
-    /* full and inset point at this file's screens, so the test never holds.
-     * the image tests both all the same (0x8c09da12, 0x8c09da16) */
+    /* @hack redundant: the test of full and inset for null, which never
+     * holds: both point at this file's screens. it keeps the image's tests
+     * (0x8c09da12, 0x8c09da16); without it, 251 of 260 words differ */
     if (full == NULL && inset == NULL) {
         return;
     }

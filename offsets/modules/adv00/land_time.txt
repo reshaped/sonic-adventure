@@ -1,0 +1,10 @@
+datum  office_time_textures  D  0x00000000  320
+datum  office_time_table  D  0x00000140  8
+datum  casino_time_textures  D  0x00000148  20
+datum  casino_time_table  D  0x0000015c  8
+datum  station_time_textures  D  0x00000164  100
+datum  station_time_table  D  0x000001c8  8
+datum  hotel_time_textures  D  0x000001d0  40
+datum  hotel_time_table  D  0x000001f8  8
+datum  office_night_lights  D  0x00000200  552
+datum  station_night_lights  D  0x00000428  472

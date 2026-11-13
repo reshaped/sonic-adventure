@@ -1,0 +1,2 @@
+datum  ev0062_ver2_wing_motion  D  0x00000000  12
+datum  ev0062_ver2_wing_action  D  0x0000000c  8

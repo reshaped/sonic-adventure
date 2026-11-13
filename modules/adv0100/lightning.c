@@ -248,6 +248,14 @@ static void lightning_run(struct task *task)
  * before */
 static void lightning_draw(struct task *task)
 {
+#ifdef NONMATCHING
+    /* the second picture holds step 1's bolts and flashes, which Ninja
+     * drew, so the pass draws none. step 1 keeps them, not the pass, since
+     * their flicker takes rand() */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     njClipZ(DRAW_NEAR_CLIP, DRAW_FAR_CLIP);
     lightning_draw_segments(task);
     lightning_draw_flashes(task);
@@ -307,7 +315,7 @@ static void lightning_strike(struct task *task)
              count--) {
             pos.x = start.x + (RANDOM(-1.0F, 1.0F) * FLASH_SPREAD);
             pos.z = start.z + (RANDOM(-1.0F, 1.0F) * FLASH_SPREAD);
-#ifdef GCC
+#ifdef NONMATCHING
             /* C leaves the arguments' order open, so the life's rand() is
              * drawn before the call. SHC draws it first, then the delay's
              * (JSR at 0x0c9297ee for the life and 0x0c929804 for the delay) */

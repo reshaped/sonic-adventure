@@ -74,8 +74,8 @@ Sint32 njLoadFileTexture(NJS_TEXLIST *texlist, Uint32 n)
             previous = &texlist->textures[n - 1];
             previous_handle = &previous->texaddr;
             bank = (texname->texaddr & NJD_TEXBANK_MASK) >> NJD_TEXBANK_SHIFT;
-#ifdef GCC
-            /* repairs the unset globalIndex the tag below names: GCC's is
+#ifdef NONMATCHING
+            /* repairs the unset globalIndex the tag below names. this side's is
              * the previous name's record's, whose texture this one
              * continues */
             globalIndex = RECORD(previous_handle)->globalIndex;
@@ -161,9 +161,9 @@ Sint32 njLoadFileTexture(NJS_TEXLIST *texlist, Uint32 n)
                 /* @bug uninitialized: the record takes globalIndex before
                  * njGetFileGlobalIndex sets it, whatever its frame word at
                  * sp+20 holds, at 0x8c669290 in 1ST_READ.BIN */
-#ifdef GCC
-                /* repairs the unset index the tag names: GCC's record takes
-                 * (Uint32)-1, as below for a file with no global index */
+#ifdef NONMATCHING
+                /* repairs the unset index the tag names. this side's record
+                 * takes (Uint32)-1, as below for a file with no global index */
                 njEntryTexMemList(handle, &error_info, (Uint32)-1, 0, -1);
 #else
                 njEntryTexMemList(handle, &error_info, globalIndex, 0, -1);
@@ -482,8 +482,8 @@ Sint32 njLoadFileTexture(NJS_TEXLIST *texlist, Uint32 n)
         RECORD(handle)->dummy = NJD_TEXERR_EXTND;
         RECORD(handle)->count = 0;
         _nj_texerr_.n = n;
-#ifdef GCC
-        /* repairs the read of globalIndex, which no path here sets: GCC's
+#ifdef NONMATCHING
+        /* repairs the read of globalIndex, which no path here sets. this side's
          * error takes -1, as the record does */
         _nj_texerr_.globalIndex = (Uint32)-1;
 #else
@@ -527,8 +527,8 @@ Sint32 njLoadMemoryTexture(NJS_TEXLIST *texlist, Uint32 n)
             previous = &texlist->textures[n - 1];
             previous_handle = &previous->texaddr;
             bank = (texname->texaddr & NJD_TEXBANK_MASK) >> NJD_TEXBANK_SHIFT;
-#ifdef GCC
-            /* repairs the unset globalIndex the tag below names: GCC's is
+#ifdef NONMATCHING
+            /* repairs the unset globalIndex the tag below names. this side's is
              * the previous name's record's, whose texture this one
              * continues */
             globalIndex = RECORD(previous_handle)->globalIndex;
@@ -614,8 +614,8 @@ Sint32 njLoadMemoryTexture(NJS_TEXLIST *texlist, Uint32 n)
              * at 0x8c669f6a. case UNLISTED's new record copies its info from
              * offset's last value as an address, at 0x8c66a41e, 0x8c66a47e
              * and 0x8c66a4ce, in 1ST_READ.BIN */
-#ifdef GCC
-            /* repairs the unset info, data and offset the tag names: GCC
+#ifdef NONMATCHING
+            /* repairs the unset info, data and offset the tag names. this side
              * reads the texture's own chunks, as the NJD_TEXATTR_GLOBALINDEX
              * path does */
             info = (NJS_TEXINFO *)texname->filename;

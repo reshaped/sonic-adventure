@@ -1,0 +1,9 @@
+datum  ev0042_frog  D  0x00000000  4
+datum  ev0042_emerald  D  0x00000004  4
+datum  ev0042_textures  D  0x00000008  24
+text  TEXT_1  C  0x00000010  29
+text  TEXT_2  C  0x00000034  13
+text  TEXT_3  C  0x0000004c  18
+text  TEXT_4  C  0x0000000c  3
+text  TEXT_5  C  0x00000030  2
+text  TEXT_6  C  0x00000044  6

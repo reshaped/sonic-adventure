@@ -1,0 +1,3 @@
+datum  icecap_emerald_glow_texlist  D  0x00000000  8
+datum  icecap_emerald_glow_texanims  D  0x00000008  60
+datum  icecap_emerald_glow_sprite  B  0x00000000  32

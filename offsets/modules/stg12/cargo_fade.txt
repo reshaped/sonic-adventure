@@ -1,0 +1,2 @@
+datum  cargo_fade_frame  D  0x00000000  20
+datum  cargo_fade_sprite  D  0x00000014  32

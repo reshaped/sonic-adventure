@@ -5,6 +5,66 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#ifdef NONMATCHING
+/* Ninja's screen and y aspect, under the names sa1/line3d.h's send reads */
+extern NJS_SCREEN sa1_live_ninja_screen __asm__("__nj_screen_");
+extern Float sa1_live_aspect_y __asm__("__nj_scr_aspect_y_");
+
+#include "sa1/line3d.h"
+
+/* draw n lines from the points of p, as the C under the #else does. this
+ * side is SA1's layer for Ninja's 3D lines on the Dreamcast. sa1/line3d.h's
+ * send projects x by the picture's aspect, which 16:9 sets in place of
+ * Ninja's (dreamcast.h) */
+void njDrawLine3D(NJS_POINT3COL *p, Int n, Uint32 attr)
+{
+    struct sa1_live_line_3d state = {attr};
+    NJS_POINT3COL view;
+    NJS_POINT3COL clip;
+    NJS_POINT3 view_p[2];
+    NJS_POINT3 clip_p[2];
+    NJS_COLOR view_col[2];
+    NJS_COLOR view_tex[2];
+    NJS_COLOR clip_col[2];
+    NJS_COLOR clip_tex[2];
+    sa_draw_live draw = {&clip, &state, SA_SA1_LINE_3D, 0};
+    Int step = (attr & NJD_DRAW_MASK) ? 1 : 2;
+    Int first;
+    Int second;
+    Int i;
+
+    view.p = view_p;
+    view.col = view_col;
+    view.tex = view_tex;
+    clip.p = clip_p;
+    clip.col = clip_col;
+    clip.tex = clip_tex;
+    njGetkmPointer();
+    START_VERTEX(sa1_live_sq, attr);
+    for (i = 0; i < n; i++) {
+        first = (attr & NJD_DRAW_FAN) ? 0 : i * step;
+        second = (i * step) + 1;
+        njCalcPoint(NULL, &p->p[first], &view.p[0]);
+        njCalcPoint(NULL, &p->p[second], &view.p[1]);
+        if (!njFarClipping(&view, 2)) {
+            continue;
+        }
+        if (attr & NJD_USE_TEXTURE) {
+            view.tex[0].tex.u = p->tex[first].tex.u;
+            view.tex[0].tex.v = p->tex[first].tex.v;
+            view.tex[1].tex.u = p->tex[second].tex.u;
+            view.tex[1].tex.v = p->tex[second].tex.v;
+        }
+        view.col[0].color = p->col[first].color;
+        view.col[1].color = p->col[second].color;
+        if (njNearClippingLine(&view, &clip, attr)) {
+            sa_present_live(SA_DC_ENGINE, &draw);
+        }
+    }
+    njEndVertex(sa1_live_sq);
+    njSetkmPointer();
+}
+#else
 /* step sq back a word and store value there */
 #define SQ_PUT(type, value) (*(type *)--sq = (value))
 
@@ -49,12 +109,7 @@ void njDrawLine3D(NJS_POINT3COL *p, Int n, Uint32 attr)
     NJS_COLOR clip_tex[2];
 
     screen = &_nj_screen_;
-#ifdef GCC
-    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
-    scale_x = screen->dist * port_draw_aspect;
-#else
     scale_x = screen->dist * _nj_scr_aspect_x_;
-#endif
     scale_y = screen->dist * _nj_scr_aspect_y_;
     view.p = view_p;
     view.col = view_col;
@@ -275,3 +330,4 @@ void njDrawLine3D(NJS_POINT3COL *p, Int n, Uint32 attr)
     njEndVertex(sq);
     njSetkmPointer();
 }
+#endif

@@ -1,0 +1,12 @@
+datum  big_actions  D  0x00000000  1616
+datum  big_shapes  D  0x00000650  104
+datum  big_look_nodes  D  0x000006b8  12
+datum  big_head_models  D  0x000006c4  8
+datum  big_weld_indices  D  0x000006cc  96
+datum  big_welds  D  0x0000072c  360
+datum  big_float_rate  D  0x00000894  4
+datum  big_float_max  D  0x00000898  4
+datum  big_lure  B  0x00000000  4
+datum  big_catch  B  0x00000004  4
+datum  fishing_fish_count  B  0x00000008  4
+datum  fishing_shelter_ready  B  0x0000000c  4

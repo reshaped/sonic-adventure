@@ -455,6 +455,45 @@ static void spina_draw_spinning(struct task_work *work,
     record->phase += 0x3000;
 }
 
+#ifdef NONMATCHING
+/* draw SPINA C's sparks as spina_c_fly does: 16 forks of three lines from
+ * 5 above work's position */
+static void spina_draw_sparks(struct task_work *work)
+{
+    NJS_POINT3 from;
+    NJS_POINT3 to;
+    Angle pitch;
+    Angle yaw;
+    Float length;
+    int i;
+    int j;
+
+    for (i = 0; i < 16; i++) {
+        from = work->pos;
+        from.y += 5.0F;
+        pitch =
+            (Angle)((0.5F - (rand() * RAND_SCALE)) * 180.0F * ANGLE_PER_DEGREE);
+        yaw = (Angle)(rand() * RAND_SCALE * 360.0F * ANGLE_PER_DEGREE);
+        length = ((rand() * RAND_SCALE) + 0.5F) * 10.0F;
+        for (j = 0; j < 3; j++) {
+            if (j != 0) {
+                pitch += (Angle)((0.5F - (rand() * RAND_SCALE)) * 120.0F *
+                                 ANGLE_PER_DEGREE);
+                yaw += (Angle)((0.5F - (rand() * RAND_SCALE)) * 80.0F *
+                               ANGLE_PER_DEGREE);
+                length =
+                    ((rand() * RAND_SCALE) + 1.0F) * (j == 1 ? 4.0F : 2.0F);
+            }
+            to.x = from.x + (length * njCos(pitch) * njCos(yaw));
+            to.y = from.y + (length * njSin(pitch));
+            to.z = from.z + (length * njCos(pitch) * njSin(yaw));
+            draw_line_v(&from, &to);
+            from = to;
+        }
+    }
+}
+#endif
+
 /* the spina as it stands, which task_draw_all draws while the game is
  * paused. it advances nothing */
 static void spina_draw(struct task *task)
@@ -478,6 +517,15 @@ static void spina_draw(struct task *task)
     TURN(njRotateY, record->phase);
     draw_model(&spina_blade_model);
     njPopMatrix(1);
+#ifdef NONMATCHING
+    /* spina_c_fly draws the sparks on step 0 alone, so the second picture's
+     * pass draws them here. the pass keeps rand()'s state */
+    if (frame_redrawing && task->step == spina_c_step &&
+        work->mode == SPINA_FLY && work->submode == SPINA_SPARKING &&
+        draw_in_view(work->pos.x, work->pos.y, work->pos.z, 30.0F)) {
+        spina_draw_sparks(work);
+    }
+#endif
 }
 
 void spina_keep_low(struct task_work *work)

@@ -24,7 +24,7 @@ void sky_deck_wind_gust_set(struct task *task);
 void sky_deck_wind_gust_remove(struct task *task);
 /* how hard the wind blows at x and z, from 0 to 256 */
 Float sky_deck_wind_strength(Float x, Float z);
-#ifdef GCC
+#ifdef NONMATCHING
 /* zero the wind's bands and gusts, so that no band lives and no gust has an
  * owner */
 void sky_deck_wind_clear(void);

@@ -1,0 +1,15 @@
+datum  event_frog_script_0  D  0x00000000  4
+datum  event_frog_script_1  D  0x00000004  18
+datum  event_frog_script_2  D  0x00000016  6
+datum  event_frog_script_3  D  0x0000001c  6
+datum  event_frog_script_4  D  0x00000022  6
+datum  event_frog_script_5  D  0x00000028  6
+datum  event_frog_script_6  D  0x0000002e  4
+datum  event_frog_scripts  D  0x00000034  28
+datum  event_frog_shape_points  D  0x00000050  28
+datum  event_frog_made  D  0x0000006c  28
+datum  event_frog_models  D  0x00000088  28
+datum  event_frog_pairs  D  0x000000a4  16
+datum  event_frog_welds  D  0x000000b4  16
+datum  event_frog_collision  D  0x000000c4  52
+datum  event_frog  D  0x000000f8  4

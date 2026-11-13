@@ -1,0 +1,2 @@
+datum  shelter_elevator_shape  D  0x00000000  52
+datum  shelter_elevator_shafts  D  0x00000034  72

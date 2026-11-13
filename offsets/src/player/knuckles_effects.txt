@@ -1,0 +1,16 @@
+datum  flash_texanims  D  0x00000000  120
+datum  flash_sprite  D  0x00000078  32
+datum  glow_texanim  D  0x00000098  20
+datum  puff_sprite  D  0x000000ac  32
+datum  wave_sprite  D  0x000000cc  32
+datum  mote_sprite  D  0x000000ec  32
+datum  fleck_texanim  D  0x0000010c  20
+datum  dirt_sprite  D  0x00000120  32
+datum  rock_sprite  D  0x00000140  32
+datum  radar_texanims  D  0x00000160  200
+datum  radar_sprite  D  0x00000228  32
+datum  wave_shapes  D  0x00000248  52
+datum  trail_strip  D  0x0000027c  16
+datum  trail  B  0x00000000  1540
+datum  trail_points  B  0x00000604  216
+datum  trail_colors  B  0x000006dc  72

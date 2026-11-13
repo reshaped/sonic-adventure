@@ -143,6 +143,15 @@ static void tp_ring_draw(struct task *task)
     struct task_work *work = task->work;
     Angle ang;
 
+#ifdef NONMATCHING
+    /* a taken ring's sparkle draws on step 0, so the second picture's pass
+     * calls this. the pass draws the ring only where the last step would on
+     * step 0. so it draws a waiting ring, and one the last step took */
+    if (frame_redrawing && work->mode != RING_WAIT &&
+        (work->mode != RING_SPARKLE || RING(work)->spin != 0.0F)) {
+        return;
+    }
+#endif
     if (frame_step != 0) {
         return;
     }

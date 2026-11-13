@@ -1,0 +1,1 @@
+datum  e105_ring_motion  D  0x00000000  12

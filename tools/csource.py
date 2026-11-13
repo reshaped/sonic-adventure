@@ -29,14 +29,14 @@ in whatever form its readers ask for it. A C reads its comments, literals
 and directives at once, and its other tokens and its blocks when asked.
 
 The rest reads C through parse(): a file's text with its comments blank,
-and for one compiler, the lines of each GCC guard's side it doesn't compile
+and for one compiler, the lines of each guard's side it doesn't compile
 blank too; its tokens, each with its line; its #define and #undef
 directives; the text with each comment one blank; the matches of a scan
 that start outside a string or character constant; and the files it
 includes, transitively. In its text with its literals blank too, as
-blanked() gives it: each guard's two sides, the lines make gcc's GCC
+blanked() gives it: each guard's two sides, the lines make dc's GCC
 compile takes, each function's braces, and each inline body and #pragma
-asm block. Only included() follows an #include.
+asm block. Only included() and includes() follow an #include.
 """
 
 import atexit
@@ -106,10 +106,13 @@ KEYWORDS = {'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do
 # after its first
 OPENING = ('if', 'ifdef', 'ifndef')
 LATER = ('elifdef', 'elifndef', 'elif', 'else')
-# whether make gcc's GCC compile defines each macro compiled() reads an
-# #ifdef or #ifndef of: GCC, which its -DGCC defines, and __clang__, which
-# only clang defines
-DEFINED = {'GCC': True, '__clang__': False}
+# whether make dc's GCC compile defines each macro compiled() reads an
+# #ifdef or #ifndef of, the two switches a guard tests (PORTS.md#switches):
+# config/gcc.mk defines both
+DEFINED = {'NONMATCHING': True, 'DREAMCAST': True}
+# the one whose guards part the non-matching side from the matching side.
+# SHC's builds define DREAMCAST too, so its guards part neither
+SIDES = ('NONMATCHING',)
 # a header a file includes, and the directories an include's header is
 # found in, after its own file's for a quoted include. They are the tree's
 # directories the routes name to -I, in the Makefile's GAME_INC order, then
@@ -788,19 +791,20 @@ def code(path, compiler=None):
     line ends and line splices. Each token keeps its line and column, and
     each string and character constant stays as written.
 
-    A GCC guard is a conditional on GCC, #ifdef GCC or #ifndef GCC. Its GCC
-    side is the groups GCC can compile, and its shipped side those SHC can.
+    A guard here is an #ifdef NONMATCHING, whose first group is on the
+    non-matching side and whose #else is on the matching side. SHC compiles
+    the matching side, and GCC, under make dc, the non-matching side.
     Without a compiler, both sides stay. For compiler SHC, each line on a
-    GCC side is empty, and for GCC each line on a shipped side. Every
-    conditional directive keeps its lines. No other conditional is
-    resolved: its groups stay unless they lie on an emptied side. A
-    compiler other than SHC, GCC or None raises KeyError."""
+    non-matching side is empty, and for GCC each line on a matching side.
+    Every conditional directive keeps its lines. No other conditional is
+    resolved: its groups stay unless they lie on an emptied side. A compiler
+    other than SHC, GCC or None raises KeyError."""
     text = content(path).decode(errors='replace')
     kept = blank(text, ('comment',))
     if compiler is None:
         return kept
     lines = kept.split('\n')
-    emptied = {SHC: gcc_side, GCC: shipped_side}[compiler](lines)
+    emptied = {SHC: nonmatching_side, GCC: matching_side}[compiler](lines)
     for i in emptied:
         lines[i] = ''
     return note('\n'.join(lines), text, ('comment',), frozenset(emptied))
@@ -897,18 +901,25 @@ def included(path, texts, include=INCLUDED):
     if key in texts:
         return
     texts[key] = content(path).decode(errors='replace')
-    text = blank(texts[key], ('comment',))
-    for each in parse(texts[key]).directives:
-        match = include.match(text, text.rfind('\n', 0, each.start) + 1) if each.name == 'include' else None
+    for found in includes(path, texts[key], include):
+        included(found, texts, include)
+
+
+def includes(path, text, include=INCLUDED):
+    """The files that text, the file at path's, includes, in its directives' order: for each #include whose line
+    include matches, the file that included()'s search finds, where it finds one."""
+    kept = blank(text, ('comment',))
+    for each in parse(text).directives:
+        match = include.match(kept, kept.rfind('\n', 0, each.start) + 1) if each.name == 'include' else None
         if match is None:
             continue
         # the character before the name opens the include, quoted or angle
-        quoted = text[match.start(1) - 1] == '"'
+        quoted = kept[match.start(1) - 1] == '"'
         searched = ([path.parent] if quoted else []) + [Path(root) for root in INCLUDE_ROOTS]
-        found = next((directory / match.group(1) for directory in searched
-                      if (directory / match.group(1)).is_file()), None)
-        if found is not None:
-            included(found, texts, include)
+        for directory in searched:
+            if (directory / match.group(1)).is_file():
+                yield directory / match.group(1)
+                break
 
 
 def spans(lines):
@@ -963,12 +974,12 @@ def conditionals(lines):
     return found
 
 
-def side(lines, directive):
-    """gcc_side() where directive is 'ifdef', and shipped_side() where it is 'ifndef'."""
-    other = {'ifdef': 'ifndef', 'ifndef': 'ifdef'}[directive]
+def side(lines, nonmatching):
+    """nonmatching_side() where nonmatching is True, and matching_side() where it is False."""
     found, read = set(), conditionals(lines)
-    # the conditionals open past the last directive's line, innermost last. Each is (the directive that opens it where
-    # it tests GCC, else None, and whether the group past that line is on the side); and the index of the line past it
+    # the conditionals open past the last directive's line, innermost last. Each is (where it tests one of SIDES,
+    # whether its first group is on the non-matching side, else None, and whether the group past that line is on the
+    # side); and the index of the line past it
     opened, at = [], 0
     for i in [*sorted(read), len(lines)]:
         if any(inside for _, inside in opened):
@@ -976,29 +987,30 @@ def side(lines, directive):
         name, tested = read.get(i) or (None, None)
         at = i + 1
         if name in OPENING:
-            test = name if name != 'if' and tested == 'GCC' else None
-            opened.append((test, test == directive))
+            first = DEFINED[tested] != (name == 'ifndef') if name != 'if' and tested in SIDES else None
+            opened.append((first, first is nonmatching))
         elif name in LATER and opened:
-            opened[-1] = opened[-1][0], opened[-1][0] == other
+            first = opened[-1][0]
+            opened[-1] = first, first is not None and first is not nonmatching
         elif name == 'endif' and opened:
             opened.pop()
     return found
 
 
-def gcc_side(lines):
-    """The indexes of blanked() C's lines on the GCC side of a guard, which GCC compiles and SHC skips: those in an
-    #ifdef GCC's first group, and in an #ifndef GCC's later groups, however deep."""
-    return side(lines, 'ifdef')
+def nonmatching_side(lines):
+    """The indexes of blanked() C's lines on the non-matching side of a guard, which GCC compiles and SHC skips: those
+    in an #ifdef NONMATCHING's first group, however deep."""
+    return side(lines, True)
 
 
-def shipped_side(lines):
-    """The indexes of blanked() C's lines on the shipped side of a GCC guard, which SHC compiles and GCC skips: those
-    in an #ifdef GCC's later groups, and in an #ifndef GCC's first group, however deep."""
-    return side(lines, 'ifndef')
+def matching_side(lines):
+    """The indexes of blanked() C's lines on the matching side of a guard, which SHC compiles and GCC skips: those in
+    an #ifdef NONMATCHING's #else, however deep."""
+    return side(lines, False)
 
 
 def compiled(lines):
-    """Whether make gcc's GCC compile takes each of blanked() C's lines, in order: True, False, or None where a
+    """Whether make dc's GCC compile takes each of blanked() C's lines, in order: True, False, or None where a
     conditional it can't read decides. It reads #ifdef and #ifndef of a macro DEFINED gives, and #else; and an #elif,
     #elifdef or #elifndef below a group the compile takes, which leaves its own group out. It reads no #if, and no
     other #ifdef, #ifndef, #elif, #elifdef or #elifndef."""

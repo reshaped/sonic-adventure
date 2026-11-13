@@ -1,0 +1,5 @@
+datum  ev0050_walker_landing_motion  D  0x00000000  12
+datum  ev0050_walker_landing  D  0x0000000c  8
+datum  ev0050_walker_feet  D  0x00000014  48
+datum  ev0050_walker_dust  D  0x00000044  60
+datum  ev0050_walker  D  0x00000080  4

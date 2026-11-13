@@ -36,10 +36,10 @@ static int classify(float x)
     return kind;
 }
 
-/* x truncated toward zero, with x's sign, so -0.5 gives -0. a magnitude from
- * 2 to the 31 up to 2 to the 32 saturates the conversion and gives 2 to the
- * 31 with x's sign. a larger magnitude, an infinity and a NaN come back as
- * they are */
+/* x truncated toward zero, with x's sign, so -0.5 gives -0. for a magnitude
+ * from 2^31 up to 2^32, FTRC saturates to -2^31 or 2^31 - 1. FLOAT rounds
+ * 2^31 - 1 toward zero under the console's FPSCR, to 2^31 - 128. a larger
+ * magnitude, an infinity and a NaN come back as they are */
 static float whole(float x)
 {
     union {

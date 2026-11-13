@@ -1,0 +1,4 @@
+datum  chaos7_hint_pages  C  0x00000000  24
+datum  chaos7_hints_shown  D  0x00000000  16
+text  TEXT_1  C  0x00000018  56
+text  TEXT_2  C  0x00000050  31

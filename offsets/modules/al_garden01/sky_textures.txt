@@ -1,0 +1,10 @@
+datum  sky_textures  D  0x00000000  96
+datum  egg_carrier_garden_sky_texlist  D  0x00000060  8
+text  TEXT_1  C  0x00000000  12
+text  TEXT_2  C  0x0000000c  12
+text  TEXT_3  C  0x00000018  12
+text  TEXT_4  C  0x00000024  12
+text  TEXT_5  C  0x00000030  15
+text  TEXT_6  C  0x00000040  16
+text  TEXT_7  C  0x00000050  16
+text  TEXT_8  C  0x00000060  16

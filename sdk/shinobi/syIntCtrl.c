@@ -75,7 +75,7 @@ static void unblock_exceptions(void);
     } while (0)
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* write back and invalidate bytes / 32 + 1 operand cache lines from
  * address */
 /* @asm opcode: cache-line, OCBP @R4 at 0x8c65f5bc, 0x8c65f610 and 0x8c65f664,

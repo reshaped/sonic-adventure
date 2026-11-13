@@ -1,0 +1,9 @@
+datum  trail_fades  C  0x00000000  16
+datum  trail_colors  C  0x00000010  48
+datum  blur_alphas  C  0x00000040  16
+datum  trail_objects  D  0x00000000  8
+datum  pose_sway  B  0x00000000  4
+datum  pose_head  B  0x00000004  4
+datum  trail_heads  B  0x00000008  8
+datum  poses  B  0x00000010  1280
+datum  trail_matrices  B  0x00000510  4096

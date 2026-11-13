@@ -1,0 +1,13 @@
+datum  ripple_materials  D  0x00000000  20
+datum  ripple_meshes0  D  0x00000014  74
+datum  ripple_uvs0  D  0x00000060  120
+datum  ripple_meshsets  D  0x000000d8  24
+datum  ripple_points  D  0x000000f0  204
+datum  ripple_normals  D  0x000001bc  204
+datum  ripple_model  D  0x00000288  40
+datum  ripple_object  D  0x000002b0  52
+datum  ripple_scl  D  0x000002e4  128
+datum  ripple_mdata  D  0x00000364  24
+datum  ripple_motion  D  0x0000037c  12
+datum  ripple_action  D  0x00000388  8
+datum  ripple_color  D  0x00000390  16

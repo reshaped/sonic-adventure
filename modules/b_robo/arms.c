@@ -400,7 +400,18 @@ static void hand_draw(int arm)
     } else {
         object = &erobo_arm1_object;
     }
+#ifdef NONMATCHING
+    /* hand_fly and hand_return clamp a hand to hand_floor, which this draw
+     * sets on a frame's first step alone. the second picture's pass draws
+     * the shadow and leaves hand_floor as the steps did */
+    if (frame_redrawing) {
+        shadow_draw_under(pos, 1.0F);
+    } else {
+        hand_floor[arm] = shadow_draw_under(pos, 1.0F) + HAND_LIFT;
+    }
+#else
     hand_floor[arm] = shadow_draw_under(pos, 1.0F) + HAND_LIFT;
+#endif
     njSetTexture(erobo_textures);
     hand_show(arm);
     njPushMatrix(NULL);
@@ -539,7 +550,7 @@ static Bool arms_unfurl(void)
      * the R0 arm_lay left, 0x0c930e58 (loaded at 0x0c9079fa).
      * erobo_arms_step's test at 0x0c9073de takes it as true, so ARMS_UNFURL
      * ends after one step */
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the value the tag names, as erobo_arms_step reads it: TRUE, so
      * ARMS_UNFURL ends after its first step */
     return TRUE;

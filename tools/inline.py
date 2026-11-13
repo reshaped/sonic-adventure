@@ -1,4 +1,4 @@
-"""Split a C source's inline assembly from its C, for make gcc.
+"""Split a C source's inline assembly from its C, for make dc.
 
 OUT gets SOURCE line for line, under #line 1 "SOURCE", with each piece of
 assembly blank:
@@ -27,11 +27,10 @@ Where TEXT holds a piece, OUT ends in a file-scope asm that includes TEXT's
 translation, TEXT with a .s suffix. The asm names each body's function as
 a ":" operand, so that GCC binds even a static one to the asm's label.
 
-A piece GCC doesn't compile, such as one on the shipped side of a GCC
-guard, is SHC's alone: TEXT doesn't take it, and the asm names no function
-for it. The tool reads which pieces GCC compiles as csource.py's compiled()
-does, from #ifdef and #ifndef of GCC, which make gcc's compile defines, and
-of __clang__, which it doesn't.
+A piece GCC doesn't compile, such as one on the matching side of a guard,
+is SHC's alone: TEXT doesn't take it, and the asm names no function for it.
+The tool reads which pieces GCC compiles as csource.py's compiled() does,
+from #ifdef of NONMATCHING and DREAMCAST, which make dc's compile defines.
 
 A piece can name a C function or object of the file by its label, and
 branch to the function: config/gcc.mk's -ffunction-sections makes the
@@ -67,7 +66,7 @@ It fails first, naming the path, where SOURCE, or TEXT with a .s suffix,
 holds other than letters, digits, _, ., / and -: OUT's #line names SOURCE,
 and its .include TEXT's translation, each unescaped.
 
-GCC.md#inline-assembly says how make gcc builds OUT and TEXT into the
+PORTS.md#inline-assembly says how make dc builds OUT and TEXT into the
 source's object.
 """
 
@@ -211,9 +210,9 @@ def split(path, source, included):
 def main(argv):
     parser = argparse.ArgumentParser(prog='inline', description=__doc__.split('\n\n')[0])
     parser.add_argument('source', metavar='SOURCE', help='a C source with inline assembly, such as src/system/thread.c')
-    parser.add_argument('out', metavar='OUT', help="where to write SOURCE's C, such as build/gcc/src/system/thread.c")
+    parser.add_argument('out', metavar='OUT', help="where to write SOURCE's C, such as build/dc/src/system/thread.c")
     parser.add_argument('text', metavar='TEXT',
-                        help="where to write SOURCE's assembly, such as build/gcc/src/system/thread_inline.src")
+                        help="where to write SOURCE's assembly, such as build/dc/src/system/thread_inline.src")
     args = parser.parse_args(argv)
     included = Path(args.text).with_suffix('.s')
     problems = [f"{path}: holds other than letters, digits, _, ., / and -, so OUT can't write it unescaped"

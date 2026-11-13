@@ -1,0 +1,3 @@
+datum  sand_frames  C  0x00000000  160
+datum  sand_anim  C  0x000000a0  20
+datum  sand_pool  D  0x00000000  16

@@ -1,0 +1,12 @@
+datum  land_anim_mud_rise  D  0x00000000  4
+datum  land_anim_lamps  D  0x00000004  48
+datum  land_anim_act1_rows  D  0x00000034  336
+datum  land_anim_act1_frames  D  0x00000184  15
+datum  land_anim_act1  D  0x00000194  20
+datum  land_anim_water_rows  D  0x000001a8  504
+datum  land_anim_water_frames  D  0x000003a0  15
+datum  land_anim_water  D  0x000003b0  20
+datum  land_anim_count  D  0x000003c4  4
+datum  land_anim_solid_objects  D  0x000003c8  344
+datum  land_anim_solid_entries  B  0x00000000  344
+datum  land_anim_solid  B  0x00000158  4

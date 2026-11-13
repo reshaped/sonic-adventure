@@ -4,7 +4,7 @@
 Float FracInt;
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: its dead RTS at 0x8c627d6c follows a tail jump at 0x8c627d60,
  * which plain C leaves too */
 #pragma inline_asm(njFraction)

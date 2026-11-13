@@ -592,7 +592,7 @@ extern NJS_MODEL sonic_toe_minus_z_model;
 extern NJS_MODEL sonic_toe_minus_z_shape_a;
 extern NJS_MODEL sonic_toe_minus_z_shape_b;
 extern NJS_MODEL sonic_toe_minus_z_blend;
-#ifdef GCC
+#ifdef NONMATCHING
 /* the face normals model_blend writes for sonic_toe_plus_z_blend and
  * sonic_toe_minus_z_blend, an array each. in each blend, the first meshset's
  * normals point at the array's first, with room for the meshset's 26
@@ -4301,7 +4301,17 @@ static void sonic_draw(struct task *task)
         } else {
             njSetTexture(&sonic_texlist);
         }
+#ifdef NONMATCHING
+        /* a split frame shows two pictures of one frame of play. its second
+         * draws the toes as his step's draw left them. a picture must not
+         * blend them, since his next step's player_update_welds reads the
+         * models the blend sets */
+        if (!frame_redrawing) {
+            sonic_blend_toes(work, motion, record);
+        }
+#else
         sonic_blend_toes(work, motion, record);
+#endif
         njPushMatrix(NULL);
         njTranslateV(NULL, &work->collision->shapes->center);
         TURN(njRotateZ, work->ang.z);
@@ -6956,7 +6966,7 @@ static void sonic_sway_step(struct task *task)
          * points past the end of the head's own points, and writes those it
          * turns past the end of the sway model's (0x8c0b9616 on, from in R14
          * and to in R12) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the read past the head's points and the write past the sway
          * model's that the tag names, by dropping the third pass. in the image
          * each model's count normals follow its points, sonic_head_model's at
@@ -7008,7 +7018,14 @@ static Bool sonic_look_create(Sint8 player, NJS_OBJECT **nodes)
      * would do, which puts it after the success path; as an early return,
      * the code runs shorter and 17 of 48 words differ */
     if ((task = task_create(TASK_WORK, 2, sonic_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }
@@ -7150,7 +7167,7 @@ static void sonic_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs angles[1] and [2], which the shipped code leaves
              * unset with no task, or a task with no work. the BRA at
              * 0x8c0b9a8e skips to the aims, which read them at 0x8c0b9b6c

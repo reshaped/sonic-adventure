@@ -1,54 +1,416 @@
-# 1ST_READ.BIN's kernel: the functions its draws call for each node, model
-# and meshset, grouped by the step of a draw that calls them. tools/ld.py
-# lays them out first in the image's code, within the SH-4's 8 KB
-# instruction cache, so that no two of their lines take one set of it. In
-# SEGA's order of objects their lines can collide, and which collide moves
-# with any code ahead of them. A row is SOURCE FUNCTION, SOURCE as the
-# image's tables place it, so model.c's functions take src/draw/model.src.
-# A row places the section that holds FUNCTION, so matrix_load_parent's
-# places all of cache.src's code, its one P section. The near clip, which
-# only a model with some points no farther than view.near takes, stays
-# where its object lies.
+# 1ST_READ.BIN's kernels: the code each phase of a frame runs most, in the
+# groups that run together. tools/ld.py lays them out first in the image's
+# code, in the table's order, and fails a link where their lines take sets
+# of the SH-4's caches that its docstring forbids. In SEGA's order of
+# objects their lines can collide, and which collide moves with any code
+# ahead of them.
+#
+# A row is KERNEL SOURCE FUNCTION. SOURCE is the source as the image's
+# tables place it, src/draw/model.src for model.c's functions, or for a
+# source config/dreamcast.mk adds, as DC_ADDED gives it. A row places the
+# section that holds FUNCTION, so matrix_load_parent's places all of
+# cache.src's code, its one P section. An over row, over KERNEL KERNEL,
+# lets the two kernels' lines take one set; each names two kernels where
+# one seldom runs among the other's code. ld.py keeps the lines of a
+# kernel's literal pool off the operand cache's sets of the lines of a data
+# row's section, or of the last data port.h's LINKED_LAST_DATA marks, that
+# a pool word of the kernel, or of one it runs with, points into. It moves
+# the section or the last data on by whole lines, reckoned from the link
+# without moves, and fails the link on a pair the moves leave.
+#
+# A window row, window KERNEL LINES [OFFSET], gives a kernel LINES lines:
+# its code, OFFSET lines in, then room. The windows follow each other in
+# the table's order, so code that grows within its window moves nothing
+# outside it, and the row likeliest to grow goes last. ld.py fails a link
+# where a kernel outgrows its window. It starts .rodata and .bss on the
+# operand cache's 16 KB, so that no code that grows moves a datum to
+# another set. A data row, data SOURCE NAME, puts the section of SOURCE's
+# object that holds NAME first in its output section, in row order, where
+# no change to the rest of the data moves it.
+#
+# A starts row, starts OUTPUT [OUTPUT] [OUTPUT], names the output sections
+# of an image's data, of .rodata, .data and .bss, that ld.py starts on the
+# operand cache's 16 KB, with windows or without, so that nothing ahead of
+# one that changes size moves its data to another set. A packed row,
+# packed, says the image starts none of them, as one whose load area has
+# no room for them must. An image whose table has neither row, or that has
+# no table, starts those config/dreamcast.mk's DC_STARTS names, where its
+# tables place code.
+#
+# A last row, last SOURCE, puts the code port.h's LINKED_LAST marks in
+# SOURCE's object ahead of the rest of the image's last code, in row order.
+# A change's last code is measured where it lands, so a change whose last
+# code lands after another's adds its row after the other's, and the code
+# measured first keeps its sets. All of the last code still moves with any
+# change to the size of the code between the windows and it.
+#
+# A warm row, warm SOURCE FUNCTION, puts the section that holds FUNCTION
+# after the last window, ahead of the image's other code, at the place
+# order.txt gives it. So the code a frame runs most outside the kernels,
+# which runs between their calls and decides which of their lines it
+# evicts, takes the sets its place gives it, and no change to other code
+# moves it: not to the code linked after it, and not to a warm row that
+# grows within the bytes up to the next row's place. ld.py checks none of
+# their sets. order.txt records heat.txt's hash, the address .text starts
+# at, the place and size of each kernel row's section, and the place of
+# each warm row's. ld.py fails a link where a warm row runs past the next
+# row's place, or where the heat, .text's start or a kernel row's section
+# isn't as the record has it, and names what moved. make dc-order then
+# writes order.txt again, as it must after a row here is added or
+# removed, and says what the record held otherwise. It moves no warm row
+# that fits where it lies. It gives one that fits no longer, or a new
+# one, a place on a line's start with a spare line after it, by heat.txt,
+# a measurement of how often a frame ran each stretch of code, and writes
+# the warm rows here in their places' order. A row fits no longer where
+# it outgrew the bytes up to the next row's place, where its alignment
+# rose off its place, or where the last window's end moved past it.
+# Nothing else moves a warm row, and then that row alone moves. make
+# dc-order SEARCH=1 also searches the whole block for places that cost
+# less, which moves every row, and make dc-order PACK=1 lays the rows in
+# this table's order with no byte free among them, which moves each row
+# after the first free byte. Each is a change to measure.
+#
+# A row that takes another place leaves its bytes free, and the image's
+# other code follows the last warm row, so a row that moves past the
+# others moves that code and lengthens the image. A window row that names
+# warm, window warm LINES, gives the warm rows a window as a kernel's
+# does: the image's other code starts at its end, so no warm row that
+# grows or moves within it moves a line of that code, or the image's
+# length. ld.py fails a link where the last warm row passes the window's
+# end, and make dc-order gives a row a place only under it. A window
+# wider by a multiple of 256 lines leaves each line after it on its set.
+#
+# A cold row, cold SOURCE, puts all of SOURCE's code after the last code,
+# and its read-only data, its data and its .bss after the last data, in row
+# order. So code that runs too seldom for the sets it takes to matter, and
+# changes often, moves no other code but a later cold row's, and no datum
+# outside the cold rows' sources, while it takes the same names of the C
+# the link-time compile compiles. ld gathers the cold sources' strings and
+# constants where the first cold row's lie, so one a later row gains moves
+# the data of the rows before it too. A cold SOURCE holds no common symbol,
+# which .bss would take: the link fails on one.
+#
+# The object of each SOURCE a row names keeps its own code, which the row
+# places: the link-time compile, which compiles the image's other C whole,
+# takes none of it and inlines none of it elsewhere. The compile does read
+# which names of its C each other object takes. It keeps a function one of
+# them calls, and may inline or drop one that only its own C calls. So an
+# edit to a row's source, or to an assembled one, that adds the first use
+# outside the compile of one of its functions, or removes the last, changes
+# what the compile writes, and moves the code and data linked after it, the
+# last code and the cold rows' among them. Once a source joins or leaves
+# the rows of any image's table, make dc compiles each C object again, and
+# an edit that leaves the rows' sources as they were compiles none.
+#
+# rare, mesh, model, present and matrix take under 256 lines together, so
+# none lies over another. walk lies over rare, the draw code a frame runs
+# least or apart from the motion trees. sweep, which runs apart from the
+# draws, lies over mesh, model and present, but keeps off matrix, which it
+# calls. land, which only the land's loop takes, lies over present, which
+# that loop doesn't call. clip, which only a model with near points takes,
+# lies over rare, matrix and walk, and keeps off mesh, which calls it for
+# each meshset. sprite, which runs among present and matrix, lies over the
+# others, and its row order leaves only process_blends' cases on
+# njGetkmPointer and njSetkmPointer, which each sprite calls.
 
-# a walk of the land list or an object's nodes, and the matrices of each
-src/draw/model.src        draw_models_begin
-src/draw/model.src        take_constant_attr
-sdk/ninja/njkm.c          njGetkmPointer
-sdk/ninja/njPushMatrix.c  njPushMatrix
-sdk/ninja/njTranslate.c   njTranslate
-sdk/ninja/njTranslateV.c  njTranslateV
-sdk/ninja/njRotateXYZ.c   njRotateXYZ
-sdk/ninja/njRotateX.c     njRotateX
-sdk/ninja/njRotateY.c     njRotateY
-sdk/ninja/njRotateZ.c     njRotateZ
-sdk/ninja/njScale.c       njScale
-sdk/ninja/njScaleV.c      njScaleV
-# a model: its view test, then its points, projected and shaded
-src/draw/model.src        draw_model
-src/draw/model.src        draw_model_nested
-src/draw/model.src        draw_model_unculled
-src/draw/model.src        model_in_view
-src/draw/model.src        model_off_screen
-src/draw/model.src        any_past_near
-src/draw/model.src        set_meshes_header
-src/draw/model.src        project_and_shade
-src/draw/model.src        project_points
-src/draw/model.src        shade_points
-# each meshset: its header, then its strips
-src/draw/model.src        draw_meshes
-sdk/ninja/njkm.c          njSetkmModelAttr
-src/draw/model.src        set_texture
-src/draw/model.src        set_point_alpha
-sdk/ninja/njkm.c          njStartVertexTexTrans
-sdk/ninja/njkm.c          njStartVertexTexOpaque
-sdk/ninja/njkm.c          njStartVertexNonTexTrans
-sdk/ninja/njkm.c          njStartVertexNonTexOpaque
-src/draw/model.src        strips_untextured
-src/draw/model.src        strips_textured
-src/draw/model.src        strips_env
-sdk/ninja/njkm.c          njEndVertex
-# back up the walk
-src/system/cache.src      matrix_load_parent
-sdk/ninja/njPopMatrix.c   njPopMatrix
-sdk/ninja/njkm.c          njSetkmPointer
-src/draw/model.src        draw_models_end
+# rare: the land's loop, its draw of a model and its load of the land's
+# matrix after, which run apart from the motion trees, and the draw code
+# few meshsets take
+rare     src/collision/world.c     world_land_draw_visible
+rare     src/system/cache.src      matrix_load_parent
+rare     sdk/ninja/njkm.c          njStartVertexNonTexOpaque
+rare     src/draw/model.src        set_meshes_header
+rare     src/draw/model.src        draw_model_unculled
+rare     src/draw/model.src        strips_untextured
+rare     src/draw/model.src        make_unlit
+window   rare      49
+
+# mesh: each meshset's header and strips, and njSetTexture, which an
+# object's draw calls ahead of its models
+mesh     src/draw/model.src        draw_meshes
+mesh     sdk/ninja/njTexture.c     njSetTexture
+mesh     src/draw/model.src        set_point_alpha
+mesh     src/draw/model.src        strips_env
+mesh     src/draw/model.src        strips_textured
+window   mesh      48
+
+# model: a model's view test, then its points, projected and shaded
+model    src/draw/model.src        draw_model_nested
+model    src/draw/model.src        model_in_view
+model    src/draw/model.src        model_off_screen
+model    src/draw/model.src        draw_model
+model    src/draw/model.src        shade_points
+model    src/draw/model.src        project_and_shade
+model    src/draw/model.src        take_constant_attr
+model    sdk/ninja/njkm.c          njGetkmPointer
+model    sdk/ninja/njkm.c          njSetkmPointer
+model    src/draw/model.src        project_points
+window   model     65
+
+# present: what each draw and each task's step records of the frame, and
+# the helpers a frame that keeps no record calls among the draws
+present  src/system/present.c  present_untimed
+present  src/system/present.c  present_run
+present  src/system/present.c  keep_step
+present  src/system/present.c  present_record
+present  src/system/present.c  timer_stop
+present  src/system/present.c  marks_add
+present  src/system/present.c  lists_end
+present  src/system/present.c  step_measured
+present  src/system/present.c  state_get
+window   present   43
+
+# matrix: the matrix stack, its turns and its copies
+matrix   sdk/ninja/njGetMatrix.c   njGetMatrix
+matrix   sdk/ninja/njCalcVector.c  njCalcVector
+matrix   sdk/ninja/njRotateXYZ.c   njRotateXYZ
+matrix   sdk/ninja/njRotateX.c     njRotateX
+matrix   sdk/ninja/njRotateY.c     njRotateY
+matrix   sdk/ninja/njSetMatrix.c   njSetMatrix
+matrix   sdk/ninja/njPopMatrix.c   njPopMatrix
+matrix   sdk/ninja/njPushMatrix.c  njPushMatrix
+matrix   sdk/ninja/njScale.c       njScale
+window   matrix    45
+
+# walk: the motion trees, the object lists, the task tree and a model
+# tree's nodes, which call the draws
+walk     src/draw/action.c         action_draw_motion_tree
+walk     src/draw/action.c         action_sample_angles
+walk     src/draw/action.c         action_motion_node_2
+walk     src/draw/action.c         action_translate_keys
+walk     src/draw/action.c         action_rotate_keys_xyz
+walk     src/object/placement.c    placement_try_leave_by
+walk     src/draw/action.c         action_scale_object
+walk     src/system/task.c         task_step_level
+walk     src/draw/tree.c           draw_nodes
+walk     src/debug/editor.c        placement_editing
+window   walk      55
+
+# sweep: the sweep, then the arc tangent of a quotient and the arc cosine,
+# which turn each polygon's normal, and the arc sine, which a hit takes.
+# model.c starts the draws' scratch on the operand cache's set of
+# polygon_sweep's first whole line, so polygon_sweep opens the kernel
+sweep    src/collision/polygon.c   polygon_sweep
+sweep    sdk/runtime/atan2f.c      atan2f
+sweep    sdk/runtime/_i_atn2s.c    _in_atan2s
+sweep    sdk/runtime/_i_atans.c    _in_atans
+sweep    sdk/runtime/_i_fmds.c     _in_fmods
+sweep    sdk/runtime/_a_atans.c    _app_atans
+sweep    sdk/runtime/_i_ldes.c     _in_ldexps
+sweep    sdk/runtime/acosf.c       acosf
+sweep    sdk/runtime/_i_acoss.c    _in_acoss
+sweep    sdk/runtime/_i_asins.c    _in_asins
+sweep    sdk/runtime/asinf.c       asinf
+window   sweep    135
+
+# land: the test that drops a land model whose points all lie past one
+# edge of the screen, whether a land model draw_model_unculled drops has a
+# point past view.near, the dot of a model's points with a plane that both
+# take, and the land's baked shading
+land     src/draw/model.src        points_off_screen
+land     src/draw/model.src        any_past_near
+land     src/draw/model.src        points_above
+land     src/draw/model.src        shade_from_bake
+window   land      21
+
+# clip: the near clip and the test that drops a triangle off the screen,
+# which only a model with some points no farther than view.near takes, and
+# the textured strips that call both
+clip     src/draw/model.src        near_clip
+clip     src/draw/model.src        triangle_off_screen
+clip     src/draw/model.src        clipped_textured
+window   clip      99  2
+
+# sprite: njDrawSprite3D and what each of its sprites calls past the matrix
+# stack, which a scene of many sprites runs for each sprite a step draws
+# and each one a picture replays, and the blend a draw sets before it
+sprite   sdk/ninja/njSprite.src    njDrawSprite3D
+sprite   sdk/ninja/njkm.c          njSetkmColorMode
+sprite   sdk/ninja/njkm.c          njSetkmTextureNum
+sprite   sdk/ninja/njkm.c          njStartVertexTexTransIntens
+sprite   sdk/ninja/njSystem.c      njColorBlendingMode
+sprite   sdk/ninja/njSprite.src    sprite_send_plane
+sprite   sdk/ninja/kmvertex_kamui_lib.c  process_blends
+window   sprite    114
+
+# the Ninja globals the draws read most, first in .bss, which starts on
+# the operand cache's 16 KB, so that no change to the rest of .bss moves
+# their sets. ld.py moves them on by whole lines, as above, where a line
+# of a kernel's pool would take one of theirs
+data     sdk/ninja/njkm.c          _nj_parameterkm_
+data     sdk/ninja/njGlobal.c      _nj_current_matrix_ptr_
+
+over     walk     rare
+over     sweep    mesh
+over     sweep    model
+over     sweep    present
+over     land     present
+over     clip     rare
+over     clip     matrix
+over     clip     walk
+over     sprite   rare
+over     sprite   walk
+over     sprite   mesh
+over     sprite   model
+over     sprite   sweep
+over     sprite   land
+over     sprite   clip
+
+# the warm code: the functions outside the kernels that a busy frame runs
+# most, the step's collision, the players, the camera, the task tree and
+# the draws' helpers among them, in the order of their places, which a
+# search found to put the fewest of their lines that a frame enters often
+# on the sets of others it enters as often, the kernels' and each other's,
+# by the runs heat.txt counts at Emerald Coast's start, Windy Valley's
+# four rings and Sky Deck's third act. make dc-order writes the order
+#
+# the helpers the kernels call among their own code, as njUnitMatrix,
+# njRotateZ and placement_try_leave, are warm rows too, not kernel rows: a
+# kernel row's pool words join the check above of the data they name, and
+# the moves it makes for them move the data after
+warm     sdk/shinobi/kdapi.c       publish_devices
+warm     sdk/ninja/njMem.c         njMemCopy
+warm     src/draw/model.src        draw_divide_light
+warm     src/system/frame.c        frame_wait
+warm     src/enemy/sai.c           sai_roll_treads
+warm     sdk/sofdec/adx_fs.c       adxf_wait_1ms
+warm     src/system/util.c         points_blend
+warm     src/system/present.c      present_hold
+warm     src/system/task.c         heap_calloc
+warm     src/object/common.c       model_step_solid
+warm     src/collision/polygon.c   strip_next
+warm     src/stage/stage.c         stage_get_stage_act
+warm     src/player/player.c       player_in_range
+warm     src/object/common.c       object_clear_touch
+warm     src/system/present.c      present_sprite
+warm     sdk/shinobi/sh4tmr.c      syTmrGetCount
+warm     sdk/ninja/kmglobal_kamui_lib.c kmSetFogTable
+warm     sdk/shinobi/sy_g2_dma_is_busy.c syG2DmaIsBusy
+warm     src/system/task.c         task_step_children
+warm     src/system/present.c      marks_first
+warm     src/draw/draw.c           draw_set_material
+warm     src/object/dash_panel.c   dash_panel_step
+warm     src/player/tails.c        tails_bend_points
+warm     sdk/ninja/njRotateX.c     turn_rows
+warm     src/system/texture.c      texture_set_stage
+warm     src/collision/polygon.c   strip_next_moved
+warm     src/effect/lens.c         lens_draw
+warm     src/draw/action_link.c    action_link_transform
+warm     sdk/sofdec/adx_dcda.c     ADX_DecodeSteFloat
+warm     sdk/ninja/njGenerateFogTable3.c njGenerateFogTable3
+warm     src/effect/spark.c        spark_step
+warm     src/object/common.c       model_draw
+warm     src/draw/tree.c           draw_tree
+warm     src/draw/action_link.c    action_link_rotate_keys
+warm     sdk/ninja/njControl.c     njSetConstantMaterial
+warm     src/object/placement.c    placement_try_leave
+warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
+warm     src/system/present.c      state_put
+warm     src/system/util.c         model_calc_face_normals
+warm     src/system/task.c         heap_alloc
+warm     src/enemy/saru.c          saru_step
+warm     src/draw/action.c         action_sample_vector
+warm     src/system/present.c      present_forget
+warm     src/collision/world.c     world_land_list_visible
+warm     src/system/util.c         model_calc_point_normals
+warm     src/draw/action.c         draw_action
+warm     sdk/ninja/njRotateZ.c     njRotateZ
+warm     src/system/task.c         task_draw_level
+warm     src/enemy/spina.c         spina_c_step
+warm     src/object/item_box.c     item_box_step
+warm     sdk/ninja/njMultiMatrix.c njMultiMatrix
+warm     src/enemy/enemy.c         enemy_collide
+warm     src/collision/ground.c    shadow_draw_placed
+warm     src/draw/action.c         action_select_steps
+warm     src/system/present.c      marks_find
+warm     src/draw/model.src        bake_admit
+warm     src/system/present.c      present_shadow
+warm     src/player/player.c       ball_drop
+warm     sdk/ninja/njCalcVector.c  transform_by
+warm     src/collision/collision.c shape_get_center
+warm     src/effect/particle.c     particle_draw_all
+warm     src/draw/model.src        clipped_env
+warm     src/player/tails.c        tails_draw
+warm     src/effect/dust.c         dust_step
+warm     src/system/util.c         tree_find_node
+warm     src/collision/collision.c collide_enemy_object
+warm     src/collision/polygon.c   heights_visit
+warm     src/object/placement.c    place_near_one
+warm     sdk/ninja/njNearClipping.c njNearClipping
+warm     src/system/present.c      draw_flats
+warm     src/player/sonic.c        sonic_step
+warm     src/player/player.c       player_step_up
+warm     src/effect/particle.c     particle_run
+warm     src/draw/sprite.src       sprite_draw_3d
+warm     src/player/player.c       player_turn_to_world
+warm     src/player/tails.c        tails_step
+warm     src/object/ring.c         ring_draw
+warm     src/collision/world.c     world_collect_near_players
+warm     sdk/ninja/njUnitMatrix.c  njUnitMatrix
+warm     sdk/ninja/njDrawLine3D.c  njDrawLine3D
+warm     src/player/npc.c          npc_step
+warm     sdk/shinobi/mpdrv.c       mpdrv_setcmd
+warm     src/camera/camera.c       camera_push_out
+warm     src/system/present.c      keep_flat
+warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
+warm     sdk/ninja/njtri_filled_with_tex.c njtri_filled_with_tex
+warm     src/draw/model.src        draw_in_view
+warm     src/collision/mesh.src    mesh_test_heights
+warm     src/collision/polygon.c   box_walk_start
+warm     src/collision/collision.c collision_list_near
+warm     sdk/shinobi/mpapi.c       mpdrv_frame_send
+warm     src/player/tails.c        tails_sway_step
+warm     sdk/ninja/njDrawTriangle3D.c njDrawTriangle3D
+warm     src/collision/polygon.c   sweep_touch
+warm     src/object/ring.c         ring_step
+warm     src/player/player.c       player_accel_ground
+warm     src/camera/camera.c       block_holds_player
+warm     src/system/pad.c          pad_scan
+warm     sdk/runtime/memcpy.c      memcpy
+warm     src/collision/polygon.c   polygon_find_model_heights
+warm     src/collision/polygon.c   polygon_collect_near
+warm     src/collision/world.c     world_list_near
+warm     src/collision/mesh.src    mesh_find_heights
+warm     src/draw/sprite.src       sprite_send_facing
+warm     src/collision/ground.c    shadow_update
+warm     src/collision/polygon.c   polygon_find_sides_indexed
+warm     sdk/ninja/njDetMatrix.c   njDetMatrix
+warm     sdk/shinobi/pdmain.c      pdExecPeripheralServer
+warm     src/sound/sound.c         sound_send_queue
+warm     src/camera/camera.c       camera_task_step
+warm     src/system/present.c      keep_draw
+warm     sdk/ninja/njSprite.src    njDrawSprite2D
+warm     sdk/shinobi/mpdrv.c       mpdrv_make_devicedata
+warm     src/collision/polygon.c   collision_mesh_update
+warm     src/player/sonic.c        sonic_sway_step
+warm     src/collision/collision.c collide_object
+warm     src/system/present.c      present_draw
+warm     sdk/ninja/kmvertex_kamui_lib.c kmProcessVertexRenderState
+warm     sdk/ninja/njModelE.c      _njEasyDrawModel
+warm     src/collision/collision.c collision_collide_all
+warm     src/player/player.c       player_collide_world
+warm     src/collision/collision.c collision_register
+warm     src/draw/pose.c           pose_node
+warm     src/player/player.c       player_update_welds
+warm     sdk/ninja/njInvertMatrix.c njInvertMatrix
+warm     src/collision/polygon.c   polygon_find_heights_indexed
+
+# the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
+# then collision's index of the static meshes, which their sides' and
+# heights' searches read
+last     src/draw/model.src
+last     src/collision/polygon.c
+last     src/collision/world.c
+
+# the cold code: first the game's toggles, their chord and the curtain's
+# count, which run as seldom as the overlay that draws them. their source
+# holds port_view_x too, which runs once for each test of what is on the
+# screen in an object's step: it is accepted there because the row is the
+# first, so that no other cold source's change moves it, only a change to
+# the size of the code ahead of the cold code. then the port's overlay,
+# which a frame calls a few times, and which each page the readout gains
+# reshapes; then the frame's owner, whose calls and interrupts come a few
+# times a frame
+cold     src/system/port.c
+cold     engine/dc/overlay.c
+cold     engine/dc/owner.c

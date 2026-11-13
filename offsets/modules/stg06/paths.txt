@@ -1,0 +1,3 @@
+datum  dat_0cadb8e0  D  0x00000000  1740
+datum  dat_0cadbfac  D  0x000006cc  16
+datum  sky_deck_act0_paths  D  0x000006dc  8

@@ -1,0 +1,4 @@
+datum  racer_entry_places  C  0x00000000  96
+datum  racer_mode_labels  C  0x00000060  300
+datum  racer_command_labels  C  0x0000018c  360
+datum  racer_type_labels  C  0x0000030b  200

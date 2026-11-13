@@ -1,0 +1,8 @@
+datum  windy_fog_table  D  0x00000000  512
+datum  windy_zone_entered  D  0x00000200  4
+datum  storm_tornado_eye  C  0x00000024  12
+datum  zone_entry  C  0x00000030  12
+datum  zone_center  C  0x0000003c  12
+datum  second_block_point  C  0x00000048  12
+datum  windy_fog_color  B  0x00000000  4
+datum  windy_fog_shown  B  0x00000004  4

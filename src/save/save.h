@@ -40,6 +40,13 @@
 
 /* a bit of a save's flags: events play their voices with no messages */
 #define SAVE_NO_MESSAGES 0x2
+#ifdef NONMATCHING
+/* bits of a save's flags that the port keeps. each is set where its toggle,
+ * 16:9 or 60 fps, was on as the save was last stored. no shipped code tests
+ * or sets either bit */
+#define SAVE_WIDE 0x10
+#define SAVE_FAST 0x20
+#endif
 
 /* a time as a save keeps it. frames counts sixtieths of a second, but
  * hundredths in a cart time */

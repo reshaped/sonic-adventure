@@ -40,7 +40,7 @@ void player_weld(int player, NJS_OBJECT *object, NJS_MOTION *motion,
     weld = anim->welds;
     action.object = object;
     action.motion = motion;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that a weld whose kind reads the points and normals has
      * the object_b that sets them, as in player_update_welds */
     points_a = points_b = normals_a = normals_b = NULL;

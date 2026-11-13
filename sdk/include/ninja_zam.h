@@ -1,44 +1,49 @@
-/* GCC's inline helpers for Ninja's matrix stack, transforms, vector math and
- * trig. zam_load_vec3, zam_fipr, zam_fipr_self and zam_squared_length serve
- * the tree's other GCC code too. this header also defines _builtin_fsrra and
- * _builtin_fsca, SHC's intrinsics for FSRRA and FSCA. ninja.h includes it
- * under GCC, below its prototypes.
+/* the non-matching code's inline helpers for Ninja's matrix stack, transforms,
+ * vector math and trig. zam_load_vec3, zam_fipr, zam_fipr_self and
+ * zam_squared_length serve the rest of the non-matching code too. this header
+ * also defines _builtin_fsrra and _builtin_fsca, SHC's intrinsics for FSRRA and
+ * FSCA. ninja.h includes it under NONMATCHING and DREAMCAST, below its
+ * prototypes.
  *
- * each instruction the helpers run that GCC doesn't compile from C comes
- * from SH4ZAM, but for zam_fipr_self's FIPR FV4,FV4, an asm of its own.
+ * zam_fipr's FIPR FV4,FV8 and zam_fipr_self's FIPR FV4,FV4 are the helpers'
+ * own asms. each other instruction the helpers run that GCC doesn't compile
+ * from C comes from SH4ZAM.
  *
- * a function's helper is named zam_ and the function's name. under GCC, the
- * function's own source defines it from the helper. for a function that C
- * calls inline, a function-like macro of its name follows the helper and
- * calls it. that helper keeps the function's type and contract.
- * ZAM_ASSERT_COMPATIBLE checks the type. the macro expands only where a (
- * follows the name. a pointer to the function, or its name in parentheses,
- * still reaches the definition, as a call from assembly does.
+ * a function's helper is named zam_ and the function's name. in the
+ * non-matching code, the function's own source defines it from the helper.
+ * where C calls a function inline, a function-like macro of its name follows
+ * the helper and calls it. that helper keeps the function's type and
+ * contract. ZAM_ASSERT_COMPATIBLE checks the type. the macro expands only
+ * where a ( follows the name. the function's address, its name in
+ * parentheses and a call from assembly still reach the definition.
  *
  * njPushMatrix, njScale and njScaleV have no macro, so a C call reaches the
  * definition. inlined at the game's calls, each would add over 30 bytes a
- * call on average, to save the call's 5 to 8 instructions. njPopMatrix has
- * its macro only where a source compiles for speed: at -Os GCC leaves the
- * XMTRX load out of line, so there the macro would add bytes and still call.
+ * call on average. each would save the call's 5 to 8 instructions. njPopMatrix
+ * has its macro only where a source compiles for speed. at -Os GCC calls the
+ * XMTRX load out of line, so there the macro would add bytes.
  *
- * njCalcVector has no helper, so a C call reaches the shipped body. inlined
- * at the game's calls, a helper would add over 30 bytes a call on average.
- * where the caller keeps no value across the call, it would also run more
- * instructions than the call. out of line, it would run 28 instructions with
- * a null m and 47 with any other, where the shipped body runs 18 and 43.
- * these counts take _nj_matrix_flag_ clear, as the game keeps it.
- *
- * njMultiMatrix, njSetMatrix, njGetMatrix and njUnitMatrix have no helper
- * either. a helper of njGetMatrix would inline one of SH4ZAM's XMTRX entries
- * at each call. a helper of each of the other three would inline one at each
- * call that passes NULL as the first argument. inlined at the game's calls,
- * the four would add 55, 47, 34 and 29 bytes a call on average, to save the
- * call. the rotations, njOuterProduct, njSubVector and njAddVector have no
- * helper either.
+ * njMultiMatrix, njSetMatrix, njGetMatrix and njUnitMatrix have no helper.
+ * njCalcVector and the rotations have none either, nor have njOuterProduct,
+ * njSubVector and njAddVector. a C call reaches the body in engine/dc/ninja,
+ * which make dc compiles in place of the shipped one. a helper of
+ * njCalcVector would add over 30 bytes a call, on average, to save the call.
+ * a helper of njGetMatrix would inline SH4ZAM's unaligned store, with its
+ * alignment test and both ways to store. a helper of njMultiMatrix,
+ * njSetMatrix or njUnitMatrix would inline an XMTRX entry where a call passes
+ * NULL first. njMultiMatrix's and njSetMatrix's entries test the alignment
+ * too.
  *
  * each FIPR takes its operands in the shipped body's order. -ffp-contract=on
  * fuses a product into an FMAC only where one expression sums it. no helper
- * sums a product, so an inlined helper fuses none under on, as under off */
+ * sums a product, so an inlined helper fuses none under on, as under off.
+ *
+ * SH4ZAM's XMTRX product ends on one FRCHG, which flips FPSCR's FR. so
+ * njMultiMatrix returns with FR flipped, whether md is null or not.
+ * src/system/present.c's replay flips it once for each draw it replays. a
+ * function kmiExCallBackFunc calls must return with FR as it got it
+ * (kamui.h). so one that runs an odd count of these products must flip FR
+ * back */
 #ifndef NINJA_ZAM_H
 #define NINJA_ZAM_H
 #include <zam.h>
@@ -53,10 +58,11 @@
 extern Sint32 _max_stack_size_;
 extern Sint32 _stack_size_;
 
-/* the helpers cast an NJS_MATRIX pointer to shz_mat4x4_t *. they cast a
- * pointer to an NJS_POINT3, or into a matrix, to shz_vec3_t * or
- * shz_vec4_t *. each SH4ZAM type must have the size of what it stands for,
- * and no greater alignment */
+/* the helpers, and engine/dc/ninja's njCalcVector, cast an NJS_MATRIX
+ * pointer to shz_mat4x4_t *. they cast a pointer to an NJS_POINT3, or into a
+ * matrix, to shz_vec3_t * or shz_vec4_t *. each SH4ZAM type must have the
+ * size of what it stands for, and no greater alignment. njtypes.h says what
+ * keeps a caller's matrix 8-byte aligned */
 _Static_assert(sizeof(shz_mat4x4_t) == sizeof(NJS_MATRIX));
 _Static_assert(_Alignof(shz_mat4x4_t) <= _Alignof(NJS_MATRIX));
 _Static_assert(sizeof(shz_vec3_t) == sizeof(NJS_POINT3));
@@ -86,23 +92,32 @@ ALWAYS_INLINE void zam_store_vec3(NJS_POINT3 *p, shz_vec3_t v)
     shz_vec3_deref(p) = v;
 }
 
-/* the FIPR of a and b, with a as FIPR's first operand. each caller passes
- * first the vector its shipped body's FIPR names first. the helper's
- * shz_vec4_dot2(a, b, b) runs FIPR FV4,FV8 of a and b, and then FIPR FV4,FV0
- * of a and b again. at -O2 or -Os GCC deletes the second, whose result
- * nothing reads. at -O0 the second would run, but no object compiled at -O0
- * calls this helper. at the SH4ZAM commit gcc.mk pins, shz_vec4_dot and
- * shz_vec3_dot are C multiply-adds, whose bits needn't match FIPR's */
+/* FIPR FV4,FV8 of a and b. a is FIPR's first operand, FVm, and b is FVn.
+ * each caller passes first the vector its shipped body's FIPR names first.
+ * SH4ZAM's single dots, shz_vec4_dot among them, are C multiply-adds, whose
+ * bits needn't match FIPR's */
 ALWAYS_INLINE Float zam_fipr(shz_vec4_t a, shz_vec4_t b)
 {
-    return shz_vec4_dot2(a, b, b).x;
+    register Float fr4 __asm__("fr4") = a.x;
+    register Float fr5 __asm__("fr5") = a.y;
+    register Float fr6 __asm__("fr6") = a.z;
+    register Float fr7 __asm__("fr7") = a.w;
+    register Float fr8 __asm__("fr8") = b.x;
+    register Float fr9 __asm__("fr9") = b.y;
+    register Float fr10 __asm__("fr10") = b.z;
+    register Float dot __asm__("fr11") = b.w;
+
+    __asm__("fipr fv4,fv8"
+            : "+f"(dot)
+            : "f"(fr4), "f"(fr5), "f"(fr6), "f"(fr7), "f"(fr8), "f"(fr9),
+              "f"(fr10));
+    return dot;
 }
 
-/* FIPR FV4,FV4 of (x, y, z, w) with itself, as the shipped njScalor and the
- * motion sources' shipped squared_length run it. the FIPR writes FR7 alone,
- * so x, y and z stay in FR4 to FR6 past it. through zam_fipr, which also
- * copies the vector to FV8, GCC would call each linear morph loop's blend of
- * a normal. through this, GCC inlines the blend */
+/* FIPR FV4,FV4: the sum of the squares of x, y, z and w. the shipped
+ * njScalor and the motion sources' shipped squared_length run the same FIPR.
+ * it writes FR7 alone, so x, y and z stay in FR4 to FR6 past it. zam_fipr
+ * would also copy the vector to FV8 */
 ALWAYS_INLINE Float zam_fipr_self(Float x, Float y, Float z, Float w)
 {
     register Float fr4 __asm__("fr4") = x;
@@ -150,17 +165,12 @@ ALWAYS_INLINE void _builtin_fsca(Angle ang, Float *sin, Float *cos)
     *cos = pair.cos;
 }
 
-/* SH4ZAM's XMTRX entries take a slot of the matrix stack as an
- * shz_mat4x4_t, so each slot must be 8-byte aligned. every slot is:
- * src/main.c aligns matrix_stack to 32, and _nj_current_matrix_ptr_ moves by
- * whole matrices.
+/* SH4ZAM's XMTRX entries take a stack slot as an shz_mat4x4_t, so each slot
+ * must be 8-byte aligned. every slot is: src/main.c aligns matrix_stack to
+ * 32, and _nj_current_matrix_ptr_ moves by whole matrices.
  *
- * the push loads m by single floats, where the shipped body loads pairs. so
- * m need only be 4-byte aligned, as a matrix inside a structure may be.
- * shz_xmtrx.h's entry for such a matrix, shz_xmtrx_load_unaligned_4x4, tests
- * m's alignment at run time and loads pairs where m is 8-byte aligned. the
- * push spends no test: it calls the load that entry takes otherwise,
- * shz_xmtrx_load_aligned4_4x4, which shz_xmtrx.h doesn't declare */
+ * the push loads m by pairs where m is 8-byte aligned, as the shipped body
+ * does. it loads single floats where m isn't */
 ALWAYS_INLINE Bool zam_njPushMatrix(NJS_MATRIX *m)
 {
     NJS_MATRIX *top = _nj_current_matrix_ptr_;
@@ -174,7 +184,7 @@ ALWAYS_INLINE Bool zam_njPushMatrix(NJS_MATRIX *m)
     if (m == NULL) {
         shz_xmtrx_store_4x4((shz_mat4x4_t *)(top + 1));
     } else {
-        shz_xmtrx_load_aligned4_4x4(*m);
+        shz_xmtrx_load_unaligned_4x4(*m);
     }
     return TRUE;
 }
@@ -197,16 +207,14 @@ ZAM_ASSERT_COMPATIBLE(njPopMatrix);
 #endif
 
 /* with m in memory, the shipped body runs four FIPRs. each takes
- * (x, y, z, 1) first and a column of m second, as SH4ZAM's transform of that
- * vector by m does. the helper calls the SH-4 back end's transform, which is
- * always_inline. the public shz_mat4x4_transform_vec4 forwards to it but is
- * only inline, so GCC may leave a call of it out of line.
+ * (x, y, z, 1) first and a column of m second. SH4ZAM's transform of that
+ * vector by m orders them the same way. the helper calls the SH-4 back end's
+ * transform, which is always_inline. the public shz_mat4x4_transform_vec4
+ * forwards to it but is only inline. GCC may leave a call of that one out of
+ * line.
  *
- * m must be 8-byte aligned, as an shz_mat4x4_t is. at the SH4ZAM commit
- * gcc.mk pins, the back end loads m by single floats. those take no address
- * error at 4, but a load by pairs would. a matrix outside a structure is
- * 8-byte aligned. of the structures, only NJS_VIEW and NJS_LIGHT keep theirs
- * 8-byte aligned, by njtypes.h's pack(8) */
+ * m must be 8-byte aligned, as an shz_mat4x4_t is. a build without NDEBUG
+ * traps on one that isn't */
 ALWAYS_INLINE void zam_njTranslate(NJS_MATRIX *m, Float x, Float y, Float z)
 {
     shz_vec4_t moved;
@@ -232,8 +240,7 @@ ALWAYS_INLINE void zam_njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
 ZAM_ASSERT_COMPATIBLE(njTranslateV);
 #define njTranslateV(m, v) zam_njTranslateV(m, v)
 
-/* m need only be 4-byte aligned: the helper takes its rows as shz_vec4_t,
- * which aligns to 4 */
+/* m need only be 4-byte aligned: shz_vec4_t aligns to 4 */
 ALWAYS_INLINE void zam_njScale(NJS_MATRIX *m, Float sx, Float sy, Float sz)
 {
     if (m == NULL) {
@@ -270,14 +277,15 @@ ALWAYS_INLINE void zam_njCalcPoint(NJS_MATRIX *m, NJS_POINT3 *ps,
 ZAM_ASSERT_COMPATIBLE(njCalcPoint);
 #define njCalcPoint(m, ps, pd) zam_njCalcPoint(m, ps, pd)
 
-/* m need only be 4-byte aligned: the helper reads m[12] to m[14] as an
- * shz_vec3_t, which aligns to 4 */
+/* the helper reads m[12] to m[14] as Floats. at -Os, GCC would copy them as
+ * one shz_vec3_t through the stack, by two calls of libgcc's __movmemSI12_i4.
+ * it would do so in a caller whose *p stays in memory */
 ALWAYS_INLINE void zam_njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
 {
     if (m == NULL) {
         zam_store_vec3(p, shz_xmtrx_get_translation());
     } else {
-        zam_store_vec3(p, shz_vec3_deref(&(*m)[12]));
+        zam_store_vec3(p, shz_vec3_init((*m)[12], (*m)[13], (*m)[14]));
     }
 }
 ZAM_ASSERT_COMPATIBLE(njGetTranslation);
@@ -356,5 +364,76 @@ ALWAYS_INLINE Float zam_njTan(Angle n)
 }
 ZAM_ASSERT_COMPATIBLE(njTan);
 #define njTan(n) zam_njTan(n)
+
+/* store at to the four words at from. GCC can't rule out that they overlap,
+ * so it loads no later copy's words before it stores these */
+ALWAYS_INLINE void zam_copy_four(Uint32 *to, const Uint32 *from)
+{
+    Uint32 a = from[0];
+    Uint32 b = from[1];
+    Uint32 c = from[2];
+    Uint32 d = from[3];
+
+    to[0] = a;
+    to[1] = b;
+    to[2] = c;
+    to[3] = d;
+}
+
+/* copy ms's 16 words to md, four at a time, in registers a call needn't
+ * keep. shz_memcpy4 copies eight words at a time, which takes registers a
+ * call must keep. a copy through it would push and pop them */
+ALWAYS_INLINE void zam_copy_matrix(Float *md, const Float *ms)
+{
+    zam_copy_four((Uint32 *)md, (const Uint32 *)ms);
+    zam_copy_four((Uint32 *)md + 4, (const Uint32 *)ms + 4);
+    zam_copy_four((Uint32 *)md + 8, (const Uint32 *)ms + 8);
+    zam_copy_four((Uint32 *)md + 12, (const Uint32 *)ms + 12);
+}
+
+/* the axes of njRotateX, njRotateY and njRotateZ, which engine/dc/ninja's
+ * rotations turn about */
+enum zam_axis { ZAM_X, ZAM_Y, ZAM_Z };
+
+/* XMTRX = R * XMTRX, where R turns by ang about axis. SH4ZAM runs FSCA for
+ * ang's sine and cosine, then two FTRVs. their products replace two of
+ * XMTRX's columns, as the shipped bodies do with a null m */
+ALWAYS_INLINE void zam_turn(enum zam_axis axis, Angle ang)
+{
+    switch (axis) {
+    case ZAM_X:
+        shz_xmtrx_rotate_x_u16((uint16_t)ang);
+        break;
+    case ZAM_Y:
+        shz_xmtrx_rotate_y_u16((uint16_t)ang);
+        break;
+    case ZAM_Z:
+        shz_xmtrx_rotate_z_u16((uint16_t)ang);
+        break;
+    }
+}
+
+/* m = R * m, as the shipped bodies turn a matrix in memory. m's two rows the
+ * turn changes stand in for XMTRX's columns of the same numbers. the helper
+ * puts those columns back after. the turn's FTRVs multiply XMTRX's other two
+ * columns by zeros. so a NaN, an infinity or a zero's sign there still
+ * reaches m, as in the shipped bodies */
+ALWAYS_INLINE void zam_turn_rows(NJS_MATRIX *m, enum zam_axis axis, Angle ang)
+{
+    unsigned first = axis == ZAM_X ? 1 : 0;
+    unsigned second = axis == ZAM_Z ? 1 : 2;
+    shz_vec4_t *row_first = &shz_vec4_deref(&(*m)[4 * first]);
+    shz_vec4_t *row_second = &shz_vec4_deref(&(*m)[4 * second]);
+    shz_vec4_t keep_first = shz_xmtrx_read_col(first);
+    shz_vec4_t keep_second = shz_xmtrx_read_col(second);
+
+    shz_xmtrx_write_col(first, *row_first);
+    shz_xmtrx_write_col(second, *row_second);
+    zam_turn(axis, ang);
+    *row_first = shz_xmtrx_read_col(first);
+    *row_second = shz_xmtrx_read_col(second);
+    shz_xmtrx_write_col(first, keep_first);
+    shz_xmtrx_write_col(second, keep_second);
+}
 
 #endif

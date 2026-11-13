@@ -1,0 +1,8 @@
+datum  slide_spray_texanims  D  0x00000000  160
+datum  slide_spray_sprite  D  0x000000a0  32
+datum  lower_slide_shape  D  0x000000c0  52
+datum  slide_launch_shape  D  0x000000f4  52
+datum  lower_slide_ripples  D  0x00000128  56
+datum  slide_launch_speed  C  0x00000000  12
+datum  snow_slide_released  B  0x00000000  1
+datum  lower_slide_rest_heights  B  0x00000004  288

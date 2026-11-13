@@ -1,4 +1,4 @@
-"""make gcc's manifest, the record of a link's files that tools/publish.py
+"""make dc's manifest, the record of a link's files that tools/publish.py
 writes last and tools/disc.py builds a disc from: text() writes one, and
 recorded() reads one and checks it.
 
@@ -8,6 +8,7 @@ Each line of a manifest is a comment, which # opens, or a row:
     spec     DIGEST  PATH
     image    NAME  ORIGIN  LENGTH  END
     input    NAME  DIGEST  PATH
+    compiled NAME  DIGEST  PATH
     bind     NAME  ALIAS  PROVIDER  SYMBOL  VALUE
     alias    NAME  ALIAS  SYMBOL  VALUE
     constant NAME  SYMBOL  VALUE
@@ -17,12 +18,15 @@ The tool rows give the hashes of the tools TOOLS names, in its order, and
 the spec row that of tools/ld.py's spec. An image row gives an image the
 spec links, its ORIGIN and LENGTH, and the END its final link gives it. The
 rows after it, up to the next image row, are that image's. Its input rows
-give the hash of each input, in link order. Its bind rows give each import,
-bound to SYMBOL as PROVIDER defines it. Its alias rows give each alias of
-SYMBOL, and its constant rows each constant. Each such row gives the VALUE
-the image's final link gives its name. Its file rows give the hash of each
-of its files: its final link, NAME/final.elf, first, then each file publish
-writes for it.
+give the hash of each input, in link order. An input that carries GCC's
+intermediate code is an object as GCC compiled it alone, and the image
+links what tools/ld.py's link-time compile kept of it, its link-time
+object: the image's compiled rows give the hash of each, in link order. Its
+bind rows give each import, bound to SYMBOL as PROVIDER defines it. Its
+alias rows give each alias of SYMBOL, and its constant rows each constant.
+Each such row gives the VALUE the image's final link gives its name. Its
+file rows give the hash of each of its files: its final link,
+NAME/final.elf, first, then each file publish writes for it.
 
 DIGEST is a file's SHA-256 in 64 lowercase hex digits, PATH a path as the
 spec spells one, NAME and PROVIDER images, ALIAS and SYMBOL C names, and
@@ -42,7 +46,10 @@ It fails too, naming the manifest, on:
 - a file whose hash isn't the one the rows give;
 - once the spec holds its hash, images that aren't the spec's, each with
   the spec's origin and length, its inputs in link order, its imports and
-  aliases, and its constants at the spec's VALUEs.
+  aliases, and its constants at the spec's VALUEs;
+- an image whose compiled rows aren't the link-time objects that the
+  record beside its final link gives, as tools/gcclink.py's taken() reads
+  it, in the record's order.
 
 Which files follow an image's final link is publish's: recorded() holds
 each to its hash alone. Each END, and each import's and alias's VALUE, is
@@ -63,14 +70,19 @@ from tables import ADDRESS, hexa
 from tool import content, fail
 
 # the comment text() writes first
-HEADER = "# make gcc's build, as tools/publish.py records it once the files it writes pass its checks\n"
+HEADER = "# make dc's build, as tools/publish.py records it once the files it writes pass its checks\n"
 # the file names of the tools whose hashes a manifest gives, in the order of
-# its tool rows: make gcc's toolchain's, and build/prskit
-TOOLS = ('sh-elf-gcc', 'cc1', 'sh-elf-as', 'sh-elf-ld', 'prskit')
+# its tool rows: make dc's toolchain's, and build/prskit. The toolchain's
+# are its driver, its C compiler, the programs its link-time compile runs,
+# which are lto1, lto-wrapper, collect2 and the linker's plugin, its
+# assembler and its linker
+TOOLS = ('sh-elf-gcc', 'cc1', 'lto1', 'lto-wrapper', 'collect2', 'liblto_plugin.so', 'sh-elf-as', 'sh-elf-ld',
+         'prskit')
 # each kind of row's form, by the kind, and the spelling of each field a
 # form names
 FORMS = {'tool': 'tool DIGEST PATH', 'spec': 'spec DIGEST PATH', 'image': 'image NAME ORIGIN LENGTH END',
-         'input': 'input NAME DIGEST PATH', 'bind': 'bind NAME ALIAS PROVIDER SYMBOL VALUE',
+         'input': 'input NAME DIGEST PATH', 'compiled': 'compiled NAME DIGEST PATH',
+         'bind': 'bind NAME ALIAS PROVIDER SYMBOL VALUE',
          'alias': 'alias NAME ALIAS SYMBOL VALUE', 'constant': 'constant NAME SYMBOL VALUE',
          'file': 'file NAME DIGEST PATH'}
 FIELDS = {'DIGEST': re.compile(r'[0-9a-f]{64}'), 'PATH': gcclink.PATH, 'NAME': gcclink.IMAGE, 'PROVIDER': gcclink.IMAGE,
@@ -82,10 +94,10 @@ FIELDS = {'DIGEST': re.compile(r'[0-9a-f]{64}'), 'PATH': gcclink.PATH, 'NAME': g
 # its images, each a Built, by name, in order
 Manifest = namedtuple('Manifest', 'hashes tools spec images')
 # an image of a manifest: its origin, length and end; its inputs' paths, in
-# link order; its imports, each (PROVIDER, SYMBOL, VALUE), by ALIAS; its
-# aliases, each (SYMBOL, VALUE), by ALIAS; its constants' VALUEs, by SYMBOL;
-# and its files' paths, in order
-Built = namedtuple('Built', 'origin length end inputs binds aliases constants files')
+# link order; its link-time objects' paths, in link order; its imports, each
+# (PROVIDER, SYMBOL, VALUE), by ALIAS; its aliases, each (SYMBOL, VALUE), by
+# ALIAS; its constants' VALUEs, by SYMBOL; and its files' paths, in order
+Built = namedtuple('Built', 'origin length end inputs compiled binds aliases constants files')
 
 
 def digest(path):
@@ -115,6 +127,7 @@ def text(found):
     for name, image in found.images.items():
         rows.append(('image', name, hexa(image.origin), hexa(image.length), hexa(image.end)))
         rows += [('input', name, found.hashes[path], path) for path in image.inputs]
+        rows += [('compiled', name, found.hashes[path], path) for path in image.compiled]
         rows += [('bind', name, alias, provider, symbol, hexa(value))
                  for alias, (provider, symbol, value) in image.binds.items()]
         rows += [('alias', name, alias, symbol, hexa(value)) for alias, (symbol, value) in image.aliases.items()]
@@ -151,7 +164,7 @@ def recorded(data, where):
             fail(f'{at}: {fields[1]}: not the image of the image row above it')
         if kind in ('bind', 'alias', 'constant') and fields[2] in (*image.binds, *image.aliases, *image.constants):
             fail(f'{at}: {name} binds {fields[2]} already')
-        if kind in ('tool', 'spec', 'input', 'file'):
+        if kind in ('tool', 'spec', 'input', 'compiled', 'file'):
             path = fields[-1]
             if hashes.setdefault(path, fields[-2]) != fields[-2]:
                 fail(f'{at}: {path}: a row above gives it another hash')
@@ -161,9 +174,11 @@ def recorded(data, where):
             spec = path
         elif kind == 'image':
             name = fields[1]
-            images[name] = Built(*(int(field, 16) for field in fields[2:]), [], {}, {}, {}, [])
+            images[name] = Built(*(int(field, 16) for field in fields[2:]), [], [], {}, {}, {}, [])
         elif kind == 'input':
             image.inputs.append(path)
+        elif kind == 'compiled':
+            image.compiled.append(path)
         elif kind == 'bind':
             image.binds[fields[2]] = (fields[3], fields[4], int(fields[5], 16))
         elif kind == 'alias':
@@ -203,6 +218,13 @@ def recorded(data, where):
                 ('other constants', given.constants, image.constants)):
             if got != wanted:
                 problems.append(f'{where}: gives {each} {what} than its spec')
+        # the image's final link is DIR/IMAGE/final.elf, and the record of its
+        # link-time objects lies under DIR/IMAGE/ too
+        made = [path for path in gcclink.taken(Path(given.files[0]).parents[1], each).values() if path]
+        if given.compiled != made:
+            record = Path(given.files[0]).with_name(gcclink.LINK_TIME) / gcclink.OBJECTS
+            problems.append(f'{where}: gives {each} other link-time objects than {record} records; make dc '
+                            'links again and writes both')
     if problems:
         fail(*problems)
     return Manifest(hashes, tools, spec, images)

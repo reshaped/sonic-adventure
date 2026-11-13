@@ -38,6 +38,10 @@
 /* a sparkle draws its frames below this, and a taken ring's three
  * sparkles are done once the third passes it */
 #define SPARKLE_END 7.0F
+/* a taken ring's second and third sparkles start this many frames behind
+ * its first */
+#define SPARKLE_SECOND_LAG 2.0F
+#define SPARKLE_THIRD_LAG 4.0F
 
 /* a magnetic barrier's pull starts on a ring within ATTRACT_RANGE of player
  * 0, and aims ATTRACT_HEIGHT up player 0's own y axis */
@@ -159,10 +163,9 @@ void ring_step(struct task *task)
             ground_below(work->pos.x, work->pos.y, work->pos.z, &work->ang);
         work->mode = RING_WAIT;
         RING(work)->spin = 0.0F;
-        /* scl.x and scl.z become the second and third sparkles' frames, 2
-         * and 4 behind the first's */
-        work->scl.x = -2.0F;
-        work->scl.z = -4.0F;
+        /* scl.x and scl.z become the second and third sparkles' frames */
+        work->scl.x = -SPARKLE_SECOND_LAG;
+        work->scl.z = -SPARKLE_THIRD_LAG;
         work->id = RING_ID;
         task->destructor = ring_destroy;
         task->draw = ring_draw;
@@ -247,6 +250,17 @@ static void ring_draw(struct task *task)
 {
     struct task_work *work = task->work;
 
+#ifdef NONMATCHING
+    /* a taken ring's sparkle draws on step 0, so the second picture's pass
+     * calls this. it draws the ring only where the ring's last step waited.
+     * then the ring still waits, or scl.z, the third sparkle's frame, keeps
+     * the start init gives it. spin, the first sparkle's frame, can't tell,
+     * since ring_attract adds to it */
+    if (frame_redrawing && work->mode != RING_WAIT &&
+        work->scl.z != -SPARKLE_THIRD_LAG) {
+        return;
+    }
+#endif
     if (draw_in_view(work->pos.x, work->pos.y, work->pos.z, 20.0F)) {
         if (work->tick < 50) {
             if (work->scl.y != -GROUND_FAR) {
@@ -398,8 +412,8 @@ static void lost_ring_step(struct task *task)
         if (work->collision->flags & COLLISION_HIT) {
             work->collision->flags &= ~COLLISION_HIT;
             LOST_RING(work)->spin = 0.0F;
-            work->scl.x = -2.0F;
-            work->scl.z = -4.0F;
+            work->scl.x = -SPARKLE_SECOND_LAG;
+            work->scl.z = -SPARKLE_THIRD_LAG;
             ring_sprite_init(work, &ring_sprite);
             work->pos.y += 3.44F;
             work->mode = LOST_RING_SPARKLE;
@@ -439,10 +453,10 @@ static void lost_ring_step(struct task *task)
             work->pos.z += work->scl.z * LOST_RING(work)->speed;
         } else {
             LOST_RING(work)->slow += 0.08F;
-#ifdef GCC
-            /* repairs the unset rest_x and rest_z the tag below names: GCC
-             * starts them at 0, so a lying ring's collision sits on the ring
-             * as it is drawn */
+#ifdef NONMATCHING
+            /* repairs the unset rest_x and rest_z the tag below names: this
+             * side starts them at 0. a lying ring's collision then sits on
+             * the ring as it is drawn */
             rest_x = 0.0F;
             rest_z = 0.0F;
 #endif
@@ -516,8 +530,8 @@ static void lost_ring_step(struct task *task)
             work->collision->flags &= ~COLLISION_HIT;
             work->mode = LOST_RING_SPARKLE;
             LOST_RING(work)->spin = 0.0F;
-            work->scl.x = -2.0F;
-            work->scl.z = -4.0F;
+            work->scl.x = -SPARKLE_SECOND_LAG;
+            work->scl.z = -SPARKLE_THIRD_LAG;
             ring_sprite_init(work, &ring_sprite);
             work->pos.y += 3.44F;
             if (!(player_get(0)->effects & PLAYER_FALLING)) {

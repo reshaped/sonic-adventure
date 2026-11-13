@@ -493,10 +493,11 @@ static void editor_place(struct task_work *work)
     } else if (!(per_info[0]->on & AXIS_BUTTONS)) {
         cursor_move(work);
     } else {
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the accesses past x: edit_pos, edit_ang and edit_scl
          * index y and z from the pointer they get. SHC's calls form it from
-         * x alone, and GCC's from the whole vector, at the same address */
+         * x alone, and this side's from the whole vector, at the same
+         * address */
         switch (sub_mode) {
         case SUB_POSITION:
             edit_pos((Float *)&work->pos, slot_tasks[0]);
@@ -638,7 +639,7 @@ static void editor_multi(struct task_work *work)
     } else if (!(per_info[0]->on & AXIS_BUTTONS)) {
         cursor_move(work);
     } else if (slot_tasks[0] != NULL) {
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the accesses past x, as editor_place's calls do */
         switch (sub_mode) {
         case SUB_POSITION:
@@ -835,10 +836,18 @@ static void set_add(NJS_POINT3 pos, struct angles ang, NJS_POINT3 scl)
     /* @bug memory: placement_count isn't tested against
      * PLACEMENT_COUNT, so at it the stores from 0x8c044f36 land past
      * placements */
+#ifdef NONMATCHING
+    /* repairs the stores the tag names: with every placement taken, this side
+     * adds none. one more would have the scans step a reach back past
+     * placement_reaches' start, and write it */
+    if (placement_count >= PLACEMENT_COUNT) {
+        return;
+    }
+#endif
     placement = &placements[placement_count];
     /* @hack redundant: placement tested for null, which an address in
      * placements never is, for the TST and BT at 0x8c044f2c; without it,
-     * count unmeasured */
+     * the function runs 6 bytes short and 77 of 78 words differ */
     if (placement != NULL) {
         placement->flags = PLACEMENT_ACTIVE;
         placement->tasks = 0;
@@ -861,6 +870,9 @@ static void set_add(NJS_POINT3 pos, struct angles ang, NJS_POINT3 scl)
         entry->scl.z = scl.z;
         placement_count++;
         (*placement_file_count)++;
+#ifdef NONMATCHING
+        placement_forget_reaches();
+#endif
     }
 }
 
@@ -879,7 +891,7 @@ static void set_take(struct task_work *work)
     int i;
 
     best = TAKE_RANGE;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that best falls below TAKE_RANGE only where the loop
      * sets nearest */
     nearest = NULL;
@@ -938,6 +950,9 @@ static void set_take(struct task_work *work)
         if (nearest->task != NULL) {
             nearest->task->placement = nearest;
         }
+#ifdef NONMATCHING
+        placement_forget_reaches();
+#endif
     }
 }
 
@@ -998,7 +1013,7 @@ static void edit_vector(Float value[3], NJS_POINT3 *to)
         }
         /* one of AXIS_BUTTONS is held, as the test above found, so one of
          * these tests sets axis */
-#ifdef GCC
+#ifdef NONMATCHING
         /* GCC can't see that every path sets axis */
         axis = &value[0];
 #endif
@@ -1043,7 +1058,7 @@ static void edit_angles(Angle value[3], struct angles *to)
             }
         }
         /* as in edit_vector, one of these tests sets axis */
-#ifdef GCC
+#ifdef NONMATCHING
         /* GCC can't see that every path sets axis */
         axis = &value[0];
 #endif

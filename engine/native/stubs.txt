@@ -1,0 +1,145 @@
+# The names the native slice's objects need that none of them defines, and
+# what engine/tools/stubs.py writes for each: its docstring gives a row's
+# form and each kind. make pc fails on a needed name with no row, on a row
+# nothing needs and on a row whose kind doesn't fit its name's use, so a
+# stub the game runs on is one a row here allows.
+#
+# A row is NAME KIND HOST REASON. HOST is linux or windows, the host whose
+# objects need the name, or * for both. KIND is one of:
+#   function     a function that reports its first call and answers 0, where the PC needs none of
+#                what the console's does
+#   zeros        64 KB of zeros, where the PC needs no more
+#   address      a place in the domain that the matching side's tables give
+#   engine       no stub: a call of the engine's, which the PC backend defines
+#   unsupported  function's stub where an object calls the name, and zeros' where none does, for
+#                what the game takes from the console's that the PC gives none of. The game runs
+#                otherwise than on the console there
+#
+# REASON says what the name is on the console, what of the game needs it,
+# and what the game makes of the stub. A line above a run of rows says
+# what the run shares.
+#
+# name                               kind         host     reason
+# SHC's intrinsic and its runtime's words
+_builtin_set_imask                   function     *        sets the SH-4's interrupt mask. sbInitSystem and sbExitSystem hold interrupts off by it (src/system/sbinit.c). The slice has none to hold off: a vsync's work runs where the game waits for one (engine/native/runner.c)
+_BSG_END                             zeros        *        the word the start code keeps the end of bss in. sbInitSystem takes main memory's view from it, for the megabyte it hands syMallocInit, a stub too (src/system/sbinit.c)
+_ctype                               unsupported  *        SHC's table of character classes, whose source engine/mk/native.mk leaves out of the slice's runtime. Only sscanf's scanner reads it, for the events' path editor (events/shared/sdk/_fmtin.c, events/shared/path_editor.c), and takes no character for a space or a digit
+_errno                               zeros        linux    SHC's error word, which its float math and its scanner set (sdk/runtime/, events/shared/sdk/). The slice compiles no source that defines it, so it lies here
+sa1_errno                            zeros        windows  _errno, by the name engine/mk/native.mk gives the game's on Windows, where the UCRT's _errno is a function
+# What starts and ends the console, as sbInitSystem and sbExitSystem call it (src/system/sbinit.c)
+syHwInit                             function     *        starts the console's hardware. A host has none of it to start
+syHwInit2                            function     *        the second half of that start, once Ninja is up
+syHwFinish                           function     *        ends the console's hardware
+syMallocInit                         function     *        gives Shinobi's heap main memory's last megabyte. The shim's syMalloc takes its blocks from a region of the domain of its own (engine/native/shim.c)
+syMallocFinish                       function     *        ends Shinobi's heap
+syRtcInit                            function     *        starts the console's clock. The shim's syRtcGetDate reads the host's (engine/native/shim.c)
+syRtcFinish                          function     *        ends the console's clock
+cache_ram_init                       function     *        returns at once on the console too: the code past its RTS, which would turn the cache's RAM mode on, never runs (src/system/cache.src)
+pdInitPeripheral                     function     *        starts the peripheral library with its two buffers. The pads are the shim's (engine/native/pads.c)
+pdExitPeripheral                     function     *        ends the peripheral library
+njExitSystem                         function     *        ends Ninja's system. Ninja's own is ninja_exit_system here (engine/mk/native.mk), and the adapter's njInitSystem starts no device to end (engine/sa1/ninja.c)
+gdFsFinish                           function     *        ends the disc's file system. The shim's files are the host's (engine/native/gdfs.c)
+# main's start (src/main.c)
+mwPlyPreInitSofdec                   function     *        prepares Sofdec's movie player before the system starts. The adapter plays the movies itself (engine/sa1/movie.c)
+syCblCheckCable                      function     *        names the video cable, by which main picks the picture's mode. 0 is VGA, and the adapter's njInitSystem takes any mode alike (engine/sa1/ninja.c)
+gdFsEntryErrFuncAll                  function     *        has the disc's file system call the game at an error. The shim's reads call none (engine/native/gdfs.c)
+njInitVertexBuffer                   function     *        gives Kamui's lists their vertex buffers. Ninja's own is ninja_init_vertex_buffer here, and the lists reach no hardware (engine/sa1/ninja.c)
+njInitTexture                        function     *        gives Ninja its list of texture memory. Ninja's own is ninja_init_texture here, and the shim keeps each texture's record itself (engine/native/shim.c)
+# The hand-off to Dream Passport, where main leaves the game (src/main.c)
+loader_buffer                        address      *        the loader's first byte, where main reads LOADER.BIN (config/1st_read/imports.txt). The slice links no loader, and the file lands in the domain's RAM where the console reads it
+loader_entry                         function     *        the loader's entry, which main calls once it has read the file. The PC has no Dream Passport to start: the call returns, and main after it
+# The heap, and the words that hold an image's end
+heap_arena                           address      *        the game's heap. marks.py takes its definition out of src/system/task.c, and it lies below MODULE_AREA with twice its room, as a host's tasks and block headers take twice the SH-4's bytes
+advertise_module_end                 address      *        the menus' end, past which card_init places the backup library's work (modules/advertise/card.c). modules/advertise/bounds.src defines it, in the SH-4's assembly
+eggmanrobo_bss_end                   address      *        the end of Zero's image, past which it reads its sound banks (modules/b_robo/banks.c)
+e101_r_bss_end                       address      *        the end of E-101 mkII's image, past which it reads its files (modules/b_e101_r/files.c)
+# The frame's end (src/system/frame.c, src/system/present.c, src/system/timer.c)
+kmFlipFrameBuffer                    function     *        shows the frame Kamui has rendered. frame_wait and the split frame's middle call it past kmRender, where the adapter has taken the picture for the backend to show (engine/sa1/records.c)
+pdExecPeripheralServer               function     *        has the peripheral library read the ports, once a frame. The shim reads the pad where the game scans it (engine/native/pads.c)
+kmSetEORCallback                     function     *        has Kamui call timer.c at each render's end, which times the render (src/system/timer.c). No render ends here, and the callback never runs
+njWaitVSync                          unsupported  *        Ninja's wait for the vertical blank, with its render and its flip. Ninja's own is ninja_wait_vsync here. The game's frames wait in frame_wait, which the adapter takes. An event's load, the movie's start and the debug host's requests wait by this name (src/event/play.c, src/progress/movie.c, src/debug/host.c), and go on at once
+kmiIntStatisticData                  zeros        *        Kamui's times of the tile accelerator's intake and of the render. The split frame weighs its second picture by them (src/system/present.c), and a host has neither to time
+kmiDeviceExtension                   zeros        *        Kamui's device state, which sdk/ninja/internal_kamui_lib.c defines and the slice doesn't compile. Kamui's setters keep their state in it (sdk/ninja/kmglobal_kamui_lib.c, sdk/ninja/kmvertex_kamui_lib.c), and the split frame reads its render as idle (src/system/present.c)
+# Kamui's own, which the two of its sources the slice compiles name (sdk/ninja/kmglobal_kamui_lib.c, sdk/ninja/kmvertex_kamui_lib.c)
+kmiCurrentListType                   zeros        *        the list Kamui's vertices go to, which its render-state setters write. sdk/ninja/kmvtxbuf_kamui_lib.c defines it, and the slice doesn't compile that
+kmiCurrentListState                  zeros        *        that list's state, which the same setters write
+kmiCurrentVertexBuff                 zeros        *        Kamui's write pointers into its lists' vertex buffers. Only kmiPutGlobalParam reads them here, which nothing calls
+kmiDstVertexBuffer                   zeros        *        the write pointer kmiPutGlobalParam picks, which nothing calls
+kmiMemCopy8                          function     *        kmiPutGlobalParam's copy into a vertex buffer, which nothing calls
+kmiBackGroundPlaneFuncs              zeros        *        the table Kamui's kmSetBackGroundPlane calls through. That is kamui_set_back_ground_plane here, which nothing calls: the adapter's takes the game's (engine/sa1/ninja.c)
+kmiDiscardRenderPipeline             function     *        kmResetRenderer's, which nothing of the game's calls
+kmiResetBoard                        function     *        kmResetRenderer's, which nothing of the game's calls
+kmiReadRegister                      function     *        reads a register of the video hardware, for kmGetGunTriggerPos, which nothing of the game's calls
+kmiQueryFinishDMA                    function     *        asks whether a texture's transfer has ended, for kmQueryFinishLastTextureDMA and njLoadTextureFinishDMA, which nothing of the game's calls
+# What only Ninja's system source needs (sdk/ninja/njSystem.c). The slice compiles the functions that wait on the hardware under ninja_ names, which nothing calls: the adapter's njInitSystem and the runner's njSetVSyncFunction take the game's calls (engine/mk/native.mk, engine/sa1/ninja.c, engine/native/runner.c)
+kmInitDevice                         function     *        opens Kamui's device, for njInitSystem, ninja_init_system here
+kmSetDisplayMode                     function     *        sets the display's mode, for njInitSystem and njChangeSystem, ninja_init_system and ninja_change_system here
+kmSetEndOfVertexCallback             function     *        has Kamui call Ninja as a list's vertices end, for the same two
+kmfSetFatalErrorCallback             function     *        has Kamui call Ninja at a fatal error, for the same two
+kmSetSystemConfiguration             function     *        gives Kamui its buffers and texture memory, for njInitVertexBuffer, ninja_init_vertex_buffer here, and for njChangeTextureMemorySize, which nothing of the game's calls
+kmDiscardVertexBuffer                function     *        frees Kamui's vertex buffers, for njExitSystem, ninja_exit_system here
+syChainAddHandler                    function     *        puts a handler on the vertical blank's chain, for njInitVertexBuffer and njSetVSyncFunction, ninja_init_vertex_buffer and ninja_set_vsync_function here
+syChainDeleteHandler                 function     *        takes a handler off that chain, for njSetVSyncFunction and for njBlank, the handler njInitVertexBuffer would add
+syTmrDiffCount                       function     *        the timer's counts between two readings, for njWaitVSync, ninja_wait_vsync here
+syTmrMicroToCount                    function     *        microseconds as the timer's counts, for the same
+kmStopDisplayFrameBuffer             function     *        blanks the display, for njStopDisplay, which nothing of the game's calls
+kmAdjustDisplayCenter                function     *        moves the picture on the display, for njAdjustDisplay, which nothing of the game's calls
+kmSetUserClipping                    unsupported  *        sets Kamui's user clipping rectangle, for njUserClipping, by which the game clips its inset, the box that draws the stage again from above (src/draw/inset.c). The stub sets none
+_nj_cnk_easy_multilight_buffer_      zeros        *        Ninja's easy chunk lights, 16 Floats that njInitGlobal fills by name. njGlobal.c reserves it in the SH-4's assembly, which no host compiles, so it lies here
+_nj_cnk_easy_multilight_buffer_dst_  zeros        *        the 32 Floats after them on the console, which njInitGlobal fills by this name here. It lies here as they do
+# Ninja's view and lights. njGlobal.c reserves each in the SH-4's assembly, which no host compiles, so Ninja's C and the adapter keep and read them here (sdk/ninja/njGlobal.c)
+_nj_view_                            zeros        *        the view Ninja draws by, which the split frame keeps and puts back (src/system/present.c)
+_nj_view_matrix_                     zeros        *        that view's matrix, which Ninja's simple drawer and the adapter read (sdk/ninja/njModelS.c, engine/sa1/records.c)
+_nj_camera_matrix_                   zeros        *        the matrix njSetCamera builds the view in, which the camera's turns to a point and about its line of sight write too (sdk/ninja/njSetCamera.c, sdk/ninja/njPointCamereInterest.c, sdk/ninja/njRollCameraInterest.c)
+_nj_light_control_                   zeros        *        the lights' control, which njLightSystemInit and njDeleteLight write and the simple drawer reads
+_nj_light_material_                  zeros        *        the lights' material, which njLightSystemInit and the simple drawer write
+_nj_light_queue_                     zeros        *        the lights' queue, which njLightSystemInit clears
+# Ninja's texture memory (sdk/ninja/njTexture.c). The shim loads every texture and keeps its record, and the PC backend its pixels (engine/native/shim.c)
+njInitTexMemList                     function     *        sets up the list of texture memory, for Ninja's njInitTexture, which the slice compiles as ninja_init_texture and nothing calls (engine/mk/native.mk)
+njLoadTextureLN                      function     *        loads one texture of a texlist, for Ninja's njLoadTexture, which the slice compiles as ninja_load_texture and nothing calls (engine/mk/native.mk)
+njReleaseCacheTextureAll             function     *        frees Ninja's cache of textures, for njExitTexture
+kmGarbageCollectTexture              function     *        compacts Kamui's texture memory, for njGarbageTexture, which a stage calls once it has loaded its textures and its land (src/stage/stage.c). The shim's records keep their places
+njSetTextureParam                    function     *        gives a texture its parameters again once that memory has moved, for the same
+kmGetFreeTextureMem                  function     *        Kamui's free texture memory, for njCalcTexture, which nothing of the game's calls
+# The stream's decoder (src/sound/stream.c)
+adxpd_internal_error                 zeros        *        the ADX decoder's error flag, which the stream's step clears where it finds it set. sdk/sofdec/adx_xpnd.c defines it, and the adapter plays the streams in its place (engine/sa1/sound.c), so nothing sets it
+# The pads and the VMU's screen
+pdGetPeripheral                      function     *        reads a port's pad. card.c reads port A's as it loads a stage's lights, and drops what it gets (src/save/card.c)
+pdVmsLcdIsReady                      function     *        asks whether a port's memory card has a screen. 0 is that it has none, so the game draws no VMU picture (src/vmu/screen.c)
+pdLcdGetDirection                    function     *        the way that screen faces, which vmu_write reads for a screen that is ready alone (src/vmu/draw.c)
+pdVmsLcdWrite1                       function     *        writes a picture to a VMU's screen. vmu_write writes to a screen that is ready, and none is (src/vmu/draw.c)
+# The disc's drive and the SH-4's caches
+gdFsReqDrvStat                       function     *        asks the drive for its state anew, where loader_poll_drive finds the tray open or the drive busy (src/system/loader.c). The shim's drive is always at rest (engine/native/gdfs.c)
+syCacheOCWB                          function     *        writes the operand cache's lines back to RAM, over a program loader.c has just decompressed (src/system/loader.c). A host's code reads what its stores wrote
+syCachePurgeAll                      function     *        empties the SH-4's caches before an event's code runs (src/event/play.c). A host's code reads what its stores wrote
+cache_ram_restore                    function     *        returns at once on the console too, as cache_ram_init does. The movie's start calls it (src/progress/movie.c)
+# The console's flash: its internet settings, its id and its play history
+fmMngRead                            function     *        asks for a packet of the flash's partition, for the internet settings mail.c reads (src/save/mail.c). The shim's fmMngInit opens no partition, so the read ends before it (engine/native/card.c)
+fmMngExecServer                      function     *        runs that read, which the same holds off
+fmMngFinish                          function     *        closes the partition, which the same holds off
+kbCfgIni                             function     *        a call into the boot ROM that readies the console's own record. The mail's and the download's readers call it (src/save/mail.c, src/object/download.c)
+kbCfgGetId                           unsupported  *        the boot ROM's address of that record, which holds the console's id and its area. The same two read through it, and 0 is no record
+ufInitSystem                         function     *        starts the library that keeps a title's play history in the flash, as the game starts and before each read (src/system/history.c)
+ufAutoSynch                          function     *        has that library write the history by itself
+ufPlayTime                           function     *        counts play in the history
+ufSynch                              function     *        writes the history to the flash
+ufReadAllHead                        unsupported  *        reads the history's head, which the mail carries (src/save/mail.c). The stub fills none of it
+# The debug host's screen capture (src/debug/host.c), which nothing of the game's calls
+njFrameBufferBmp                     function     *        reads the shown frame as a BMP
+kmfSetTimeOutCount                   function     *        sets Kamui's time-out past the capture
+# Ninja's debug text. sdk/ninja/njDebug.c draws it on the console, and the slice compiles none of that source, so the game's debug screens print nothing
+njInitPrint                          unsupported  *        loads the text's font and sets up the print, as main starts (src/main.c)
+njPrintSize                          unsupported  *        sets the text's size
+njPrintColor                         unsupported  *        sets the text's color
+njPrint                              unsupported  *        prints by a format
+njPrintC                             unsupported  *        prints a string
+njPrintD                             unsupported  *        prints a number in decimal
+njPrintB                             unsupported  *        prints a number in binary
+njPrintH                             unsupported  *        prints a number in hexadecimal
+njPrintF                             unsupported  *        prints a float
+# The engine's calls that the game's C and the adapter make by name. The PC backend defines each (engine/pc/backend.cpp), and play links it beside the slice
+sa_present_window                    engine       *        the picture's window, which the game's frame end asks for (src/system/pace.c)
+sa_present_mode                      engine       *        the picture's aspect and rate, which it asks for next
+sa_audio_submit                      engine       *        the sound commands the adapter hands the engine (engine/sa1/sound.c)
+sa_audio_load                        engine       *        a sound bank, as the adapter loads one
+sa_audio_stream                      engine       *        a voice's bytes, as the adapter streams them

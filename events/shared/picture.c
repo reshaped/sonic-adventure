@@ -30,7 +30,7 @@ static NJS_SPRITE event_picture_sprite = {
 #include "shared/picture/event_picture_sprite.inc"
 };
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* a picture nearer than this depth is a still. the events draw stills in
  * front of their scenes, at -1 to -5, and backdrops behind them, at -700 to
  * -1001 */
@@ -40,23 +40,8 @@ static NJS_SPRITE event_picture_sprite = {
  * and depth */
 static void event_picture_band(struct picture_work *work, Float x0, Float x1)
 {
-    NJS_POINT2 points[4];
-    NJS_COLOR colors[4];
-    NJS_POINT2COL band;
-    int i;
-
-    points[0].x = points[3].x = x0;
-    points[1].x = points[2].x = x1;
-    points[0].y = points[1].y = 0.0F;
-    points[2].y = points[3].y = 480.0F;
-    for (i = 0; i < 4; i++) {
-        colors[i].color = (Uint32)(work->alpha * 255.0F) << 24;
-    }
-    band.p = points;
-    band.col = colors;
-    band.tex = NULL;
-    band.num = 4;
-    njDrawPolygon2D(&band, 4, work->depth, NJD_FILL | NJD_TRANSPARENT);
+    port_band(x0, 0.0F, x1, 480.0F, (Uint32)(work->alpha * 255.0F) << 24,
+              work->depth, NJD_FILL | NJD_TRANSPARENT);
 }
 #endif
 
@@ -79,7 +64,7 @@ static void event_picture_draw(struct task *task)
     njSetConstantMaterial(&color);
     event_picture_sprite.tlist = work->texlist;
     event_picture_texanim.texid = work->texture;
-#ifdef GCC
+#ifdef NONMATCHING
     /* under the port's 16:9 a picture keeps its shape. a still that covers
      * the scene squeezes about the middle, and black bands drawn past its
      * left and right edges squeeze onto the screen's sides. outside
@@ -99,7 +84,7 @@ static void event_picture_draw(struct task *task)
     }
 #endif
     njDrawSprite2D(&event_picture_sprite, 0, work->depth, work->attr);
-#ifdef GCC
+#ifdef NONMATCHING
     event_picture_sprite.sy = 1.0F;
     port_wide_cover = FALSE;
 #endif

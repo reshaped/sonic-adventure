@@ -457,7 +457,7 @@ Sint8 enemy_on_screen(NJS_POINT3 *pos)
     NJS_POINT2 projected;
 
     njProjectScreen(NULL, pos, &projected);
-#ifdef GCC
+#ifdef NONMATCHING
     /* x as port.h's window holds it, so that 16:9 widens the test */
     projected.x = port_view_x(projected.x);
 #endif
@@ -685,17 +685,6 @@ void enemy_scatter_debris(struct task_work *work, Uint8 count)
 void enemy_spring_scale(struct task_work *work, struct lockon_target *record)
 {
     Float stretch = work->scl.y - 1.0F;
-#ifdef GCC
-    /* the split frame's second picture springs the scale from a copy of the
-     * record, so that the spring's speed, which the steps read, stays as
-     * they left it */
-    struct lockon_target copy;
-
-    if (frame_redrawing) {
-        copy = *record;
-        record = &copy;
-    }
-#endif
 
     record->scale_speed += -(record->scale_speed * 0.2F) - (stretch * 0.32F);
     work->scl.y += record->scale_speed;

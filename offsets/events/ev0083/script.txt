@@ -1,0 +1,5 @@
+datum  ev0083_light_points  D  0x00000000  2848
+datum  ev0083_light_path  D  0x00000b20  8
+datum  ev0083_light  D  0x00000b28  4
+datum  ev0083_fade  D  0x00000b2c  4
+datum  ev0083_textures  D  0x00000b30  8

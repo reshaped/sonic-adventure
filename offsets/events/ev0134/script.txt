@@ -1,0 +1,12 @@
+datum  ev0134_textures  D  0x00000000  8
+text  TEXT_1  C  0x00000008  44
+text  TEXT_2  C  0x00000040  55
+text  TEXT_3  C  0x0000007c  6
+text  TEXT_4  C  0x00000090  38
+text  TEXT_5  C  0x000000bc  14
+text  TEXT_6  C  0x00000000  6
+text  TEXT_7  C  0x00000034  9
+text  TEXT_8  C  0x00000078  4
+text  TEXT_9  C  0x00000084  2
+text  TEXT_10  C  0x00000088  7
+text  TEXT_11  C  0x000000b8  2

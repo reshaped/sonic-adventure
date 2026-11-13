@@ -1,7 +1,8 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* v1.x * v2.x + v1.y * v2.y + v1.z * v2.z, as FIPR computes it */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njInnerProduct
 Float njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
 {
@@ -9,7 +10,6 @@ Float njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c627f98 follows the
  * body's own return at 0x8c627f92 */
 #pragma inline_asm(njInnerProduct)
@@ -29,6 +29,6 @@ Float njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
         RTS
         FMOV        FR3,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif

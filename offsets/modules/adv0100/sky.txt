@@ -1,0 +1,6 @@
+datum  near_volume  D  0x00000000  48
+datum  far_volume  D  0x00000030  48
+datum  cloud_frames  D  0x00000060  60
+datum  cloud_sprite  D  0x0000009c  32
+datum  near_clouds  B  0x00000000  4400
+datum  far_clouds  B  0x00001130  4400

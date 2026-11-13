@@ -1,0 +1,6 @@
+datum  hall_lights_places  D  0x00000000  408
+datum  hall_lights_count  D  0x00000198  4
+datum  hall_lights_frames  D  0x0000019c  40
+datum  hall_lights_sprite  D  0x000001c4  32
+datum  hall_lights_no_color  D  0x000001e4  16
+datum  hall_lights_color  B  0x00000000  16

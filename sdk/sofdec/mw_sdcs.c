@@ -6,6 +6,11 @@
 #include <sg_xpt.h>
 #include <shinobi.h>
 #include <string.h>
+#ifdef NONMATCHING
+#include "shinobi/sd_work.h"
+#include <machine.h>
+#include <sg_syg2.h>
+#endif
 
 #define MWSND_MAX_OBJ 8
 
@@ -65,6 +70,198 @@ static Uint32 mwg_snd_tcnt[3];
 #define TEXT_26_LENGTH 54
 #define TEXT_27_LENGTH 57
 #include "sofdec/mw_sdcs/text.inc"
+
+#ifdef NONMATCHING
+/* SEGA's CPU transfer copies a word at a time through syG2Write, with every
+ * interrupt masked. in Shinobi's CPU transfer mode, this side's mwSndTrns
+ * sends a copy by the AICA's G2 DMA channel instead. it does so where the
+ * copy's source, destination and size are multiples of MWSND_DMA_UNIT. it
+ * returns without waiting for the copy's end. in CPU mode Shinobi starts no
+ * DMA. once Shinobi's last DMA has ended, the channel is this file's alone.
+ *
+ * outside an interrupt handler, mwSndTrns, mwSndGetMblkStat and
+ * mwSndClosePort first wait for the end of the block's copy. so their reads
+ * of its status there find the copy finished, as SEGA's CPU transfer left it.
+ * sdMemBlkSetPrm's read is one of these.
+ *
+ * a handler, which runs while syIntNestCount isn't 0, waits for no copy. a
+ * wait there could break two ways. after syChainClx1Handler reads SB_ISTNRM
+ * and before it calls the channel's end handler, the wait would end the
+ * copy. the chain would then call the end handler again and end the next
+ * copy early. the end handler clears the end bit before it calls its
+ * callback. a wait between the two would spin masked on a bit no copy will
+ * set.
+ *
+ * so to a handler, a block whose copy the ring holds is busy.
+ * mwSndGetMblkStat reads it in progress, as it reads a block in Shinobi's
+ * DMA. mwSndTrns refuses it, as sdMemBlkSetPrm refuses a block in progress.
+ * mwSndTrns and mwSndClosePort return SDE_ERR_MEMBLK_ALREADY_TRANSFER and
+ * change nothing. so mwSndClosePort neither destroys a block nor frees the
+ * sound buffer a copy writes while the copy runs. a copy sent from a handler
+ * keeps SEGA's transfer, as does one the ring has no room for.
+ *
+ * the mode becomes DMA only while no port is open: in sound_init_driver at
+ * boot, and in movie_main. movie_play enters movie_main after stream_destroy
+ * has closed every port. so no copy of this file's runs once Shinobi's DMA
+ * may start.
+ *
+ * SEGA's close destroys a block in progress. here a handler's close of a busy
+ * block fails instead. its caller, mwRnaDestroy, then forgets a port that
+ * stays open with its buffers. in the shipped game no handler meets a busy
+ * block. none feeds a port while the mode is CPU. game_init turns ADXT's
+ * vsync server off with ADXT_ConfigVsyncSvr(0). movie_vsync's server feeds
+ * only the ports movie_main opens after it sets DMA. mwSndTrns sets the mode
+ * back to CPU only for a copy of under MWSND_TRNS_MIN bytes. mw_rna.c copies
+ * 16-bit samples in multiples of 32 bytes. its only smaller copy is 4 bytes
+ * past a ring's end, at a rate other than 44.1 kHz. every movie on the disc
+ * streams at 44.1 kHz */
+
+/* syG2DmaSetPrm rounds the addresses and the length down to a multiple of
+ * MWSND_DMA_UNIT */
+#define MWSND_DMA_UNIT 32
+/* one copy for each channel of each port: mwSndTrns ends a block's copy
+ * before it starts the next */
+#define MWSND_DMA_MAX (MWSND_MAX_OBJ * 2)
+/* the interrupt levels running, which syIntMasterISR_2 counts */
+extern Sint32 syIntNestCount;
+/* SB_ISTNRM, the system bus's normal interrupt status, is sg_syg2.h's
+ * G2_INT_STATUS. MWSND_INT_AICA_DMA_END is its bit for the end of the AICA's
+ * G2 DMA, which syG2DmaEndIntrruptHandler clears for that channel */
+#define MWSND_INT_AICA_DMA_END                                                 \
+    (1UL << (SYE_G2_DMA_TYPE_AICA + G2_INT_DMA_END_SHIFT))
+
+/* a copy that runs on the channel or waits for it */
+struct MwSndDma {
+    SDMEMBLK mblk;
+    void *src;
+    Sint32 dst; /* the offset in sound memory */
+    Sint32 size;
+};
+
+/* the copies, in order, as a ring of mwg_snd_dma_num from mwg_snd_dma_first.
+ * the first runs on the channel, and the rest wait for it. the ring changes
+ * only with every interrupt masked */
+static struct MwSndDma mwg_snd_dma[MWSND_DMA_MAX];
+static Sint32 mwg_snd_dma_first;
+static Sint32 mwg_snd_dma_num;
+
+static void mwlSndDmaEnd(void *arg);
+
+/* start the ring's first copy on the free channel, with the flags
+ * sdMemBlkDmaTransfer gives its transfers. syG2DmaTrigger writes the operand
+ * cache back over the source first */
+static void mwlSndDmaStart(void)
+{
+    struct MwSndDma *dma = &mwg_snd_dma[mwg_snd_dma_first];
+
+    syG2DmaSetPrm(sdgG2DmaHandle, (void *)(SD_SND_MEM + dma->dst), dma->src,
+                  dma->size, SYE_G2_DMA_DIR_ROOT_TO_G2, true, true,
+                  mwlSndDmaEnd, NULL);
+    /* syG2DmaTrigger does nothing while the busy bit of SB_ADST, the
+     * channel's start register, reads set. mwlSndDmaWait starts the next copy
+     * once the end bit is set, without reading the busy bit */
+    while (syG2DmaTrigger(sdgG2DmaHandle, SYE_G2_DMA_TRIGGER_CPU) !=
+           SYE_G2_ERR_NOTHING) {
+    }
+}
+
+/* the channel's callback, which syG2DmaEndIntrruptHandler calls at the end of
+ * the ring's first copy */
+static void mwlSndDmaEnd(void *arg)
+{
+    int mask = get_imask();
+
+    set_imask(IMASK_ALL);
+    sdMemBlkSetStat(mwg_snd_dma[mwg_snd_dma_first].mblk,
+                    SDE_MEMBLK_STAT_TRANSFER_FINISHED);
+    mwg_snd_dma_first = (mwg_snd_dma_first + 1) % MWSND_DMA_MAX;
+    mwg_snd_dma_num--;
+    if (mwg_snd_dma_num > 0) {
+        mwlSndDmaStart();
+    }
+    set_imask(mask);
+}
+
+/* take a copy mwSndTrns has set up in mblk for the channel. the result is
+ * TRUE for a copy taken. its block is then in progress, and the copy has
+ * started or waits in the ring. the result is FALSE, with nothing done, for a
+ * copy that keeps SEGA's transfer. a taken copy sets its block's status and
+ * skips the rest of sdMemBlkTransfer's work. mwSndTrns passes
+ * SDD_MEMBLK_NO_FUNC, so no callback or done flag waits on the block. nothing
+ * reads Shinobi's transfer counts. only a transfer in DMA mode fills
+ * Shinobi's queue, which is empty wherever a copy is taken */
+static Bool mwlSndDmaTake(SDMEMBLK mblk, Sint32 dst, void *src, Sint32 size)
+{
+    struct MwSndDma *dma;
+    int mask;
+
+    if (size <= 0 || ((Uint32)src | dst | size) % MWSND_DMA_UNIT != 0 ||
+        sdgWrkPtr->transfer_mode != SDE_MEMBLK_TRANSFER_MODE_CPU ||
+        syIntNestCount != 0) {
+        return false;
+    }
+    mask = get_imask();
+    set_imask(IMASK_ALL);
+    /* with the ring empty, a busy channel holds Shinobi's DMA. that DMA
+     * runs, or has ended with its end handler yet to run. the busy flag,
+     * unlike SB_ADST, stays set until that handler runs. a copy started
+     * before then would replace the channel's callback with mwlSndDmaEnd.
+     * the pending end would then cut this copy short and mark it finished */
+    if (mwg_snd_dma_num == MWSND_DMA_MAX ||
+        (mwg_snd_dma_num == 0 &&
+         ((struct g2_dma_channel *)sdgG2DmaHandle)->busy == true)) {
+        set_imask(mask);
+        return false;
+    }
+    dma = &mwg_snd_dma[(mwg_snd_dma_first + mwg_snd_dma_num) % MWSND_DMA_MAX];
+    dma->mblk = mblk;
+    dma->src = src;
+    dma->dst = dst;
+    dma->size = size;
+    sdMemBlkSetStat(mblk, SDE_MEMBLK_STAT_TRANSFER_PROGRESS);
+    mwg_snd_dma_num++;
+    if (mwg_snd_dma_num == 1) {
+        mwlSndDmaStart();
+    }
+    set_imask(mask);
+    return true;
+}
+
+/* wait for the end of mblk's copy, if the ring holds it. the result is TRUE
+ * once the ring no longer holds it. it is FALSE, without a wait, where a
+ * handler asks while the ring holds the copy. each pass, with every interrupt
+ * masked, waits for the end bit, not SB_ADST's busy bit. it then runs the
+ * channel's end handler, which clears the end bit. a pass must clear the end
+ * its copy raised. otherwise the interrupt would run the end handler again
+ * and end the next copy early */
+static Bool mwlSndDmaWait(SDMEMBLK mblk)
+{
+    SDE_MEMBLK_STAT stat;
+    int mask;
+
+    /* a block in progress with the ring empty is in Shinobi's own DMA. SEGA's
+     * code waits for that DMA's end as shipped. this test keeps short each
+     * pass of mwRnaSetTransSw's masked wait for it */
+    if (mwg_snd_dma_num == 0) {
+        return true;
+    }
+    mask = get_imask();
+    set_imask(IMASK_ALL);
+    sdMemBlkGetStat(mblk, &stat);
+    while (mwg_snd_dma_num > 0 && stat == SDE_MEMBLK_STAT_TRANSFER_PROGRESS) {
+        if (syIntNestCount != 0) {
+            set_imask(mask);
+            return false;
+        }
+        while ((*G2_INT_STATUS & MWSND_INT_AICA_DMA_END) == 0) {
+        }
+        syG2DmaEndIntrruptHandler(sdgG2DmaHandle);
+        sdMemBlkGetStat(mblk, &stat);
+    }
+    set_imask(mask);
+    return true;
+}
+#endif
 
 void mwSndInit(void)
 {
@@ -218,6 +415,13 @@ int mwSndClosePort(MwSnd *snd)
     if (snd == 0) {
         return SDE_ERR_HANDLE_ILLEGAL_VALUE;
     }
+#ifdef NONMATCHING
+    for (i = 0; i < snd->nch; i++) {
+        if (!mwlSndDmaWait(snd->mblk[i])) {
+            return SDE_ERR_MEMBLK_ALREADY_TRANSFER;
+        }
+    }
+#endif
     for (i = 0; i < snd->nch; i++) {
         mwSndBufDestroy(snd->buf[i]);
         err = sdMemBlkDestroy(snd->mblk[i]);
@@ -250,10 +454,10 @@ int mwSndPlay(MwSnd *snd, int bps, Uint16 freq)
     int type;
     int err;
 
-#ifdef GCC
-    /* repairs the unset type the tag below names: for a bps no format has,
-     * GCC passes -1, which sdPstmPlay rejects as out of range, as it
-     * rejects the rna's address that the image passes */
+#ifdef NONMATCHING
+    /* repairs the unset type the tag below names. for a bps no format has,
+     * this side passes -1. sdPstmPlay rejects it as out of range, as it
+     * rejects the rna's address the image passes */
     type = -1;
 #endif
     /* NOLINTBEGIN(clang-diagnostic-sometimes-uninitialized) */
@@ -509,6 +713,11 @@ int mwSndTrns(MwSnd *snd, Sint8 ch, int dst, void *src, int size)
 {
     int err;
 
+#ifdef NONMATCHING
+    if (!mwlSndDmaWait(snd->mblk[ch])) {
+        return SDE_ERR_MEMBLK_ALREADY_TRANSFER;
+    }
+#endif
     if (size < MWSND_TRNS_MIN) {
         sdMemBlkSetTransferMode(SDE_MEMBLK_TRANSFER_MODE_CPU);
         mwRnaErrCallFunc(TEXT_23);
@@ -520,7 +729,15 @@ int mwSndTrns(MwSnd *snd, Sint8 ch, int dst, void *src, int size)
         return err;
     }
     mwg_snd_tcnt[1] = syTmrGetCount();
+#ifdef NONMATCHING
+    if (mwlSndDmaTake(snd->mblk[ch], dst, src, size)) {
+        err = SDE_ERR_NOTHING;
+    } else {
+        err = sdMemBlkTransfer(snd->mblk[ch], dst);
+    }
+#else
     err = sdMemBlkTransfer(snd->mblk[ch], dst);
+#endif
     if (err != 0) {
         mwRnaErrCallFunc(TEXT_25);
     }
@@ -539,6 +756,9 @@ int mwSndGetMblkStat(MwSnd *snd, Sint8 ch, SDE_MEMBLK_STAT *stat)
     SDE_MEMBLK_STAT mstat;
     int err;
 
+#ifdef NONMATCHING
+    (void)mwlSndDmaWait(snd->mblk[ch]);
+#endif
     err = sdMemBlkGetStat(snd->mblk[ch], &mstat);
     if (err != 0) {
         mwRnaErrCallFunc(TEXT_26);

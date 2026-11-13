@@ -381,8 +381,8 @@ static void lock_destroy(struct task *task)
     lock_count--;
     /* @hack redundant: a test of lock_count and an empty loop over the key
      * kinds, which the image keeps (TST R2,R2 at 0x0c90a6bc, the loop from
-     * 0x0c90a6c2 to 0x0c90a6c8); without them, the function shrinks, and
-     * lock.c's P ends 32 bytes short of its row, count unmeasured */
+     * 0x0c90a6c2 to 0x0c90a6c8); without them, the function shrinks,
+     * lock.c's P ends 32 bytes short of its row, and 9 of 11 words differ */
     if (lock_count == 0) {
         for (i = 0; i < KEY_KINDS; i++) {
         }

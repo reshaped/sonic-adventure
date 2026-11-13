@@ -1,0 +1,3 @@
+datum  ev00c5_picture_textures  D  0x00000000  12
+datum  ev00c5_picture_texlist  D  0x0000000c  8
+text  TEXT_1  C  0x00000000  8

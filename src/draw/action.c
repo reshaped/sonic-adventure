@@ -422,14 +422,14 @@ static Float action_sample_shape(NJS_MKEY_P *keys, Uint32 index, Uint32 count,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float fourth);
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 ALWAYS_INLINE Float squared_length(Float x, Float y, Float z, Float fourth)
 {
     return zam_fipr_self(x, y, z, fourth);
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* the squared length of (x, y, z, fourth), in FR0. SHC expands the body at
  * the call. size=4 gives the body's length in bytes. without it, SHC 5.0
  * R10 can place a literal pool ahead of the expansion, with a BRA over the
@@ -442,8 +442,8 @@ static Float squared_length(Float x, Float y, Float z, Float fourth)
         FIPR        FV4,FV4
         FMOV.S      FR7,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* blend first toward second by weight into out, and scale the blend to unit
@@ -857,10 +857,9 @@ static void action_draw_motion_tree(NJS_OBJECT *object)
              * NJD_EVAL_SKIP turns by the three words at the stack pointer, the
              * PR, R8 and R9 the function saved on entry, read at 0x8c04177c,
              * 0x8c04177e and 0x8c041780 */
-#ifdef GCC
-            /* repairs the unset angles the tag above names: nothing under GCC
-             * points angles at the saved PR, R8 and R9, so GCC's node turns
-             * by object->ang, as action_draw_shape_tree's does */
+#ifdef NONMATCHING
+            /* repairs the unset angles the tag above names: this side's node
+             * turns by object->ang, as action_draw_shape_tree's does */
             angles = object->ang;
 #endif
             /* NOLINTBEGIN(clang-diagnostic-uninitialized) */

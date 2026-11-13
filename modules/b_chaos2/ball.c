@@ -915,6 +915,17 @@ static void core_step(struct task *task)
         if (work->pos.y < -5.0F) {
             chaos_effect_splash(work, 16, 2.0F, 0.0F);
             puddle_joined = 1;
+#ifdef NONMATCHING
+            /* repairs the read the tag in drop_step names: core_work points
+             * at a static copy of the core's work. a drop thrown once the core
+             * is gone aims where the core last was */
+            {
+                static struct task_work last;
+
+                last = *work;
+                core_work = &last;
+            }
+#endif
             task_destroy(task);
             return;
         }

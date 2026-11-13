@@ -1460,6 +1460,18 @@ static void chaos2_take_hits(struct task_work *work)
         boss_return_mode = BOSS_FORM;
         sound_play_at(SE_HIT, 0, 0, 0, work->pos.x, work->pos.y, work->pos.z);
     } else if (work->flags & COLLISION_TOUCHING) {
+        /* @bug memory: reads and writes player 0's records through null once
+         * the players' level is gone, as when a stage stops while his work
+         * holds COLLISION_TOUCHING and his destructor runs his mode a last
+         * time: the JSRs at 0x0c9029ca and 0x0c9029dc hand
+         * player_turn_to_world player_work[0] and player_set_speed player 0 */
+#ifdef NONMATCHING
+        /* repairs the read the tag names: with player 0 gone, this side's
+         * touch throws nobody */
+        if (player_work[0] == NULL) {
+            return;
+        }
+#endif
         /* @bug logic: player_turn_to_world turns body_push itself
          * (MOV.L at 0x0c9029c8 passes its address in R5), so each throw after
          * the first turns the last throw's push again. the barrier turns a
@@ -2049,7 +2061,7 @@ static void chaos2_draw(struct task *task)
              * and blue, and njSetConstantMaterial (JSR at 0x0c903bc0) reads
              * its alpha from R15+8, whatever the stack held there */
             glow.r = glow.g = glow.b = chaos->barrier_glow - 1.0F;
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the unset alpha the tag names: 0 adds nothing to the
              * alpha of the barrier's material */
             glow.a = 0.0F;

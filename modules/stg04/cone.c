@@ -11,7 +11,7 @@
 #include "object/placement.h"
 #include "player/player.h"
 #include "sound/sound.h"
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #endif
 #include "stg04/cone.h"
@@ -117,13 +117,13 @@ static void cone_run(struct task *task)
          * &speed, a lone Float. the z lands 8 bytes past it, on the FR15 the
          * frame saved, and the return hands the caller that z in FR15 (JSR at
          * 0x0c9006d8, FMOV.S @R15+,FR15 at 0x0c900864) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps the shipped play the tag names where ground_below finds a
-         * floor. the slope goes to a record of its own, and the cone clears
+         * floor. the slope goes to a record of its own. the cone clears
          * stage_run_action's limit, as a floor's slope z does in the image's
          * FR15. with no floor, the image's z is the unset frame word
-         * ground_below's tag names, and its value varies. GCC repairs that
-         * case: the cone leaves the limit uncleared, as the code means */
+         * ground_below's tag names, and its value varies. this side repairs
+         * that case: the cone leaves the limit uncleared, as the code means */
         {
             struct angles slope;
 
@@ -157,7 +157,7 @@ static void cone_run(struct task *task)
          * player 0 off the ground, and its FALSE goes unread. the kick then
          * reads speed's frame slot unwritten (FMOV.S @R15,FR2 at
          * 0x0c9007fc) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset speed the tag names: 0, a still player's ground
          * speed, kicks the cone nowhere */
         speed = 0.0F;

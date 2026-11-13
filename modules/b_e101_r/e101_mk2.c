@@ -1413,7 +1413,7 @@ static void e101_mk2_swat(struct task *task)
     move(task);
     steer_to_target(task);
     turn_smoothly(task);
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that distance is set wherever it is read: only cases 1
      * and 3 read it, and the test below sets it for both */
     distance = 0.0F;
@@ -1908,7 +1908,7 @@ static void e101_mk2_defeat(struct task *task)
         /* @bug arithmetic: under a timer of 5, the divisor is 0. __modls,
          * called at 0x0c902f4e, then sets errno and returns 0, so a blast goes
          * off each step */
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps the value the tag names, 0: under a timer of 5 the test
          * holds. GCC's own timer % 0 gives timer, which fails it */
         if (boss->timer * 40 / 200 == 0 ||
@@ -1941,7 +1941,7 @@ static void e101_mk2_defeat(struct task *task)
         /* @bug arithmetic: under a timer of 6, the divisor is 0 here too.
          * __modls, called at 0x0c90305a, then returns 0, so a blast goes off
          * each step */
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps the value the tag names, 0: under a timer of 6 the test
          * holds. GCC's own timer % 0 gives timer, which fails it from 1 to
          * 5 */

@@ -15,7 +15,7 @@ extern NJS_OBJECT waterfall_object;
 /* the meshsets the slide takes, and the uvs it copies from each */
 #define FALL_MESHSETS 3
 #define FALL_UVS 88
-#ifdef GCC
+#ifdef NONMATCHING
 /* the model's meshsets, and the uvs each one's strips take */
 #define MODEL_MESHSETS 2
 static const int meshset_uvs[MODEL_MESHSETS] = {88, 90};
@@ -112,8 +112,8 @@ static void waterfall_draw(struct task *task)
      * 0x0c90b86c). point 1's z then holds a stack address until the draw puts
      * it back (0x0c90b880, 0x0c90b92a) */
     meshset = object->model->meshsets;
-#ifdef GCC
-    /* repairs the reads the tag names: GCC's loops take the model's two
+#ifdef NONMATCHING
+    /* repairs the reads the tag names: this side's loops take the model's two
      * meshsets */
     for (i = 0; i < MODEL_MESHSETS; ++i, ++meshset) {
 #else
@@ -125,7 +125,7 @@ static void waterfall_draw(struct task *task)
          * waterfall_draw's 151 words differ */
         int down = slide;
 
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the second meshset's copy: its strips take 90 uvs. the
          * image copies 88, so its draw takes the last two from the third
          * meshset's copy */
@@ -146,7 +146,7 @@ static void waterfall_draw(struct task *task)
     }
     draw_model(object->model);
     meshset = object->model->meshsets;
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the second loop the same way */
     for (i = 0; i < MODEL_MESHSETS; ++i, ++meshset) {
 #else

@@ -1,0 +1,8 @@
+datum  heart_texanim  D  0x00000000  20
+datum  heart_sprite  D  0x00000014  32
+datum  chick_texanims  D  0x00000034  40
+datum  chick_sprite  D  0x0000005c  32
+datum  shock_ring_points  D  0x0000007c  48
+datum  shock_ring_colors  D  0x000000ac  16
+datum  shock_ring_quad  D  0x000000bc  16
+datum  shock_ring_fade_colors  B  0x00000000  16

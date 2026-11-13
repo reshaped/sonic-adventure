@@ -1,0 +1,7 @@
+datum  dat_0c9c0f98  D  0x00000000  3780
+datum  twinkle_coaster_path  D  0x00000ec4  16
+datum  dat_0c9c1e6c  D  0x00000ed4  1340
+datum  dat_0c9c23a8  D  0x00001410  16
+datum  dat_0c9c23b8  D  0x00001420  1340
+datum  dat_0c9c28f4  D  0x0000195c  16
+datum  twinkle_act1_paths  D  0x0000196c  16

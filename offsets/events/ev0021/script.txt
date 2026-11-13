@@ -1,0 +1,7 @@
+datum  ev0021_flash  D  0x00000000  4
+datum  ev0021_textures  D  0x00000004  8
+text  TEXT_1  C  0x0000000c  27
+text  TEXT_2  C  0x0000002c  22
+text  TEXT_3  C  0x00000000  2
+text  TEXT_4  C  0x00000004  7
+text  TEXT_5  C  0x00000028  3

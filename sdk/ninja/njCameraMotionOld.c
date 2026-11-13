@@ -264,7 +264,7 @@ static void weighted_sum(Float *a, Float *b, Float *c, Float *d, Float wa,
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* out[i] = wa * a[i] + wb * b[i] + wc * c[i] + wd * d[i] for i from 0 to 2,
  * each one FIPR of the weights, in FV4. SHC expands the body at its call.
  * size=44, the body's bytes, keeps R10 from putting a pool ahead of the body

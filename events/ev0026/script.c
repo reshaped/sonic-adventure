@@ -40,7 +40,7 @@ extern NJS_OBJECT tails_fly_object;
  * own at the element's address, for EVENT_END's read of Tails' slot. as
  * &player_work[2] there too, 187.45F and 420.0F trade FR15 and FR14 (FMOV
  * FR15,FR4 at 0x0cb8014e), and 6 of ev0026_script's 1737 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC's link binds a name only where a definition starts, and this one
  * names an element inside player_work */
 #define player_work_2 (player_work[2])

@@ -1,0 +1,12 @@
+datum  hint_pages  C  0x00000000  16
+datum  recoil  C  0x00000010  12
+datum  dat_0c905ba0  D  0x00000000  8
+datum  tilt_speed  D  0x00000008  4
+datum  sway_speed  D  0x0000000c  4
+datum  tilt_scale  D  0x00000010  4
+datum  hum_volume  D  0x00000014  4
+datum  dat_0c905bb8  D  0x00000018  4
+datum  dat_0c905bbc  D  0x0000001c  4
+datum  hint_showing  D  0x00000020  4
+datum  hint_spent  D  0x00000024  4
+text  TEXT_1  C  0x0000001c  53

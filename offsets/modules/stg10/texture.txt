@@ -1,0 +1,17 @@
+datum  final_texture_texlist  D  0x00000000  8
+datum  final_texture_palette2  D  0x00000008  512
+datum  final_texture_palette3  D  0x00000208  512
+datum  final_texture_palette4  D  0x00000408  512
+datum  final_texture_palette0  D  0x00000608  512
+datum  final_texture_palette1  D  0x00000808  512
+datum  final_texture_palette5  D  0x00000a08  512
+datum  final_texture_palettes  D  0x00000c08  24
+datum  final_texture_panel_alpha  D  0x00000c20  4
+datum  final_texture_hold_count  D  0x00000c24  4
+datum  final_texture_task  D  0x00000c28  4
+datum  final_texture_info  B  0x00000000  44
+datum  final_texture_name  B  0x0000002c  12
+datum  final_texture_sines  B  0x00000038  256
+datum  final_texture_pixels  B  0x00000138  8192
+datum  final_texture_phase2  B  0x00002138  1
+datum  final_texture_phase3  B  0x00002139  1

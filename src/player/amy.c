@@ -2636,6 +2636,14 @@ static void amy_draw(struct task *task)
     if (record->anim.state == PLAYER_ANIM_BLENDING) {
         action = record->anim.current;
     }
+#ifdef NONMATCHING
+    /* where step 1 drew her nothing, the second picture's pass draws her by
+     * this callback. her step draws the feather apart from amy_draw, so the
+     * pass draws it here. a mirror's call draws no feather */
+    if (present_drawing(task)) {
+        amy_draw_feather(work, motion, record);
+    }
+#endif
     if (TASK_TIMER(work) & BLINK_HIDDEN) {
         return;
     }
@@ -2734,7 +2742,15 @@ static void amy_draw_feather(struct task_work *work, struct task_motion *motion,
     /* @hack spelling: the two tests nested, which puts njPushMatrix's address
      * in R1 (0x8c0e3e6a); as early returns, R3, and 2 of 125 words differ */
     if (record->upgrades & PLAYER_AMY_WARRIOR_FEATHER) {
+#ifdef NONMATCHING
+        /* where FRAME_DRAWS takes step 1, the pass draws her by what step 1
+         * drew. it then calls no callback of hers, so step 1 draws the
+         * feather too */
+        if (FRAME_DRAWS()) {
+            present_untimed(TRUE);
+#else
         if (frame_step == 0) {
+#endif
             njPushMatrix(NULL);
             njTranslateV(NULL, &work->collision->shapes->center);
             TURN(njRotateZ, work->ang.z);
@@ -2757,6 +2773,9 @@ static void amy_draw_feather(struct task_work *work, struct task_motion *motion,
                 draw_tree(&amy_feather_object);
             }
             njPopMatrix(1);
+#ifdef NONMATCHING
+            present_untimed(FALSE);
+#endif
         }
     }
 }
@@ -4795,7 +4814,14 @@ static Bool amy_look_create(Sint8 player, NJS_OBJECT **nodes)
      * branches over it with the last store in the BRA's delay slot
      * (0x8c0e7656); as an early return, 16 of 51 words differ */
     if ((task = task_create(TASK_WORK, 2, amy_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }
@@ -4812,8 +4838,9 @@ static Bool amy_look_create(Sint8 player, NJS_OBJECT **nodes)
      * and R0 keeps 96 from MOV #96,R0 (0x8c0e7652). the one caller reads no
      * result. with return TRUE, SHC loads 1 into R0 and 7 of 51 words
      * differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is TRUE, for the task
+     * made */
     return TRUE;
 #endif
 }
@@ -4941,7 +4968,7 @@ static void amy_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs angles[1] and [2], which the shipped code leaves
              * unset with no task, or a task with no work: the BRA at
              * 0x8c0e79cc skips the default case's stores to the aims, which

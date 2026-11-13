@@ -1,0 +1,4 @@
+datum  beach_fog_table  D  0x00000000  512
+datum  sun_point  C  0x00000000  12
+datum  water_point  C  0x0000000c  12
+datum  act0_exit  C  0x00000018  12

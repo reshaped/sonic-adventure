@@ -1,0 +1,14 @@
+datum  event_chao_textures  D  0x00000000  132
+datum  event_chao_texlist  D  0x00000084  8
+datum  event_chao_material  D  0x0000008c  20
+text  TEXT_1  C  0x00000000  9
+text  TEXT_2  C  0x0000000c  8
+text  TEXT_3  C  0x00000014  7
+text  TEXT_4  C  0x0000001c  9
+text  TEXT_5  C  0x00000028  8
+text  TEXT_6  C  0x00000030  8
+text  TEXT_7  C  0x00000038  7
+text  TEXT_8  C  0x00000040  10
+text  TEXT_9  C  0x0000004c  9
+text  TEXT_10  C  0x00000058  8
+text  TEXT_11  C  0x00000060  9

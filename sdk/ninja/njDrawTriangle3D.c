@@ -65,6 +65,15 @@ void njDrawTriangle3D(NJS_POINT3COL *p, Int n, Uint32 attr)
         njCalcPoint(NULL, &p->p[next], &view.p[1]);
         next++;
         njCalcPoint(NULL, &p->p[next], &view.p[2]);
+#ifdef NONMATCHING
+        /* a triangle with each corner short of the near plane clips to
+         * nothing. njNearClipping would keep none of its corners and find no
+         * edge across the plane. so this side skips it */
+        if (view.p[0].z < _nj_near_clip_ && view.p[1].z < _nj_near_clip_ &&
+            view.p[2].z < _nj_near_clip_) {
+            continue;
+        }
+#endif
         if (njFarClipping(&view, 3)) {
             if (attr & NJD_USE_TEXTURE) {
                 view.tex[0].tex.u = p->tex[first].tex.u;

@@ -805,9 +805,9 @@ static void snake_create_segments(struct task *task)
     } else if (RADIUS(work) > RADIUS_MAX) {
         RADIUS(work) = RADIUS_MAX;
     }
-#ifdef GCC
-    /* repairs the unset distance the tag in the loop names: GCC's starts at
-     * 0. the lead's spacing is 0, so the lead starts where the snake stands.
+#ifdef NONMATCHING
+    /* repairs the unset distance the tag in the loop names: this side's starts
+     * at 0. the lead's spacing is 0, so the lead starts where the snake stands.
      * each other segment starts its spacing behind the one ahead */
     distance = 0.0F;
 #endif

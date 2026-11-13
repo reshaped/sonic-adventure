@@ -1,0 +1,5 @@
+datum  chaos0_hint_shown  D  0x00000000  16
+datum  chaos0_homing_pages  C  0x00000000  16
+datum  chaos0_core_pages  C  0x00000010  16
+text  TEXT_1  C  0x00000020  70
+text  TEXT_2  C  0x00000068  27

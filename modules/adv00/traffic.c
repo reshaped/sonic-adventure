@@ -269,7 +269,7 @@ static int first_crossing_cars;
 static int second_crossing_cars;
 static enum light traffic_light;
 static int light_time; /* the steps LIGHT_FIRST or LIGHT_SECOND has held */
-#ifdef GCC
+#ifdef NONMATCHING
 /* where the car's first search of its road this step stopped, which its
  * later searches start from. car_step empties it */
 static struct path_mark car_mark;
@@ -577,7 +577,7 @@ static void car_follow_road(struct task *task)
             distances[i] += length;
         }
         samples[i].distance = distances[i];
-#ifdef GCC
+#ifdef NONMATCHING
         path_sample_from(road, &samples[i], &car_mark);
 #else
         path_sample(road, &samples[i]);
@@ -717,7 +717,7 @@ static void car_drive(struct task *task)
                 along -= length;
             }
             samples[i].distance = along;
-#ifdef GCC
+#ifdef NONMATCHING
             path_sample_from(road, &samples[i], &car_mark);
 #else
             path_sample(road, &samples[i]);
@@ -769,7 +769,7 @@ static void car_drive(struct task *task)
             along -= length;
         }
         front.distance = along;
-#ifdef GCC
+#ifdef NONMATCHING
         path_sample_from(road, &front, &car_mark);
 #else
         path_sample(road, &front);
@@ -1155,7 +1155,7 @@ static void car_step(struct task *task)
     motion->last_pos.y = work->pos.y;
     motion->last_pos.z = work->pos.z;
     car_draw(task);
-#ifdef GCC
+#ifdef NONMATCHING
     car_mark.index = -1;
 #endif
     car_follow_road(task);

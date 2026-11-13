@@ -1,0 +1,6 @@
+datum  employee_card_shapes  D  0x00000000  104
+datum  employee_card_found  D  0x00000068  8
+datum  employee_card_checked  D  0x00000070  8
+datum  employee_card_reader_z  D  0x00000078  12
+text  TEXT_1  C  0x0000000c  46
+text  TEXT_2  C  0x0000003c  9

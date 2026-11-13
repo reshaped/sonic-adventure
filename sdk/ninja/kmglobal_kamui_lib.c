@@ -242,8 +242,8 @@ KMSTATUS kmSetAutoSortMode(KMBOOLEAN fEnable)
             kmiDeviceExtension.presort = TRUE;
         }
     }
-#ifdef GCC
-    /* repairs the unset status the tag below names: GCC returns
+#ifdef NONMATCHING
+    /* repairs the unset status the tag below names: this side returns
      * KMSTATUS_SUCCESS, as nothing fails */
     status = KMSTATUS_SUCCESS;
 #endif

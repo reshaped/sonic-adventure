@@ -411,9 +411,9 @@ static void event_chaos4_draw(struct task *task)
      * int (LDS R0,FPUL and FLOAT at 0x0cb832cc and 0x0cb832d8 in EV000B),
      * though ground_below returns it in FR0. the shadow's height is whatever R0
      * holds, negated, plus SHADOW_LIFT */
-#ifdef GCC
-    /* repairs the height the tag names: GCC reads the Float ground_below
-     * returns, and takes it unnegated, as every other caller does */
+#ifdef NONMATCHING
+    /* repairs the height the tag names. this side uses the Float ground_below
+     * returns unnegated, as its other callers do */
     shadow.y = ground_below(work->pos.x, work->pos.y, work->pos.z, &slope);
     shadow.x = work->pos.x;
 #else

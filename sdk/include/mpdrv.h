@@ -46,7 +46,17 @@ struct maple_device {
     Uint8 dst_ap;
     Uint8 src_ap;
     Uint8 datasize;
-    Uint8 changed; /* a response showed it connected or removed */
+    /* a response showed it connected or removed */
+    /* @hack type: changed isn't volatile, though the Maple DMA's end interrupt
+     * writes it as it takes a response, while the backup library's waits
+     * test it. each test calls kdIsChanged, so the image reads it again all
+     * the same. declared volatile, 3 of the 166 words of mpdrv_ischanged and
+     * mpdrv_make_devicedata differ */
+#ifdef NONMATCHING
+    volatile Uint8 changed;
+#else
+    Uint8 changed;
+#endif
     /* set by mpdrv_recognize. the next response clears it and changed */
     Uint8 recognized;
     Uint8 unk_0e[2];
@@ -56,7 +66,16 @@ struct maple_device {
      * last command whose frame was received */
     Sint32 queued_seq;
     Sint32 sent_seq;
+    /* @hack type: done_seq isn't volatile, though the Maple DMA's end
+     * interrupt writes it as it takes a response, while the backup library's
+     * waits test it. each test calls kdGetStatus, so the image reads it again
+     * all the same. declared volatile, 4 of the 171 words of mpdrv_stat and
+     * mpdrv_make_devicedata differ */
+#ifdef NONMATCHING
+    volatile Sint32 done_seq;
+#else
     Sint32 done_seq;
+#endif
     /* the count of an expansion device's connection and of each device
      * request since then that brought no status. past dreqcount the device
      * goes MPDRV_CMD_ABSENT and the count clears, as it does at removal */

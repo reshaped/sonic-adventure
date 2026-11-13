@@ -334,7 +334,7 @@ void stage_place_player(struct task_work *work);
 void stage_set_next_exit(void);
 Bool stage_paused(void);
 Bool stage_playing(void);
-#ifdef GCC
+#ifdef NONMATCHING
 /* TRUE in play, and in the fade from black that opens it, where play runs */
 Bool stage_in_play(void);
 /* TRUE zeroes the limit of stage_run_action's frame: a frame whose second

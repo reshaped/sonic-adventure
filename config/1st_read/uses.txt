@@ -1,7 +1,7 @@
 # The uses of 1ST_READ.BIN's imports that their stages don't hold, each with
 # the image it means and the evidence. tools/imports.py holds every other
 # use to the images loader_read_stage_files always reads for the stages its
-# source gives it (GCC.md#imports-and-the-census). A row covers each use of
+# source gives it (PORTS.md#imports-and-the-census). A row covers each use of
 # an import from its image in its place: a table, a function, or TABLE[N],
 # the row of index N. A use no stage holds and no row covers fails. So does
 # a row that covers none. A row for TABLE[N] fails where one for TABLE gives
@@ -100,7 +100,7 @@ src/stage/stage.c         stage_place_player               adv00       Station S
 src/stage/stage.c         stage_place_player               adv01obj    the Egg Carrier's starts, which stage_place_player takes only where the current stage is STAGE_EGG_CARRIER or STAGE_EGG_CARRIER_INSIDE, and loader_read_stage_files reads ADV01OBJ for each
 src/stage/stage.c         stage_place_player               adv02       the Mystic Ruins' starts, which stage_place_player takes only where the current stage is STAGE_MYSTIC_RUINS, and loader_read_stage_files reads ADV02 for it
 src/stage/stage.c         stage_place_player               adv03       the Past's starts, which stage_place_player takes only where the current stage is STAGE_PAST, and loader_read_stage_files reads ADV03 for it
-src/system/texture.c      act_list[30]                     b_chaos7    B_CHAOS7's own act_textures, which its act_textures.c keys to STAGE_CHAOS7's act 0. GCC's texture_load_act and texture_release_act read it only through act_textures_match. SHC's read its key for each act no earlier row matches, where the address holds the loaded module's bytes. texture_act_in_use and texture_release_acts have no caller
+src/system/texture.c      act_list[30]                     b_chaos7    B_CHAOS7's own act_textures, which its act_textures.c keys to STAGE_CHAOS7's act 0. The non-matching texture_load_act and texture_release_act read it only through act_textures_match. The matching ones read its key for each act no earlier row matches, where the address holds the loaded module's bytes. texture_act_in_use and texture_release_acts have no caller
 src/system/texture.c      act_textures_match               b_chaos7    chaos7_act_textures, which act_textures_match reads only for STAGE_ACT(STAGE_CHAOS7, 0), its key. stage.c gives texture_load_act and texture_release_act only the current stage's act, and loader_read_stage_files reads B_CHAOS7 for STAGE_CHAOS7
 src/system/texture.c      alife_pvms[4]                    al_main     a garden's Chao textures, AL_MAIN's, which loads beside each garden. Nothing reads the list
 src/system/texture.c      alife_pvms[5]                    al_main     a garden's icons, AL_MAIN's, which loads beside each garden. Nothing reads the list

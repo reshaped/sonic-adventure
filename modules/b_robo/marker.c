@@ -118,7 +118,7 @@ static void marker_step(struct task *task)
     NJS_COLOR *entry;
     NJS_COLOR *end;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets color: the marker's mode holds only
      * the five the switch has cases for */
     color.color = YELLOW;

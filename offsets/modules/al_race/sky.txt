@@ -1,0 +1,12 @@
+datum  sky_desc  C  0x00000000  24
+datum  sky_materials  D  0x00000000  20
+datum  sky_meshes0  D  0x00000014  192
+datum  sky_uvs0  D  0x000000d4  352
+datum  sky_meshsets  D  0x00000234  24
+datum  sky_points  D  0x0000024c  492
+datum  sky_normals  D  0x00000438  492
+datum  sky_model  D  0x00000624  40
+datum  sky_object  D  0x0000064c  52
+datum  sky_textures  D  0x00000680  12
+datum  sky_texlist  D  0x0000068c  8
+text  TEXT_1  C  0x00000028  8

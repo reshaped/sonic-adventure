@@ -1,4 +1,4 @@
-"""Write make gcc's content of an image: the data of all its gen/ ranges as
+"""Write make dc's content of an image: the data of all its gen/ ranges as
 one C file, which GCC compiles.
 
     python3 tools/content.py IMAGE OUT
@@ -6,7 +6,7 @@ one C file, which GCC compiles.
 IMAGE is an image's file, uncompressed. The tool reads the image's tables
 in config/NAME/, where NAME is IMAGE's file name, lowercased and less its
 suffix, and writes each definition data.txt gives the content: one of the
-kinds tools/image.py lays out, or a type the image's declarations lay out.
+kinds tools/items.py lays out, or a type the image's declarations lay out.
 It writes OUT, the image's content. A word of the content is a pointer only
 where more than its bits says so:
 
@@ -30,7 +30,7 @@ script, .ld; .bin, the bytes that link must give; and .d, make's rule for
 OUT from each file it reads. Content, the content's writer, extends
 cdata.py's Writer.
 
-GCC.md#content gives the content's rules.
+PORTS.md#content gives the content's rules.
 """
 
 import argparse
@@ -48,8 +48,8 @@ from cdata import (EXTENT, INTEGERS, EmitError, Emitted, Items, Writer, converts
 from config import IMPORTS, configs, imports
 from csource import included, matches, uncommented
 from data import DECLARATION, GEN_SECTIONS, definitions, qualify
-from image import GENERIC, KINDS, MDATA_KIND, RAM, SAME, SINGLE, Image, Item, ReadError, Struct
 from images import CONFIG, FIRST, FIRST_BASE, FIRST_END, images
+from items import GENERIC, KINDS, MDATA_KIND, RAM, SAME, SINGLE, Image, Item, ReadError, Struct
 from layout import LayoutError, Scalar, Types, spelled
 from memory import VIEW_BIT
 from stages import STAGE_HEADER, STAGE_LOADER, stages
@@ -507,9 +507,9 @@ class Providers:
     def holder(self, image, symbol, value):
         """The source of image's that holds symbol at value: the one whose row
         holds value. Where no row does and value lies in bss, it is the one C
-        source of image's that defines symbol, as a source defines under GCC
-        the storage the tables place where no source holds it
-        (GCC.md#guards). None where neither gives one. Two C sources
+        source of image's that defines symbol, as a source's non-matching
+        side defines the storage the tables place where no source holds it
+        (PORTS.md#switches). None where neither gives one. Two C sources
         that define symbol fail, naming both."""
         config = self.image(image)
         held = next((source for source, _, start, end in config.placements if start <= value < end), None)
@@ -710,7 +710,7 @@ def check(image, ranges, placed, copies):
     and each name the content takes from outside at its address. The bytes
     are the image's over each range and copy, and zeros between."""
     defined = sorted((address, name) for name, address, size, _ in placed if size is not None)
-    script = [f"/* {Path(image.name).name}'s content at its addresses, as tools/content.py writes it for make gcc */",
+    script = [f"/* {Path(image.name).name}'s content at its addresses, as tools/content.py writes it for make dc */",
               'SECTIONS', '{']
     # SUBALIGN(1) places each definition's input section at the offset the
     # script gives it, whatever its alignment. Each section's gaps take its
@@ -737,7 +737,7 @@ def check(image, ranges, placed, copies):
 
 
 def gcc_content(path, out):
-    """Write OUT, the C make gcc compiles for IMAGE's content: the data its
+    """Write OUT, the C make dc compiles for IMAGE's content: the data its
     gen/ ranges hold, no source's, as Content writes it, each definition as
     definitions() gives it from data.txt. Beside OUT, write:
 

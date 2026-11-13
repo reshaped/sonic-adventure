@@ -8,6 +8,7 @@ from unittest import mock
 
 import elf
 import gcclink
+import ld
 import memory
 import spec
 import test_ld
@@ -72,11 +73,11 @@ CALLING = GAME_TREE['modules/stga/a.c'] + ('extern int stage_b(void);\n\nint sta
                                           '    return stage_b();\n}\n')
 # the Unit spec.py reads of each of GAME_TREE's GCC objects. test_reads_each_object_as_units_gives_it holds them to the
 # objects GCC compiles, so the tests of Bound, which read them in place of the objects, need no toolchain
-UNITS = {'build/gcc/src/main.o': spec.Unit({'main', 'main_count'}, set(), {'_main_count_alias', '_stage_flag'}),
-         'build/gcc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, set(), set()),
-         'build/gcc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag'}, set(), set()),
-         'build/gcc/events/ev0001/head.o': spec.Unit(set(), {'ev0001_head'}, {'_ev0001_script'}),
-         'build/gcc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(), set())}
+UNITS = {'build/dc/src/main.o': spec.Unit({'main', 'main_count'}, set(), {'_main_count_alias', '_stage_flag'}),
+         'build/dc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, set(), set()),
+         'build/dc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag'}, set(), set()),
+         'build/dc/events/ev0001/head.o': spec.Unit(set(), {'ev0001_head'}, {'_ev0001_script'}),
+         'build/dc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(), set())}
 # the Unit spec.py reads of CALLING's object, which the same test holds to it
 CALLING_UNIT = spec.Unit({'stage_a', 'stage_a_calls', 'stage_bss', 'stage_flag'}, set(), {'_stage_b'})
 
@@ -85,8 +86,9 @@ def compiled(text):
     """The bytes of the GCC object of the C text, compiled under GCCFLAGS. A message from GCC fails it."""
     with tempfile.TemporaryDirectory() as root:
         Path(root, 'source.c').write_text(text)
-        done = subprocess.run([str(test_ld.TOOLCHAIN / 'bin/sh-elf-gcc'), *test_ld.flags(), '-c', '-o', 'source.o',
-                               'source.c'], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        done = subprocess.run([str(test_ld.TOOLCHAIN / 'bin/sh-elf-gcc'), *test_ld.flags(), '-c', '-o',
+                               'source.o', 'source.c'], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True)
         if done.returncode or done.stdout:
             raise AssertionError(done.stdout)
         return Path(root, 'source.o').read_bytes()
@@ -115,24 +117,22 @@ def assembled(path):
 class Generator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        missing = [tool for tool in test_ld.TOOLS if not (test_ld.TOOLCHAIN / tool).is_file()]
-        if missing and not test_ld.GIVEN:
-            raise unittest.SkipTest(f'{test_ld.TOOLCHAIN} lacks {", ".join(missing)}, which make gcc builds')
+        test_ld.toolchain()
         cls.objects, cls.static, cls.untabled = {}, {}, {}
         for sources, objects in ((GAME_TREE, cls.objects), ({**GAME_TREE, **STATIC}, cls.static),
                                  ({**GAME_TREE, **UNTABLED}, cls.untabled)):
             for source in GAME_TREE_C:
-                objects[str(Path('build/gcc', source).with_suffix('.o'))] = compiled(sources[source])
+                objects[str(Path('build/dc', source).with_suffix('.o'))] = compiled(sources[source])
         cls.taking = compiled(TAKING)
         cls.tallying = compiled(TALLYING)
         cls.pointing = compiled(POINTING)
         cls.calling = compiled(CALLING)
-        cls.copying = {**cls.objects, 'build/gcc/src/main.o': compiled(COPYING['src/main.c'])}
+        cls.copying = {**cls.objects, 'build/dc/src/main.o': compiled(COPYING['src/main.c'])}
         cls.library = archived(LIBRARY)
         cls.reading = archived(READING)
         cls.late, cls.early = archived(LATE), archived(EARLY)
-        cls.weakly = {**cls.objects, 'build/gcc/src/main.o': compiled(WEAKLY)}
-        cls.fixing = {**cls.objects, 'build/gcc/src/main.o': compiled(FIXING)}
+        cls.weakly = {**cls.objects, 'build/dc/src/main.o': compiled(WEAKLY)}
+        cls.fixing = {**cls.objects, 'build/dc/src/main.o': compiled(FIXING)}
         with tempfile.TemporaryDirectory() as root:
             Path(root, 'fixed.s').write_text(FIXED)
             cls.fixed = assembled(Path(root, 'fixed.s'))
@@ -199,7 +199,7 @@ class Generator(unittest.TestCase):
     def test_a_row_for_every_image_binds_each_image_that_takes_the_name(self):
         files = {'config/imports.txt': ALIAS + '*  stage_flag  stga  stage_flag  0x8c  the beach is the stage meant\n',
                  'config/ev0001/symbols.txt': GAME_TREE['config/ev0001/symbols.txt'] + '0x8c900010  stage_flag\n'}
-        with self.game_tree(files, {**self.objects, 'build/gcc/events/ev0001/script.o': self.taking}):
+        with self.game_tree(files, {**self.objects, 'build/dc/events/ev0001/script.o': self.taking}):
             lines = self.written()
         self.assertIn('import    1st_read  stage_flag  stga  stage_flag  0x8c', lines)
         self.assertIn('import    ev0001  stage_flag  stga  stage_flag  0x8c', lines)
@@ -233,54 +233,54 @@ class Generator(unittest.TestCase):
                                          ['stgb', '0x0c900000', '0x00280000']])
         # ev0001's objects in relink's order, then libgcc.a
         self.assertEqual([path for image, path in rows['input'] if image == 'ev0001'],
-                         ['build/gcc/events/ev0001/head.o', 'build/gcc/events/ev0001/script.o', archive])
+                         ['build/dc/events/ev0001/head.o', 'build/dc/events/ev0001/script.o', archive])
         # main's second name, and the records main's startup and event_load read: DSGLE's anchor is its run's start
         self.assertEqual(rows['alias'], [['1st_read', 'main_count_alias', 'main_count']])
-        self.assertIn(['ev0001', 'DHEAD', 'build/gcc/events/ev0001/head.o', '.data'], rows['head'])
+        self.assertIn(['ev0001', 'DHEAD', 'build/dc/events/ev0001/head.o', '.data'], rows['head'])
         self.assertIn(['ev0001', 'ev0001_head', '0x0', '8'], rows['anchor'])
         self.assertIn(['1st_read', '_startof_DSGLE', '0x80'], rows['anchor'])
         self.assertEqual([row for row in rows['head'] if row[0] == '1st_read'][0],
-                         ['1st_read', 'DSGLH', 'build/gcc/sdk/shinobi/strt1.o', 'DSGLH'])
+                         ['1st_read', 'DSGLH', 'build/dc/sdk/shinobi/strt1.o', 'DSGLH'])
 
     def test_links_each_archive_after_an_image_s_objects_and_ahead_of_libgcc(self):
         # main calls copy_lines, which only the library's member defines: without the archive nothing binds it
-        files = {'config/imports.txt': PROVIDER, **COPYING, 'build/gcc/library.a': self.library}
+        files = {'config/imports.txt': PROVIDER, **COPYING, 'build/dc/library.a': self.library}
         with self.game_tree(files, self.copying), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: untabled 1 \(copy_lines\)\n'):
             self.written()
         with self.game_tree(files, self.copying):
-            lines = self.written('--archive', 'build/gcc/library.a')
+            lines = self.written('--archive', 'build/dc/library.a')
             archive = str(gcclink.libgcc())
         self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', '1st_read']][-2:],
-                         ['build/gcc/library.a', archive])
+                         ['build/dc/library.a', archive])
         self.assertNotIn('copy_lines', ' '.join(lines))
 
     def test_binds_what_each_member_the_link_takes_refers_to_and_takes_none_else(self):
         # the member that defines main's copy_lines reads stage_bss, which main's tables put in stga's span
         tables = {'config/1st_read/symbols.txt': GAME_TREE['config/1st_read/symbols.txt'] + '0x8c900014  stage_bss\n'}
-        files = {'config/imports.txt': PROVIDER, **COPYING, **tables, 'build/gcc/library.a': self.reading}
+        files = {'config/imports.txt': PROVIDER, **COPYING, **tables, 'build/dc/library.a': self.reading}
         with self.game_tree(files, self.copying):
-            lines = self.written('--archive', 'build/gcc/library.a')
+            lines = self.written('--archive', 'build/dc/library.a')
         self.assertIn(['1st_read', 'stage_bss', 'stga', 'stage_bss', '0x8c'],
                       [line.split()[1:] for line in lines if line.split()[0] == 'import'])
         # a weak reference takes no member, so nothing defines copy_lines, and stage_bss goes untaken
         with self.game_tree(files, self.weakly), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: untabled 1 \(copy_lines\)\n'):
-            self.written('--archive', 'build/gcc/library.a')
+            self.written('--archive', 'build/dc/library.a')
         # late.a's member takes bar, which early.a defines. The link searches early.a first and takes none of its
         # members, so nothing binds bar but in the other order
-        files = {'config/imports.txt': PROVIDER, **COPYING, 'build/gcc/early.a': self.early,
-                 'build/gcc/late.a': self.late}
+        files = {'config/imports.txt': PROVIDER, **COPYING, 'build/dc/early.a': self.early,
+                 'build/dc/late.a': self.late}
         with self.game_tree(files, self.copying):
             with self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: untabled 1 \(bar\)\n'):
-                self.written('--archive', 'build/gcc/early.a', '--archive', 'build/gcc/late.a')
-            self.written('--archive', 'build/gcc/late.a', '--archive', 'build/gcc/early.a')
+                self.written('--archive', 'build/dc/early.a', '--archive', 'build/dc/late.a')
+            self.written('--archive', 'build/dc/late.a', '--archive', 'build/dc/early.a')
 
     def test_takes_an_absolute_or_common_definition_for_the_image_s_own_references(self):
         # fixed.o defines fixed with .set and buf with .comm. main takes both, and its own link binds them, with no row
-        files = {'config/imports.txt': PROVIDER, 'build/gcc/fixed.o': self.fixed}
+        files = {'config/imports.txt': PROVIDER, 'build/dc/fixed.o': self.fixed}
         with self.game_tree(files, self.fixing):
-            lines = self.written('--add', '1st_read', 'build/gcc/fixed.o')
+            lines = self.written('--add', '1st_read', 'build/dc/fixed.o')
         self.assertFalse([line for line in lines if line.split()[0] != 'input' and ('fixed' in line or 'buf' in line)])
 
     def test_fails_on_a_row_that_binds_nothing_or_whose_provider_doesn_t_define_its_symbol(self):
@@ -321,35 +321,160 @@ class Generator(unittest.TestCase):
     def test_links_an_image_s_content_in_place_of_its_gen_ranges_and_marks_a_name_only_it_takes(self):
         # the content's word points into stga's bss, where no object lies: storage, which the content alone takes
         with self.game_tree({'config/imports.txt': PROVIDER, **GENERATED},
-                       {**self.objects, 'build/gcc/gen/stga/content.o': self.pointing}):
+                       {**self.objects, 'build/dc/gen/stga/content.o': self.pointing}):
             with self.assertRaisesRegex(SystemExit, r': stga: 1 names nothing binds: storage 1 '
                                                     r'\(unresolved\.stga\.0c900104\.0c900200\); its content alone '
                                                     r'takes 1\n'):
                 spec.main(['--list', 'unbound.txt', 'spec.txt'])
             self.assertEqual(Path('unbound.txt').read_text(), f'stga  storage  {SPELLED}  gen/\n')
             self.assertEqual([str(path) for path in spec.inputs(spec.Config('stga'))],
-                             ['build/gcc/modules/stga/a.o', 'build/gcc/gen/stga/content.o'])
+                             ['build/dc/modules/stga/a.o', 'build/dc/gen/stga/content.o'])
 
-    def test_writes_a_kernel_row_for_each_function_of_the_image_s_kernel_table(self):
-        kernel = {'config/1st_read/kernel.txt': '# the kernel\nsrc/main.c  main\n',
-                  'config/stga/kernel.txt': 'modules/stga/a.c  stage_a\n'}
-        with self.game_tree({'config/imports.txt': PROVIDER, **kernel}):
-            lines = self.written()
+    def test_writes_a_kernel_row_for_each_function_of_the_image_s_kernel_table_and_its_other_rows(self):
+        # engine/dc/port.c is no table's placement, and an --add gives main its object. stga's over row names
+        # 1st_read's draw. A window row that names warm, the warm rows' window, goes with the kernels'
+        kernel = {'config/1st_read/kernel.txt': ('# the kernel\ndraw  src/main.c  main\n'
+                                                 'port  engine/dc/port.c  port_step\nwindow  draw  4\n'
+                                                 'window  port  2  1\nwarm  engine/dc/port.c  port_warm\n'
+                                                 'window  warm  12\n'
+                                                 'data  src/main.c  main_count\n'
+                                                 'over  port  draw\nlast  engine/dc/port.c\nlast  src/main.c\n'
+                                                 'cold  engine/dc/port.c\n'),
+                  'config/stga/kernel.txt': 'sweep  modules/stga/a.c  stage_a\nover  sweep  draw  1st_read\n'}
+        objects = {**self.objects, 'build/dc/engine/dc/port.o': compiled('int port_step(void)\n{\n    return 1;\n}\n'
+                                                                          'int port_warm(void)\n{\n    return 2;\n}\n')}
+        with self.game_tree({'config/imports.txt': PROVIDER, **kernel}, objects):
+            lines = self.written('--add', '1st_read', 'build/dc/engine/dc/port.o')
         # GCC puts main in .text.startup.main, which spec.py reads from the object
-        self.assertIn('kernel    1st_read  build/gcc/src/main.o  .text.startup.main', lines)
-        self.assertIn('kernel    stga  build/gcc/modules/stga/a.o  .text.stage_a', lines)
+        self.assertEqual([line for line in lines
+                          if line.split()[0] in ('kernel', 'window', 'warm', 'data', 'over', 'last', 'cold')],
+                         ['kernel    1st_read  draw  build/dc/src/main.o  .text.startup.main',
+                          'kernel    1st_read  port  build/dc/engine/dc/port.o  .text.port_step',
+                          'window    1st_read  draw  4',
+                          'window    1st_read  port  2  1',
+                          'window    1st_read  warm  12',
+                          'warm      1st_read  build/dc/engine/dc/port.o  .text.port_warm',
+                          'data      1st_read  build/dc/src/main.o  .data',
+                          'over      1st_read  port  draw',
+                          'last      1st_read  build/dc/engine/dc/port.o',
+                          'last      1st_read  build/dc/src/main.o',
+                          'cold      1st_read  build/dc/engine/dc/port.o',
+                          'kernel    stga  sweep  build/dc/modules/stga/a.o  .text.stage_a',
+                          'over      stga  sweep  draw  1st_read'])
+
+    def test_writes_the_heat_s_path_and_hash_and_each_searched_row_of_an_image_s_record_of_its_order(self):
+        # the record's rows go to the spec as they stand, and the heat row names the image's heat. stga has no record
+        record = {'config/1st_read/order.txt': (f'# the record\nheat  {"5a" * 32}\n'
+                                                'searched  build/dc/src/main.o  .text.startup.main  0  0x1c\n'
+                                                'searched  build/dc/src/main.o  P  0x40  12\n')}
+        with self.game_tree({'config/imports.txt': PROVIDER, **record}):
+            lines = self.written()
+        self.assertEqual([line for line in lines if line.split()[0] in ('heat', 'searched')],
+                         [f'heat      1st_read  config/1st_read/heat.txt  {"5a" * 32}',
+                          'searched  1st_read  build/dc/src/main.o  .text.startup.main  0  0x1c',
+                          'searched  1st_read  build/dc/src/main.o  P  0x40  12'])
+
+    def test_writes_the_text_row_of_an_image_s_record_between_its_heat_row_and_its_searched_rows(self):
+        # a record of an earlier form has no text row, and its spec none: the link then says what settles it
+        heat, row = f'heat  {"5a" * 32}\n', 'searched  build/dc/src/main.o  P  0x40  12\n'
+        for text, written in (('text  0xa0\n', ['text      1st_read  0xa0']), ('', [])):
+            with self.subTest(text), self.game_tree({'config/imports.txt': PROVIDER,
+                                                    'config/1st_read/order.txt': heat + text + row}):
+                self.assertEqual([line for line in self.written() if line.split()[0] in ('heat', 'text', 'searched')],
+                                 [f'heat      1st_read  config/1st_read/heat.txt  {"5a" * 32}', *written,
+                                  'searched  1st_read  build/dc/src/main.o  P  0x40  12'])
+
+    def test_fails_on_a_text_row_of_a_record_of_an_order_that_isn_t_its_second_row_or_gives_no_offset(self):
+        heat, row = f'heat  {"5a" * 32}\n', 'searched  build/dc/src/main.o  P  0x40  12\n'
+        second = 'config/1st_read/order.txt:2: not a row: text ADDRESS, or searched PATH INPUT PLACE SIZE'
+        rows = {'text  0xa0\n': 'config/1st_read/order.txt:1: not a row: heat HASH',
+                f'{heat}text\n': second, f'{heat}text  0xA0\n': second, f'{heat}text  0xa0  4\n': second,
+                f'{heat}{row}text  0xa0\n': 'config/1st_read/order.txt:3: not a row: searched PATH INPUT PLACE SIZE',
+                f'{heat}text  0xa0\ntext  0xa0\n': ('config/1st_read/order.txt:3: not a row: searched PATH INPUT PLACE '
+                                                    'SIZE')}
+        for record, problem in rows.items():
+            with self.subTest(record), self.game_tree({'config/imports.txt': PROVIDER,
+                                                       'config/1st_read/order.txt': record}):
+                with self.assertRaisesRegex(SystemExit, f'{re.escape(problem)}$'):
+                    self.written()
+
+    def test_fails_on_a_second_searched_row_of_one_section_naming_both_rows_of_the_record(self):
+        # as a merge of two records leaves it. make dc-order plans its link by the spec, so a spec with the two rows,
+        # which gcclink.py refuses, would leave nothing to write the record again
+        heat, row = f'heat  {"5a" * 32}\ntext  0x8c0100a0\n', 'searched  build/dc/src/main.o  P  0x40  12\n'
+        record = heat + row + 'searched  build/dc/src/main.o  .text.startup.main  0  0x1c\n' + row.replace('0x40', '0x60')
+        with self.game_tree({'config/imports.txt': PROVIDER, 'config/1st_read/order.txt': record}), \
+                self.assertRaisesRegex(SystemExit, re.escape(
+                    "config/1st_read/order.txt:5: a second searched row of build/dc/src/main.o's P, which "
+                    'config/1st_read/order.txt:3 places; remove one of the two') + '$'):
+            self.written()
+
+    def test_fails_on_a_row_of_a_record_of_an_order_that_is_no_heat_row_first_or_searched_row_after(self):
+        heat = f'heat  {"5a" * 32}\n'
+        second = 'config/1st_read/order.txt:2: not a row: text ADDRESS, or searched PATH INPUT PLACE SIZE'
+        rows = {'searched  build/dc/src/main.o  P  0x40  12\n': 'config/1st_read/order.txt:1: not a row: heat HASH',
+                'heat  5a5a\n': 'config/1st_read/order.txt:1: not a row: heat HASH',
+                f'{heat}{heat}': second,
+                f'{heat}searched  build/dc/src/main.o  P  0x40\n': second,
+                f'{heat}searched  build/dc/src/main.o  main  0x40  012\n': second}
+        for record, problem in rows.items():
+            with self.subTest(record), self.game_tree({'config/imports.txt': PROVIDER,
+                                                       'config/1st_read/order.txt': record}):
+                with self.assertRaisesRegex(SystemExit, f'{re.escape(problem)}$'):
+                    self.written()
 
     def test_fails_on_a_kernel_row_whose_object_doesn_t_define_its_function_or_whose_section_a_row_places(self):
-        # src/main.src and stga's a.c name objects make gcc builds, but main's tables place neither
-        rows = {'src/main.c  main  more\n': 'config/1st_read/kernel.txt:1: not a row: SOURCE FUNCTION',
-                'src/main.src  main\n': 'config/1st_read/kernel.txt:1: config/1st_read/ places no src/main.src',
-                'modules/stga/a.c  stage_a\n': ('config/1st_read/kernel.txt:1: config/1st_read/ places no '
-                                                'modules/stga/a.c'),
-                'src/main.c  absent\n': ('config/1st_read/kernel.txt:1: build/gcc/src/main.o defines no absent in '
-                                         'an allocated section'),
-                'src/main.c  main\nsrc/main.c  main\n': ('config/1st_read/kernel.txt:2: main lies in '
-                                                         "build/gcc/src/main.o's .text.startup.main, which an "
-                                                         'earlier row places')}
+        # src/main.src and stga's a.c name objects make dc builds, but main's tables place neither
+        rows = {'src/main.c  main\n': 'config/1st_read/kernel.txt:1: not a row: KERNEL SOURCE FUNCTION',
+                'Draw  src/main.c  main\n': 'config/1st_read/kernel.txt:1: not a row: KERNEL SOURCE FUNCTION',
+                'draw  src/main.c  main  pool\n': 'config/1st_read/kernel.txt:1: not a row: KERNEL SOURCE FUNCTION',
+                'window  draw\n': 'config/1st_read/kernel.txt:1: not a row: window KERNEL LINES [OFFSET]',
+                'window  draw  4  1  1\n': 'config/1st_read/kernel.txt:1: not a row: window KERNEL LINES [OFFSET]',
+                'data  src/main.c\n': 'config/1st_read/kernel.txt:1: not a row: data SOURCE NAME',
+                'warm  src/main.c\n': 'config/1st_read/kernel.txt:1: not a row: warm SOURCE FUNCTION',
+                'warm  src/main.c  absent\n': ('config/1st_read/kernel.txt:1: build/dc/src/main.o defines no absent '
+                                               'in an allocated section'),
+                'draw  src/main.c  main\nwarm  src/main.c  main\n': ('config/1st_read/kernel.txt:2: main lies in '
+                                                                    "build/dc/src/main.o's .text.startup.main, "
+                                                                    'which an earlier row places'),
+                'data  src/main.c  main\n': ('config/1st_read/kernel.txt:1: build/dc/src/main.o defines no main in an '
+                                             'allocated section that is no code'),
+                'data  src/main.c  main_count\ndata  src/main.c  main_count\n': (
+                    "config/1st_read/kernel.txt:2: main_count lies in build/dc/src/main.o's .data, which an earlier "
+                    'row places'),
+                'draw  src/main.src  main\n': ('config/1st_read/kernel.txt:1: config/1st_read/ places no '
+                                               'src/main.src, and no --add gives 1st_read its object'),
+                'draw  modules/stga/a.c  stage_a\n': ('config/1st_read/kernel.txt:1: config/1st_read/ places no '
+                                                      'modules/stga/a.c, and no --add gives 1st_read its object'),
+                # make dc would compile engine/dc/main.c to build/dc/engine/dc/main.o, which no --add gives main
+                'draw  engine/dc/main.c  main\n': ('config/1st_read/kernel.txt:1: config/1st_read/ places no '
+                                                   'engine/dc/main.c, and no --add gives 1st_read its object'),
+                'over  draw\n': 'config/1st_read/kernel.txt:1: not a row: over KERNEL KERNEL [OTHER]',
+                'draw  src/main.c  main\nover  draw  draw  stga  stga\n': ('config/1st_read/kernel.txt:2: not a row: '
+                                                                         'over KERNEL KERNEL [OTHER]'),
+                'draw  src/main.c  main\nover  sweep  draw\n': ('config/1st_read/kernel.txt:2: no row makes sweep '
+                                                                 'a kernel'),
+                # a row that names OTHER names one kernel of the table's, its first
+                'draw  src/main.c  main\nover  sweep  draw  stga\n': ('config/1st_read/kernel.txt:2: no row makes '
+                                                                       'sweep a kernel'),
+                'draw  src/main.c  main\nover  draw  draw\n': 'config/1st_read/kernel.txt:2: names draw twice',
+                'last\n': 'config/1st_read/kernel.txt:1: not a row: last SOURCE',
+                'last  src/main.c  main\n': 'config/1st_read/kernel.txt:1: not a row: last SOURCE',
+                'last  src/main.src\n': ('config/1st_read/kernel.txt:1: config/1st_read/ places no src/main.src, and no '
+                                         '--add gives 1st_read its object'),
+                'last  src/main.c\nlast  src/main.c\n': ('config/1st_read/kernel.txt:2: an earlier last row names '
+                                                         'build/dc/src/main.o'),
+                'cold  src/main.c  main\n': 'config/1st_read/kernel.txt:1: not a row: cold SOURCE',
+                'cold  src/main.c\ncold  src/main.c\n': ('config/1st_read/kernel.txt:2: an earlier cold row names '
+                                                         'build/dc/src/main.o'),
+                'draw  src/main.c  absent\n': ('config/1st_read/kernel.txt:1: build/dc/src/main.o defines no '
+                                               'absent in an allocated section'),
+                'draw  src/main.c  main\nsweep  src/main.c  main\n': ('config/1st_read/kernel.txt:2: main lies in '
+                                                                     "build/dc/src/main.o's .text.startup.main, "
+                                                                     'which an earlier row places'),
+                # a table's rows stand apart before any row's object is read
+                'draw  src/main.c  main\nsweep  src/main.c  main\ndraw  src/main.c  main\n': (
+                    "config/1st_read/kernel.txt:3: draw's rows stand apart")}
         for table, problem in rows.items():
             with self.subTest(table), self.game_tree({'config/imports.txt': PROVIDER,
                                                       'config/1st_read/kernel.txt': table}):
@@ -413,7 +538,7 @@ class Bound(unittest.TestCase):
         # the two stages are never live together. A hand-off of stga's needs a state that holds stga whole and stgb's
         # file, read and not yet started
         row = 'stga  stage_b  stgb  stage_b  0x0c  {}the beach calls the other stage\n'
-        units = {**UNITS, 'build/gcc/modules/stga/a.o': CALLING_UNIT}
+        units = {**UNITS, 'build/dc/modules/stga/a.o': CALLING_UNIT}
         with self.game_tree({'config/imports.txt': PROVIDER + row.format('')}, units), \
                 self.assertRaisesRegex(SystemExit, "config/imports.txt:3: stga takes stage_b from stgb, which the "
                                                    "memory contract's states never hold live with it, and the row "
@@ -445,7 +570,7 @@ class Bound(unittest.TestCase):
         files = {'config/imports.txt': PROVIDER, **GENERATED,
                  'build/gen/stga/content.txt': 'dat_0c900104  0x0c900104  4  void *[]\n'
                                                'main_count  0x8c1755e0  -  taken: 1st_read main_count int\n'}
-        units = {**UNITS, 'build/gcc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_main_count'})}
+        units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_main_count'})}
         with self.game_tree(files, units):
             self.assertIn('import    stga  main_count  1st_read  main_count  0x8c', self.written())
         # where its record gives another image's, spec.py fails, naming both
@@ -468,7 +593,7 @@ class Bound(unittest.TestCase):
     def test_fails_on_each_name_a_content_s_record_lists_and_the_content_doesn_t_take(self):
         # stga's record lists the word's name, and stage_flag as taken from stga itself, and the content takes neither
         record = GENERATED['build/gen/stga/content.txt'] + 'stage_flag  0x0c900010  -  taken: stga stage_flag int\n'
-        units = {**UNITS, 'build/gcc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), set())}
+        units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), set())}
         with self.game_tree({**GENERATED, 'build/gen/stga/content.txt': record}, units), \
                 self.assertRaisesRegex(SystemExit, rf": stga: its content's record lists {re.escape(SPELLED)}, which "
                                                    r"the content doesn't take\n.*: stga: its content's record lists "
@@ -476,7 +601,7 @@ class Bound(unittest.TestCase):
             self.written()
 
     def test_fails_on_a_record_that_leaves_out_or_repeats_a_row_or_puts_a_name_elsewhere(self):
-        units = {**UNITS, 'build/gcc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_main_count'})}
+        units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_main_count'})}
         record = 'dat_0c900104  0x0c900104  4  void *[]\nmain_count  0x8c1755e0  -  taken: 1st_read main_count int\n'
         where = re.escape('build/gen/stga/content.txt')
         for text, problem in (
@@ -509,7 +634,7 @@ class Bound(unittest.TestCase):
 
     def test_holds_a_name_a_content_takes_to_the_symbol_its_record_gives_whichever_binding_takes_it(self):
         # stga's content takes stage_flag, which stga defines, and its record gives stga's stage_a
-        units = {**UNITS, 'build/gcc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_stage_flag'})}
+        units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), {'_stage_flag'})}
         record = 'dat_0c900104  0x0c900104  4  void *[]\nstage_flag  0x0c900010  -  taken: stga stage_a int\n'
         with self.game_tree({'config/imports.txt': PROVIDER, **GENERATED, 'build/gen/stga/content.txt': record},
                             units), \
@@ -518,7 +643,7 @@ class Bound(unittest.TestCase):
                                                    "stga's own stage_flag$"):
             self.written()
         # a second name a row gives binds as the record gives it
-        units['build/gcc/gen/stga/content.o'] = spec.Unit({'dat_0c900104'}, set(), {'_stage_count'})
+        units['build/dc/gen/stga/content.o'] = spec.Unit({'dat_0c900104'}, set(), {'_stage_count'})
         record = 'dat_0c900104  0x0c900104  4  void *[]\nstage_count  0x0c900010  -  taken: stga stage_flag int\n'
         rows = PROVIDER + 'stga  stage_count  stga  stage_flag  -  the content counts by the flag\n'
         with self.game_tree({'config/imports.txt': rows, **GENERATED, 'build/gen/stga/content.txt': record}, units):
@@ -532,14 +657,14 @@ class Bound(unittest.TestCase):
                 with self.subTest(args), self.assertRaisesRegex(SystemExit, ': SPEC and --list name the same file$'):
                     spec.main([*args, 'spec.txt'])
             self.assertEqual(Path('spec.txt').read_text(), 'a spec\n')
-            with self.assertRaisesRegex(SystemExit, ': build/gcc/src/main.o: names build/gcc/src/main.o, an input of '
+            with self.assertRaisesRegex(SystemExit, ': build/dc/src/main.o: names build/dc/src/main.o, an input of '
                                                     'the link$'):
-                spec.main(['build/gcc/src/main.o'])
-        units = {**UNITS, 'build/gcc/with space.o': spec.Unit(set(), set(), set())}
+                spec.main(['build/dc/src/main.o'])
+        units = {**UNITS, 'build/dc/with space.o': spec.Unit(set(), set(), set())}
         with self.game_tree({'config/imports.txt': PROVIDER}, units), \
-                self.assertRaisesRegex(SystemExit, ': build/gcc/with space.o: not a path the spec can give: letters, '
+                self.assertRaisesRegex(SystemExit, ': build/dc/with space.o: not a path the spec can give: letters, '
                                                    'digits, _, ., / and -, not starting with -$'):
-            spec.main(['--add', '1st_read', 'build/gcc/with space.o', 'spec.txt'])
+            spec.main(['--add', '1st_read', 'build/dc/with space.o', 'spec.txt'])
 
     def test_takes_no_import_from_an_image_whose_own_table_puts_the_name_elsewhere(self):
         # main's table gives stage_secret where stga's gives its static. stgb defines a global stage_secret, but its own
@@ -548,11 +673,11 @@ class Bound(unittest.TestCase):
                  'config/1st_read/symbols.txt': GAME_TREE['config/1st_read/symbols.txt'] + '0x8c900250  stage_secret\n',
                  'config/stga/symbols.txt': GAME_TREE['config/stga/symbols.txt'] + '0x0c900250  stage_secret\n',
                  'config/stgb/symbols.txt': GAME_TREE['config/stgb/symbols.txt'] + '0x0c900020  stage_secret\n'}
-        units = {**UNITS, 'build/gcc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
+        units = {**UNITS, 'build/dc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
                                                             {'_main_count_alias', '_stage_flag', '_stage_secret'}),
-                 'build/gcc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, {'stage_secret'},
+                 'build/dc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, {'stage_secret'},
                                                          set()),
-                 'build/gcc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag', 'stage_secret'}, set(), set())}
+                 'build/dc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag', 'stage_secret'}, set(), set())}
         with self.game_tree(files, units), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: static 1 \(stage_secret\)\n'):
             self.written()
@@ -563,11 +688,11 @@ class Bound(unittest.TestCase):
         files = {'config/imports.txt': PROVIDER,
                  'config/1st_read/symbols.txt': GAME_TREE['config/1st_read/symbols.txt'] + '0x8c900250  stage_secret\n',
                  'config/stga/symbols.txt': GAME_TREE['config/stga/symbols.txt'] + '0x0c900250  stage_secret\n'}
-        units = {**UNITS, 'build/gcc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
+        units = {**UNITS, 'build/dc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
                                                             {'_main_count_alias', '_stage_flag', '_stage_secret'}),
-                 'build/gcc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, {'stage_secret'},
+                 'build/dc/modules/stga/a.o': spec.Unit({'stage_a', 'stage_bss', 'stage_flag'}, {'stage_secret'},
                                                          set()),
-                 'build/gcc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag', 'stage_secret'}, set(), set())}
+                 'build/dc/modules/stgb/b.o': spec.Unit({'stage_b', 'stage_flag', 'stage_secret'}, set(), set())}
         with self.game_tree(files, units), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: static 1 \(stage_secret\)\n'):
             self.written()
@@ -599,30 +724,40 @@ class Bound(unittest.TestCase):
                                                                                  '0x0c90010c\n'}
         with self.game_tree(files):
             inputs = [str(path) for path in spec.inputs(spec.Config('stga'))]
-        self.assertEqual(inputs, ['build/gcc/modules/stga/a.o', 'build/gcc/gen/stga/content.o',
-                                  'build/gcc/modules/stga/c.o'])
+        self.assertEqual(inputs, ['build/dc/modules/stga/a.o', 'build/dc/gen/stga/content.o',
+                                  'build/dc/modules/stga/c.o'])
 
     def test_links_each_object_an_add_gives_an_image_after_its_sources_objects(self):
         # main takes port_count, which no table gives and only an added object defines, so only an --add binds it.
-        # An --add for no image config/ describes fails, and so does one of an object make gcc hasn't built
-        units = {**UNITS, 'build/gcc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
+        # An --add for no image config/ describes fails, and so does one of an object make dc hasn't built
+        units = {**UNITS, 'build/dc/src/main.o': spec.Unit({'main', 'main_count'}, set(),
                                                              {'_main_count_alias', '_stage_flag', '_port_count'}),
-                 'build/gcc/src/port.o': spec.Unit({'port_count'}, set(), set())}
+                 'build/dc/engine/dc/port.o': spec.Unit({'port_count'}, set(), set())}
         with self.game_tree({'config/imports.txt': PROVIDER}, units), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 1 names nothing binds: untabled 1 \(port_count\)\n'):
             self.written()
         with self.game_tree({'config/imports.txt': PROVIDER}, units):
-            lines = self.written('--add', '1st_read', 'build/gcc/src/port.o')
+            lines = self.written('--add', '1st_read', 'build/dc/engine/dc/port.o')
         self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', '1st_read']],
-                         ['build/gcc/src/main.o', 'build/gcc/src/port.o', 'libgcc.a'])
+                         ['build/dc/src/main.o', 'build/dc/engine/dc/port.o', 'libgcc.a'])
         with self.game_tree({'config/imports.txt': PROVIDER}, units), \
-                self.assertRaisesRegex(SystemExit, ': --add stgc build/gcc/src/port.o: no image config/ describes '
+                self.assertRaisesRegex(SystemExit, ': --add stgc build/dc/engine/dc/port.o: no image config/ describes '
                                                    'stgc$'):
-            self.written('--add', 'stgc', 'build/gcc/src/port.o')
+            self.written('--add', 'stgc', 'build/dc/engine/dc/port.o')
         with self.game_tree({'config/imports.txt': PROVIDER}, units), \
-                self.assertRaisesRegex(SystemExit, r": 1st_read: waits for 1 of its 2 objects, which make gcc didn't "
-                                                   r'build: build/gcc/src/gone\.o$'):
-            self.written('--add', '1st_read', 'build/gcc/src/gone.o')
+                self.assertRaisesRegex(SystemExit, r": 1st_read: waits for 1 of its 2 objects, which make dc didn't "
+                                                   r'build: build/dc/src/gone\.o$'):
+            self.written('--add', '1st_read', 'build/dc/src/gone.o')
+
+    def test_holds_an_object_at_an_image_s_content_s_path_to_no_record_where_the_image_places_no_gen_range(self):
+        # stgb places no gen/ range, so it has no content and no record. An --add gives main the object at the path of
+        # stgb's content, as an earlier build leaves one. It is an input of main's alone, and defines a name no record
+        # lists
+        units = {**UNITS, 'build/dc/gen/stgb/content.o': spec.Unit({'dat_0c900104'}, set(), set())}
+        with self.game_tree({'config/imports.txt': PROVIDER}, units):
+            lines = self.written('--add', '1st_read', 'build/dc/gen/stgb/content.o')
+        self.assertEqual([line.split()[1] for line in lines if line.split()[2:] == ['build/dc/gen/stgb/content.o']],
+                         ['1st_read'])
 
     def test_writes_the_tail_rows_and_the_constants_the_memory_contract_gives(self):
         # stga closes with a.c's data, as ADVERTISE closes with DEND, and ev0001 takes stage_flag where the contract
@@ -633,13 +768,13 @@ class Bound(unittest.TestCase):
             terms = contract(known)
             return terms._replace(anchored={**terms.anchored, 'ev0001': {'stage_flag': 0x0C900010}})
 
-        units = {**UNITS, 'build/gcc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(),
+        units = {**UNITS, 'build/dc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(),
                                                                          {'_stage_flag'})}
         with self.game_tree({'config/imports.txt': PROVIDER}, units), \
                 mock.patch.dict(memory.TAILS, {'stga': (('DEND', 'modules/stga/a.c', '.data'),)}), \
                 mock.patch.object(memory, 'contract', anchoring):
             lines = self.written()
-        self.assertIn('tail      stga  DEND  build/gcc/modules/stga/a.o  .data', lines)
+        self.assertIn('tail      stga  DEND  build/dc/modules/stga/a.o  .data', lines)
         self.assertIn('constant  ev0001  stage_flag  0x0c900010', lines)
 
     def test_closes_the_image_of_the_fish_models_with_their_constants_and_their_data(self):
@@ -648,15 +783,15 @@ class Bound(unittest.TestCase):
                                   elf.Section(1, '.rodata', 1, elf.ALLOC, 0, 4, 4, b''),
                                   elf.Section(2, '.data', 1, elf.ALLOC | 1, 0, 8, 4, b''),
                                   elf.Section(3, '.comment', 1, 0, 0, 4, 1, b'')], [], {})
-        with self.game_tree({'config/imports.txt': PROVIDER, 'build/gcc/modules/stga/fish.o': b''}), \
+        with self.game_tree({'config/imports.txt': PROVIDER, 'build/dc/modules/stga/fish.o': b''}), \
                 mock.patch.multiple(memory, FISH_IMAGE='stga', FISH_MODELS='modules/stga/fish.c',
                                     ICECAP_C=Path('modules/stga/a.c')):
             read = elf.read
             with mock.patch.object(elf, 'read',
                                    lambda data, where: fish if str(where).endswith('fish.o') else read(data, where)):
                 lines = self.written()
-        self.assertIn('tail      stga  CFISH  build/gcc/modules/stga/fish.o  .rodata', lines)
-        self.assertIn('tail      stga  DFISH  build/gcc/modules/stga/fish.o  .data', lines)
+        self.assertIn('tail      stga  CFISH  build/dc/modules/stga/fish.o  .rodata', lines)
+        self.assertIn('tail      stga  DFISH  build/dc/modules/stga/fish.o  .data', lines)
 
     def test_fails_on_a_row_for_every_image_that_binds_nothing_or_that_main_s_own_table_gives(self):
         # a row for every image binds nothing where no image takes its name, or where only main takes it, by a row of
@@ -683,7 +818,7 @@ class Bound(unittest.TestCase):
         rows = ('1st_read  stage_flag  stga  stage_flag  0x8c  the beach is the stage main means\n',
                 '*  stage_flag  stgb  stage_flag  0x8c  the other stage is the one meant\n')
         files = {'config/ev0001/symbols.txt': GAME_TREE['config/ev0001/symbols.txt'] + '0x8c900010  stage_flag\n'}
-        units = {**UNITS, 'build/gcc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(),
+        units = {**UNITS, 'build/dc/events/ev0001/script.o': spec.Unit({'ev0001_count', 'ev0001_script'}, set(),
                                                                          {'_stage_flag'})}
         for order in (rows, rows[::-1]):
             with self.subTest(first=order[0].split()[0]):
@@ -737,7 +872,7 @@ class Bound(unittest.TestCase):
                                                  + '0x8c900204  stage_inner\n0x8cc00000  stage_far\n'),
                  'config/stga/splits.txt': (GAME_TREE['config/stga/splits.txt']
                                             + 'modules/stga/a.c  B  0x0c900200  0x0c900208\n')}
-        units = {**UNITS, 'build/gcc/src/main.o': spec.Unit({'main', 'main_count'}, set(), {
+        units = {**UNITS, 'build/dc/src/main.o': spec.Unit({'main', 'main_count'}, set(), {
             '_main_count_alias', '_stage_flag', '_stage_inner', '_stage_far'})}
         with self.game_tree(files, units), \
                 self.assertRaisesRegex(SystemExit, r': 1st_read: 2 names nothing binds: interior 1 \(stage_inner\), '
@@ -745,9 +880,126 @@ class Bound(unittest.TestCase):
             self.written()
 
 
+class Starts(unittest.TestCase):
+    # which output sections of its data each image starts on the operand cache's 16 KB, without a toolchain, as Bound
+    # reads the objects
+    game_tree = Bound.game_tree
+    written = Generator.written
+
+    def test_writes_a_starts_row_after_the_image_row_of_each_image_whose_kernel_table_names_output_sections(self):
+        # stga's table names two, out of the script's order, and stgb's is packed. No option gives the others any
+        tables = {'config/stga/kernel.txt': '# its models\nstarts  .bss  .data\n', 'config/stgb/kernel.txt': 'packed\n'}
+        with self.game_tree({'config/imports.txt': PROVIDER, **tables}):
+            lines = self.written()
+        self.assertEqual([line for line in lines if line.split()[0] == 'starts'], ['starts    stga  .data  .bss'])
+        self.assertEqual(lines[lines.index('starts    stga  .data  .bss') - 1].split()[:2], ['image', 'stga'])
+
+    def test_starts_the_option_s_output_sections_in_each_image_whose_tables_place_code_but_one_with_a_row_of_its_own(self):
+        # every image of the tree places code. stga's own row names fewer, and stgb, packed, starts none
+        tables = {'config/stga/kernel.txt': 'starts  .rodata\n', 'config/stgb/kernel.txt': 'packed  # it has no room\n'}
+        with self.game_tree({'config/imports.txt': PROVIDER, **tables}):
+            lines = self.written('--starts', '.bss,.rodata,.data')
+            self.assertEqual([line for line in lines if line.split()[0] == 'starts'],
+                             ['starts    1st_read  .rodata  .data  .bss', 'starts    ev0001  .rodata  .data  .bss',
+                              'starts    stga  .rodata'])
+            self.assertEqual([line for line in self.written('--starts', '.data') if line.split()[0] == 'starts'],
+                             ['starts    1st_read  .data', 'starts    ev0001  .data', 'starts    stga  .rodata'])
+            self.assertEqual([line for line in self.written('--starts', '') if line.split()[0] == 'starts'],
+                             ['starts    stga  .rodata'])
+
+    def test_an_image_whose_tables_place_no_code_starts_none_but_by_a_row_of_its_own(self):
+        # s_mot is motions alone: no code's size moves them
+        motions = {'config/s_mot/splits.txt': 'D  0x0cc00000  0x0cc00100\nmotion/s.c  D  0x0cc00000  0x0cc00004\n',
+                   'config/s_mot/symbols.txt': '', 'motion/s.c': ''}
+        with tree({**GAME_TREE, **motions}):
+            self.assertEqual(spec.starts(spec.Config('s_mot'), ['.rodata', '.data', '.bss']), ([], False))
+            self.assertEqual(spec.starts(spec.Config('stga'), ['.rodata', '.bss']), (['.rodata', '.bss'], True))
+            Path('config/s_mot/kernel.txt').write_text('starts  .data\n')
+            self.assertEqual(spec.starts(spec.Config('s_mot'), []), (['.data'], False))
+
+    def test_fails_on_a_starts_or_packed_row_of_another_form_a_second_of_them_and_an_option_that_names_no_output(self):
+        table = 'config/stga/kernel.txt'
+        form = 'not a row: starts OUTPUT [OUTPUT] [OUTPUT], OUTPUT .rodata, .data or .bss'
+        rows = {'starts\n': f'{table}:1: {form}',
+                'starts  .text\n': f'{table}:1: {form}',
+                'starts  .data.models\n': f'{table}:1: {form}',
+                'starts  .rodata  .data  .bss  .data\n': f'{table}:1: {form}',
+                'starts  .data  .bss  .data\n': f'{table}:1: names .data twice',
+                'packed  .data\n': f'{table}:1: not a row: packed',
+                'starts  .data\n\npacked\n': (f'{table}:3: the row at {table}:1 says already which of its output '
+                                             'sections start'),
+                'packed\nstarts  .data\n': (f'{table}:2: the row at {table}:1 says already which of its output '
+                                           'sections start')}
+        for text, problem in rows.items():
+            with self.subTest(text), self.game_tree({'config/imports.txt': PROVIDER, table: text}):
+                with self.assertRaisesRegex(SystemExit, f'{re.escape(problem)}$'):
+                    self.written()
+        for given in ('.text', '.data,.data', '.data,', 'stga', '.rodata .data'):
+            with self.subTest(given), self.game_tree({'config/imports.txt': PROVIDER}):
+                with self.assertRaisesRegex(SystemExit, re.escape(
+                        f'--starts {given}: not .rodata, .data or .bss, or several of them joined by commas, each '
+                        "once; make dc gives it config/dreamcast.mk's DC_STARTS") + '$'):
+                    self.written('--starts', given)
+
+    def test_links_an_image_s_content_first_where_it_takes_the_option_s_start_of_its_data(self):
+        # stga's gen/ range follows a.c's row of D. The option's .data puts its content ahead of a.o, where it opens
+        # .data. A row of stga's own, or an option without .data, leaves relink's order
+        files = {'config/imports.txt': PROVIDER, **GENERATED,
+                 'build/gen/stga/content.txt': 'dat_0c900104  0x0c900104  4  void *[]\n'}
+        units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), set())}
+        relinked = ['build/dc/modules/stga/a.o', 'build/dc/gen/stga/content.o', 'libgcc.a']
+        cases = {('--starts', '.data'): ['build/dc/gen/stga/content.o', 'build/dc/modules/stga/a.o', 'libgcc.a'],
+                 ('--starts', '.rodata,.data,.bss'): ['build/dc/gen/stga/content.o', 'build/dc/modules/stga/a.o',
+                                                      'libgcc.a'],
+                 ('--starts', '.rodata,.bss'): relinked, (): relinked}
+        for options, inputs in cases.items():
+            with self.subTest(options), self.game_tree(files, units):
+                lines = self.written(*options)
+                self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', 'stga']], inputs)
+        for row in ('starts  .data\n', 'packed\n'):
+            with self.subTest(row), self.game_tree({**files, 'config/stga/kernel.txt': row}, units):
+                lines = self.written('--starts', '.rodata,.data,.bss')
+                self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', 'stga']], relinked)
+        # an image without a content keeps its order
+        with self.game_tree({'config/imports.txt': PROVIDER}):
+            self.assertEqual(spec.inputs(spec.Config('stga'), True), spec.inputs(spec.Config('stga')))
+
+    def test_a_datum_a_change_adds_to_an_object_leaves_the_content_s_where_the_image_takes_the_option_s_start(self):
+        # stga's content holds a model's word, and a.c gains a datum. With no option the content follows a.o's data,
+        # so the word moves. Under the option's .data the content opens .data, which starts on the operand cache's
+        # 16 KB after stga's code, as its empty .rodata does, and the word stays
+        test_ld.toolchain()
+        files = {'config/imports.txt': PROVIDER, **GENERATED,
+                 'build/gen/stga/content.txt': 'dat_0c900104  0x0c900104  4  int[]\n'}
+        objects = {str(Path('build/dc', source).with_suffix('.o')): compiled(GAME_TREE[source])
+                   for source in GAME_TREE_C}
+        objects['build/dc/gen/stga/content.o'] = compiled('int dat_0c900104[] = {7};\n')
+        grown = {**objects, 'build/dc/modules/stga/a.o': compiled(GAME_TREE['modules/stga/a.c']
+                                                                  + 'int stage_more = 5;\n')}
+        placed = {}
+        for options in ((), ('--starts', '.rodata,.data,.bss')):
+            for built in (objects, grown):
+                with tree({**GAME_TREE, **built, **files}), mock.patch.object(gcclink, 'SH_ELF', test_ld.TOOLCHAIN):
+                    self.written(*options)
+                    linked = gcclink.read('spec.txt')
+                    layout = ld.link(linked['stga'], gcclink.rooted(linked)['stga'], {}, Path('link'), 'layout')
+                    placed.setdefault(options, []).append(gcclink.exports(layout.elf)['dat_0c900104'].value)
+        self.assertEqual(placed[()][1] - placed[()][0], 4)
+        self.assertEqual(placed[('--starts', '.rodata,.data,.bss')], [0x0C904000, 0x0C904000])
+
+    def test_the_tree_s_tables_start_each_stage_s_data_and_no_option_starts_another_image_s(self):
+        # the layout make dc links: config/dreamcast.mk's DC_STARTS, which dc.mk gives --starts, names none
+        stages = ('stg00', 'stg01', 'stg02', 'stg03', 'stg04', 'stg05', 'stg06', 'stg07', 'stg08', 'stg09', 'stg10',
+                  'stg12')
+        setting = re.search(r'(?m)^DC_STARTS :=(.*)$', (ROOT / 'config/dreamcast.mk').read_text())[1].strip()
+        with cwd(ROOT):
+            begun = {image: spec.starts(spec.Config(image), spec.outputs(setting))[0] for image in images()}
+        self.assertEqual({image: found for image, found in begun.items() if found}, dict.fromkeys(stages, ['.data']))
+
+
 class Reviewed(unittest.TestCase):
     def test_holds_each_import_row_for_one_image_to_the_memory_contract(self):
-        # spec.py holds the rows to the memory contract only where make gcc links, so this holds the tree's. A row for
+        # spec.py holds the rows to the memory contract only where make dc links, so this holds the tree's. A row for
         # every image is left out: only the objects say which images it binds in. An alias imports nothing
         with cwd(ROOT):
             known = images()

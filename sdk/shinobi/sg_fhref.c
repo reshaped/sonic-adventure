@@ -143,7 +143,7 @@ Sint32 fhSetStatus(Sint32 status, void *buf)
      * strcpy, SHC passes them to strcpy in R4 and R5, the function runs 8 bytes
      * short, and 24 of 48 words differ */
     _builtin_strcpy(buf, text);
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the result the tag below names: fhFmWriteExec's, -1 for a
      * failed write */
     return fhFmWriteExec(REFRESH_PACKET, buf);

@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 import census
-from image import Item
+from items import Item
 from support import LOADER_SECTIONS, MODULE, tree
 from test_content import compiled
 
@@ -35,13 +35,13 @@ config/1st_read/symbols.txt  0x0c900040  1  anchor   shadowed  0x0c900000  0x0c9
 src/hero.src                 0x0cc00080  1  anchor   AREA      0x0cc00000  0x0cc10000  the hero's work in AREA
 '''
 # support.py's MODULE, a module's tables and sources beside 1ST_READ.BIN's, with hero.PRS and 1ST_READ.BIN's main.c,
-# hero.src and census. hero.PRS is an image that loads at AREA, and main.c's stub build has written its .d file
+# hero.src and census. hero.PRS is an image that loads at AREA, and make has written main.c's reads, which name area.h
 FILES = {**MODULE, 'src/main.c': MAIN, 'src/area.h': '#define AREA ((Uint8 *)0x0cc00000)\n', 'src/hero.src': ASSEMBLY,
          'config/1st_read/splits.txt': (MODULE['config/1st_read/splits.txt']
                                         + 'src/hero.src  P  0x8c0101b0  0x8c0101c0\n'),
          'config/hero/splits.txt': 'P  0x0cc00000  0x0cc00040\nD  0x0cc00040  0x0cc00100\n',
          'config/hero/symbols.txt': '',
-         'build/stub/src/main.d': 'build/stub/src/main.obj: src/main.c src/area.h\nsrc/area.h:\n',
+         'build/reads/src/main.d': 'build/reads/src/main.d: src/main.c src/area.h\nsrc/area.h:\n',
          'config/1st_read/census.txt': CENSUS}
 
 
@@ -119,7 +119,7 @@ class Check(unittest.TestCase):
     def test_reads_the_macros_of_each_compile_apart(self):
         # other.c defines an AREA of its own. main.c's compile reads area.h's alone, so neither sum has two values
         other = '#define AREA ((Uint8 *)0x0cd00000)\nUint8 *other_land = AREA + 0x40;\n'
-        files = {**FILES, 'src/other.c': other, 'build/stub/src/other.d': 'build/stub/src/other.obj: src/other.c\n',
+        files = {**FILES, 'src/other.c': other, 'build/reads/src/other.d': 'build/reads/src/other.d: src/other.c\n',
                  'config/1st_read/splits.txt': FILES['config/1st_read/splits.txt'] + 'src/other.c  P  0x8c0101c0  '
                                                                                     '0x8c0101d0\n',
                  'config/1st_read/census.txt': CENSUS + 'src/other.c  0x0cd00000  0x0cd00100  2  data  the reason\n'}
@@ -133,9 +133,9 @@ class Check(unittest.TestCase):
                          'too, so the census takes no value for it')
 
     def test_reads_the_macros_shc_defines(self):
-        # area.h's GCC side defines AREA as a name. The census takes AREA from SHC's side alone, as SHC's compile
-        # reads it, so main.c's AREA + 0x40 has one value
-        header = ('#ifdef GCC\n#define AREA ((Uint8 *)hero_area)\n#else\n#define AREA ((Uint8 *)0x0cc00000)\n'
+        # area.h's non-matching side defines AREA as a name. The census takes AREA from SHC's side alone, as SHC's
+        # compile reads it, so main.c's AREA + 0x40 has one value
+        header = ('#ifdef NONMATCHING\n#define AREA ((Uint8 *)hero_area)\n#else\n#define AREA ((Uint8 *)0x0cc00000)\n'
                   '#endif\n')
         self.assertEqual(check({**FILES, 'src/area.h': header}), 0)
 
@@ -190,8 +190,12 @@ class Check(unittest.TestCase):
         self.assertEqual(check({**FILES, 'config/1st_read/census.txt': CENSUS + row}), 0)
 
     def test_reads_the_generated_data_only_where_asked(self):
-        # main.c's full build reads a body, hero.inc, which holds a number past the image
-        files = {**FILES, 'build/src/main.d': 'build/src/main.obj: src/main.c src/area.h build/gen/src/main/hero.inc\n',
+        # main.c takes a body from the disc, hero.inc, and its reads name the body's stub, a zero. With --generated
+        # the census reads the body make writes from the disc, at the stub's path under build/gen/, which holds a
+        # number past the image
+        files = {**FILES, 'build/reads/src/main.d': ('build/reads/src/main.d: src/main.c src/area.h '
+                                                     'build/stub/src/main/hero.inc\n'),
+                 'build/stub/src/main/hero.inc': '0\n',
                  'build/gen/src/main/hero.inc': '0x0cb50000, 0x00000003,\n',
                  'config/1st_read/census.txt': CENSUS + 'build/gen/src/main/hero.inc  0x0cb50000  1  anchor  '
                                                         'CAMERA  0x0cb50000  0x0cb54000  a camera file\n'}
@@ -200,14 +204,30 @@ class Check(unittest.TestCase):
         self.assertEqual((check(files), check(files, '--generated')),
                          (0, 'census: config/1st_read/census.txt:6: build/gen/src/main/hero.inc holds no number the '
                              'row spans'))
+        # without --generated the census reads nothing under build/gen/, so it passes before make writes the body,
+        # which --generated needs
+        del files['build/gen/src/main/hero.inc']
+        self.assertEqual((check(files), check(files, '--generated')),
+                         (0, 'census: build/gen/src/main/hero.inc: No such file or directory'))
 
-    def test_needs_each_c_sources_dependency_file(self):
+    def test_reads_the_files_a_c_sources_reads_name_and_no_d_file_of_an_shc_object(self):
+        # far.h holds a number no row explains. The .d files of main.c's SHC objects, its stub's and its full
+        # build's, name far.h, and the census reads neither: it fails only once main.c's reads name far.h
+        files = {**FILES, 'src/far.h': '#define FAR ((Uint8 *)0x0cc00090)\n',
+                 'build/stub/src/main.d': 'build/stub/src/main.obj: src/main.c src/area.h src/far.h\n',
+                 'build/src/main.d': 'build/src/main.obj: src/main.c src/area.h src/far.h\n'}
+        self.assertEqual(check(files), 0)
+        files['build/reads/src/main.d'] = 'build/reads/src/main.d: src/main.c src/area.h src/far.h\n'
+        self.assertEqual(check(files), 'census: src/far.h:1: 0x0cc00090, which no row of config/1st_read/census.txt '
+                                       'explains')
+
+    def test_needs_each_c_sources_reads(self):
         files = {**FILES}
-        del files['build/stub/src/main.d']
-        self.assertEqual(check(files), 'census: src/main.c: no .d file under build/ or build/stub/, so build it first')
-        # a .d file names its source at least, so an empty one is no .d file
-        self.assertEqual(check({**files, 'build/stub/src/main.d': ''}),
-                         'census: build/stub/src/main.d: not a .d file: TARGET: PREREQUISITE ...')
+        del files['build/reads/src/main.d']
+        self.assertEqual(check(files), 'census: build/reads/src/main.d: missing, and make dc-check writes it')
+        # a source's reads name the source at least, so an empty file is none
+        self.assertEqual(check({**files, 'build/reads/src/main.d': ''}),
+                         'census: build/reads/src/main.d: not a .d file: TARGET: PREREQUISITE ...')
 
     def test_holds_each_row_of_symbols_txt_to_its_form(self):
         files = {**FILES, 'config/1st_read/symbols.txt': MODULE['config/1st_read/symbols.txt'] + '0x0c900044  a  b\n'}
@@ -266,35 +286,36 @@ class Disc(unittest.TestCase):
     def test_needs_each_motion_file_decoded(self):
         files = {**MOTIONS}
         del files['build/gen/img/H_MOT.BIN']
-        self.assertEqual(check(files, '--disc'), 'census: build/gen/img/H_MOT.BIN: missing, and make gcc decodes it '
+        self.assertEqual(check(files, '--disc'), 'census: build/gen/img/H_MOT.BIN: missing, and make dc decodes it '
                                                  'from orig/SONICADV/H_MOT.PRS with build/prskit')
 
 
-# CENSUS with shadowed placed, as main.c defines it under GCC
+# CENSUS with shadowed placed, as main.c defines it on the non-matching side
 PLACED = CENSUS.replace('1  anchor   shadowed  0x0c900000  0x0c900100', '1  placed   src/main.c')
-# the .d files make gcc writes beside main.c's and a.c's GCC objects
-DEPENDS = {'build/gcc/src/main.d': 'build/gcc/src/main.o: src/main.c src/area.h\nsrc/area.h:\n',
-           'build/gcc/modules/mod/a.d': 'build/gcc/modules/mod/a.o: modules/mod/a.c\n'}
+# the .d files make dc writes beside main.c's and a.c's GCC objects
+DEPENDS = {'build/dc/src/main.d': 'build/dc/src/main.o: src/main.c src/area.h\nsrc/area.h:\n',
+           'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: modules/mod/a.c\n'}
 
 
 class Placed(unittest.TestCase):
     def check_gcc(self, source, rows=PLACED, port=None):
-        """census.py --gcc's result, as check() gives it, with rows as the census. main.c's GCC object is compiled
+        """census.py --dc's result, as check() gives it, with rows as the census. main.c's GCC object is compiled
         from source, and hero.src's from an empty file, so that it defines no name. With port, an --add gives
-        1ST_READ.BIN gcc/src/port.c, whose GCC object is compiled from port."""
+        1ST_READ.BIN engine/dc/port.c, whose GCC object is compiled from port."""
         files = {**FILES, **DEPENDS, 'config/1st_read/census.txt': rows, 'src/main.c': source, 'empty.c': ''}
         added = []
         if port is not None:
-            files.update({'gcc/src/port.c': port, 'build/gcc/src/port.d': 'build/gcc/src/port.o: gcc/src/port.c\n'})
-            added = ['--add', '1st_read', 'gcc/src/port.c']
+            files.update({'engine/dc/port.c': port,
+                          'build/dc/engine/dc/port.d': 'build/dc/engine/dc/port.o: engine/dc/port.c\n'})
+            added = ['--add', '1st_read', 'engine/dc/port.c']
         with tree(files) as root, contextlib.redirect_stdout(io.StringIO()), \
                 mock.patch.object(sys, 'argv', ['tools/census.py']):
-            compiled(root, 'src/main.c', 'build/gcc/src/main.o')
-            compiled(root, 'empty.c', 'build/gcc/src/hero.o')
+            compiled(root, 'src/main.c', 'build/dc/src/main.o')
+            compiled(root, 'empty.c', 'build/dc/src/hero.o')
             if port is not None:
-                compiled(root, 'gcc/src/port.c', 'build/gcc/src/port.o')
+                compiled(root, 'engine/dc/port.c', 'build/dc/engine/dc/port.o')
             try:
-                census.main(['--gcc', *added])
+                census.main(['--dc', *added])
             except SystemExit as failed:
                 return str(failed)
         return 0
@@ -308,7 +329,7 @@ class Placed(unittest.TestCase):
         for declaration in ('static Uint32 shadowed[4];', 'extern Uint32 shadowed[];'):
             source = f'#include <sg_xpt.h>\n\n{declaration}\n\nUint32 *f(void)\n{{\n    return shadowed;\n}}\n'
             with self.subTest(declaration=declaration):
-                self.assertEqual(self.check_gcc(source), 'census: config/1st_read/census.txt:4: build/gcc/src/main.o '
+                self.assertEqual(self.check_gcc(source), 'census: config/1st_read/census.txt:4: build/dc/src/main.o '
                                                       'defines no global shadowed, which config/1st_read/symbols.txt '
                                                       'gives 0x0c900040')
 
@@ -318,42 +339,42 @@ class Placed(unittest.TestCase):
                          'census: config/1st_read/census.txt:4: config/1st_read/symbols.txt gives 0x0c900044 no name')
 
     def test_holds_each_other_row_of_symbols_txt_to_no_gcc_object_that_defines_its_name(self):
-        # CENSUS's row of shadowed is an anchor, which keeps its address. Where main.c defines shadowed under GCC, the
-        # link places it, so the row fails
+        # CENSUS's row of shadowed is an anchor, which keeps its address. Where main.c's non-matching side defines
+        # shadowed, the link places it, so the row fails
         self.assertEqual(self.check_gcc('#include <sg_xpt.h>\n\nUint32 main_other[4];\n', CENSUS), 0)
         self.assertEqual(self.check_gcc('#include <sg_xpt.h>\n\nUint32 shadowed[4];\n', CENSUS),
-                         'census: config/1st_read/census.txt:4: build/gcc/src/main.o defines global shadowed, which '
+                         'census: config/1st_read/census.txt:4: build/dc/src/main.o defines global shadowed, which '
                          "config/1st_read/symbols.txt gives 0x0c900040, so the link places it, and the row's "
                          'disposition is anchor, not placed')
-        # a definition in gcc/src/port.c, which an --add gives 1ST_READ.BIN, fails the row too
+        # a definition in engine/dc/port.c, which an --add gives 1ST_READ.BIN, fails the row too
         other = '#include <sg_xpt.h>\n\nUint32 main_other[4];\n'
         self.assertEqual(self.check_gcc(other, CENSUS, '#include <sg_xpt.h>\n\nUint32 port_other[4];\n'), 0)
         self.assertEqual(self.check_gcc(other, CENSUS, '#include <sg_xpt.h>\n\nUint32 shadowed[4];\n'),
-                         'census: config/1st_read/census.txt:4: build/gcc/src/port.o defines global shadowed, which '
-                         "config/1st_read/symbols.txt gives 0x0c900040, so the link places it, and the row's "
+                         'census: config/1st_read/census.txt:4: build/dc/engine/dc/port.o defines global shadowed, '
+                         "which config/1st_read/symbols.txt gives 0x0c900040, so the link places it, and the row's "
                          'disposition is anchor, not placed')
 
     def test_needs_the_gcc_object(self):
         with tree({**FILES, 'config/1st_read/census.txt': PLACED}), contextlib.redirect_stdout(io.StringIO()), \
                 mock.patch.object(sys, 'argv', ['tools/census.py']), \
-                self.assertRaisesRegex(SystemExit, r'^census: build/gcc/src/main\.o: missing, and make gcc builds it$'):
-            census.main(['--gcc'])
+                self.assertRaisesRegex(SystemExit, r'^census: build/dc/src/main\.o: missing, and make dc builds it$'):
+            census.main(['--dc'])
 
     def test_takes_neither_the_generated_data_nor_the_disc(self):
-        for args in (['--gcc', '--generated'], ['--gcc', '--disc']):
+        for args in (['--dc', '--generated'], ['--dc', '--disc']):
             with self.subTest(args=args), tree(FILES), contextlib.redirect_stderr(io.StringIO()), \
                     self.assertRaises(SystemExit) as failed:
                 census.main(args)
             self.assertEqual(failed.exception.code, 2)
 
 
-# the tree as make gcc leaves it, but with no name past 1ST_READ.BIN's image in its table, so --gcc reads no object.
+# the tree as make dc leaves it, but with no name past 1ST_READ.BIN's image in its table, so --dc reads no object.
 # mod's table gives a_init 0x0c900000, and shared 0x0c900104
 GCC = {**FILES, **DEPENDS, 'config/1st_read/symbols.txt': '0x8c0101a0  main\n0x8c0101a4  shared\n',
        'config/1st_read/census.txt': ''.join(line for line in CENSUS.splitlines(True)
                                              if not line.startswith('config/'))}
-# mod's a.c, which names a_init on GCC's side of its guard, and spells a_init's address on SHC's
-GUARDED = '''#ifdef GCC
+# mod's a.c, which names a_init on the non-matching side of its guard, and spells a_init's address on SHC's
+GUARDED = '''#ifdef NONMATCHING
 extern void a_init(void);
 #define A_INIT a_init
 #else
@@ -364,149 +385,159 @@ void (*a_step)(void) = A_INIT;
 UNEXPLAINED = 'census: {}: {}, which no row of config/1st_read/census.txt explains'
 
 
-class GccSide(unittest.TestCase):
-    def test_explains_each_number_of_a_gcc_side_at_a_names_address(self):
-        self.assertEqual(check(GCC, '--gcc'), 0)
-        # a number at a_init's address or shared's fails, in either view, and on GCC's side of a guard
+class NonmatchingBuild(unittest.TestCase):
+    def test_explains_each_number_of_a_non_matching_build_at_a_names_address(self):
+        self.assertEqual(check(GCC, '--dc'), 0)
+        # a number at a_init's address or shared's fails, in either view, and on the non-matching side of a guard
         for text, line, number in (('void (*a_step)(void) = (void (*)(void))0x0c900000;\n', 1, '0x0c900000'),
                                    ('int *a_shared = (int *)0x8c900104;\n', 1, '0x8c900104'),
                                    (GUARDED.replace('#ifdef', '#ifndef'), 5, '0x0c900000')):
             with self.subTest(text=text):
-                self.assertEqual(check({**GCC, 'modules/mod/a.c': text}, '--gcc'),
+                self.assertEqual(check({**GCC, 'modules/mod/a.c': text}, '--dc'),
                                  UNEXPLAINED.format(f'modules/mod/a.c:{line}', number))
-        # --gcc reads no guard's shipped side, which SHC alone compiles, and takes no number at no name's address
+        # --dc reads no guard's matching side, which SHC alone compiles, and takes no number at no name's address
         for text in (GUARDED, 'int *a_end = (int *)0x0c900100;\n'):
             with self.subTest(text=text):
-                self.assertEqual(check({**GCC, 'modules/mod/a.c': text}, '--gcc'), 0)
+                self.assertEqual(check({**GCC, 'modules/mod/a.c': text}, '--dc'), 0)
 
     def test_holds_a_name_to_its_address_only_in_a_view_of_ram(self):
         # mod's table gives a name 0x9c900200, which lies in no view of RAM, so a_far's 0x0c900200 is no name's
         # address
         files = {**GCC, 'modules/mod/a.c': 'int *a_far = (int *)0x0c900200;\n',
                  'config/mod/symbols.txt': GCC['config/mod/symbols.txt'] + '0x9c900200  a_far_name\n'}
-        self.assertEqual(check(files, '--gcc'), 0)
+        self.assertEqual(check(files, '--dc'), 0)
 
     def test_reads_each_header_the_d_file_names(self):
         files = {**GCC, 'modules/mod/a.h': '#define A_INIT ((void (*)(void))0x0c900000)\n'}
-        self.assertEqual(check(files, '--gcc'), 0)
-        files['build/gcc/modules/mod/a.d'] = 'build/gcc/modules/mod/a.o: modules/mod/a.c modules/mod/a.h\n'
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('modules/mod/a.h:1', '0x0c900000'))
+        self.assertEqual(check(files, '--dc'), 0)
+        files['build/dc/modules/mod/a.d'] = 'build/dc/modules/mod/a.o: modules/mod/a.c modules/mod/a.h\n'
+        self.assertEqual(check(files, '--dc'), UNEXPLAINED.format('modules/mod/a.h:1', '0x0c900000'))
 
     def test_reads_the_macros_of_a_c_file_the_d_file_names(self):
         # a.c includes c.c, whose B_BASE makes a.c's B_BASE + 4 shared's address
         files = {**GCC, 'modules/mod/c.c': '#define B_BASE ((Uint8 *)0x0c900100)\n',
                  'modules/mod/a.c': '#include "c.c"\nUint8 *a_shared = B_BASE + 4;\n',
-                 'build/gcc/modules/mod/a.d': 'build/gcc/modules/mod/a.o: modules/mod/a.c modules/mod/c.c\n'}
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('modules/mod/a.c:2', '0x0c900104'))
+                 'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: modules/mod/a.c modules/mod/c.c\n'}
+        self.assertEqual(check(files, '--dc'), UNEXPLAINED.format('modules/mod/a.c:2', '0x0c900104'))
 
     def test_reads_each_spelling_of_a_header_as_one_file(self):
         # a.c's .d file names a.h as ./modules/mod/a.h, and main.c's as src/../modules/mod/a.h. Both are a.h, whose
         # row explains its number once
         files = {**GCC, 'modules/mod/a.h': '#define A_INIT ((void (*)(void))0x0c900000)\n',
-                 'build/gcc/modules/mod/a.d': 'build/gcc/modules/mod/a.o: modules/mod/a.c ./modules/mod/a.h\n',
-                 'build/gcc/src/main.d': 'build/gcc/src/main.o: src/main.c src/area.h src/../modules/mod/a.h\n'}
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('modules/mod/a.h:1', '0x0c900000'))
+                 'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: modules/mod/a.c ./modules/mod/a.h\n',
+                 'build/dc/src/main.d': 'build/dc/src/main.o: src/main.c src/area.h src/../modules/mod/a.h\n'}
+        self.assertEqual(check(files, '--dc'), UNEXPLAINED.format('modules/mod/a.h:1', '0x0c900000'))
         files['config/1st_read/census.txt'] += 'modules/mod/a.h  0x0c900000  1  data  the reason\n'
-        self.assertEqual(check(files, '--gcc'), 0)
+        self.assertEqual(check(files, '--dc'), 0)
 
     def test_reads_a_src_file_as_assembly_or_the_c_that_replaces_it(self):
         files = {**GCC, 'modules/mod/b.src': "        .DATA.L     H'0C900000\n"}
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('modules/mod/b.src:1', '0x0c900000'))
-        files.update({'gcc/modules/mod/b.c': 'int *b_shared = (int *)0x0c900104;\n',
-                      'build/gcc/modules/mod/b.d': 'build/gcc/modules/mod/b.o: gcc/modules/mod/b.c\n'})
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('gcc/modules/mod/b.c:1', '0x0c900104'))
+        self.assertEqual(check(files, '--dc'), UNEXPLAINED.format('modules/mod/b.src:1', '0x0c900000'))
+        files.update({'engine/dc/b.c': 'int *b_shared = (int *)0x0c900104;\n',
+                      'build/dc/modules/mod/b.d': 'build/dc/modules/mod/b.o: engine/dc/b.c\n'})
+        self.assertEqual(check(files, '--dc', '--replace', 'modules/mod/b.src', 'engine/dc/b.c'),
+                         UNEXPLAINED.format('engine/dc/b.c:1', '0x0c900104'))
 
-    def test_reads_a_source_in_gcc_that_an_add_gives_an_image(self):
+    def test_reads_the_c_that_replaces_a_c_source(self):
+        files = {**GCC, 'modules/mod/a.c': 'int a_count;\n',
+                 'engine/dc/a.c': 'int *a_shared = (int *)0x0c900104;\n',
+                 'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: engine/dc/a.c\n'}
+        self.assertEqual(check(files, '--dc', '--replace', 'modules/mod/a.c', 'engine/dc/a.c'),
+                         UNEXPLAINED.format('engine/dc/a.c:1', '0x0c900104'))
+
+    def test_reads_a_source_that_an_add_gives_an_image(self):
         # port.c's header, port.h, is read too, as port.c's .d file names it
-        files = {**GCC, 'gcc/src/port.c': '#include "port.h"\nint *port_shared = PORT_SHARED;\n',
-                 'gcc/src/port.h': '#define PORT_SHARED ((int *)0x0c900104)\n',
-                 'build/gcc/src/port.d': 'build/gcc/src/port.o: gcc/src/port.c gcc/src/port.h\n'}
-        self.assertEqual(check(files, '--gcc'), 0)
-        self.assertEqual(check(files, '--gcc', '--add', '1st_read', 'gcc/src/port.c'),
-                         UNEXPLAINED.format('gcc/src/port.h:1', '0x0c900104'))
-        del files['build/gcc/src/port.d']
-        self.assertEqual(check(files, '--gcc', '--add', '1st_read', 'gcc/src/port.c'),
-                         'census: build/gcc/src/port.d: missing, and make gcc writes it')
-        self.assertEqual(check(files, '--gcc', '--add', 'nine', 'gcc/src/port.c'),
+        files = {**GCC, 'engine/dc/port.c': '#include "port.h"\nint *port_shared = PORT_SHARED;\n',
+                 'engine/dc/port.h': '#define PORT_SHARED ((int *)0x0c900104)\n',
+                 'build/dc/engine/dc/port.d': 'build/dc/engine/dc/port.o: engine/dc/port.c engine/dc/port.h\n'}
+        self.assertEqual(check(files, '--dc'), 0)
+        self.assertEqual(check(files, '--dc', '--add', '1st_read', 'engine/dc/port.c'),
+                         UNEXPLAINED.format('engine/dc/port.h:1', '0x0c900104'))
+        del files['build/dc/engine/dc/port.d']
+        self.assertEqual(check(files, '--dc', '--add', '1st_read', 'engine/dc/port.c'),
+                         'census: build/dc/engine/dc/port.d: missing, and make dc writes it')
+        self.assertEqual(check(files, '--dc', '--add', 'nine', 'engine/dc/port.c'),
                          'census: nine: no such image, a directory in config/')
 
     def test_explains_a_number_by_the_rows_of_the_file_that_spells_it(self):
         # hero's table gives hero_step AREA's address, 0x0cc00000. area.h's row explains area.h's number there, not
-        # a.c's. --gcc alone counts a.c's row, as the census without it doesn't read a.c
+        # a.c's. --dc alone counts a.c's row, as the census without it doesn't read a.c
         files = {**GCC, 'config/hero/symbols.txt': '0x0cc00000  hero_step\n',
                  'modules/mod/a.c': 'Uint8 *a_area = (Uint8 *)0x0cc00000;\n'}
-        self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format('modules/mod/a.c:1', '0x0cc00000'))
+        self.assertEqual(check(files, '--dc'), UNEXPLAINED.format('modules/mod/a.c:1', '0x0cc00000'))
         files['config/1st_read/census.txt'] += ('modules/mod/a.c  0x0cc00000  1  anchor  AREA  0x0cc00000  0x0cc10000  '
                                                 'where hero.PRS loads\n')
-        self.assertEqual((check(files), check(files, '--gcc')), (0, 0))
+        self.assertEqual((check(files), check(files, '--dc')), (0, 0))
         for text, problem in (('Uint8 *a_area = (Uint8 *)0x0cc00000, *a_top = (Uint8 *)0x0cc00000;\n',
                                'the row counts 1 of the numbers it spans, and modules/mod/a.c holds 2'),
                               ('Uint8 *a_area;\n', 'modules/mod/a.c holds no number the row spans')):
             with self.subTest(problem=problem):
-                self.assertEqual(check({**files, 'modules/mod/a.c': text}, '--gcc'),
+                self.assertEqual(check({**files, 'modules/mod/a.c': text}, '--dc'),
                                  f'census: config/1st_read/census.txt:5: {problem}')
 
     def test_reads_the_numbers_in_1st_read_bins_image_too(self):
         # the link lays 1ST_READ.BIN out anew too, so a number at main's address or at shared's fails. mod's a.c
-        # holds main's, 0x8c0101a0, and GCC's side of main.c's guard holds shared's, 0x8c0101a4
-        gcc_only = MAIN + '#ifdef GCC\nint *main_shared = (int *)0x8c0101a4;\n#endif\n'
+        # holds main's, 0x8c0101a0, and the non-matching side of main.c's guard holds shared's, 0x8c0101a4
+        non_matching = MAIN + '#ifdef NONMATCHING\nint *main_shared = (int *)0x8c0101a4;\n#endif\n'
         for path, text, line, number in (
                 ('modules/mod/a.c', 'void (*a_step)(void) = (void (*)(void))0x8c0101a0;\n', 1, '0x8c0101a0'),
-                ('src/main.c', gcc_only, 12, '0x8c0101a4')):
+                ('src/main.c', non_matching, 12, '0x8c0101a4')):
             with self.subTest(path=path):
                 files = {**GCC, path: text}
-                self.assertEqual(check(files, '--gcc'), UNEXPLAINED.format(f'{path}:{line}', number))
-                # a row of the number's file explains it, and --gcc alone counts the row
+                self.assertEqual(check(files, '--dc'), UNEXPLAINED.format(f'{path}:{line}', number))
+                # a row of the number's file explains it, and --dc alone counts the row
                 files['config/1st_read/census.txt'] += f'{path}  {number}  1  data  the reason\n'
-                self.assertEqual((check(files), check(files, '--gcc')), (0, 0))
+                self.assertEqual((check(files), check(files, '--dc')), (0, 0))
         files['src/main.c'] = MAIN
-        self.assertEqual(check(files, '--gcc'), 'census: config/1st_read/census.txt:5: src/main.c holds no number '
+        self.assertEqual(check(files, '--dc'), 'census: config/1st_read/census.txt:5: src/main.c holds no number '
                                                 'the row spans')
 
     def test_counts_the_row_of_a_header_only_other_images_read(self):
         files = {**GCC, 'modules/mod/a.h': '#define A_INIT ((void (*)(void))0x0c900000)\n',
-                 'build/gcc/modules/mod/a.d': 'build/gcc/modules/mod/a.o: modules/mod/a.c modules/mod/a.h\n'}
+                 'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: modules/mod/a.c modules/mod/a.h\n'}
         files['config/1st_read/census.txt'] += 'modules/mod/a.h  0x0c900000  1  data  the reason\n'
-        self.assertEqual((check(files), check(files, '--gcc')), (0, 0))
+        self.assertEqual((check(files), check(files, '--dc')), (0, 0))
         # the row fails once a.h holds no number, or once no compile reads a.h
-        self.assertEqual(check({**files, 'modules/mod/a.h': ''}, '--gcc'),
+        self.assertEqual(check({**files, 'modules/mod/a.h': ''}, '--dc'),
                          'census: config/1st_read/census.txt:5: modules/mod/a.h holds no number the row spans')
-        unread = {**files, 'build/gcc/modules/mod/a.d': 'build/gcc/modules/mod/a.o: modules/mod/a.c\n'}
-        self.assertEqual(check(unread, '--gcc'), "census: config/1st_read/census.txt:5: the row is --gcc's, and no "
-                                                 "image's GCC side reads modules/mod/a.h")
+        unread = {**files, 'build/dc/modules/mod/a.d': 'build/dc/modules/mod/a.o: modules/mod/a.c\n'}
+        self.assertEqual(check(unread, '--dc'), "census: config/1st_read/census.txt:5: the row is --dc's, and no "
+                                                 "image's non-matching build reads modules/mod/a.h")
 
-    def test_counts_the_rows_of_the_files_only_1st_read_bins_gcc_side_reads(self):
-        # gcc/src/hero.c replaces hero.src and reads gcc/src/hero.h. The census without --gcc reads neither, so --gcc
-        # counts their rows, though they lie past the image
-        files = {**GCC, 'gcc/src/hero.c': '#include "hero.h"\nint *hero_shared = (int *)0x0c900104;\n',
-                 'gcc/src/hero.h': '#define HERO_INIT ((void (*)(void))0x0c900000)\n',
-                 'build/gcc/src/hero.d': 'build/gcc/src/hero.o: gcc/src/hero.c gcc/src/hero.h\n'}
-        rows = 'gcc/src/hero.c  0x0c900104  1  data  the reason\ngcc/src/hero.h  0x0c900000  1  data  the reason\n'
+    def test_counts_the_rows_of_the_files_only_1st_read_bins_non_matching_build_reads(self):
+        # engine/dc/hero.c replaces hero.src and reads engine/dc/hero.h. The census without --dc reads neither, so
+        # --dc counts their rows, though they lie past the image
+        files = {**GCC, 'engine/dc/hero.c': '#include "hero.h"\nint *hero_shared = (int *)0x0c900104;\n',
+                 'engine/dc/hero.h': '#define HERO_INIT ((void (*)(void))0x0c900000)\n',
+                 'build/dc/src/hero.d': 'build/dc/src/hero.o: engine/dc/hero.c engine/dc/hero.h\n'}
+        rows = ('engine/dc/hero.c  0x0c900104  1  data  the reason\n'
+                'engine/dc/hero.h  0x0c900000  1  data  the reason\n')
         files['config/1st_read/census.txt'] += rows
-        self.assertEqual((check(files), check(files, '--gcc')), (0, 0))
+        replace = ('--replace', 'src/hero.src', 'engine/dc/hero.c')
+        self.assertEqual((check(files), check(files, '--dc', *replace)), (0, 0))
         twice = '#include "hero.h"\nint *hero_shared = (int *)0x0c900104, *hero_top = (int *)0x0c900104;\n'
         for path, text, problem in (
-                ('gcc/src/hero.c', twice, '5: the row counts 1 of the numbers it spans, and gcc/src/hero.c holds 2'),
-                ('gcc/src/hero.h', '', '6: gcc/src/hero.h holds no number the row spans')):
+                ('engine/dc/hero.c', twice, '5: the row counts 1 of the numbers it spans, and engine/dc/hero.c holds 2'),
+                ('engine/dc/hero.h', '', '6: engine/dc/hero.h holds no number the row spans')):
             with self.subTest(path=path):
-                self.assertEqual(check({**files, path: text}, '--gcc'), f'census: config/1st_read/census.txt:{problem}')
+                self.assertEqual(check({**files, path: text}, '--dc', *replace),
+                                 f'census: config/1st_read/census.txt:{problem}')
 
     def test_needs_each_images_symbols_txt(self):
-        # --gcc reads every image's symbols.txt for its names, LOADER.BIN's too, though LOADER.BIN's other tables
+        # --dc reads every image's symbols.txt for its names, LOADER.BIN's too, though LOADER.BIN's other tables
         # need none
         files = {**GCC, 'config/loader/splits.txt': ''.join(f'{row}\n' for row in LOADER_SECTIONS)}
-        self.assertEqual(check(files, '--gcc'), 'census: config/loader/symbols.txt: No such file or directory')
-        self.assertEqual(check({**files, 'config/loader/symbols.txt': ''}, '--gcc'), 0)
+        self.assertEqual(check(files, '--dc'), 'census: config/loader/symbols.txt: No such file or directory')
+        self.assertEqual(check({**files, 'config/loader/symbols.txt': ''}, '--dc'), 0)
 
     def test_needs_each_d_file(self):
         files = {**GCC}
-        del files['build/gcc/modules/mod/a.d']
-        self.assertEqual(check(files, '--gcc'), 'census: build/gcc/modules/mod/a.d: missing, and make gcc writes it')
-        # --gcc needs the SHC .d files of 1ST_READ.BIN's C sources too, which name the files whose rows the census
-        # without --gcc counts
-        del files['build/stub/src/main.d']
-        self.assertEqual(check(files, '--gcc'), 'census: src/main.c: no .d file under build/ or build/stub/, so build '
-                                                'it first')
+        del files['build/dc/modules/mod/a.d']
+        self.assertEqual(check(files, '--dc'), 'census: build/dc/modules/mod/a.d: missing, and make dc writes it')
+        # --dc needs the reads of 1ST_READ.BIN's C sources too, which name the files whose rows the census without
+        # --dc counts
+        del files['build/reads/src/main.d']
+        self.assertEqual(check(files, '--dc'), 'census: build/reads/src/main.d: missing, and make dc-check writes it')
 
 
 if __name__ == '__main__':

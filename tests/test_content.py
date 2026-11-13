@@ -9,7 +9,7 @@ import data
 import floats
 import test_ld
 from cdata import EmitError, Items
-from image import Image, Item, window
+from items import Image, Item, window
 from layout import LayoutError
 from support import MODULE, cwd, tree
 from test_data import BASE, KEYED, LOADS, ROOT, bits, land, words
@@ -158,25 +158,20 @@ TAKEN = {**pointing(0x0CA00000),
 def gcc(*args):
     """The CompletedProcess of the toolchain's sh-elf-NAME, NAME being
     args[0], run on args[1:] from the checkout, its output captured as text.
-    The toolchain is test_ld.TOOLCHAIN. Where it lacks sh-elf-gcc or
-    sh-elf-ld, the test fails if SH_ELF names it, as test_ld's fixture
-    does, and skips otherwise. It skips too where tools/sh4zam/include, in
-    which make gcc's flags find system headers, is missing."""
-    toolchain = test_ld.TOOLCHAIN
-    missing = [tool for tool in ('bin/sh-elf-gcc', 'bin/sh-elf-ld') if not (toolchain / tool).is_file()]
-    if missing and test_ld.GIVEN:
-        raise AssertionError(f'{toolchain}, which SH_ELF names, lacks {", ".join(missing)}')
-    if missing:
-        raise unittest.SkipTest(f'{toolchain} lacks {", ".join(missing)}, which make gcc builds')
+    The toolchain is test_ld.TOOLCHAIN, and the test fails or skips as
+    test_ld.toolchain() does on sh-elf-gcc and sh-elf-ld. It skips where
+    tools/sh4zam/include, in which make dc's flags find system headers, is
+    missing."""
+    test_ld.toolchain(('bin/sh-elf-gcc', 'bin/sh-elf-ld'))
     if not (ROOT / 'tools/sh4zam/include').is_dir():
-        raise unittest.SkipTest('tools/sh4zam/include: missing, and make gcc fetches it')
-    return subprocess.run([toolchain / 'bin' / f'sh-elf-{args[0]}', *args[1:]], cwd=ROOT, capture_output=True,
-                          text=True)
+        raise unittest.SkipTest('tools/sh4zam/include: missing, and make dc fetches it')
+    return subprocess.run([test_ld.TOOLCHAIN / 'bin' / f'sh-elf-{args[0]}', *args[1:]], cwd=ROOT,
+                          capture_output=True, text=True)
 
 
 def compiled(root, source, out, respelled=True):
     """The object at out under root that GCC compiles from source, a path
-    under root, as make gcc compiles a content. GCC's preprocessor writes
+    under root, as make dc compiles a content. GCC's preprocessor writes
     the C to a .i beside the object. tools/floats.py, run from the checkout,
     respells the .i's floats in place as SHC 5.0's release R32 reads them
     under -fpu=single, and GCC compiles the .i. With respelled false, GCC
@@ -185,7 +180,7 @@ def compiled(root, source, out, respelled=True):
     where make searches modules too. Fails or skips as gcc() does, and
     raises AssertionError with GCC's messages where GCC fails."""
     obj, c, include = root / out, root / source, ['-Isdk/include', '-Isrc']
-    flags = test_ld.flags('GCCFLAGS', 'build/gcc/gen/test/content.o')
+    flags = test_ld.flags('GCCFLAGS', 'build/dc/gen/test/content.o')
     if respelled:
         result = gcc('gcc', *flags, *include, '-E', '-o', obj.with_suffix('.i'), c)
         if result.returncode:
@@ -270,9 +265,9 @@ class Content(unittest.TestCase):
                 self.assertIn(f'    a_table, (void *)dat_0c000210, {row}, dat_0c000190,\n', text)
 
     def test_a_name_a_source_declares_twice_takes_its_last_declaration(self):
-        # GCC's side of the guard gives a_table a fifth element, at 0x0c000150. The other side, the last
+        # the non-matching side of the guard gives a_table a fifth element, at 0x0c000150. The other side, the last
         # declaration, gives it four
-        source = '#ifdef GCC\nUint32 a_table[5];\n#else\nUint32 a_table[4];\n#endif\n'
+        source = '#ifdef NONMATCHING\nUint32 a_table[5];\n#else\nUint32 a_table[4];\n#endif\n'
         text = write_content({**pointing(BASE + 0x150), 'modules/test/a.c': source})['.c'].decode()
         self.assertIn('    a_table, (void *)dat_0c000210, unresolved_0c000188, dat_0c000190,\n', text)
 
@@ -380,6 +375,18 @@ class Content(unittest.TestCase):
                 self.assertRaisesRegex(SystemExit, r'config/test/splits\.txt: no gen/ range, so no content'):
             content.gcc_content('TEST.BIN', str(CONTENT_C))
 
+    def test_a_gen_range_in_bss_or_past_the_image_fails(self):
+        splits = CONTENT['config/test/splits.txt'].replace(
+            'D  0x0c000000  0x0c000200\n', 'D  0x0c000000  0x0c000180\nB  0x0c000180  0x0c000200\n').replace(
+            'gen/test/d_0c000180.c  D', 'gen/test/d_0c000180.c  B')
+        for files, problem in (({'config/test/splits.txt': splits},
+                                'lies in B, and the C it takes defines data for D, DHEAD or C'),
+                               ({'TEST.BIN': CONTENT['TEST.BIN'][:0x1C0]},
+                                r'lies outside TEST\.BIN, 0x0c000000 to 0x0c0001c0')):
+            with self.subTest(problem), tree(dict(CONTENT, **files)), self.assertRaisesRegex(
+                    SystemExit, rf'config/test/splits\.txt: 0x0c000180 to 0x0c000200 {problem}$'):
+                content.gcc_content('TEST.BIN', str(CONTENT_C))
+
     def test_takes_each_definition_from_data_txt_alone(self):
         # test_land's row, made nine words, holds dat_0c0000b4 in an array of no known structure
         with self.assertRaisesRegex(EmitError, '0x0c0000b4 lies in RAM, in test_land, an array of no known structure'):
@@ -391,9 +398,9 @@ class Content(unittest.TestCase):
             write_content({'modules/test/a.c': ''})
 
     def test_names_storage_no_row_holds_by_the_definition_a_source_gives_it_under_gcc(self):
-        # c_store lies in bss that no row holds, and b.c defines it under GCC. A word into it past its start names an
-        # element
-        store = '#ifdef GCC\nUint32 c_store[4];\n#endif\n'
+        # c_store lies in bss that no row holds, and b.c's non-matching side defines it. A word into it past its start
+        # names an element
+        store = '#ifdef NONMATCHING\nUint32 c_store[4];\n#endif\n'
         storage = {'config/test/splits.txt': CONTENT['config/test/splits.txt'] + 'B  0x0c000240  0x0c000280\n',
                    'config/test/symbols.txt': CONTENT['config/test/symbols.txt'] + '0x0c000240  c_store\n',
                    'modules/test/b.c': CONTENT['modules/test/b.c'] + store,

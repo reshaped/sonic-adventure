@@ -1,0 +1,12 @@
+datum  route_frames  D  0x00000000  4
+datum  route_sliding  D  0x00000004  1
+datum  route  D  0x00000005  1
+datum  route_last_frame  D  0x00000006  1
+datum  route_users  D  0x00000007  1
+datum  panel_switch_shapes  D  0x00000008  104
+datum  route_places  C  0x00000000  64
+datum  letter_d  C  0x00000058  80
+datum  letter_a  C  0x000000a8  48
+datum  letter_b  C  0x000000d8  128
+datum  letter_c  C  0x00000158  80
+template  points  C  0x000001a8  48

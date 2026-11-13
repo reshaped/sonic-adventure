@@ -166,6 +166,10 @@ static KMINT32 render_started;
 static KMDWORD field;
 static KMDWORD field_toggle = 1;
 
+/* make dc compiles none of the C under the #else. engine/dc/owner.c's
+ * kmiInitInterrupt installs a handler of its own */
+#ifdef NONMATCHING
+#else
 void kmiInitInterrupt(void)
 {
     KMDWORD i;
@@ -946,6 +950,7 @@ KMINT32 kmiInterruptHandlerSH(void)
     }
     return 0;
 }
+#endif
 
 void kmiDefaultInterruptHandler(KMINT32 event)
 {

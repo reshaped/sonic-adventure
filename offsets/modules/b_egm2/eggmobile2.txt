@@ -1,0 +1,1 @@
+datum  eggmobile2_boss_name  C  0x00000000  11

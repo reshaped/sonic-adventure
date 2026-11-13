@@ -1,0 +1,5 @@
+datum  ev0075_fade  D  0x00000000  4
+datum  ev0075_zero  D  0x00000004  4
+datum  ev0075_textures  D  0x00000008  16
+text  TEXT_1  C  0x00000000  25
+text  TEXT_2  C  0x0000001c  6

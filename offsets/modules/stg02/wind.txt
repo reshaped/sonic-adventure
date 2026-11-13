@@ -1,0 +1,8 @@
+datum  wind_wedge_points  D  0x00000000  120
+datum  wind_wedge_colors  D  0x00000078  40
+datum  wind_wedge  D  0x000000a0  16
+datum  wind_cube_points  D  0x000000b0  288
+datum  wind_box_colors  D  0x000001d0  96
+datum  wind_box  D  0x00000230  16
+datum  wind_origin_colors  D  0x00000240  96
+datum  wind_origin  D  0x000002a0  16

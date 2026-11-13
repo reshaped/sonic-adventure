@@ -29,8 +29,9 @@ struct draw_override {
  * the override's draw takes it, and a null draw skips it. that node's
  * children draw in the matrix the override's draw leaves */
 void draw_object(NJS_OBJECT *object, const struct draw_override *overrides);
-/* set out to the point distance along the way from start toward target, or
- * to start itself where target is the same point */
+/* set out to the point distance along the way from start toward target.
+ * where target is start, out is NaN, as point_toward's @bug says, and start
+ * on the non-matching side */
 void point_toward(NJS_POINT3 *start, NJS_POINT3 *target, Float distance,
                   NJS_POINT3 *out);
 /* TRUE when spheres of these radii at these centers overlap, else FALSE */

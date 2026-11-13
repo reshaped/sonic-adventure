@@ -1,0 +1,7 @@
+datum  ball_places  C  0x00000000  96
+datum  ball_desc  C  0x00000060  24
+datum  ball_no_turn  C  0x00000078  12
+datum  ball_unit  C  0x00000084  12
+datum  ball_collision  C  0x00000090  2
+datum  ball_shapes  D  0x00000000  52
+datum  ball_kind  D  0x00000034  24

@@ -1,0 +1,3 @@
+datum  spark_colors  D  0x00000000  8
+datum  spark_line  D  0x00000008  16
+datum  spark_ends  B  0x00000000  24

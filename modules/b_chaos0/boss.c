@@ -371,9 +371,9 @@ static NJS_POINT3 *pole_nearest(NJS_POINT3 *pos)
     Float best = 999999.0F;
     Float distance;
 
-#ifdef GCC
-    /* repairs the unset nearest the tag below names: where no distance falls
-     * below 999999, GCC returns the first pole */
+#ifdef NONMATCHING
+    /* repairs the unset index the tag below names: with no distance below
+     * 999999, pole_nearest returns the first pole */
     nearest = 0;
 #endif
     for (i = 0; i < POLES; i++) {
@@ -1791,7 +1791,7 @@ static void chaos0_draw(struct task *task)
         /* event_is_playing doesn't read its argument. the image passes 2
          * (0x0c902bc4) */
         if (chaos->health > 0.0F || event_is_playing(2)) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* the puddle's trail and its ease to the ground advance in this
              * draw. the second picture's pass draws again, and leaves them
              * as the steps did, so they advance as at 30 fps */
@@ -1820,7 +1820,7 @@ static void chaos0_draw(struct task *task)
         TURN_VIA(njRotateY, -work->ang.y + 0x8000, ang);
         njTranslate(NULL, 0.0F, ORIGIN_HEIGHT, 0.0F);
         njScaleV(NULL, &work->scl);
-#ifdef GCC
+#ifdef NONMATCHING
         /* the split frame's second picture poses the arm, then puts back
          * what the steps read of the pose: the hands, the hand's shape and
          * his facing */

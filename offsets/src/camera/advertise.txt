@@ -1,0 +1,2 @@
+datum  advertise_collisions  D  0x00000000  32704
+datum  camera_advertise_layout  D  0x00007fc0  8

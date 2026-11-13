@@ -8,10 +8,7 @@ double cos(double x);
 /* sqrt is _builtin_sqrtf, SHC's float square root intrinsic, which is right
  * only where double is float. its callers are compiled with -fpu=single or
  * -double=float */
-#ifdef __clang__
-#define _builtin_sqrtf __builtin_sqrtf
-#endif
-#ifdef GCC
+#ifdef NONMATCHING
 #define _builtin_sqrtf __builtin_sqrtf
 /* C99's INFINITY and isinf, by GCC's builtins: SH4ZAM's shz_complex.inl.h
  * reads both */

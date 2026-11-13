@@ -1,0 +1,10 @@
+datum  flash_frames  D  0x00000000  160
+datum  flash_sprite  D  0x000000a0  32
+datum  ball_frames  D  0x000000c0  160
+datum  ball_sprite  D  0x00000160  32
+datum  flash_material  D  0x00000180  16
+datum  ball_sprite_material  D  0x00000190  16
+datum  fade_objects  D  0x000001a0  64
+datum  chaos2_land_fade_on  B  0x00000000  1
+datum  fade_entries  B  0x00000004  64
+datum  fade_alphas  B  0x00000044  64

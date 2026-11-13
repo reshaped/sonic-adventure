@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c627d38 follows the
  * body's own return at 0x8c627d2c */
 #pragma inline_asm(njSetLightRange)

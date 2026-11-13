@@ -1,0 +1,6 @@
+datum  panel_shapes  D  0x00000000  208
+datum  panel_number_textures  D  0x000000d0  80
+datum  panel_spark_textures  D  0x00000120  40
+datum  panel_spark_texanims  D  0x00000148  100
+datum  panel_spark_sprite  D  0x000001ac  32
+datum  panel_tasks  B  0x00000000  40

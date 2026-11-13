@@ -75,7 +75,7 @@ void thread_next(void)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* switch threads. the running thread's registers go on its stack, in the
  * frame struct thread's sp describes, and thread_next picks the next
  * thread. that thread's registers come off its own stack, and it goes on
@@ -174,7 +174,7 @@ static void thread_free(struct thread *thread)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* take the running thread's registers off its stack, as thread_yield left
  * them, and go on where it left off */
 /* @asm abi: stack-written, MOV.L @(16,R1),R15 at 0x8c09f364, in thread_destroy,
@@ -232,7 +232,7 @@ void thread_destroy_all(void)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* start the running thread over: entry(arg) from the top of its stack,
  * returning into thread_exit */
 /* @asm abi: stack-written, MOV.L @(20,R1),R15 at 0x8c09f3f0, in thread_start,

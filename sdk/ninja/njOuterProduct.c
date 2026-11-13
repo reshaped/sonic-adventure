@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* ov = v1 x v2. v1 and v2 are read whole before ov is written, so ov may be
  * either. returns the length of ov */
 /* @asm operand: fipr-registers, FIPR FV0,FV8 at 0x8c628a7a */

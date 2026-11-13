@@ -480,9 +480,9 @@ static void card_menu_drive_step(struct task *task)
              * CHAO_PARTNER, which card_admit_type admits, and when the task
              * pool or the heap runs out. the step reads its work through it
              * without a test (0x0c90f7d2) */
-#ifdef GCC
-            /* repairs the read the tag names: the step places a preview only
-             * where one was made, and GCC makes none for an egg */
+#ifdef NONMATCHING
+            /* repairs the read the tag names. this side makes no preview for
+             * an egg */
             if (preview != NULL) {
                 preview->work->pos.x = work->pos.x;
                 preview->work->pos.y = work->pos.y + 0.65F;
@@ -819,7 +819,7 @@ static struct task *card_menu_preview_create(struct chao *record)
      * the work's pos.x, read as the preview's work (0x0c90f7d2) */
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
     case CHAO_EGG:
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset task the tag names: an egg gets no preview */
         task = NULL;
 #endif

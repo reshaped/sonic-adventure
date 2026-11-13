@@ -1,0 +1,2 @@
+datum  cowgirl_shifts  D  0x00000000  900
+datum  cowgirl_shapes  D  0x00000384  208

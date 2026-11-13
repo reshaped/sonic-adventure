@@ -1110,7 +1110,7 @@ static KMSTATUS reload_palette4(PKMSURFACEDESC surface, KMBYTE *texture,
          * before the surface */
         to = (KMDWORD)&merge[0];
         from = (KMDWORD)surface->pSurface;
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the first read the tag names: the level ends at its offset
          * plus its size. level4_offset[level + 1] holds that end only below
          * level 10 */
@@ -1125,7 +1125,7 @@ static KMSTATUS reload_palette4(PKMSURFACEDESC surface, KMBYTE *texture,
         }
         from = (KMDWORD)&merge[0];
         to = (KMDWORD)surface->pSurface;
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the second read the tag names, as above */
         to += level4_offset[level] + level4_size[level] - 12;
 #else

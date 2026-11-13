@@ -1,0 +1,7 @@
+datum  ev00dd_frog  D  0x00000000  4
+datum  ev00dd_white  D  0x00000004  4
+datum  ev00dd_textures  D  0x00000008  16
+text  TEXT_1  C  0x0000000c  33
+text  TEXT_2  C  0x00000030  34
+text  TEXT_3  C  0x00000054  70
+text  TEXT_4  C  0x0000009c  20

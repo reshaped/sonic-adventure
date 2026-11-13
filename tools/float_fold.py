@@ -1,4 +1,4 @@
-"""make gcc's fold of static initializers, for tools/floats.py: each one's
+"""make dc's fold of static initializers, for tools/floats.py: each one's
 value as SHC folds it, written in its place where GCC could give another;
 and under -aggressive=2, the divisions SHC computes otherwise, which it
 refuses.
@@ -381,8 +381,7 @@ class Fold:
         float holds it, which GCC's float double rounds to the nearest."""
         if value.type == type:
             return value
-        form = self.route.formats[type]
-        number_ = rounded(Fraction(value.number), FLOAT if form.bits == FLOAT.bits else form)
+        number_ = rounded(Fraction(value.number), self.route.formats[type])
         negative = value.number < 0 or value.floating and value.negative
         source = held(value.number, value.type, self.route) if value.floating else value.number
         rewrite = value.rewrite or number_ != source or \

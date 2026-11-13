@@ -42,17 +42,17 @@ MEETING = '''\
   45028       6             unreferenced
   45034      30      61440  1ST_READ.BIN (boot)
 '''
-# stga's and ev0001's files, as make gcc writes them: each image's .BIN, its .PRS and its final link's ELF
-FILES = {'build/gcc/SONICADV/STGA.BIN': b'stga image', 'build/gcc/SONICADV/STGA.PRS': b'stga file',
-         'build/gcc/SONICADV/EV0001.BIN': b'ev0001 image', 'build/gcc/SONICADV/EV0001.PRS': b'ev0001 file',
-         'build/gcc/link/stga/final.elf': b'stga elf', 'build/gcc/link/ev0001/final.elf': b'ev0001 elf'}
+# stga's and ev0001's files, as make dc writes them: each image's .BIN, its .PRS and its final link's ELF
+FILES = {'build/dc/SONICADV/STGA.BIN': b'stga image', 'build/dc/SONICADV/STGA.PRS': b'stga file',
+         'build/dc/SONICADV/EV0001.BIN': b'ev0001 image', 'build/dc/SONICADV/EV0001.PRS': b'ev0001 file',
+         'build/dc/link/stga/final.elf': b'stga elf', 'build/dc/link/ev0001/final.elf': b'ev0001 elf'}
 
 
 # FILES, with 1ST_READ.BIN's and stgb's: the boot file in its two sectors, for a disc of every image GAME_TREE's tables
 # describe
-WHOLE = {**FILES, 'build/gcc/1ST_READ.BIN': bytes(4096), 'build/gcc/link/1st_read/final.elf': b'main elf',
-         'build/gcc/SONICADV/STGB.BIN': b'stgb image', 'build/gcc/SONICADV/STGB.PRS': b'stgb file',
-         'build/gcc/link/stgb/final.elf': b'stgb elf'}
+WHOLE = {**FILES, 'build/dc/1ST_READ.BIN': bytes(4096), 'build/dc/link/1st_read/final.elf': b'main elf',
+         'build/dc/SONICADV/STGB.BIN': b'stgb image', 'build/dc/SONICADV/STGB.PRS': b'stgb file',
+         'build/dc/link/stgb/final.elf': b'stgb elf'}
 
 
 def published(images=('1st_read', 'ev0001', 'stga', 'stgb'), files=WHOLE):
@@ -62,21 +62,21 @@ def published(images=('1st_read', 'ev0001', 'stga', 'stgb'), files=WHOLE):
     each other of files whose path names it."""
     origins = {'1st_read': (0x8C010000, 0x8F0000), 'stga': (0x0C900000, 0x280000), 'stgb': (0x0C900000, 0x280000),
                'stgc': (0x0C900000, 0x280000), 'ev0001': (0x0CB80000, 0x80000)}
-    finals = {image: f'build/gcc/link/{image}/final.elf' for image in images}
-    linked = {'build/gcc/link/spec.txt': ''.join(f'image  {image}  {disc.hexa(origins[image][0])}  '
+    finals = {image: f'build/dc/link/{image}/final.elf' for image in images}
+    linked = {'build/dc/link/spec.txt': ''.join(f'image  {image}  {disc.hexa(origins[image][0])}  '
                                                  f'{disc.hexa(origins[image][1])}\n' for image in images).encode(),
               **test_manifest.TOOLS, **{path: files.get(path, image.encode()) for image, path in finals.items()}}
-    built = {image: manifest.Built(*origins[image], origins[image][0] + 16, [], {}, {}, {},
+    built = {image: manifest.Built(*origins[image], origins[image][0] + 16, [], [], {}, {}, {},
                                    [finals[image], *(path for path in files if f'/{image.upper()}.' in path)])
              for image in images}
     hashes = {path: hashlib.sha256(data).hexdigest() for path, data in {**files, **linked}.items()}
-    found = manifest.Manifest(hashes, list(test_manifest.TOOLS), 'build/gcc/link/spec.txt', built)
+    found = manifest.Manifest(hashes, list(test_manifest.TOOLS), 'build/dc/link/spec.txt', built)
     return {**linked, 'manifest.txt': manifest.text(found)}
 
 
 def built(origin, length, end):
     """An image of a manifest, as tools/manifest.py's recorded() gives one, of no input, binding or file."""
-    return manifest.Built(origin, length, end, [], {}, {}, {}, [])
+    return manifest.Built(origin, length, end, [], [], {}, {}, {}, [])
 
 
 class Plan(unittest.TestCase):
@@ -133,12 +133,12 @@ class Manifest(unittest.TestCase):
         with tree({**GAME_TREE, **WHOLE, **published()}):
             found = disc.read(Path('manifest.txt').read_bytes(), Path('manifest.txt'), images()).images
             self.assertEqual(disc.replacements(found), {
-                '1ST_READ.BIN': Path('build/gcc/1ST_READ.BIN'),
-                'SONICADV/EV0001.PRS': Path('build/gcc/SONICADV/EV0001.PRS'),
-                'SONICADV/STGA.PRS': Path('build/gcc/SONICADV/STGA.PRS'),
-                'SONICADV/STGB.PRS': Path('build/gcc/SONICADV/STGB.PRS')})
+                '1ST_READ.BIN': Path('build/dc/1ST_READ.BIN'),
+                'SONICADV/EV0001.PRS': Path('build/dc/SONICADV/EV0001.PRS'),
+                'SONICADV/STGA.PRS': Path('build/dc/SONICADV/STGA.PRS'),
+                'SONICADV/STGB.PRS': Path('build/dc/SONICADV/STGB.PRS')})
             with mock.patch.dict(disc.EVENT_ALIASES, {'EV0054': 'EV0001'}, clear=True):
-                self.assertEqual(disc.replacements(found)['SONICADV/EV0054.PRS'], Path('build/gcc/SONICADV/EV0001.PRS'))
+                self.assertEqual(disc.replacements(found)['SONICADV/EV0054.PRS'], Path('build/dc/SONICADV/EV0001.PRS'))
 
     def test_fails_on_a_manifest_that_leaves_an_image_out_or_holds_one_config_doesn_t_describe(self):
         # each manifest is its spec's whole
@@ -152,8 +152,8 @@ class Manifest(unittest.TestCase):
 
     def test_fails_on_a_manifest_tools_manifest_py_refuses(self):
         # a file whose hash isn't the manifest's, and a line that is no row
-        with tree({**GAME_TREE, **WHOLE, **published(), 'build/gcc/SONICADV/STGA.PRS': b'another'}), \
-                self.assertRaisesRegex(SystemExit, ': manifest.txt: build/gcc/SONICADV/STGA.PRS: no file with the hash '
+        with tree({**GAME_TREE, **WHOLE, **published(), 'build/dc/SONICADV/STGA.PRS': b'another'}), \
+                self.assertRaisesRegex(SystemExit, ': manifest.txt: build/dc/SONICADV/STGA.PRS: no file with the hash '
                                                    'the manifest gives it$'):
             disc.read(Path('manifest.txt').read_bytes(), Path('manifest.txt'), images())
         files = published()
@@ -163,9 +163,9 @@ class Manifest(unittest.TestCase):
             disc.read(Path('manifest.txt').read_bytes(), Path('manifest.txt'), images())
 
     def test_fails_on_an_image_whose_file_the_manifest_doesn_t_name(self):
-        files = {path: data for path, data in WHOLE.items() if path != 'build/gcc/SONICADV/STGA.PRS'}
+        files = {path: data for path, data in WHOLE.items() if path != 'build/dc/SONICADV/STGA.PRS'}
         with tree({**GAME_TREE, **files, **published(files=files)}), \
-                self.assertRaisesRegex(SystemExit, ': stga: the manifest names no build/gcc/SONICADV/STGA.PRS, its '
+                self.assertRaisesRegex(SystemExit, ': stga: the manifest names no build/dc/SONICADV/STGA.PRS, its '
                                                    'file on the disc$'):
             disc.replacements(disc.read(Path('manifest.txt').read_bytes(), Path('manifest.txt'), images()).images)
 
@@ -174,11 +174,11 @@ class Limits(unittest.TestCase):
     def test_holds_a_prs_file_to_the_work_area_and_its_image_to_its_interval(self):
         # the work area holds 0x200000 bytes, and stga's interval 0x280000 from 0x0c900000
         for size, end, problems in ((0x200000, 0x0CB80000, []),
-                                    (0x200001, 0x0CB80001, ['build/gcc/SONICADV/STGA.PRS: takes 0x200800 bytes in '
+                                    (0x200001, 0x0CB80001, ['build/dc/SONICADV/STGA.PRS: takes 0x200800 bytes in '
                                                             'whole sectors, and the work area holds 0x200000',
                                                             'stga: runs to 0x0cb80001, past its interval, which ends '
                                                             'at 0x0cb80000'])):
-            with self.subTest(size=hex(size)), tree({**GAME_TREE, **FILES, 'build/gcc/SONICADV/STGA.PRS': bytes(size)}):
+            with self.subTest(size=hex(size)), tree({**GAME_TREE, **FILES, 'build/dc/SONICADV/STGA.PRS': bytes(size)}):
                 found, held = disc.limits({'stga': built(0x0C900000, 0x280000, end),
                                            'ev0001': built(0x0CB80000, 0x80000, 0x0CB80010)}, memory.contract(images()))
                 self.assertEqual(found, problems)
@@ -203,19 +203,19 @@ class Limits(unittest.TestCase):
     def test_holds_a_bin_file_its_loader_reads_whole_in_sectors_to_its_image_s_interval(self):
         # 1ST_READ.BIN's interval, made to end 4 bytes past its file's first sector: the image fits it, and the
         # second sector its loader reads runs past it
-        with tree({**GAME_TREE, 'build/gcc/1ST_READ.BIN': bytes(0x801)}):
+        with tree({**GAME_TREE, 'build/dc/1ST_READ.BIN': bytes(0x801)}):
             terms = memory.contract(images())
             terms = terms._replace(lengths={**terms.lengths, '1st_read': 0x804})
             found, _ = disc.limits({'1st_read': built(0x8C010000, 0x804, 0x8C010801)}, terms)
-        self.assertEqual(found, ['build/gcc/1ST_READ.BIN: takes 0x1000 bytes in whole sectors, and its interval holds '
+        self.assertEqual(found, ['build/dc/1ST_READ.BIN: takes 0x1000 bytes in whole sectors, and its interval holds '
                                  '0x804'])
         # the sectors are the memory contract's: in sectors of 0x1000 bytes, 0x1001 bytes take two, which an interval of
         # 0x1804 bytes doesn't hold, and in the disc's 0x800 would
-        with tree({**GAME_TREE, 'build/gcc/1ST_READ.BIN': bytes(0x1001)}):
+        with tree({**GAME_TREE, 'build/dc/1ST_READ.BIN': bytes(0x1001)}):
             terms = memory.contract(images())
             terms = terms._replace(lengths={**terms.lengths, '1st_read': 0x1804}, sector=0x1000)
             found, _ = disc.limits({'1st_read': built(0x8C010000, 0x1804, 0x8C011001)}, terms)
-        self.assertEqual(found, ['build/gcc/1ST_READ.BIN: takes 0x2000 bytes in whole sectors, and its interval holds '
+        self.assertEqual(found, ['build/dc/1ST_READ.BIN: takes 0x2000 bytes in whole sectors, and its interval holds '
                                  '0x1804'])
 
 
@@ -258,7 +258,7 @@ REBUILDING = GDI.replace('esac\n', 'rebuild) image=$2 out=$3; shift 3; mkdir -p 
 
 
 def original(gdi=REBUILDING, files=None, written=None):
-    """GAME_TREE with files over it, and build/gdi stood in by gdi. make gcc's files are WHOLE's, with written over
+    """GAME_TREE with files over it, and build/gdi stood in by gdi. make dc's files are WHOLE's, with written over
     them, and their manifest.txt. The original's .gdi, sa1.gdi, has its map, PORT_MAP, beside it, and a file of
     b'original' for each image's file the map lists."""
     written = {**WHOLE, **(written or {})}
@@ -312,19 +312,19 @@ class Built(unittest.TestCase):
     def test_fails_on_a_source_that_changes_once_the_manifest_s_hash_is_read(self):
         # the rebuild stood in writes STGB.PRS anew before it copies it: the disc holds the file's new bytes, which
         # aren't the ones whose hash the manifest gives
-        racing = REBUILDING.replace('rebuild) image=$2', 'rebuild) printf "stgb anew" > build/gcc/SONICADV/STGB.PRS; '
+        racing = REBUILDING.replace('rebuild) image=$2', 'rebuild) printf "stgb anew" > build/dc/SONICADV/STGB.PRS; '
                                                          'image=$2')
         with tree(original(racing)) as root:
             (root / 'build/gdi').chmod(0o755)
             with self.assertRaisesRegex(SystemExit, ": SONICADV/STGB.PRS: the disc's bytes aren't "
-                                                    "build/gcc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
+                                                    "build/dc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
                 disc.build(Path('sa1.gdi'), Path('manifest.txt'), Path('disc'))
-            self.assertEqual((root / 'build/gcc/SONICADV/STGB.PRS').read_bytes(), b'stgb anew')
+            self.assertEqual((root / 'build/dc/SONICADV/STGB.PRS').read_bytes(), b'stgb anew')
             self.assertFalse((root / 'disc').exists() or (root / 'disc.partial').exists())
 
     def test_writes_a_partial_disc_it_can_t_remove_to_stderr_and_keeps_the_failure_that_stopped_the_run(self):
         # the source changes as the rebuild runs, so the check fails, and then disc.partial's disc can't be removed
-        racing = REBUILDING.replace('rebuild) image=$2', 'rebuild) printf "stgb anew" > build/gcc/SONICADV/STGB.PRS; '
+        racing = REBUILDING.replace('rebuild) image=$2', 'rebuild) printf "stgb anew" > build/dc/SONICADV/STGB.PRS; '
                                                          'image=$2')
         rmtree = shutil.rmtree
 
@@ -338,7 +338,7 @@ class Built(unittest.TestCase):
             with mock.patch.object(disc.shutil, 'rmtree', removing), \
                     contextlib.redirect_stderr(io.StringIO()) as printed, \
                     self.assertRaisesRegex(SystemExit, ": SONICADV/STGB.PRS: the disc's bytes aren't "
-                                                       "build/gcc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
+                                                       "build/dc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
                 disc.build(Path('sa1.gdi'), Path('manifest.txt'), Path('disc'))
             self.assertRegex(printed.getvalue(), ': disc.partial/sa1.gdi: Permission denied\n$')
 
@@ -367,7 +367,7 @@ class Built(unittest.TestCase):
         with tree(original(skipping)) as root:
             (root / 'build/gdi').chmod(0o755)
             with self.assertRaisesRegex(SystemExit, ": SONICADV/STGB.PRS: the disc's bytes aren't "
-                                                    "build/gcc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
+                                                    "build/dc/SONICADV/STGB.PRS's, whose hash the manifest gives$"):
                 disc.build(Path('sa1.gdi'), Path('manifest.txt'), Path('disc'))
             self.assertFalse((root / 'disc').exists() or (root / 'disc.partial').exists())
 
@@ -376,7 +376,7 @@ class Built(unittest.TestCase):
         # records its arguments and leaves the map as it was, which check_rebuilt() refuses, so the test leaves
         # check_rebuilt() to Rebuilt and reads the --place and disc.txt
         keeping = REBUILDING.replace('rebuild) image=$2', 'rebuild) printf "%s\\n" "$@" > rebuild.txt; image=$2')
-        with tree(original(keeping, written={'build/gcc/SONICADV/STGB.PRS': bytes(2049)})) as root, \
+        with tree(original(keeping, written={'build/dc/SONICADV/STGB.PRS': bytes(2049)})) as root, \
                 mock.patch.object(disc, 'check_rebuilt', lambda *args: []):
             (root / 'build/gdi').chmod(0o755)
             disc.build(Path('sa1.gdi'), Path('manifest.txt'), Path('disc'))
@@ -413,9 +413,9 @@ class Built(unittest.TestCase):
 
     def test_fails_on_a_file_past_its_limit_and_leaves_no_disc(self):
         # STGA.PRS's sectors overrun the work area loader_read_prs reads it to
-        with tree(original(written={'build/gcc/SONICADV/STGA.PRS': bytes(0x200001)})) as root:
+        with tree(original(written={'build/dc/SONICADV/STGA.PRS': bytes(0x200001)})) as root:
             (root / 'build/gdi').chmod(0o755)
-            with self.assertRaisesRegex(SystemExit, ': build/gcc/SONICADV/STGA.PRS: takes 0x200800 bytes in whole '
+            with self.assertRaisesRegex(SystemExit, ': build/dc/SONICADV/STGA.PRS: takes 0x200800 bytes in whole '
                                                     'sectors, and the work area holds 0x200000$'):
                 disc.build(Path('sa1.gdi'), Path('manifest.txt'), Path('disc'))
             self.assertFalse((root / 'disc').exists() or (root / 'disc.partial').exists())

@@ -1,0 +1,1 @@
+datum  ruin_object_list  D  0x00000000  8

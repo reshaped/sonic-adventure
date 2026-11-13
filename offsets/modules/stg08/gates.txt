@@ -1,0 +1,7 @@
+datum  icecap_gate_combo_count  D  0x00000000  1
+datum  icecap_gate_combo_steps  D  0x00000001  1
+datum  icecap_gate_shape  D  0x00000004  52
+datum  icecap_gate_combo_texanims  D  0x00000038  220
+datum  icecap_gate_combo_sprite  D  0x00000114  32
+datum  icecap_gate_combo_white  C  0x00000000  16
+datum  icecap_gate_combo_none  C  0x00000010  16

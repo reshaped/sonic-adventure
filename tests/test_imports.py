@@ -29,7 +29,7 @@ TWO = {
 }
 IMPORTS = 'a_init  mod\ntwo__a_init  two  a_init\nb_list  two\n'
 FILES = {**MODULE, **TWO, 'config/1st_read/imports.txt': IMPORTS}
-# a source that includes a body, which make gcc builds as a stub
+# a source that includes a body, which make check builds as a stub
 BODY = '#include "a.inc"\n'
 # the objects that define each a_init where its image's tables put it: mod's at the start of a.c's P, and two's 4
 # bytes into its own
@@ -56,7 +56,7 @@ static struct section story[] = {
     {&two__a_init, STAGE_TWO, 1, "TWO"},
 };
 '''
-STAGED = {**FILES, **OBJECTS, **LOADS, 'src/stage/steps.c': STEPS,
+STAGED = {**FILES, **LOADS, 'src/stage/steps.c': STEPS,
           'config/1st_read/splits.txt': MODULE['config/1st_read/splits.txt'] + 'src/stage/steps.c  P  0x8c0101b0  '
                                                                                '0x8c0101c0\n'}
 
@@ -96,50 +96,58 @@ def unheld(line, place, name):
             f'{image}, for no stage this source gives it, and config/1st_read/uses.txt gives it no row for {image}')
 
 
-def check(files, *argv):
-    """imports.py's status and output, run with argv in a tree of files: 0 or the message it fails with, and what it
-    printed."""
+def check(files, *argv, half='--uses'):
+    """imports.py's status and output, run with half, --uses unless given, and argv in a tree of files: 0 or the
+    message it fails with, and what it printed."""
     out = io.StringIO()
     with tree(files), contextlib.redirect_stdout(out), mock.patch.object(sys, 'argv', ['tools/imports.py']):
         try:
-            imports.main(list(argv))
+            imports.main([half, *argv])
         except SystemExit as failed:
             return str(failed), out.getvalue()
     return 0, out.getvalue()
 
 
+def defined(files):
+    """imports.py --definitions' status and output in a tree of files, as check() gives them."""
+    return check(files, half='--definitions')
+
+
 class Definitions(unittest.TestCase):
     def test_holds_each_import_to_its_images_definition(self):
-        self.assertEqual(check({**FILES, **OBJECTS}), (0, ''))
+        self.assertEqual(defined({**FILES, **OBJECTS}), (0, ''))
 
     def test_takes_a_gen_range_for_each_name_the_tables_give_in_it(self):
         # b_list and b_tail lie in two's gen/ range, which needs no object
         files = {**FILES, 'config/1st_read/imports.txt': 'b_list  two\nb_tail  two\n'}
-        self.assertEqual(check(files), (0, ''))
+        self.assertEqual(defined(files), (0, ''))
 
     def test_rejects_a_name_its_source_defines_no_global_of(self):
         files = {**FILES, **OBJECTS, 'build/modules/two/a.obj': obj('a', {'P': P})}
-        self.assertEqual(check(files)[0], 'imports: config/1st_read/imports.txt:2: two__a_init: '
-                                          'build/modules/two/a.obj defines no a_init, which two puts at 0x0c900004')
+        self.assertEqual(defined(files)[0], 'imports: config/1st_read/imports.txt:2: two__a_init: '
+                                            'build/modules/two/a.obj defines no a_init, which two puts at 0x0c900004')
 
     def test_rejects_a_definition_elsewhere_than_its_images_table_puts_it(self):
-        for defined, at in ((definition('_a_init', 8), 'P + 0x8'), (definition('_a_init', 0, section=1), 'D + 0x0')):
+        for entry, at in ((definition('_a_init', 8), 'P + 0x8'), (definition('_a_init', 0, section=1), 'D + 0x0')):
             with self.subTest(at=at):
-                files = {**FILES, **OBJECTS, 'build/modules/mod/a.obj': obj('a', {'P': P, 'D': D}, defines=[defined])}
-                self.assertEqual(check(files)[0], 'imports: config/1st_read/imports.txt:1: a_init: '
-                                                  f'build/modules/mod/a.obj defines a_init at {at}, and mod puts it '
-                                                  'at 0x0c900000, in P')
+                files = {**FILES, **OBJECTS, 'build/modules/mod/a.obj': obj('a', {'P': P, 'D': D}, defines=[entry])}
+                self.assertEqual(defined(files)[0], 'imports: config/1st_read/imports.txt:1: a_init: '
+                                                    f'build/modules/mod/a.obj defines a_init at {at}, and mod puts '
+                                                    'it at 0x0c900000, in P')
 
     def test_rejects_a_name_defined_at_an_address(self):
         # an .EQU's a_init, which no layout of the object's sections moves, fails even at the address the tables give
-        defined = definition('_a_init', 0x0C900000, absolute=True)
-        files = {**FILES, **OBJECTS, 'build/modules/mod/a.obj': obj('a', {'P': P, 'D': D}, defines=[defined])}
-        self.assertEqual(check(files)[0], 'imports: config/1st_read/imports.txt:1: a_init: build/modules/mod/a.obj '
-                                          'defines a_init at the address 0x0c900000, in none of its sections, and mod '
-                                          'puts it at 0x0c900000, in P')
+        entry = definition('_a_init', 0x0C900000, absolute=True)
+        files = {**FILES, **OBJECTS, 'build/modules/mod/a.obj': obj('a', {'P': P, 'D': D}, defines=[entry])}
+        self.assertEqual(defined(files)[0], 'imports: config/1st_read/imports.txt:1: a_init: build/modules/mod/a.obj '
+                                            'defines a_init at the address 0x0c900000, in none of its sections, and '
+                                            'mod puts it at 0x0c900000, in P')
 
-    def test_rejects_an_address_no_row_holds(self):
+    def test_reads_no_object_for_an_address_no_row_holds(self):
+        # no row of two's splits.txt holds b_list's address, so no object can define it there. --definitions has
+        # none to read and passes the import, which --uses fails
         files = {**FILES, **OBJECTS, 'config/two/symbols.txt': '0x0c900004  a_init\n0x0c900040  b_list\n'}
+        self.assertEqual(defined(files), (0, ''))
         self.assertEqual(check(files)[0], 'imports: config/1st_read/imports.txt:3: b_list: '
                                           'no row of config/two/splits.txt holds 0x0c900040')
 
@@ -152,10 +160,10 @@ class Definitions(unittest.TestCase):
             later = time.time() + 10
             os.utime('build/modules/two/a.obj', (later, later))
             with self.assertRaisesRegex(SystemExit, r'build/stub/modules/two/a\.obj defines a_init at P \+ 0x8'):
-                imports.main([])
+                imports.main(['--definitions'])
             Path('modules/two/a.c').write_text('')
             os.utime('build/stub/modules/two/a.obj', (later + 10, later + 10))
-            imports.main([])
+            imports.main(['--definitions'])
 
     def test_needs_the_object_built(self):
         # a source with bodies needs its stub, even beside its own object
@@ -163,12 +171,31 @@ class Definitions(unittest.TestCase):
                                 'build/modules/two/a.obj'),
                                ({**FILES, **OBJECTS, 'modules/two/a.c': BODY}, 'build/stub/modules/two/a.obj')):
             with self.subTest(missing=missing):
-                self.assertEqual(check(files)[0], f'imports: modules/two/a.c: no {missing}, so build it first')
+                self.assertEqual(defined(files)[0], f'imports: modules/two/a.c: no {missing}, and make check builds it')
+
+    def test_reads_no_use_of_an_import(self):
+        # steps' row for STAGE_ONE, which reads mod alone, names an import from two. --uses fails the use, and
+        # --definitions reads the objects alone
+        files = {**STAGED, **OBJECTS, 'src/stage/steps.c': STEPS.replace('    a_init,\n', '    two__a_init,\n')}
+        self.assertEqual(defined(files), (0, ''))
+        self.assertIn("steps[1], STAGE_ONE's row, names two__a_init", check(files)[0])
 
 
 class Uses(unittest.TestCase):
     def test_holds_each_stages_row_to_the_images_its_stage_reads(self):
+        # with no object built: the check reads the tables and the C alone
         self.assertEqual(check(STAGED), (0, ''))
+
+    def test_rejects_an_address_no_row_holds_ahead_of_each_use(self):
+        # no row of two's splits.txt holds b_list's address. The import's line comes first, then that of
+        # steps' row for STAGE_ONE, which reads mod alone and names an import from two
+        files = {**STAGED, 'config/two/symbols.txt': '0x0c900004  a_init\n0x0c900040  b_list\n',
+                 'src/stage/steps.c': STEPS.replace('    a_init,\n', '    two__a_init,\n')}
+        self.assertEqual(check(files)[0],
+                         'imports: config/1st_read/imports.txt:3: b_list: no row of config/two/splits.txt holds '
+                         "0x0c900040\nimports: src/stage/steps.c:5: steps[1], STAGE_ONE's row, names two__a_init, "
+                         'which config/1st_read/imports.txt:2 takes from two, and loader_read_stage_files reads mod '
+                         'for STAGE_ONE')
 
     def test_rejects_a_row_that_names_an_image_its_stage_doesnt_read(self):
         # in each, a row of STAGE_ONE's, which reads mod alone, names an import from two
@@ -375,7 +402,7 @@ class Uses(unittest.TestCase):
         with tree({**files, 'src/stage/held/steps.c': STEPS}), contextlib.redirect_stdout(io.StringIO()), \
                 mock.patch.object(sys, 'argv', ['tools/imports.py']):
             os.symlink('held/steps.c', 'src/stage/steps.c')
-            imports.main([])
+            imports.main(['--uses'])
 
     def test_rejects_an_import_named_in_a_file_a_source_includes(self):
         # the check holds no use in a file a source includes to a stage: a function's in a header, or a macro's in a
@@ -448,44 +475,62 @@ class Uses(unittest.TestCase):
 
     def test_reads_each_side_of_a_guard_as_its_compiler_compiles_it(self):
         # each side of a guard may open a statement's brace, as a guard of a condition alone does
-        code = CODE.replace('    two_start();\n', '#ifdef GCC\n    if (gcc_ready()) {\n#else\n    if (TRUE) {\n#endif\n'
-                                                   '        two_start();\n    }\n')
+        code = CODE.replace('    two_start();\n', '#ifdef NONMATCHING\n    if (gcc_ready()) {\n#else\n    if (TRUE) {\n'
+                                                   '#endif\n        two_start();\n    }\n')
         self.assertEqual(check({**CODED, 'src/stage/code.c': code}), (0, ''))
         # a use on either side is held to the stages. two_start takes STAGE_TWO, which reads two alone, so a_init
-        # fails there on either side. A use only GCC's side makes is GCC's
+        # fails there on either side. A use only the non-matching side makes is that side's
         mod = 'which config/1st_read/imports.txt:1 takes from mod, and loader_read_stage_files reads two for STAGE_TWO'
         use = '{\n    two__a_init();\n'
-        for guard, line, gcc in (('#ifdef GCC\n    a_init();\n#endif\n', 15, "GCC's "),
-                                 ('#ifndef GCC\n    a_init();\n#endif\n', 15, ''),
-                                 ('#ifdef GCC\n    two__a_init();\n#else\n    a_init();\n#endif\n', 17, '')):
+        for guard, line, reading in (('#ifdef NONMATCHING\n    a_init();\n#endif\n', 15, "the non-matching build's "),
+                                     ('#ifdef NONMATCHING\n#else\n    a_init();\n#endif\n', 16, ''),
+                                     ('#ifdef NONMATCHING\n    two__a_init();\n#else\n    a_init();\n#endif\n', 17, '')):
             with self.subTest(guard=guard):
                 status = check({**CODED, 'src/stage/code.c': CODE.replace(use, use + guard)})[0]
-                self.assertEqual(status, f"imports: src/stage/code.c:{line}: {gcc}two_start's code for STAGE_TWO "
+                self.assertEqual(status, f"imports: src/stage/code.c:{line}: {reading}two_start's code for STAGE_TWO "
                                          f'names a_init, {mod}')
 
-    def test_reads_the_c_in_gcc_in_place_of_a_src_file_it_replaces(self):
-        # GCC compiles gcc/src/stage/hooks.c in place of hooks.src, so its use of two__a_init, for no stage, is GCC's
+    def test_reads_the_c_a_replace_gives_in_place_of_a_src_file(self):
+        # GCC compiles engine/dc/hooks.c in place of hooks.src, so its use of two__a_init, for no stage, is the
+        # non-matching build's
         hook = 'void hook(void)\n{\n    two__a_init();\n}\n'
-        files = {**CODED, 'src/stage/hooks.src': '', 'gcc/src/stage/hooks.c': hook,
+        files = {**CODED, 'src/stage/hooks.src': '', 'engine/dc/hooks.c': hook,
                  'config/1st_read/splits.txt': CODED['config/1st_read/splits.txt'] + 'src/stage/hooks.src  P  '
                                                                                      '0x8c0101d0  0x8c0101e0\n'}
-        self.assertEqual(check(files)[0], "imports: gcc/src/stage/hooks.c:3: GCC's hook names two__a_init, which "
-                                          'config/1st_read/imports.txt:2 takes from two, for no stage this source '
-                                          'gives it, and config/1st_read/uses.txt gives it no row for two')
-        listed = {**files, 'config/1st_read/uses.txt': 'gcc/src/stage/hooks.c  hook  two  a reason\n'}
-        self.assertEqual(check(listed), (0, ''))
+        replace = ('--replace', 'src/stage/hooks.src', 'engine/dc/hooks.c')
+        self.assertEqual(check(files), (0, ''))
+        self.assertEqual(check(files, *replace)[0], "imports: engine/dc/hooks.c:3: the non-matching build's hook names "
+                                                    'two__a_init, which config/1st_read/imports.txt:2 takes from two, '
+                                                    'for no stage this source gives it, and config/1st_read/uses.txt '
+                                                    'gives it no row for two')
+        listed = {**files, 'config/1st_read/uses.txt': 'engine/dc/hooks.c  hook  two  a reason\n'}
+        self.assertEqual(check(listed, *replace), (0, ''))
+
+    def test_reads_a_c_source_that_a_replace_swaps_out_for_the_matching_build_alone(self):
+        # GCC compiles engine/dc/hooks.c in place of hooks.c, so hooks.c's non-matching side, whose hook names
+        # two__a_init for no stage, is no build's
+        hook = 'void hook(void)\n{\n#ifdef NONMATCHING\n    two__a_init();\n#endif\n}\n'
+        files = {**CODED, 'src/stage/hooks.c': hook, 'engine/dc/hooks.c': 'void hook(void)\n{\n}\n',
+                 'config/1st_read/splits.txt': CODED['config/1st_read/splits.txt'] + 'src/stage/hooks.c  P  '
+                                                                                     '0x8c0101d0  0x8c0101e0\n'}
+        self.assertEqual(check(files)[0], "imports: src/stage/hooks.c:4: the non-matching build's hook names "
+                                          'two__a_init, which config/1st_read/imports.txt:2 takes from two, for no '
+                                          'stage this source gives it, and config/1st_read/uses.txt gives it no row '
+                                          'for two')
+        self.assertEqual(check(files, '--replace', 'src/stage/hooks.c', 'engine/dc/hooks.c'), (0, ''))
 
     def test_reads_the_c_an_add_gives_1st_read_as_gcc_compiles_it(self):
-        # make gcc links gcc/src/system/added.c into 1ST_READ.BIN, so its use of two__a_init, for no stage, is GCC's.
+        # make dc links engine/dc/added.c into 1ST_READ.BIN, so its use of two__a_init, for no stage, is the
+        # non-matching build's.
         # An --add for another image adds nothing to 1ST_READ.BIN
-        files = {**CODED, 'gcc/src/system/added.c': 'void added(void)\n{\n    two__a_init();\n}\n'}
-        self.assertEqual(check(files, '--add', '1st_read', 'gcc/src/system/added.c')[0],
-                         "imports: gcc/src/system/added.c:3: GCC's added names two__a_init, which "
+        files = {**CODED, 'engine/dc/added.c': 'void added(void)\n{\n    two__a_init();\n}\n'}
+        self.assertEqual(check(files, '--add', '1st_read', 'engine/dc/added.c')[0],
+                         "imports: engine/dc/added.c:3: the non-matching build's added names two__a_init, which "
                          'config/1st_read/imports.txt:2 takes from two, for no stage this source gives it, and '
                          'config/1st_read/uses.txt gives it no row for two')
-        self.assertEqual(check(files, '--add', 'two', 'gcc/src/system/added.c'), (0, ''))
-        listed = {**files, 'config/1st_read/uses.txt': 'gcc/src/system/added.c  added  two  a reason\n'}
-        self.assertEqual(check(listed, '--add', '1st_read', 'gcc/src/system/added.c'), (0, ''))
+        self.assertEqual(check(files, '--add', 'two', 'engine/dc/added.c'), (0, ''))
+        listed = {**files, 'config/1st_read/uses.txt': 'engine/dc/added.c  added  two  a reason\n'}
+        self.assertEqual(check(listed, '--add', '1st_read', 'engine/dc/added.c'), (0, ''))
 
     def test_reads_a_functions_name_as_csource_does(self):
         # an attribute names no function, so g doesn't take f's place. run_two's body follows its parameter's
@@ -500,15 +545,16 @@ class Uses(unittest.TestCase):
                                  f"imports: {unheld(line, place, 'two__a_init')}")
 
     def test_reads_the_macros_of_each_side_of_a_guard_for_its_compiler(self):
-        # GCC's TWO_INIT names two__a_init, and SHC's names none, so hooks[1] names the import for GCC alone
-        guarded = '#ifdef GCC\n#define TWO_INIT (&two__a_init)\n#else\n#define TWO_INIT NULL\n#endif'
+        # the non-matching side's TWO_INIT names two__a_init, and the matching side's none, so hooks[1] names the
+        # import for the non-matching build alone
+        guarded = '#ifdef NONMATCHING\n#define TWO_INIT (&two__a_init)\n#else\n#define TWO_INIT NULL\n#endif'
         code = CODE.replace('#define TWO_INIT (&two__a_init)', guarded).replace('{NULL, NULL, two_hook}',
                                                                               '{NULL, TWO_INIT, two_hook}')
         line = code.count('\n', 0, code.index('{NULL, TWO_INIT')) + 1
         self.assertEqual(check({**CODED, 'src/stage/code.c': code})[0],
-                         f"imports: src/stage/code.c:{line}: GCC's hooks[1], STAGE_ONE's row, names two__a_init, which "
-                         'config/1st_read/imports.txt:2 takes from two, and loader_read_stage_files reads mod for '
-                         'STAGE_ONE')
+                         f"imports: src/stage/code.c:{line}: the non-matching build's hooks[1], STAGE_ONE's row, names "
+                         'two__a_init, which config/1st_read/imports.txt:2 takes from two, and loader_read_stage_files '
+                         'reads mod for STAGE_ONE')
 
     def test_reads_a_name_a_splice_splits_as_the_name(self):
         # C splices lines before it reads names, so two__a_init with a splice inside is a use of it, in code and in a

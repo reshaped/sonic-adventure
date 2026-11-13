@@ -1,8 +1,8 @@
-/* GCC's weighted_sum, weighted_sum_angles and squared_length: the static
- * functions that njMotSrc.c, njMotLinkSrc.c, njCameraMotion.c and njMotionE.c
- * define for SHC in inline assembly. each of those sources includes this
- * under GCC, then declares the ones it calls. each definition has the type
- * those declarations give, so no pointer is const */
+/* weighted_sum, weighted_sum_angles and squared_length for the non-matching
+ * code. njMotSrc.c, njMotLinkSrc.c, njCameraMotion.c and njMotionE.c define
+ * them for SHC as statics in inline assembly. each includes this under
+ * DREAMCAST and NONMATCHING, then declares the ones it calls. each definition
+ * has the type those declarations give, so no pointer is const */
 #ifndef NJMOTION_ZAM_H
 #define NJMOTION_ZAM_H
 #include <ninja.h>

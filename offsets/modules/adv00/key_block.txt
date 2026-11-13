@@ -1,0 +1,5 @@
+datum  key_block_full_shape  D  0x00000000  52
+datum  key_block_empty_shape  D  0x00000034  52
+datum  key_block_loose_shapes  D  0x00000068  104
+datum  key_block_found  D  0x000000d0  8
+text  TEXT_1  C  0x00000024  13

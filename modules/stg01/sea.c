@@ -429,6 +429,12 @@ static void beach_sea_raise_box(Float radius, Float width, Float height,
     NJS_POINT3 *points;
     NJS_POINT3 *point;
     int index;
+#ifdef NONMATCHING
+    int x_row;
+    int first;
+    int end;
+    int visits;
+#endif
 
     if (min_x > GRID_EDGE) {
         return;
@@ -463,6 +469,34 @@ static void beach_sea_raise_box(Float radius, Float width, Float height,
         max_z = ceilf(max_z) + (GRID / 2.0F);
     }
     points = beach_sea_grid_object.model->points;
+#ifdef NONMATCHING
+    /* each bound is a whole number from 0 to GRID. so int counters visit the
+     * points the float ones do, in order. each index lies in the grid. a box
+     * empty in x or z visits none */
+    if (!(min_x < max_x) || !(min_z < max_z)) {
+        return;
+    }
+    inner = (radius < width) ? 0.0F : radius - width;
+    first = (int)min_z;
+    end = (int)max_z;
+    visits = beach_sea_visits;
+    for (x_row = (int)min_x * GRID; x_row < (int)max_x * GRID; x_row += GRID) {
+        for (point = &points[x_row + first]; point < &points[x_row + end];
+             point++) {
+            dx = point->x - x;
+            dz = point->z - z;
+            distance = (dx * dx) + (dz * dz);
+            distance = njSqrt(distance);
+            if (distance > inner && !(distance > radius)) {
+                distance -= radius;
+                distance *= PHASE_PER_UNIT;
+                point->y += njSin((Angle)distance) * height * 2.0F;
+            }
+        }
+        visits += end - first;
+    }
+    beach_sea_visits = visits;
+#else
     row = min_x * GRID;
     inner = (radius < width) ? 0.0F : radius - width;
     /* the counters are whole numbers no larger than GRID, exact in a float */
@@ -495,4 +529,5 @@ static void beach_sea_raise_box(Float radius, Float width, Float height,
         }
         row += GRID;
     }
+#endif
 }

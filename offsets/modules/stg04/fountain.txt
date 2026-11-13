@@ -1,0 +1,3 @@
+datum  fountain_texlists  D  0x00000000  32
+datum  fountain_shape  D  0x00000020  52
+datum  fountain_sprays  D  0x00000054  108

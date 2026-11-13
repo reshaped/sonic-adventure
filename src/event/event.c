@@ -395,9 +395,9 @@ static void mouth_set_script(struct task_work *work, int number)
          * 0x8c04ecb8). the 736 texts the events pass event_talk_start hold
          * only capitals, a to c and '0', so no path reaches a number past
          * 28 */
-#ifdef GCC
-        /* repairs the read the tag names: GCC takes a number past the table
-         * as a null script */
+#ifdef NONMATCHING
+        /* repairs the read the tag names: this side takes a number past the
+         * table as a null script */
         script =
             number < EVENT_MOUTH_SCRIPTS ? event_mouth_scripts[number] : NULL;
 #else

@@ -262,7 +262,11 @@ Sint32 ADXF_GetFileRange(Sint32 ptid, Sint32 flid, Sint32 *fad, Sint32 *fnsct);
 
 /* 1 once an expander decodes an odd number of stereo blocks. the library
  * never clears it */
+#ifdef NONMATCHING
+extern volatile Sint32 adxpd_internal_error;
+#else
 extern Sint32 adxpd_internal_error;
+#endif
 
 /* the library's critical sections */
 void ADXCRS_Init(void);

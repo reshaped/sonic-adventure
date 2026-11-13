@@ -24,10 +24,12 @@ SDE_ERR sdARM7ResetRel(void)
               SYE_G2_ADR_MODE_ADD, SYE_G2_ADR_MODE_ADD);
     set_imask(mask);
     for (delay = ARM_RESET_DELAY; delay != 0; delay--) {
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
         /* GCC deletes an empty loop. the asm keeps each pass, so the wait
          * takes as long as the shipped loop */
         __asm__ volatile("");
+#endif
 #endif
     }
     return SDE_ERR_NOTHING;

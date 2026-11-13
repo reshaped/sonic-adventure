@@ -1,0 +1,12 @@
+datum  font_wide  C  0x00000000  246456
+datum  font_ascii  C  0x0003c2b8  6912
+datum  font_widths  C  0x0003ddb8  96
+datum  messages_shown  B  0x00000000  1
+datum  pages_active  B  0x00000001  1
+datum  texture_queue  B  0x00000004  32
+datum  texture_queue_count  B  0x00000024  4
+datum  saved_attr_and  B  0x00000028  4
+datum  saved_attr_or  B  0x0000002c  4
+datum  saved_control_3d  B  0x00000030  4
+datum  tree_matrices  B  0x00000034  2048
+template  uv  C  0x0003de18  16

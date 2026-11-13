@@ -4031,9 +4031,8 @@
 0x0c9f0214  object
 0x0c9f0248  words[204]
 0x0c9f0578  words[204]
-0x0c9f08a8  mdata3[1]
-# the second and third nodes of hall_duct_action's motion. Each takes 51 scale keys, at 0x0c9f0248 or 0x0c9f0578, whose frames run from 0 to 100, past the 51 frames the motion counts
-0x0c9f08c0  NJS_MDATA3[2]
+# hall_duct_action's motion, an entry for each of its three nodes, one array so a host's link keeps them together. The second and third nodes each take 51 scale keys, at 0x0c9f0248 or 0x0c9f0578, whose frames run from 0 to 100, past the 51 frames the motion counts
+0x0c9f08a8  NJS_MDATA3[3]
 0x0c9f08f0  motion
 0x0c9f08fc  action
 0x0c9f0904  material[3]

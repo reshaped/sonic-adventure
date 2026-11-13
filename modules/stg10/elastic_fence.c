@@ -110,10 +110,7 @@ static Float elastic_fence_rubber = 0.02F;
 static Float elastic_fence_string = 0.02F;
 /* the fences alive. the first to start clears the chain */
 static int elastic_fence_count = 0;
-#ifdef GCC
-/* keeps collision_init's copy of SHAPES shapes from elastic_fence_posts:
- * GCC's band is its third */
-static struct collision_shape elastic_fence_posts[SHAPES] = {
+static struct collision_shape elastic_fence_posts[] = {
     {SHAPE_CAPSULE | SHAPE_NO_PUSH,
      0,
      PUSH_ALL | PUSH_FIRM(PUSH_ALL),
@@ -134,6 +131,9 @@ static struct collision_shape elastic_fence_posts[SHAPES] = {
      {0},
      0,
      NULL},
+#ifdef NONMATCHING
+    /* keeps collision_init's copy of SHAPES shapes from elastic_fence_posts:
+     * this side's band is its third */
     {SHAPE_CYLINDER | SHAPE_NO_PUSH,
      0,
      PUSH_FIRM(PUSH_ALL),
@@ -144,31 +144,11 @@ static struct collision_shape elastic_fence_posts[SHAPES] = {
      {0},
      0,
      NULL},
+#endif
 };
+#ifdef NONMATCHING
 #define elastic_fence_band elastic_fence_posts[2]
 #else
-static struct collision_shape elastic_fence_posts[2] = {
-    {SHAPE_CAPSULE | SHAPE_NO_PUSH,
-     0,
-     PUSH_ALL | PUSH_FIRM(PUSH_ALL),
-     {0.0F, 3.0F, -8.0F},
-     1.5F,
-     2.0F,
-     0.0F,
-     {0},
-     0,
-     NULL},
-    {SHAPE_CAPSULE | SHAPE_NO_PUSH,
-     0,
-     PUSH_ALL | PUSH_FIRM(PUSH_ALL),
-     {0.0F, 3.0F, 8.0F},
-     1.5F,
-     2.0F,
-     0.0F,
-     {0},
-     0,
-     NULL},
-};
 /* the band's shape. collision_init copies SHAPES shapes from
  * elastic_fence_posts, so this one must follow them. the step moves the
  * copy's center by the stretch and the slide */

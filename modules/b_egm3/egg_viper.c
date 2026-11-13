@@ -421,7 +421,7 @@ static int viper_was_hit(struct task_work *work,
 static void node_pos(NJS_MATRIX *matrices, int node, NJS_POINT3 *pos);
 
 Sint32 egg_viper_energy_time;
-#ifdef GCC
+#ifdef NONMATCHING
 /* nodes 0 to 50, which the image holds in the three objects below */
 NJS_MATRIX egg_viper_matrices[51];
 #else

@@ -1,0 +1,7 @@
+datum  pathcam_path0_keys  D  0x00000000  5020
+datum  pathcam_path0  D  0x0000139c  12
+datum  pathcam_path1_keys  D  0x000013a8  5000
+datum  pathcam_path1  D  0x00002730  12
+datum  pathcam_route0_paths  D  0x0000273c  4
+datum  pathcam_route1_paths  D  0x00002740  4
+datum  pathcam_routes  D  0x00002744  24

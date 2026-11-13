@@ -655,7 +655,17 @@ static void move(struct task *task)
     if (extra->velocity.z < STOP_SPEED && extra->velocity.z > -STOP_SPEED) {
         extra->velocity.z = 0.0F;
     }
+    /* @bug memory: reads player 0's record through null once the players'
+     * level is gone, as when a stage stops while the boss aims and its
+     * destructor runs its mode a last time: the FMOV.Ss at 0x0c900b14 and
+     * 0x0c900b1e read pos.x and pos.z from the boot ROM, at 0x20 and 0x28 */
+#ifdef NONMATCHING
+    /* repairs the read the tag names: with player 0 gone, the head turns back
+     * to the body's facing */
+    if ((extra->flags & BOSS_AIMING) && player_work[0] != NULL) {
+#else
     if (extra->flags & BOSS_AIMING) {
+#endif
         Float x = work->pos.x - player_work[0]->pos.x;
         Float z = work->pos.z - player_work[0]->pos.z;
         /* here too, x and z both 0 make atan2f's NaN. the head then turns
@@ -1080,6 +1090,17 @@ static void draw(struct task *task)
     NJS_MATRIX smoke[2];
     NJS_POINT3 point;
     Angle angle;
+#ifdef NONMATCHING
+    /* this draw writes the points the steps fire, smoke and crackle from into
+     * the boss's record. a picture must change nothing a step reads, so the
+     * second picture's pass draws from a copy */
+    struct boss copy;
+
+    if (frame_redrawing) {
+        copy = *extra;
+        extra = &copy;
+    }
+#endif
 
     action = extra->motion.state != MOTION_BLENDING
                  ? extra->motion.actions[extra->motion.current].action

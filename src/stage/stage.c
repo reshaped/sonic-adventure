@@ -821,10 +821,10 @@ static struct stage_exit sonic_exits[] = {
     {0, STAGE_EGGMOBILE3, STAGE_MYSTIC_RUINS, 0, 0, 0, 0, 0},
     {0, STAGE_SHOOTING1, STAGE_STATION_SQUARE, 4, 0, 0, 0, 0},
     {0, STAGE_SHOOTING2, STAGE_EGG_CARRIER, 0, 0, 0, 0, 0},
-#ifdef GCC
-    /* keeps Sonic's exit from Sand Hill: Tails' row, which the image's walk
-     * reads on to, as the tag in stage_set_next_exit_from says. GCC's walk
-     * ends at EXIT_END, so this row copies Tails' */
+#ifdef NONMATCHING
+    /* keeps Sonic's exit from Sand Hill. the image's walk reads on into Tails'
+     * rows, as the tag in stage_set_next_exit_from says. this side's walk ends
+     * at EXIT_END, so this row copies Tails' */
     {0, STAGE_SUNABOARD, STAGE_PAST, 0, 0, STAGE_MYSTIC_RUINS, 2, 1},
 #endif
     {0, EXIT_END, 0, 0, 0, 0, 0, 0},
@@ -933,7 +933,7 @@ int bonus_points;
 int trial_count;
 Float shoot_hit_rate;
 int hints_used;
-#ifdef GCC
+#ifdef NONMATCHING
 Bool stage_limit_cleared;
 #endif
 struct trial_time trial_times[TRIAL_TIMES];
@@ -2560,7 +2560,7 @@ static int stage_run_action(void)
     press0 = per_info[0]->press;
     press1 = per_info[1]->press;
     extra = 0;
-#ifdef GCC
+#ifdef NONMATCHING
     /* each frame starts with its limit uncleared, as the image loads
      * 1900 into FR15 for each frame (0x8c051b1a) */
     stage_limit_cleared = FALSE;
@@ -2574,15 +2574,15 @@ static int stage_run_action(void)
     for (frame_step = 0, limit = ACTION_LIMIT;
          frame_step < frame_step_count + extra;) {
         stage_run_step();
-#ifdef GCC
+#ifdef NONMATCHING
         present_step();
         /* keeps the shipped extra step a cone moving over a floor gives a
          * frame at 30 fps. in the image, cone_run's slope z lands on the FR15
-         * that holds limit. a floor's z is an angle within half a turn: as a
-         * Float, one of 0 or more is 0 or a denormal, which the FPU takes
-         * for 0 under FPSCR.DN, and a negative one is a NaN. the FCMP/GT at
-         * 0x8c051b2c finds neither over the time, so the frame takes its
-         * extra step, as GCC's does with a limit of 0.0F */
+         * that holds limit. a floor's z is an angle within half a turn. read
+         * as a Float, one of 0 or more is 0 or a denormal. a negative one is
+         * a NaN. the FPU takes a denormal for 0 under FPSCR.DN. the FCMP/GT
+         * at 0x8c051b2c finds neither over the time, so the frame takes its
+         * extra step. this side's frame takes it with a limit of 0.0F */
         if (stage_limit_cleared) {
             limit = 0.0F;
         }
@@ -2599,7 +2599,7 @@ static int stage_run_action(void)
     }
     per_info[0]->press = press0;
     per_info[1]->press = press1;
-#ifdef GCC
+#ifdef NONMATCHING
     /* a split frame's second picture, which the hud draws over */
     present_second();
 #endif
@@ -2629,7 +2629,7 @@ static int stage_run_field(void)
     for (frame_step = 0, limit = FIELD_LIMIT;
          frame_step < frame_step_count + extra;) {
         stage_run_step();
-#ifdef GCC
+#ifdef NONMATCHING
         present_step();
 #endif
         if (frame_step == 1 && timer_elapsed() >= limit) {
@@ -2644,7 +2644,7 @@ static int stage_run_field(void)
     }
     per_info[0]->press = press0;
     per_info[1]->press = press1;
-#ifdef GCC
+#ifdef NONMATCHING
     /* a split frame's second picture, which the hud draws over */
     present_second();
 #endif
@@ -3005,7 +3005,7 @@ static void stage_create_players(void)
     Sint16 i;
 
     player_clear_slots();
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that character_current is one of the six playable, as
      * the comment above says it must be: the test for each sets task */
     task = NULL;
@@ -3311,9 +3311,9 @@ void stage_place_player(struct task_work *work)
         } else if (stage_current == STAGE_PAST) {
             past_place_player(work);
         } else {
-#ifdef GCC
-            /* GCC can't see that the player's character is one of the six
-             * playable, the cases, as stage_create_players gives it */
+#ifdef NONMATCHING
+            /* GCC can't see that stage_create_players gives the player one
+             * of the six characters the cases cover */
             start = NULL;
 #endif
             /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
@@ -3401,9 +3401,9 @@ static void stage_set_next_exit_from(Uint16 stage, Uint16 act)
      * 0x8c1b4bd0, and past big_exits' into the data after them */
     /* NOLINTNEXTLINE(clang-diagnostic-tautological-*) */
     while (entry->stage != 0xffff) {
-#ifdef GCC
-        /* repairs the read past the list the tag names: GCC's walk ends at
-         * EXIT_END */
+#ifdef NONMATCHING
+        /* repairs the read past the list the tag names: this side's walk ends
+         * at EXIT_END */
         if (entry->stage == EXIT_END) {
             break;
         }
@@ -3484,9 +3484,9 @@ static Bool stage_set_next_boss(void)
         act_next = 0;
         return FALSE;
     }
-#ifdef GCC
-    /* GCC can't see that character_current is one of the six playable, the
-     * cases */
+#ifdef NONMATCHING
+    /* GCC can't see that character_current is one of the six playable
+     * characters the cases cover */
     walk = NULL;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-sometimes-uninitialized) */
@@ -3533,7 +3533,7 @@ Bool stage_playing(void)
     return stage_mode == STAGE_PLAY;
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 Bool stage_in_play(void)
 {
     return stage_mode == STAGE_PLAY || stage_mode == STAGE_FADE_IN;

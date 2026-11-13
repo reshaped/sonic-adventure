@@ -7,6 +7,9 @@
 #include "object/placement.h"
 #include "player/player.h"
 #include "stg04/barrier.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#endif
 #include "system/task.h"
 #include "system/util.h"
 
@@ -167,6 +170,14 @@ void barrier_step(struct task *task)
         case BARRIER_STAND:
             barrier_follow(work);
             barrier_blink(work);
+#ifdef NONMATCHING
+            /* the second picture's pass draws the barrier by barrier_draw.
+             * a split frame's later steps draw none, so that the picture adds
+             * the glow once */
+            if (frame_split && frame_step != 0) {
+                break;
+            }
+#endif
             barrier_draw(task);
             break;
         case BARRIER_GONE:

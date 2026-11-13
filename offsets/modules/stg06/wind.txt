@@ -1,0 +1,7 @@
+datum  decal_objects  D  0x00000000  72
+datum  signal_texlist  D  0x00000048  8
+datum  signal_frame  D  0x00000050  20
+datum  signal_sprite  D  0x00000064  32
+datum  no_slope  C  0x00000000  12
+datum  wind_bands  B  0x00000000  200
+datum  wind_gusts  B  0x000000c8  512

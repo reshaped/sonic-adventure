@@ -1,0 +1,3 @@
+datum  dat_0c91e348  D  0x00000000  12
+datum  eggman_shudder_action  D  0x0000000c  8
+datum  egg_hornet_actions  D  0x00000014  192

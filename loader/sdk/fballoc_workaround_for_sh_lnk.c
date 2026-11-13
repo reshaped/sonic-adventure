@@ -554,7 +554,7 @@ KMSTATUS kmiVQalloc(KMSURFACEDESC *surface)
      * and the reads below take shape's unset frame words: kind at 0x8ce18630
      * and 0x8ce1868c, slots at 0x8ce1863e, size at 0x8ce18694 and codebook at
      * 0x8ce186d2 */
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the reads the tag names: a width with no shape takes no slot */
     if (!fb_vq_shape_for(&shape, surface)) {
         return KMSTATUS_INVALID_TEXTURE_TYPE;
@@ -701,7 +701,7 @@ KMSTATUS kmiVQFBfree(KMSURFACEDESC *surface)
      * fb_vq_shape_for returns 0 without storing a shape (BRA at 0x8ce19c8c),
      * and the reads below take shape's unset frame words: slots at 0x8ce18800,
      * kind at 0x8ce18808 and codebook at 0x8ce18824 */
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the reads the tag names: a width with no shape holds no slot */
     if (!fb_vq_shape_for(&shape, surface)) {
         return KMSTATUS_INVALID_ADDRESS;

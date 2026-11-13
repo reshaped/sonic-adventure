@@ -36,6 +36,20 @@ static void load_unk_2e0(struct save *save);
 static void load_stage_clears(struct save *save);
 static void load_story(struct save *save);
 
+#ifdef NONMATCHING
+/* store the 16:9 and 60 fps toggles in *save's flags, for save_load */
+static void store_switches(struct save *save)
+{
+    save->flags &= (Uint8) ~(SAVE_WIDE | SAVE_FAST);
+    if (port_toggles[TOGGLE_WIDE]) {
+        save->flags |= SAVE_WIDE;
+    }
+    if (port_toggles[TOGGLE_FAST]) {
+        save->flags |= SAVE_FAST;
+    }
+}
+#endif
+
 static Uint16 sonic_stages[] = {
     STAGE_ACT(STAGE_BEACH, 0),    STAGE_ACT(STAGE_WINDY, 0),
     STAGE_ACT(STAGE_TWINKLE, 0),  STAGE_ACT(STAGE_HIGHWAY, 0),
@@ -208,6 +222,9 @@ void save_reset(void)
     save.story_records[CHARACTER_SONIC].stage_act =
         STAGE_ACT(STAGE_STATION_SQUARE, 0);
     save.stage = NO_STAGE;
+#ifdef NONMATCHING
+    store_switches(&save);
+#endif
     /* @hack spelling: the save through block, as in save_reset_all (MOV R15,R14
      * at 0x8c08d504); through save, 34 of 148 words differ */
     block = &save;
@@ -231,6 +248,9 @@ void save_store(void)
     store_unk_2e0(&save);
     store_story(&save);
     store_stage_clears(&save);
+#ifdef NONMATCHING
+    store_switches(&save);
+#endif
     /* @hack spelling: the save through block, as in save_reset_all (MOV R15,R14
      * at 0x8c08d604); through save, 72 of 72 words differ */
     block = &save;
@@ -247,6 +267,9 @@ void save_update(void)
     save.play_time = play_time;
     save.character = get_character();
     save.stage = stage_last_cleared;
+#ifdef NONMATCHING
+    store_switches(&save);
+#endif
     /* @hack spelling: the save through block, as in save_reset_all (MOV R15,R14
      * at 0x8c08d6ac); through save, 50 of 50 words differ */
     block = &save;
@@ -268,6 +291,16 @@ void save_load(void)
     load_unk_2e0(&save);
     load_story(&save);
     load_stage_clears(&save);
+#ifdef NONMATCHING
+    /* a save switches on the toggles that were on as it was stored. it
+     * switches none off, so a toggle set before the load stands */
+    if (save.flags & SAVE_WIDE) {
+        port_toggles[TOGGLE_WIDE] = TRUE;
+    }
+    if (save.flags & SAVE_FAST) {
+        port_toggles[TOGGLE_FAST] = TRUE;
+    }
+#endif
 }
 
 /* the CRC-16 of the bytes of *save after its checksum, from 0xffff and
@@ -391,7 +424,7 @@ static void unpack_event_flags(struct save *save)
     int i;
     int bits;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that the first pass, at i 0, sets bits before the
      * test reads it */
     bits = 0;
@@ -415,7 +448,7 @@ static void unpack_events_played(struct save *save)
     int i;
     int bits;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that the first pass sets bits, as in
      * unpack_event_flags */
     bits = 0;

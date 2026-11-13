@@ -1,0 +1,3 @@
+datum  ev00e3_frog_pairs  D  0x00000000  16
+datum  ev00e3_frog_welds  D  0x00000010  16
+datum  ev00e3_frog_collision  D  0x00000020  52

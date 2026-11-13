@@ -1,0 +1,5 @@
+datum  ev00d8_textures  D  0x00000000  8
+text  TEXT_1  C  0x00000000  14
+text  TEXT_2  C  0x00000010  59
+text  TEXT_3  C  0x0000004c  26
+text  TEXT_4  C  0x00000068  40

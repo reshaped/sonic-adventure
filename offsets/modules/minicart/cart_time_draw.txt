@@ -1,0 +1,10 @@
+datum  cart_time_label_frame  D  0x00000000  20
+datum  cart_time_label  D  0x00000014  32
+datum  cart_time_glyph_frame  D  0x00000034  20
+datum  cart_time_glyph  D  0x00000048  32
+datum  depths  C  0x00000000  12
+datum  yellow  C  0x0000000c  16
+datum  white  C  0x0000001c  16
+datum  depths  C  0x0000002c  12
+datum  yellow  C  0x00000038  16
+datum  white  C  0x00000048  16

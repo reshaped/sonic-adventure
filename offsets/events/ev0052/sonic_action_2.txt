@@ -1,0 +1,6 @@
+datum  ev0052_sonic_motion_2  D  0x00000000  12
+datum  ev0052_sonic_action_2  D  0x0000000c  8
+datum  event_clouds_textures  D  0x00000014  36
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  11
+text  TEXT_3  C  0x00000018  11

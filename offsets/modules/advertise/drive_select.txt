@@ -1,0 +1,12 @@
+datum  port_textures  C  0x00000000  4
+datum  unit_textures  C  0x00000004  8
+datum  space_warning  C  0x0000000c  32
+datum  drive_warning_lines  D  0x00000000  24
+datum  directions  D  0x00000018  16
+datum  drive_select_task  B  0x00000000  4
+text  TEXT_1  C  0x0000002c  41
+text  TEXT_2  C  0x00000058  13
+text  TEXT_3  C  0x00000068  39
+text  TEXT_4  C  0x00000090  27
+text  TEXT_5  C  0x000000ac  39
+text  TEXT_6  C  0x000000d4  25

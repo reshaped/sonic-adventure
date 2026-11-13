@@ -1,0 +1,5 @@
+datum  twinkle_sky_object  D  0x00000000  52
+datum  bg_shareobj_textures  D  0x00000034  24
+datum  bg_shareobj_texlist  D  0x0000004c  8
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  8

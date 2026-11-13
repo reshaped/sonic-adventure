@@ -90,9 +90,9 @@ class Stages(unittest.TestCase):
 
     def test_rejects_a_directive_in_the_function(self):
         # a guard's sides can read different files, which stages() doesn't tell apart
-        cases = ('    case STAGE_ONE:\n#ifdef GCC\n        loader_read_prs("mod.PRS", MODULE_AREA);\n#endif\n'
+        cases = ('    case STAGE_ONE:\n#ifdef NONMATCHING\n        loader_read_prs("mod.PRS", MODULE_AREA);\n#endif\n'
                  '        return;\n')
-        with self.assertRaisesRegex(SystemExit, r"src/system/loader\.c:5: loader_read_stage_files holds #ifdef GCC, "
+        with self.assertRaisesRegex(SystemExit, r"src/system/loader\.c:5: loader_read_stage_files holds #ifdef NONMATCHING, "
                                                 r"whose sides stages\(\) doesn't tell apart$"):
             self.stages(cases)
 

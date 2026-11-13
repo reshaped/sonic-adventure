@@ -10,7 +10,7 @@
 #include "effect/pools.h"
 #include "effect/splash.h"
 #include "object/models.h"
-#ifdef GCC
+#ifdef NONMATCHING
 #include "system/frame.h"
 #endif
 #include "system/task.h"
@@ -179,10 +179,11 @@ static void ripple_step(struct task *task)
         task_kill(task);
         break;
     }
-#ifdef GCC
-    /* the second picture's pass draws the ripple by ripple_draw. step 1 of
-     * a split frame draws none, so that the picture adds the ripple once */
-    if (frame_split && frame_step == 1) {
+#ifdef NONMATCHING
+    /* the second picture's pass draws the ripple by ripple_draw. a split
+     * frame's later steps draw none, so that the picture adds the ripple
+     * once */
+    if (frame_split && frame_step != 0) {
         return;
     }
 #endif

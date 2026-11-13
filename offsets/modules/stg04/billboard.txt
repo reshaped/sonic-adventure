@@ -1,0 +1,3 @@
+datum  billboard_texlists  D  0x00000000  40
+datum  billboard_shape  D  0x00000028  52
+datum  billboard_lamps  D  0x0000005c  144

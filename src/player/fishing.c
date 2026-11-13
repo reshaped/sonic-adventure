@@ -804,7 +804,7 @@ static void fishing_hud_show(struct task *task)
     if (hud_hidden < 0) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* 16:9 squeezes the score, the lives and the rings about the screen's
      * left edge */
     port_wide_anchor = WIDE_LEFT;
@@ -832,7 +832,7 @@ static void fishing_hud_show(struct task *task)
     fishing_draw_score(fishing_score);
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
     draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
     if (stage_group() == STAGE_GROUP_FIELD) {
@@ -856,7 +856,7 @@ static void fishing_hud_draw(struct task *task)
     if (cart_active()) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture replays the hud step 0 drew. this
      * draw is the pause's: in a field it shows the rings, which play hides,
      * and it moves the pulse of a ring count of 0, which step 0 reads */
@@ -870,7 +870,7 @@ static void fishing_hud_draw(struct task *task)
     if (hud_hidden < 0) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_LEFT;
 #endif
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
@@ -903,7 +903,7 @@ static void fishing_hud_draw(struct task *task)
     fishing_draw_score(fishing_score);
     njTextureFilterMode(NJD_TEXTUREFILTER_BILINEAR);
     draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
     if (stage_group() == STAGE_GROUP_FIELD) {
@@ -1115,6 +1115,16 @@ static void fishing_lure_show(struct task *task)
         njScale(NULL, 0.3F, 0.3F, 0.3F);
         draw_tree(fishing_lures[fishing_count_lures()]);
         njPopMatrix(1);
+#ifdef NONMATCHING
+        /* where FRAME_DRAWS takes step 1, the second picture's pass draws
+         * the task by what step 1 drew. the pass then calls no callback of
+         * the task's. so step 1 draws the line too, as step 0 does below */
+        if (frame_step != 0 && FRAME_DRAWS() && work->mode >= LURE_FLY) {
+            present_untimed(TRUE);
+            fishing_line_draw(LURE(task)->line);
+            present_untimed(FALSE);
+        }
+#endif
     }
     if (frame_step == 0) {
         if (work->mode >= LURE_FLY) {
@@ -1125,7 +1135,7 @@ static void fishing_lure_show(struct task *task)
          * through work, 17 of 142 words differ */
         if (task->work->mode >= LURE_FLY) {
             njSetTexture(&fishing_texlist);
-#ifdef GCC
+#ifdef NONMATCHING
             /* 16:9 squeezes the reel, the gauge and the line-out count about
              * the screen's right edge */
             port_wide_anchor = WIDE_RIGHT;
@@ -1133,7 +1143,7 @@ static void fishing_lure_show(struct task *task)
             fishing_draw_reel();
             fishing_draw_tension();
             fishing_measure_line(&player->pos, &end);
-#ifdef GCC
+#ifdef NONMATCHING
             port_wide_anchor = WIDE_MIDDLE;
 #endif
         }
@@ -1169,18 +1179,26 @@ static void fishing_lure_draw(struct task *task)
     if (work->mode >= LURE_FLY) {
         fishing_line_draw(LURE(task)->line);
     }
+#ifdef NONMATCHING
+    /* the split frame's second picture replays the reel, the gauge and the
+     * line-out count step 0 drew. a picture must not run fishing_measure_line,
+     * which sets fishing_distance and fishing_line_out for the lure's steps */
+    if (frame_redrawing) {
+        return;
+    }
+#endif
     /* @hack spelling: the mode read again through task->work, which the image
      * reloads from task (MOV.L @(32,R13),R2 at 0x8c0f2046); through work,
      * 24 of 130 words differ */
     if (task->work->mode >= LURE_FLY) {
         njSetTexture(&fishing_texlist);
-#ifdef GCC
+#ifdef NONMATCHING
         port_wide_anchor = WIDE_RIGHT;
 #endif
         fishing_draw_reel();
         fishing_draw_tension();
         fishing_measure_line(&player->pos, &end);
-#ifdef GCC
+#ifdef NONMATCHING
         port_wide_anchor = WIDE_MIDDLE;
 #endif
     }
@@ -3601,7 +3619,7 @@ static void fishing_catch_draw(struct task *task)
     struct hud_number number;
 
     if (frame_step == 0) {
-#ifdef GCC
+#ifdef NONMATCHING
         /* 16:9 squeezes the weight about a pivot that travels with it from
          * the screen's right edge to the left edge, the score's pivot. its
          * scale falls from 2 to 1 on the way, and a lost fish's stays 2 as
@@ -3639,7 +3657,7 @@ static void fishing_catch_draw(struct task *task)
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_BOTHSRCALPHA);
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
-#ifdef GCC
+#ifdef NONMATCHING
         port_wide_anchor = WIDE_MIDDLE;
 #endif
     }

@@ -1,0 +1,7 @@
+datum  event_floor_materials  D  0x00000000  20
+datum  event_floor_meshes  D  0x00000014  6
+datum  event_floor_meshsets  D  0x0000001c  24
+datum  event_floor_points  D  0x00000034  36
+datum  event_floor_normals  D  0x00000058  36
+datum  event_floor_model  D  0x0000007c  40
+datum  event_floor_object  D  0x000000a4  52

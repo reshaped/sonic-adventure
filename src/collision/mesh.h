@@ -77,6 +77,28 @@ Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
  * with no mesh for object, both levels keep their values */
 Bool polygon_find_heights(struct height_query *query, NJS_OBJECT *object,
                           Uint32 flags);
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* here each call outside polygon.c takes this search, which gives
+ * polygon_find_heights' result and query. it skips each polygon whose box
+ * gives no surface at the point. the skip needs the mesh's boxes whole and
+ * the point within polygon.c's BOX_FAR of 0 on each axis. it skips none
+ * in a group of polygon.c's GROUP_BOXES boxes whose centers reach the
+ * window's end. the search stops there */
+Bool polygon_find_heights_indexed(struct height_query *query,
+                                  NJS_OBJECT *object, Uint32 flags);
+#define polygon_find_heights polygon_find_heights_indexed
+/* test polygon against query as polygon_find_heights tests each polygon
+ * near the point. a surface it takes gets flags, the mesh's world flags.
+ * engine/dc/mesh.c defines it for make dc. mesh.src's test reads its
+ * operands from the search's registers instead */
+void mesh_test_heights(struct height_query *query,
+                       const struct polygon *polygon, Sint32 flags);
+/* search mesh as polygon_find_heights searches the mesh it finds for
+ * object */
+Bool mesh_find_heights(struct height_query *query, struct collision_mesh *mesh);
+#endif
+#endif
 
 Float vector_length_squared(Float x, Float y, Float z);
 /* the squared distance between the points, and the same over x and z

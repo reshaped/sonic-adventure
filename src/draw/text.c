@@ -111,6 +111,41 @@ void text_set_color(Uint32 color)
 #define TEXT_INV_W 0.90909094F
 #define FRONT_INV_W 2.0F
 
+#ifdef NONMATCHING
+/* the cells of the print being sent, which TEXT_CLOSE gives present_record,
+ * and their 1/w. a print keeps TEXT_CELLS_MOST cells at most, a row of the
+ * screen at TEXT_SIZE. a print with more gives a count of -1, which
+ * present_record takes for a record that doesn't fit */
+#define TEXT_CELLS_MOST 40
+static struct text_cell text_cells[TEXT_CELLS_MOST];
+static Int text_cells_count;
+static Float text_cells_w;
+
+/* keep ch at x, y as the print's next cell, and w as the print's 1/w */
+static void text_keep(Sint16 x, Sint16 y, char ch, Float w)
+{
+    if (text_cells_count < TEXT_CELLS_MOST) {
+        text_cells[text_cells_count].x = x;
+        text_cells[text_cells_count].y = y;
+        text_cells[text_cells_count].ch = ch;
+    }
+    text_cells_count++;
+    text_cells_w = w;
+}
+
+/* give present_record the print's cells, as PRESENT_TEXT with a cell's
+ * side, the print's 1/w and its color. then empty them for the next print.
+ * present_record's answer goes unread, since the print has sent its
+ * characters */
+static void text_record(void)
+{
+    present_record(PRESENT_TEXT, text_cells,
+                   text_cells_count <= TEXT_CELLS_MOST ? text_cells_count : -1,
+                   (Int)text_size, text_cells_w, text_color);
+    text_cells_count = 0;
+}
+#endif
+
 /* send ch at x, y in pixels, the top left corner of its place on the
  * screen, as a strip of four vertices. each is written from its color back
  * to its control word, then sent by a prefetch of its start. the character
@@ -125,6 +160,9 @@ static void text_draw_char(Sint16 x, Sint16 y, char ch)
     Float right;
     Float bottom;
 
+#ifdef NONMATCHING
+    text_keep(x, y, ch, TEXT_INV_W);
+#endif
     if (ch == '0') {
         ch = 'O';
     }
@@ -183,6 +221,9 @@ static void text_draw_char_front(Sint16 x, Sint16 y, char ch)
     Float right;
     Float bottom;
 
+#ifdef NONMATCHING
+    text_keep(x, y, ch, FRONT_INV_W);
+#endif
     if (ch == '0') {
         ch = 'O';
     }
@@ -257,10 +298,18 @@ static void text_draw_char_front(Sint16 x, Sint16 y, char ch)
     text_sq += ENTRY_SIZE;
 
 /* set the translucent list's write pointer to the end of what the text
- * sent: text_sq's offset, with the pointer's own bits above it */
+ * sent. the pointer keeps its own bits above text_sq's offset. the
+ * non-matching TEXT_CLOSE first gives present_record the print's cells */
+#ifdef NONMATCHING
+#define TEXT_CLOSE()                                                           \
+    (text_record(),                                                            \
+     (&_nj_vertex_buffer_)->pCurrentPtr[KM_TRANS_POLYGON] =                    \
+         (Uint32 *)(((Uint32)text_sq & SQ_ADDRESS) | text_list_top))
+#else
 #define TEXT_CLOSE()                                                           \
     ((&_nj_vertex_buffer_)->pCurrentPtr[KM_TRANS_POLYGON] =                    \
          (Uint32 *)(((Uint32)text_sq & SQ_ADDRESS) | text_list_top))
+#endif
 
 void text_print(Int loc, const char *string)
 {
@@ -474,3 +523,27 @@ void text_printf(Int loc, const char *format, ...)
     va_end(args);
     text_print(loc, buffer);
 }
+
+#ifdef NONMATCHING
+void text_draw_cells(const struct text_cell *cells, Int count, Int side,
+                     Float w, Uint32 color)
+{
+    Uint32 color_was = text_color;
+    Float size_was = text_size;
+    Int i;
+
+    text_color = color;
+    text_size = side;
+    TEXT_OPEN();
+    for (i = 0; i < count; i++) {
+        if (w == FRONT_INV_W) {
+            text_draw_char_front(cells[i].x, cells[i].y, cells[i].ch);
+        } else {
+            text_draw_char(cells[i].x, cells[i].y, cells[i].ch);
+        }
+    }
+    TEXT_CLOSE();
+    text_color = color_was;
+    text_size = size_was;
+}
+#endif

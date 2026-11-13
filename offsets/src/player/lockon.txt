@@ -1,0 +1,3 @@
+datum  lockon_texanims  D  0x00000000  260
+datum  lockon_sprite  D  0x00000104  32
+datum  lockon_sprite_copy  D  0x00000124  32

@@ -2,7 +2,7 @@
 
 The build reconstructs each of the game's binaries from source and disc-derived data, verifies it against the original, and accounts for every byte. Much of the complexity comes from SHC: moving an include can move a variable, and combining two sources can move a literal pool.
 
-[README.md](README.md#build) gives the commands and what a build needs, [CONTRIBUTING.md](CONTRIBUTING.md) how to make a change, and [GCC.md](GCC.md) the port GCC builds from the same sources.
+[README.md](README.md#build) gives the commands and requirements, [CONTRIBUTING.md](CONTRIBUTING.md) how to make a change, and [PORTS.md](PORTS.md) the non-matching code and GCC Dreamcast port.
 
 - **How a binary is built:** [Build model](#build-model), [What writes each byte](#what-writes-each-byte).
 - **What the numbers measure:** [Accounting](#accounting).
@@ -14,9 +14,11 @@ The build reconstructs each of the game's binaries from source and disc-derived 
 
 ## Build model
 
-A **binary** is a file on the disc whose SH-4 code the build rebuilds: the main executable, `1ST_READ.BIN`, or one of the 246 overlays that load beside it, four of which the disc stores a second time, under another name. Its **binary image** is its bytes as the build links them, decompressed where the disc stores the file as PRS. A binary image is not a GDI disc image, and the build writes none. Below, "image" means a binary image or a [motion file](#motion-files), which holds no code, and "the disc" means your disc's files, in `orig/`. The matching build rebuilds the binaries alone, and the splice, the whole link, the shift test and the accounting below leave out the motion files.
+A **binary** is a disc file whose SH-4 code the build reconstructs: `1ST_READ.BIN`, the main executable, or one of the 246 overlays that load beside it. Four overlays also appear on the disc under a second name. Its **binary image** is the linked bytes, decompressed where the disc stores the file as PRS. The build writes no GDI disc image.
 
-Each image has a directory in `config/` with its tables: `splits.txt`, `symbols.txt` and, where it places a `gen/` range, `data.txt`. `1ST_READ.BIN`'s holds `imports.txt` too, and three that `make gcc` reads ([Image tables](#image-tables)). A **`gen/` range** places data that no source in the tree holds: its row names `gen/<image>/d_<address>.c`, C the build writes from the disc ([Generated ranges](#generated-ranges)).
+Below, **image** means a binary image or a [motion file](#motion-files), which holds no code. **The disc** means the files under `orig/`. Only binaries are rebuilt; the splice, whole link, shift test and accounting exclude motion files.
+
+Each image has a directory under `config/` with `splits.txt` and `symbols.txt`, plus `data.txt` where it places a `gen/` range. `1ST_READ.BIN` also has `imports.txt` and three tables used by `make dc` ([Image tables](#image-tables)). A **`gen/` range** places data no source holds: its row names `gen/<image>/d_<address>.c`, which the build writes as C from the disc ([Generated ranges](#generated-ranges)).
 
 Each source has a **route**, its compiler configuration. A C source's is the release of SHC, the flags, whether SHC writes an object or assembly text for asmsh, and any patches applied to that text, as [`config/compilers.mk`](config/compilers.mk) gives it ([Releases](#releases), [Flags](#flags)). A `.src` file's is R32's asmsh ([Assembly sources](#assembly-sources)).
 
@@ -32,9 +34,11 @@ Sources with disc-derived initializers are compiled first with placeholders. The
 
 The [Makefile](Makefile) schedules every step. Two `make` invocations that share `build/` write the same files without waiting for each other, which is why [Build](README.md#build) says to run one make at a time.
 
-`make relink` checks each image a second way, beside the splice. [`tools/relink.py`](tools/relink.py) links all of the image's objects in one pass, the **whole link**, and compares what it writes with the spliced image, byte for byte. A source's own link binds each name it takes from outside to the address the tables give it. The whole link resolves each name some object defines, and lays out each section's objects from where its row starts the section, or, without a row, where `tools/images.py` starts it, so a difference shows a fill rule the splicer models wrongly, a seam the tables place wrongly, or a reference that resolves elsewhere. The [section-boundary tables](#section-boundary-tables) come out the same from its `STARTOF` and `SIZEOF`, which take those starts and, where `tools/images.py` ends a section's extent, that end: the whole link reserves the rest of the extent past the section's objects, as a source's own link does.
+`make relink` checks each image a second way. [`tools/relink.py`](tools/relink.py) links all its objects in one pass, the **whole link**, and compares the result with the splice byte for byte. A source's own link binds external names at their table addresses. The whole link resolves names defined by its objects and lays out sections from the starts their rows give, or from `tools/images.py` where no row gives one. A difference can expose a wrong fill rule, an object boundary placed wrongly, or a reference resolved elsewhere.
 
-Where the tree lacks what one link of every object needs, the whole link stands in for it. A name the tables give inside the image that no object defines is bound at its address, as a source's own link binds it, and the whole link checks the references to it no further than the splice does. Such a name lies inside an object, as `event_sprite_explosion_texlist` lies inside `events/shared/sprite.c`'s `event_sprite_texlists`, or names storage no object holds, as `1ST_READ.BIN`'s `texture_buffer` does. Bss that no object holds, ahead of an object the tables place, is reserved, so the objects after it link where their rows put them. relink.py's docstring gives each kind of stand-in, and `make relink V=1 -W tools/relink.py` links every image again and lists each one.
+The [section-boundary tables](#section-boundary-tables) must give the same `STARTOF` and `SIZEOF` values. Where `tools/images.py` fixes a section's end, the whole link reserves the space past its objects up to that end, as each source's own link does.
+
+Some table names inside an image have no object definition. The whole link binds them at their table addresses, as individual links do, so it checks those references no further than the splice. One such name, `event_sprite_explosion_texlist`, lies inside `events/shared/sprite.c`'s `event_sprite_texlists`; another, `1ST_READ.BIN`'s `texture_buffer`, names storage no object holds. The whole link also reserves unowned bss ahead of objects the tables place, keeping their addresses. [`tools/relink.py`](tools/relink.py)'s docstring gives each stand-in; `make relink V=1 -W tools/relink.py` lists them.
 
 `make shift` runs the **shift test** on each whole link that matches its splice. The test links the image twice more, each time shifted by a different multiple of 32 bytes, with the names the image takes from other images left where they are. Every aligned 32-bit word must move by each shift, or keep its value under both.
 
@@ -75,7 +79,7 @@ A C byte is code SHC compiled from C, not always its output unchanged: patched a
 
 - A count is of stored bytes, per image. Bss past an image's file isn't stored, and counts nowhere.
 - A source placed in several images counts in each, so totals measure images, not distinct sources. A repeated event has no separate image or code count, though its disc file is checked.
-- An image's **code regions** are its stored code bytes, as `Config.code()` in `tools/config.py` gives them: fixed ranges in `1ST_READ.BIN` and `LOADER.BIN`, which open with the entry's 48 bytes in the data section `DSGLH`, and elsewhere the sections whose names start with `P`. Of those, the `PSG` sections and an event's C runtime are SDK code, as are, in `1ST_READ.BIN` and `LOADER.BIN`, the entry, `P` up to `sbinit.c`, and the SDK members that end `P`. The rest is game code.
+- [`Config.code()`](tools/config.py) gives an image's stored **code regions**: fixed ranges in `1ST_READ.BIN` and `LOADER.BIN`, starting with the entry's 48 bytes in `DSGLH`, and elsewhere sections whose names start with `P`. The `PSG` sections and an event's C runtime are SDK code. In `1ST_READ.BIN` and `LOADER.BIN`, so are the entry, `P` up to `sbinit.c`, and the SDK members at the end of `P`. The rest is game code.
 - The code regions hold instructions, literal pools, the switch tables SHC writes, SHC's `00 09` padding, data that assembly keeps in code, the space assembly reserves with `.RES`, and the linker's fill. README.md's **Code bytes** leave that fill out ([C and assembly](#c-and-assembly)).
 - A change to what counts as code changes the denominator, and carries its own evidence ([What passing means](CONTRIBUTING.md#what-passing-means)).
 
@@ -103,7 +107,7 @@ Each source counts in its route's category, less any data it imports, so `inline
 - **C** is the categories `c`, `shckit`, `grafted` and `inline`, less the assembly they hold. SHC's own lines around inline text are C: the alignment after each copy of an inline body and after each block, and the `RTS` and `NOP` after an inline body's own definition ([Inline text](https://github.com/reshaped/shckit/blob/e0b8412e337103b59ea2f0d58dd7be52699222b9/docs/patches.md#inline-text-and-the-alignment-after-it)).
 - **Assembly** is the `.src` files, and each inline body and `#pragma asm` block by its own bytes, at every copy SHC writes. Space assembly reserves with `.RES` counts as its bytes.
 - C's share of the code bytes is rounded down to a tenth of a percent, and assembly's is the rest, so the two make 100.0%, and C shows 100.0% only where there is no assembly.
-- An assembly instruction or data byte has a basis where its `@asm` tag names one, and is open otherwise. A `.src` function's tag covers its bytes from its first label to the next function's, so a file's instructions and data ahead of its first function are open. The space a `.RES` reserves is neither, under any tag: it holds no instruction or datum a basis could speak to. The basis's share counts the assembly's instructions and data, and leaves that space out. It is rounded down too, and open's is the rest. A share under a tenth but not none shows as `<0.1%`, and none as `0%`.
+- An assembly instruction or data byte has a basis where its `@asm` tag names one, and is open otherwise. A `.src` function's tag covers its bytes from the first label to the next function, so instructions and data before a file's first function are open. A `.RES` reserves space, not instructions or data, and takes no basis. The basis share counts only assembly instructions and data, excluding that space. It rounds down to a tenth of a percent, with open as the remainder; a nonzero share below a tenth shows as `<0.1%`, and none as `0%`.
 
 `tools/progress.py` takes each line's bytes from asmsh's listing beside each object it assembles: `build/PATH.lis`, or `build/stub/PATH.lis` where the stub's object is the newer:
 
@@ -168,6 +172,7 @@ R10 writes assembly text for both sources. `tools/graft.py` inserts the donor's 
 | `-code=machinecode` | Write an object. |
 | `-code=asmcode` | Write assembly text, for asmsh. |
 | `-cpu=sh4`, `-endian=little` | SH-4, little-endian. Every compile uses them. |
+| `-define=DREAMCAST` | Defines the switch of a guard's console side ([Switches](PORTS.md#switches)). Every compile uses it. |
 | `-fpu=single` | `double` and `long double` behave as `float`. |
 | `-double=float` | R10's spelling of it, under which R10's `long double` keeps 64 bits. R10 rejects `-fpu`. |
 | `-speed`, `-size` | Optimize for speed, or for size. SHC warns when given both. |
@@ -188,11 +193,12 @@ asmsh assembles each source's text with `ASMFLAGS`: `-cpu=sh4 -endian=little`, `
 
 ## Running SHC
 
-SHC and R32's asmsh, lnk and cnvs are 32-bit Windows programs, and the build runs them under wibo 1.2.0. `WIBO` names wibo itself. `R10`, `R26` and `R32` each name a release's directory, which holds `shc.exe`, and `R32`'s also `asmsh.exe`, `lnk.exe` and `cnvs.exe`, in lowercase. A goal that compiles stops where a release lacks `shc.exe`, but make checks R32's other three names only in a release it downloads, so an `R32` you supply must hold them too.
+SHC and R32's asmsh, lnk and cnvs are 32-bit Windows programs. The matching build runs them through `wibo-i686` (wibo 1.2.0) on x86 Linux ([Build](README.md#build)). `WIBO` names wibo itself; `R10`, `R26` and `R32` name the release directories. Each must hold `shc.exe`, and R32 must also hold `asmsh.exe`, `lnk.exe` and `cnvs.exe`, all lowercase. Make checks those last three only for a release it downloads, so an `R32` you supply must have them too.
 
 - Each compile sets `SHC_LIB`, `SHC_INC` and `SHC_TMP`, the last a directory of the object's own under `build/tmp/`: R10 names its temporary files from its process id's digits, so compiles that share a directory can clash.
 - asmsh, lnk and cnvs take `/` for an option prefix, so the build gives them DOS paths.
 - A command line past SHC's parameter buffer fails with error 3320, so a stub compiled to an object reads its options from a `-sub=FILE` response file.
+- SHC tracks five nested included files correctly. It can read a sixth but then resume at the wrong place in the first header the source includes. Errors such as 2500 (E) and 2402 (E) then point after that header's `#include`, not at the sixth file.
 - These tools report some warnings with status 0, so a compile or an assembly fails on any error or warning it reports, except the one warning a source's `ADMITTED` names, which it may report once. Linking fails on any message.
 
 Paths have limits:
@@ -216,8 +222,8 @@ Inline assembly, `#pragma inline_asm` and `#pragma asm`:
 - `#pragma inline_asm(f(size=n))` gives an inline body's size, by which R10 places pools. A larger size can move a pool ahead of the expansion.
 - A nonempty `#pragma asm` block, even one holding only an assembler comment, flushes the pending pool behind a branch. An empty block writes nothing.
 - SHC writes a block ahead of the section line of the function after it, so a block ahead of a section's first function names that section itself.
-- An inline body is hidden from Clang with `#ifndef __clang__`, with formatting off. A block outside a function is hidden the same way, and ends in an empty assembler comment, whose `;` ends the text clang-format reads as C.
-- An SHC extension in C is hidden the same way, with its ISO C spelling under `#else` for Clang. `loader/sdk/kmsurfac_workaround_for_sh_lnk.c` sets a pointer through a cast used as an lvalue, which R10 accepts with warning 1022; its `ADMITTED` permits that warning once.
+- An inline body stands under `#ifdef DREAMCAST`, with formatting off, so clang-tidy, which defines no `DREAMCAST`, reads none of it ([Switches](PORTS.md#switches)). A block outside a function stands the same way, and ends in an empty assembler comment, whose `;` ends the text clang-format reads as C.
+- An SHC extension in C stands the same way, with its ISO C spelling under `#else` for clang-tidy. `loader/sdk/kmsurfac_workaround_for_sh_lnk.c` sets a pointer through a cast used as an lvalue, which R10 accepts with warning 1022; its `ADMITTED` permits that warning once.
 
 R10 builds inline assembly in `sdk/`, `src/` and `modules/movie/sdk/`. Anywhere else, a source with inline assembly needs a rule of its own, its release and flags shown by a byte match. Without one, make stops rather than guess.
 
@@ -263,7 +269,7 @@ An event's file opens with its head, in `DHEAD`, from the event's `head.c`: the 
 
 ### Stage loading
 
-`loader_read_stage_files` in `src/system/loader.c` picks binaries by the stage numbers `src/stage/stage.h` defines. Names are PRS files in `SONICADV/`. `stages()` in `tools/stages.py` reads `loader_read_stage_files`' switch, for `make gcc`'s content and import check ([Content](GCC.md#content), [Imports and the census](GCC.md#imports-and-the-census)).
+`loader_read_stage_files` in `src/system/loader.c` picks binaries by the stage numbers `src/stage/stage.h` defines. Names are PRS files in `SONICADV/`. `stages()` in `tools/stages.py` reads `loader_read_stage_files`' switch, for `make dc`'s content and import check ([Content](PORTS.md#content), [Imports and the census](PORTS.md#imports-and-the-census)).
 
 | Stage numbers | Binaries |
 |---|---|
@@ -299,7 +305,7 @@ Seven of the disc's files hold the characters' motions and the actions that play
 
 `set_character` has `loader_read_character_motions` read the character's file as it sets the character, and the file stays in `MOTION_AREA` as the stages play. A motion file's `symbols.txt` names each definition another image takes from it: the actions, models and texlists `1ST_READ.BIN`'s sources name, which `config/1st_read/imports.txt` takes and `src/player/s_mot.h` and its like declare, and the motions `B_CHAOS7`'s data plays. `motions()` in `tools/images.py` tells a motion file by its sections, none of which is code, and `binaries()` gives every other image.
 
-The matching build reads each motion file as an original: `SHA256SUMS` lists it, and make's extraction from a `.gdi` writes and checks it with the rest. A source's own link binds each name `1ST_READ.BIN` takes from a motion file at the address its table gives, which is the definition's address in the disc's file. `make gcc` links each from its [content](GCC.md#content).
+The matching build reads each motion file as an original: `SHA256SUMS` lists it, and make's extraction from a `.gdi` writes and checks it with the rest. A source's own link binds each name `1ST_READ.BIN` takes from a motion file at the address its table gives, which is the definition's address in the disc's file. `make dc` links each from its [content](PORTS.md#content).
 
 ## Image tables
 
@@ -335,9 +341,11 @@ A `symbols.txt` row is `ADDRESS NAME`, the name as in C, without the object form
 
 An image with `gen/` ranges has a `data.txt` too, which gives each definition they hold ([Generated ranges](#generated-ranges)).
 
-`1ST_READ.BIN` takes the definitions it names in the images that load beside it through another table, `config/1st_read/imports.txt`, whose row is `NAME IMAGE [SYMBOL] [hand-off: REASON]`: the name its sources use, the image that defines it, and that image's own name for it, where the two differ. `LOADER.BIN`'s two rows end with `hand-off:` and why: main reads the file and then starts it, so the two never run together ([Coordinated link](GCC.md#coordinated-link) says how `make gcc` binds a hand-off). `NAME` links at the address `IMAGE`'s `symbols.txt` gives `SYMBOL`, or `NAME` where the row gives no `SYMBOL`, so no table repeats an address. Images that share a region can each define a name, as `B_ROBO` and `B_E101_R` each link `e101_r_land`: each row names its image, so a name binds to that image's definition, and `1ST_READ.BIN` takes `B_E101_R`'s as `e101_r_land` and `B_ROBO`'s as `eggmanrobo_land`.
+`1ST_READ.BIN` takes definitions from images loaded beside it through `config/1st_read/imports.txt`. A row is `NAME IMAGE [SYMBOL] [hand-off: REASON]`: the name main uses, the image defining it, and that image's own symbol if the names differ. The link takes the address from the image's `symbols.txt`; no address is repeated in this table.
 
-`make gcc` reads three more: `uses.txt`, the uses of those imports that no stage holds; `census.txt`, which explains each number `1ST_READ.BIN` holds for RAM past its image, and each number any image's GCC side holds at an address a table names; and `kernel.txt`, the draw functions its link lays out first ([Imports and the census](GCC.md#imports-and-the-census), [Coordinated link](GCC.md#coordinated-link)).
+The two rows for `LOADER.BIN` end in `hand-off:` and a reason. Main loads the file and then starts it, so the two do not run together ([Coordinated link](PORTS.md#coordinated-link)). Images sharing RAM can each define the same name: `B_ROBO` and `B_E101_R` each link `e101_r_land`. Main takes `B_E101_R`'s definition as `e101_r_land`, and `B_ROBO`'s as `eggmanrobo_land`.
+
+`make dc` reads three more, `uses.txt`, `census.txt` and `kernel.txt`, and `STG01` has a `kernel.txt` too ([Imports and the census](PORTS.md#imports-and-the-census), [Coordinated link](PORTS.md#coordinated-link)).
 
 ### Sections and fill bytes
 
@@ -397,7 +405,7 @@ A `gen/` range's bytes show no object's size or alignment, so no gap runs from o
 
 Each gap must match the rounding exactly and hold the fill byte, and an unused declaration fails. `start N` also needs `N` among the section's candidates in the table above: an object placed in the section on `N`, standing in for the range's, or, with none placed, 4 or 8. `continues N` can't exceed 4: SHC aligns no single constant, datum or bss item past 4. **Alignment validates a declared boundary; it does not establish one.**
 
-SHC, where it aligns code to 32 under `-extra=a=800`, pads inside an object with `00 09`, a byte-swapped `NOP`, and asmsh with the true `NOP`, `09 00`, so assembled code shows fewer boundaries. Elsewhere, as in events, an object SHC writes pads code only by reserving space, which holds the fill byte ([Sections and fill bytes](#sections-and-fill-bytes)). The splicer fails a game-code boundary beside SHC's `00 09` padding. Outside events, which build without `-extra=a=800`, it also fails a game-code start off 32, and an end off 32 that no fill follows. It checks neither SDK code nor either end of a game-code region ([Units](#units)), such as where `PHEAD` ends and where `P` starts, in 20 images.
+When `-extra=a=800` aligns code to 32, SHC pads inside an object with `00 09`, a byte-swapped `NOP`; asmsh uses `09 00`, the true `NOP`. Assembled code therefore shows fewer object boundaries. Elsewhere, as in events, SHC reserves the padding space instead, leaving the image's fill byte ([Sections and fill bytes](#sections-and-fill-bytes)). The splicer rejects a game-code boundary beside SHC's `00 09` padding. Outside events, which lack `-extra=a=800`, it also rejects a game-code start off 32 or an end off 32 with no fill after it. It checks neither SDK code nor the ends of a game-code region ([Units](#units)), such as the boundary between `PHEAD` and `P`, in 20 images.
 
 ### Alignment
 
@@ -429,7 +437,7 @@ Other images help. A shared source is one object everywhere, so a seam one image
 
 ## Declared data
 
-A source imports data from the disc through a typed declaration whose initializer is a **body**, a generated `.inc` file the declaration includes alone between its `= {` and `};` lines. Its path is the source's without its first directory or `.c`, then the datum's name: `src/system/util.c`'s `font_wide` includes `system/util/font_wide.inc`. A source that includes one, or a `text.inc` or `values.inc` ([Text](#text), [Values](#values)), is a **body source**. (A body is data, unrelated to an inline body.)
+A source imports disc data through a typed declaration. Its initializer, a **body**, is a generated `.inc` file included alone between `= {` and `};`. The include path drops the source's first directory and `.c`, then adds the datum's name: `src/system/util.c` includes `system/util/font_wide.inc` for `font_wide`. A source including a body, `text.inc` or `values.inc` is a **body source** ([Text](#text), [Values](#values)). Here a body is data, not an inline assembly body.
 
 ```c
 static const Uint32 font_wide[WIDE_GLYPHS * GLYPH_WORDS] = {
@@ -441,10 +449,16 @@ Keep array extents in the declaration: with `[]`, the stub's zero body would mak
 
 ### Stub and full builds
 
-The [Makefile](Makefile)'s `BODY_C` finds the body sources by a line ending `include "PATH.inc"`. Only the game's, R10's and the patched routes have a stub rule, and make stops on a body source on R26's, the runtime's, R32's SDK, the grafted or the inline-assembly route, and on one in the loader's own code or a patched source in `src/`, for which the game's and the patched stub rules search other headers than its route does. Each compiles twice, both times as its route says:
+`BODY_C` in the [Makefile](Makefile) finds body sources by lines ending `include "PATH.inc"`. The stub rules cover game code, R10 and patched routes, but reject body sources on R26, runtime, R32 SDK, grafted and inline-assembly routes. They also reject the loader's own code and patched sources in `src/`, whose stub header paths differ from their full routes. Supported sources compile twice, both times under the same route:
 
 - The stub build compiles with zero bodies, zero values and placeholder texts, from `build/stub/`, so it needs no disc. Its listing, SHC's or for a patched source asmsh's, locates each body.
-- The full build compiles with the bodies, texts and values `tools/data.py --bodies` extracts from the original, using the stub's listing to locate them. The generated `.inc` files and `bodies.txt`, which gives each item's address, size and type, go under `build/gen/<source path>/`.
+- The full build compiles with the bodies, texts and values `tools/data.py --bodies` extracts from the original, using the source's table of offsets to locate them. The generated `.inc` files and `bodies.txt`, which gives each item's address, size and type, go under `build/gen/<source path>/`.
+
+A body source's table, `offsets/<source path less .c>.txt`, records where its data lies in the original. For each named datum, body-backed automatic array and text, a row gives its section, offset within the source's part of that section, and size. `tools/data.py --offsets` derives the table from the stub listing; [`tools/offsets.py`](tools/offsets.py) defines its rows. Renaming, resizing or removing an item invalidates its row, and a new item needs a row. `tools/data.py --bodies` rejects any body, automatic array, text or value the table fails to place, and any size the source does not declare.
+
+The matching build checks these tables on x86 Linux, where it runs SHC. `make check` rebuilds each from its stub listing under `build/offsets/` and compares it byte for byte with the tracked table, rejecting stale or orphaned tables. `make`, `make relink` and `make shift` check them before extracting data. `make offsets` updates changed tables and removes orphaned ones. If a source is renamed, use `git mv` for its table.
+
+`make dc` and `make dc-disc` read the tracked tables without running SHC or reading listings. A missing or inconsistent table stops make and points to `make offsets` on x86 Linux. On macOS, restore a missing tracked table from Git; change a renamed datum's row by hand, and take other changes from `make offsets` on Linux. `make check` verifies hand-edited rows just like generated ones. `make dc-check` checks that each body source has a readable table. It runs no stub build and cannot establish that the offsets match one.
 
 The splicer requires the two builds' linked sources to differ only inside the bodies, texts and values `bodies.txt` lists, and fails one that lies in code. A source several images place reads its bodies from its **home**, the first of those images by name; every image is still checked against its own original. Lint reads the stub bodies, so a header only the full bodies need keeps its include with `/* NOLINT(misc-include-cleaner) */`.
 
@@ -503,9 +517,9 @@ The stub defines each value as 0. `data.py --bodies` lays out the datum as it do
 0x0c916e44  strips[31]
 ```
 
-- A definition is a kind, or a C type the image's declarations lay out, with `[COUNT]` for an array. The kinds are [`tools/image.py`](tools/image.py)'s: Ninja's structures and a land's or path's; `mdataN`, an mdata of `N` factors; `string`; and the bytes no structure claims, as `pointers`, `mixed` words, `floats`, `words`, `halves` or `bytes`. A `string`'s count is its bytes: its text, its null and any zeros after it.
-- The matching build writes the binaries' rows as C, and `make gcc` writes every image's rows as its content ([Content](GCC.md#content)). Both include `ninja.h`, `collision/world.h` for a land, `path/path.h` for a path, and the header that defines a struct or union a row gives, unless it lies under `sdk/include`.
-- `vouched` after a definition of `pointers`, `mixed` or a C type says its words in RAM's `0x0c` and `0x8c` views are addresses, and after any other kind fails. Only `make gcc` acts on it. Through those two views, the content takes each word of `pointers` or `mixed` for a pointer, and each 32-bit integer of a C type for the address it holds. It casts that address to `Sint32` or `Uint32`, as the integer is signed or not. Without `vouched`, it fails on such a word, since the word's bits alone don't say what it is. Through any other view, a word of `pointers` or `mixed` fails, and an integer stays a number. `tools/census.py --disc` refuses `vouched` in a motion file whose words point into `1ST_READ.BIN`'s image: it checks each such word by its row's type alone.
+- A definition is a kind, or a C type the image's declarations lay out, with `[COUNT]` for an array. The kinds are [`tools/items.py`](tools/items.py)'s: Ninja's structures and a land's or path's; `mdataN`, an mdata of `N` factors; `string`; and the bytes no structure claims, as `pointers`, `mixed` words, `floats`, `words`, `halves` or `bytes`. A `string`'s count is its bytes: its text, its null and any zeros after it.
+- The matching build writes the binaries' rows as C, and `make dc` writes every image's rows as its content ([Content](PORTS.md#content)). Both include `ninja.h`, `collision/world.h` for a land, `path/path.h` for a path, and the header that defines a struct or union a row gives, unless it lies under `sdk/include`.
+- `vouched` after `pointers`, `mixed` or a C type marks words in RAM's `0x0c` and `0x8c` views as addresses; it fails after any other kind. Only `make dc` and `make pc` act on it. In those views, content treats each word of `pointers` or `mixed` as a pointer and each 32-bit integer of a C type as an address, cast to `Sint32` or `Uint32` by its sign. Without `vouched`, such a word fails: its bits alone do not show whether it is an address. In other address views, `pointers` and `mixed` words fail, while integers stay numbers. `tools/census.py --disc` rejects `vouched` in a motion file when its words point into `1ST_READ.BIN`: it checks each word from the row's type alone.
 - A `#` line above a row says why its definition is what it is, where the bytes alone don't show it.
 
 No tool proposes a row, and no build infers one: a build writes only the definitions the rows give, from the disc's bytes. A row is written by hand, from the bytes and the code that reads them: matching bytes don't say what the data means, so the code is the evidence for a row. To type data better, or to give rows to data a source gives up, edit `data.txt`. When changing a row or the generator, compare the generated C as well as the hashes, since equal bytes can hide a poorer declaration. Leave SHC's objects out of that comparison: they hold the time they were built.
@@ -514,7 +528,7 @@ No tool proposes a row, and no build infers one: a build writes only the definit
 
 Two files of hashes have different jobs.
 
-**`tools/SHA256SUMS`** pins what the build gets from outside the tree: wibo, the three SHC archives, the clang-format and clang-tidy wheels, the GCC build's GNU tarballs and SH4ZAM's files ([Toolchain](GCC.md#toolchain), [SH4ZAM and the runtime](GCC.md#sh4zam-and-the-runtime)), and each vendored tool, as a `# REPOSITORY COMMIT` line followed by the hash of each file copied into `tools/TOOL/`. The vendored tools, gdi, prskit and shckit, change in their own repositories. To take a new commit of one:
+**`tools/SHA256SUMS`** pins downloads: wibo, the three SHC archives, clang-format and clang-tidy wheels, the SH-4 toolchain's GNU tarballs and SH4ZAM files ([Toolchain](PORTS.md#toolchain), [SH4ZAM and the runtime](PORTS.md#sh4zam-and-the-runtime)), the engine's llvm-mingw and pl_mpeg ([`engine/mk/native.mk`](engine/mk/native.mk)), Vulkan headers and glslang ([`engine/mk/replay.mk`](engine/mk/replay.mk)), and the vendored tools. The vendored gdi, prskit and shckit are maintained in their own repositories; each has a `# REPOSITORY COMMIT` line followed by a hash for every file copied into `tools/TOOL/`. To refresh one:
 
 ```sh
 python3 tools/vendor.py TOOL COMMIT
@@ -537,12 +551,13 @@ Each of the build's own tools is a Python file under `tools/` whose docstring gi
 
 | Tool | Job |
 |---|---|
-| [`tool.py`](tools/tool.py) | Fails or stops a tool, and reads and writes a file. |
+| [`tool.py`](tools/tool.py) | Fails or stops a tool, runs a child, and reads, writes and removes files. |
 | [`tables.py`](tools/tables.py) | Reads a table's rows and their fields. |
 | [`images.py`](tools/images.py) | Names the images and their files, tells the motion files from the binaries, and fixes what no table gives. |
 | [`config.py`](tools/config.py) | Reads and checks the image tables, and gives the order both builds link an image's objects in. |
-| [`deps.py`](tools/deps.py) | Writes `build/deps.mk`, make's dependencies of each binary, or with `--gcc`, `build/gcc/deps.mk`, those of `make gcc`'s import check. |
+| [`deps.py`](tools/deps.py) | Writes `build/deps.mk`, make's dependencies of each binary. |
 | [`shc_object.py`](tools/shc_object.py) | Reads an object SHC or asmsh writes: its records, and the sections, definitions and references they give. |
+| [`shc_listing.py`](tools/shc_listing.py) | Reads a listing SHC or asmsh writes: where each datum lies in its object's sections, the labels each function's code names, and each string. |
 | [`link.py`](tools/link.py) | Links one object at its image's addresses, with R32's asmsh, lnk and cnvs. |
 | [`splice.py`](tools/splice.py) | Checks an image's linked sources and fill against its original, and builds the image from them. |
 | [`bodies.py`](tools/bodies.py) | Reads the bodies, texts and values a source's `bodies.txt` lists, and finds where they lie in its linked source. |
@@ -553,16 +568,19 @@ Each of the build's own tools is a Python file under `tools/` whose docstring gi
 | [`graft.py`](tools/graft.py) | Sets the donor's four functions into the grafted source's R10 text. |
 | [`align.py`](tools/align.py) | Raises one section's alignment in a patched text. |
 | [`data.py`](tools/data.py) | Writes the C that SHC compiles to the data the build takes from the disc. |
-| [`image.py`](tools/image.py) | Reads the game data an image holds, as the items `data.txt` gives. |
+| [`items.py`](tools/items.py) | Reads the game data an image holds, as the items `data.txt` gives. |
 | [`cdata.py`](tools/cdata.py) | Writes C initializers and definitions for an image's checked items, for data.py and content.py. |
+| [`offsets.py`](tools/offsets.py) | Reads, writes and checks a body source's table of offsets, which records where its data sits in the original. |
 | [`layout.py`](tools/layout.py) | Lays out C types as SHC does, and evaluates SHC's integer constant expressions. |
 | [`csource.py`](tools/csource.py) | Reads C for every tool that reads it: its tokens, directives and blocks, and its expressions and declarations. |
 | [`sums.py`](tools/sums.py) | Checks `SHA256SUMS` against the files make expects it to list. |
 | [`vendor.py`](tools/vendor.py) | Checks the vendored tools' files, or refreshes one from its repository. |
-| [`tags.py`](tools/tags.py) | Checks the tags, lists each `@asm open` tag, and names the C sources that hold inline assembly, for the routes in `config/compilers.mk`; with `--abi`, fails where `make gcc` builds an `@asm abi` function, or an inline body that may not be call-safe, and no contract names it ([Inline assembly](GCC.md#inline-assembly)). |
+| [`tags.py`](tools/tags.py) | Checks the tags, lists each `@asm open` tag, and names the C sources that hold inline assembly, for the routes in `config/compilers.mk`; with `--abi`, fails where `make dc` builds an `@asm abi` function, or an inline body that may not be call-safe, and no contract names it ([Inline assembly](PORTS.md#inline-assembly)). |
+| [`guards.py`](tools/guards.py) | Checks that each guard tests `NONMATCHING` or `DREAMCAST` by `#ifdef`, for `make lint` ([Switches](PORTS.md#switches)). |
+| [`parts.py`](tools/parts.py) | Reads [`config/parts.txt`](config/parts.txt) and gives each source's `thing` and `bin`, and the directories a thing takes ([Source boundaries](ENGINE.md#source-boundaries)). |
 
-[Build model](GCC.md#build-model) names `make gcc`'s tools in the order they run.
+[Build model](PORTS.md#build-model) names `make dc`'s tools in the order they run.
 
-The host's C compiler builds `build/prskit`, which decompresses and compresses PRS; `build/gdi`, which extracts the disc's files from a `.gdi` and its tracks, and maps and rebuilds a disc for `make gcc-disc`; and `build/shckit`, which patches R10's assembly text, checks and lints `.src` files, and translates assembly for GNU as.
+The host's C compiler builds `build/prskit`, which decompresses and compresses PRS; `build/gdi`, which extracts the disc's files from a `.gdi` and its tracks, and maps and rebuilds a disc for `make dc-disc`; and `build/shckit`, which patches R10's assembly text, checks and lints `.src` files, and translates assembly for GNU as.
 
 The Python command-line tools under `tools/` share one contract, which `tests/test_cli.py` checks: each runs from the repository's root; `-h` prints its usage and exits 0; a command line its parser refuses exits 2, with a `usage:` line and a `TOOL: error:` line; and a handled failure, including an operand refused after parsing, exits 1, naming each problem on a line that opens `TOOL: `.

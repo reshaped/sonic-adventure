@@ -1,0 +1,3 @@
+datum  street_light_shape  D  0x00000000  52
+datum  street_light_glow_texanim  D  0x00000034  20
+datum  street_light_glow  D  0x00000048  32

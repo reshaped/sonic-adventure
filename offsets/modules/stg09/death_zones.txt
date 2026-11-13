@@ -1,0 +1,17 @@
+datum  dat_0cb172e8  D  0x00000000  20
+datum  dat_0cb172fc  D  0x00000014  32
+datum  dat_0cb1731c  D  0x00000034  24
+datum  dat_0cb17334  D  0x0000004c  96
+datum  dat_0cb17394  D  0x000000ac  96
+datum  dat_0cb173f4  D  0x0000010c  40
+datum  casino_act0_death_object  D  0x00000134  52
+datum  dat_0cb17450  D  0x00000168  20
+datum  dat_0cb17464  D  0x0000017c  12
+datum  dat_0cb17470  D  0x00000188  24
+datum  dat_0cb17488  D  0x000001a0  48
+datum  dat_0cb174b8  D  0x000001d0  48
+datum  dat_0cb174e8  D  0x00000200  40
+datum  casino_act1_death_object  D  0x00000228  52
+datum  casino_act0_death_zones  D  0x0000025c  16
+datum  casino_act1_death_zones  D  0x0000026c  16
+datum  casino_death_zones  D  0x0000027c  16

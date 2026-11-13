@@ -57,7 +57,7 @@ enum lock_texanim { TEXANIM_RETICLE, TEXANIM_FULL, TEXANIM_LOCK };
 #define CENTER_Y 240.0F
 /* the reticle's bounds, 80 pixels in from each edge of the 640 by 480
  * screen */
-#ifdef GCC
+#ifdef NONMATCHING
 /* the bounds lie 80 pixels in from each edge of port.h's window */
 #define RETICLE_LEFT (CENTER_X - ((CENTER_X - 80.0F) / port_view_aspect))
 #define RETICLE_RIGHT (CENTER_X + ((560.0F - CENTER_X) / port_view_aspect))

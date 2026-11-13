@@ -1,0 +1,14 @@
+datum  ev00e2_jump_keys  C  0x00000000  261
+datum  ev00e2_jump  C  0x00000108  8
+datum  ev00e2_spare_keys  C  0x00000110  942
+datum  ev00e2_spare  C  0x000004c0  8
+datum  ev00e2_spare_points_0  D  0x00000000  1408
+datum  ev00e2_spare_path_0  D  0x00000580  8
+datum  ev00e2_spare_points_1  D  0x00000588  1408
+datum  ev00e2_spare_path_1  D  0x00000b08  8
+datum  ev00e2_frog  D  0x00000b10  4
+datum  dat_0cb87f44  D  0x00000b14  4
+datum  ev00e2_flash_0  D  0x00000b18  4
+datum  ev00e2_flash_1  D  0x00000b1c  4
+datum  ev00e2_black  D  0x00000b20  4
+datum  ev00e2_textures  D  0x00000b24  24

@@ -14,7 +14,7 @@
  * and the saves of R14 and PR between TSTR's address and its read
  * (0x8c06fae0 to 0x8c06faf0). as volatile, 40 of the 126 words of the six
  * functions that use them differ */
-#ifdef GCC
+#ifdef NONMATCHING
 #define TSTR (*(volatile Uint8 *)0xffd80004)
 #define TCOR1 (*(volatile Uint32 *)0xffd80014)
 #define TCNT1 (*(volatile Uint32 *)0xffd80018)

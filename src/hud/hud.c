@@ -793,13 +793,13 @@ void hud_draw(void)
     if (get_character() == CHARACTER_BIG) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the rings and the lives about the screen's
      * left edge */
     port_wide_anchor = WIDE_LEFT;
 #endif
     draw_rings_lives();
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
     if (stage_group() == STAGE_GROUP_FIELD) {
@@ -925,7 +925,7 @@ void hud_draw_timer(void)
     if (cart_active()) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the time, or a board's score, about the
      * screen's left edge */
     port_wide_anchor = WIDE_LEFT;
@@ -935,7 +935,7 @@ void hud_draw_timer(void)
     } else {
         draw_time(64.0F, 33.0F);
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }

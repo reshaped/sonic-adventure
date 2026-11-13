@@ -133,7 +133,7 @@ static Sint32 mpvlib_ChkFatal(void)
     if (MPVVLC_IsVlcSizErr() != 0) {
         return MPVERR_SetCode(NULL, MPV_ERR_VLC_SIZE);
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the shipped play, in which each of PSGSFD00 to PSGSFD03 takes
      * the size the check wants, so MPV_Init goes on. GCC ignores #pragma
      * section, and mpvadec.c's reservations are SHC's alone, so GCC's link

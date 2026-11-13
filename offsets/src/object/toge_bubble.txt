@@ -1,0 +1,12 @@
+datum  toge_shapes  D  0x00000000  104
+datum  bubble_material  D  0x00000068  16
+datum  bubble_no_material  D  0x00000078  16
+datum  bubble_sprite_texlist  D  0x00000088  8
+datum  bubble_sprite_texanim  D  0x00000090  20
+datum  bubble_sprite  D  0x000000a4  32
+datum  big_bubble_shape  D  0x000000c4  52
+datum  bubble_ripple_alpha  D  0x000000f8  4
+datum  bubble_ripple_red  D  0x000000fc  4
+datum  bubble_ripple_green  D  0x00000100  4
+datum  bubble_ripple_blue  D  0x00000104  4
+datum  bubble_kinds  C  0x00000028  56

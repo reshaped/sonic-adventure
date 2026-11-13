@@ -71,7 +71,19 @@ struct dma_request {
     KMDWORD target;
     KMDWORD unk_10;
     KMDWORD length;
+    /* @hack type: state isn't volatile, though kmiExecuteDMAChain clears its
+     * DMA_BUSY in the DMA's end interrupt while kmiWaitForFinishDMA, the
+     * texture loads and a full queue's senders wait on it. each pass of a wait
+     * calls kmiQueryFinishDMA or kmiDMAtoTARequest, so the image reads it again
+     * all the same. declared volatile, 194 of the 489 words of
+     * kmiInitializeDMA, kmiDMAHazardReset, kmiDMAtoTARequest,
+     * kmiExecuteDMAChain and kmiQueryFinishDMA differ in 1ST_READ.BIN, and 54
+     * of 467 in LOADER.BIN */
+#ifdef NONMATCHING
+    volatile KMDWORD state;
+#else
     KMDWORD state;
+#endif
     KMDWORD unk_1c;
 };
 
@@ -153,9 +165,9 @@ KMINT32 kmiDMAHazardReset(void)
     start_slot[1] = 0;
     next_handle = 0;
     started_slot = SLOTS - 1;
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the read and clear past requests that STARTED_REQUEST's tag
-     * names. GCC sets started_queue as kmiInitializeDMA does, so
+     * names. this side sets started_queue as kmiInitializeDMA does. so
      * STARTED_REQUEST names a free slot, which no request fills before the
      * next transfer starts */
     started_queue = 1;
@@ -311,16 +323,7 @@ KMBOOLEAN kmiQueryFinishDMA(KMDWORD handle)
     for (queue = 0; queue < QUEUES; queue++) {
         for (slot = 0; slot < SLOTS; slot++) {
             if (requests[queue][slot].handle == handle) {
-#ifdef GCC
-                /* the DMA's end interrupt clears DMA_BUSY, so each call reads
-                 * the state anew. read as plain memory, GCC took this query
-                 * for pure, and kmiWaitForFinishDMA asked it once and spun
-                 * for good where the transfer was still running */
-                if (*(volatile KMDWORD *)&requests[queue][slot].state &
-                    DMA_BUSY) {
-#else
                 if (requests[queue][slot].state & DMA_BUSY) {
-#endif
                     return FALSE;
                 }
             }

@@ -1,0 +1,10 @@
+datum  event_eggmobile_puff_params  D  0x00000000  60
+datum  event_eggmobile_jet_params  D  0x0000003c  180
+datum  event_eggmobile_jets  D  0x000000f0  84
+datum  event_eggmobile_nozzle  D  0x00000144  12
+datum  event_eggmobile_glare_aim  D  0x00000150  12
+datum  event_eggmobile_actions  D  0x0000015c  32
+datum  event_eggmobile_elbow_indices  D  0x0000017c  20
+datum  event_eggmobile_finger_indices  D  0x00000190  16
+datum  event_eggmobile_welds  D  0x000001a0  120
+datum  event_eggmobile_task  D  0x00000218  4

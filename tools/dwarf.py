@@ -1,8 +1,8 @@
-"""Read the DWARF of make gcc's objects for decls.py: each compilation
+"""Read the DWARF of make dc's objects for decls.py: each compilation
 unit's entries, and the files its line table names.
 
 dwarf.py reads 32-bit little-endian DWARF with 4-byte addresses, as make
-gcc's GCC and GNU as write it. Each unit must be a compilation unit of
+dc's GCC and GNU as write it. Each unit must be a compilation unit of
 DWARF 5, whose top holds one entry, of DW_TAG_compile_unit, with every
 other entry below it. A line table must be of version 5 or 3. GCC writes
 version 5, and GNU as writes version 3 where GCC leaves the lines to it, as
@@ -172,7 +172,7 @@ class Lnct(Dwarf):
     DIRECTORY_INDEX = 0x02
 
 
-# the bytes of an address in make gcc's objects, which target the 32-bit
+# the bytes of an address in make dc's objects, which target the 32-bit
 # SH-4
 ADDRESS_SIZE = 4
 # a DWARF 5 compilation unit's header: its length, version, unit type and

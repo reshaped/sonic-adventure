@@ -1,0 +1,4 @@
+datum  dat_0ca51180  D  0x00000000  52
+datum  icecap_act1_death_zones  D  0x00000034  16
+datum  icecap_act2_death_zones  D  0x00000044  40
+datum  icecap_death_zones  D  0x0000006c  16

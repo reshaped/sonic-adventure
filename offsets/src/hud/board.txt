@@ -1,0 +1,13 @@
+datum  score_digit_texanim  D  0x00000000  20
+datum  score_digit_sprite  D  0x00000014  32
+datum  dat_8c1da8d4  D  0x00000034  4
+datum  score_texnames  D  0x00000038  12
+datum  board_score_texlist  D  0x00000044  8
+datum  score_digit_depths  C  0x00000000  8
+datum  score_color  C  0x00000008  16
+datum  score_no_color  C  0x00000018  16
+datum  score_label_texanims  C  0x00000028  20
+datum  score_label_sprite  C  0x0000003c  32
+datum  rings_label_texanims  C  0x0000005c  20
+datum  rings_label_sprite  C  0x00000070  32
+text  TEXT_1  C  0x00000090  14

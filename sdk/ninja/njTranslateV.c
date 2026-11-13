@@ -2,7 +2,8 @@
 
 /* set m to T * m, where T translates by v's x, y and z. a null m selects the
  * current matrix, in XMTRX */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njTranslateV
 void njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
 {
@@ -10,7 +11,6 @@ void njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c629754 follows the
  * body's own return at 0x8c629750 */
 #pragma inline_asm(njTranslateV)
@@ -74,6 +74,6 @@ void njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
         RTS
         FSCHG
 }
-#endif
 /* clang-format on */
+#endif
 #endif

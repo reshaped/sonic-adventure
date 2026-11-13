@@ -1,0 +1,15 @@
+datum  ev003b_sonic_board_keys  C  0x00000000  402
+datum  ev003b_sonic_board  C  0x00000194  8
+datum  ev003b_tails_board_keys  C  0x0000019c  255
+datum  ev003b_tails_board  C  0x0000029c  8
+datum  ev003b_fade  D  0x00000000  4
+datum  ev003b_tornado  D  0x00000004  4
+datum  ev003b_tornado_sonic  D  0x00000008  4
+datum  ev003b_tornado_tails  D  0x0000000c  4
+datum  ev003b_textures  D  0x00000010  24
+datum  ev003b_tornado_sonic_stub  B  0x00000000  52
+datum  ev003b_tornado_tails_stub  B  0x00000034  52
+text  TEXT_1  C  0x000002b4  30
+text  TEXT_2  C  0x000002d4  16
+text  TEXT_3  C  0x000002e4  22
+text  TEXT_4  C  0x000002b0  4

@@ -50,7 +50,7 @@ static void card_uv_destroy(struct task *task)
 
 static void card_uv_draw(struct task *task)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* uv_scroll_move points the meshsets' vertuv here, and model.c's
      * clipped strips read each u and v pair as one longword, which faults
      * on an address off 4. GCC aligns this array only to its Sint16s */

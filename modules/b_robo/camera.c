@@ -253,7 +253,7 @@ static void view_follow(void)
      * 0x0c904e44). view_lifted is only ever set to FALSE or TRUE, so an if and
      * an else run the same; as if (!view_lifted) and an else, 17 of 432 words
      * differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets rate: view_lifted is only ever
      * FALSE or TRUE, as the tag says */
     rate = HEIGHT_RATE;

@@ -4,6 +4,25 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#ifdef NONMATCHING
+#include "sa1/line2d.h"
+
+/* draw lines on the screen at priority pri, as the C under the #else does.
+ * this side is SA1's layer for Ninja's 2D lines on the Dreamcast.
+ * sa1/line2d.h's sends join the points as attr's NJD_DRAW_MASK says */
+void njDrawLine2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
+{
+    struct sa1_live_line_2d state = {n, pri, attr};
+    sa_draw_live draw = {p, &state, SA_SA1_LINE_2D, 0};
+
+    njGetkmPointer();
+    START_VERTEX(sa1_live_sq, attr);
+    sa_present_live(SA_DC_ENGINE, &draw);
+    njEndVertex(sa1_live_sq);
+    njSetkmPointer();
+}
+#else
+
 /* a 32-byte vertex as the tile accelerator takes it */
 struct line_vertex {
     Uint32 control;
@@ -340,3 +359,4 @@ void njDrawLine2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
     njEndVertex(line_out);
     njSetkmPointer();
 }
+#endif

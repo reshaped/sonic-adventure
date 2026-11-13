@@ -1,0 +1,9 @@
+datum  hit_texlist  D  0x00000000  8
+datum  hit_frames  D  0x00000008  160
+datum  hit_anim  D  0x000000a8  20
+datum  hit_defaults  D  0x000000bc  60
+datum  hit_pool  D  0x000000f8  16
+datum  lightning_texlist  D  0x00000108  8
+datum  lightning_frames  D  0x00000110  160
+datum  lightning_anim  D  0x000001b0  20
+datum  lightning_pool  D  0x000001c4  16

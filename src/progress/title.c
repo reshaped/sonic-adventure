@@ -753,9 +753,9 @@ Sint16 title_step(void)
             if (save_isp_found()) {
                 stream_request_voice(VOICE_LEAVING);
                 stream_destroy();
-#ifdef GCC
-                /* repairs the call the tag below names: no Chao is in hand at
-                 * the title, so GCC writes no Chao's mail, only the save's */
+#ifdef NONMATCHING
+                /* repairs the call the tag below names. no Chao is in hand at
+                 * the title, so this side writes only the save's mail */
 #else
                 /* @bug mismatched-call: save_write_chao_mail takes the Chao to
                  * write as its second argument, but the call passes only

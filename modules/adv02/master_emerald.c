@@ -31,13 +31,14 @@ extern NJS_OBJECT mystic_ruins_master_emerald_2_object;
 extern NJS_OBJECT mystic_ruins_master_emerald_3_object;
 extern NJS_OBJECT mystic_ruins_master_emerald_4_object;
 extern NJS_MODEL mystic_ruins_master_emerald_glow_model;
-#ifdef GCC
+#ifdef NONMATCHING
 /* repairs the read past the glow's one normal. its model has 4 points but
  * one normal, at 0x0cb04da4. njSimpleDrawModel reads a normal for each
- * point, so the image's last 3 reads run past that one, into the meshset
- * and the first point (the reads at 0x8c62bba8 or 0x8c62bd64 in
- * 1ST_READ.BIN). GCC's glow holds a normal for each point. its material
- * ignores the light, so no normal changes how it draws */
+ * point. so the image's last 3 reads run into the meshset and the first
+ * point. njSimpleCalcModel_Loop1 reads them at 0x8c62bba8, or
+ * njSimpleCalcModel_Loop3 at 0x8c62bd64. this side's glow holds a normal for
+ * each point. its material ignores the light, so no normal changes how it
+ * draws */
 static NJS_VECTOR master_emerald_glow_normals[4] = {
     {0.0F, 1.0F, 0.0F},
     {0.0F, 1.0F, 0.0F},
@@ -304,7 +305,7 @@ static void mystic_ruins_master_emerald_draw(struct task *task)
     njScale(NULL, master_emerald_glow_scale, master_emerald_glow_scale,
             master_emerald_glow_scale);
     njSetTexture(&mrobj_texlist);
-#ifdef GCC
+#ifdef NONMATCHING
     mystic_ruins_master_emerald_glow_model.normals =
         master_emerald_glow_normals;
 #endif

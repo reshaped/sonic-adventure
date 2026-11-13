@@ -250,9 +250,18 @@ static void shell_trail_draw(struct task *task, Float scale, Float alpha)
     int i;
     Float fade;
 
+#ifdef NONMATCHING
+    /* where step 1 drew the shell, the second picture shows that draw, and
+     * its pass calls no callback. so the trail draws on step 1 too */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+    present_untimed(TRUE);
+#else
     if (frame_step) {
         return;
     }
+#endif
     scale *= shell_trail_width;
     count = work->record->count;
     first = work->record->first;
@@ -294,6 +303,9 @@ static void shell_trail_draw(struct task *task, Float scale, Float alpha)
         back = ahead;
         newer = point;
     }
+#ifdef NONMATCHING
+    present_untimed(FALSE);
+#endif
 }
 
 /* set a material to blend additively, by its alpha */

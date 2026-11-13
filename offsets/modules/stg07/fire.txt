@@ -1,0 +1,4 @@
+datum  fire_shape  D  0x00000000  52
+datum  fire_glow_frame  D  0x00000034  20
+datum  fire_flames  D  0x00000048  60
+datum  fire_glow  B  0x00000000  32

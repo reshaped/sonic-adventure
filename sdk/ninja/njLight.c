@@ -1,7 +1,7 @@
 #include <ninja.h>
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm epilogue: fill, the body has no return of its own and runs on through
  * SHC's .ALIGN 4 fill, the NOP at 0x8c625c0e, into its RTS at 0x8c625c10, ahead
  * of asmsh's pool of the body's literals */

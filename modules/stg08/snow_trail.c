@@ -266,8 +266,9 @@ static void trail_draw(struct task *task)
      * trail_tasks and emitter_params, which the draw reads as texlists. MOV.B
      * at 0x0c90088a loads the age, and 0x0c900898 adds it, times 8, to
      * trail_texlist's address for njSetTexture */
-#ifdef GCC
-    /* repairs the read the tag names: GCC's strip takes the one texlist */
+#ifdef NONMATCHING
+    /* repairs the read the tag names: this side's strip takes the one
+     * texlist */
     njSetTexture(&trail_texlist);
 #else
     njSetTexture((NJS_TEXLIST *)((Uint32)&trail_texlist +
@@ -378,7 +379,14 @@ void icecap_board_spray(int player)
             work->scl.z =
                 (motion->speed.z * 0.7F) - ((Float)rand() * RAND_SCALE) +
                 (motion->drive * njCos(player_workarea->ang.y)) + 0.5F;
+#ifdef NONMATCHING
+            /* keys the flake's first draw to the flake, not to the player
+             * whose step sprays. else the second picture's pass would skip
+             * the player */
+            present_run(task, flake_draw);
+#else
             flake_draw(task);
+#endif
         }
     } while (i--);
 

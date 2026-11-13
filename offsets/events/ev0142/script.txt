@@ -1,0 +1,9 @@
+datum  ev0142_e101_points  D  0x00000000  1936
+datum  ev0142_e101_path  D  0x00000790  8
+datum  ev0142_memory  D  0x00000798  4
+datum  ev0142_e101  D  0x0000079c  4
+datum  ev0142_textures  D  0x000007a0  24
+text  TEXT_1  C  0x0000000c  32
+text  TEXT_2  C  0x0000002c  16
+text  TEXT_3  C  0x0000003c  14
+text  TEXT_4  C  0x0000004c  16

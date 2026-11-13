@@ -1,0 +1,16 @@
+datum  dat_0c905a40  C  0x00000000  64
+datum  glow_anims  C  0x00000040  60
+datum  texture_timer_starts  C  0x0000007c  20
+datum  texture_interval_starts  C  0x00000090  20
+datum  texture_starts  C  0x000000a4  20
+datum  glow_timer_starts  C  0x000000b8  12
+datum  glow_interval_starts  C  0x000000c4  12
+datum  glow_frame_starts  C  0x000000d0  6
+datum  flame_objects  D  0x00000000  20
+datum  long_objects  D  0x00000014  20
+datum  egm1jet_texlist  D  0x00000028  8
+datum  egm1jetb_texlist  D  0x00000030  8
+datum  jets_task  B  0x00000000  4
+datum  egm1jet_textures  B  0x00000004  36
+datum  egm1jetb_textures  B  0x00000028  36
+datum  glow_sprite  B  0x0000004c  32

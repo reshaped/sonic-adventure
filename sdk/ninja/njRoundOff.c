@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: its dead RTS at 0x8c615158 follows a tail jump at 0x8c615154,
  * which plain C leaves too */
 #pragma inline_asm(njRoundOff)

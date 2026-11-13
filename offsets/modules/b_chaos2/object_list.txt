@@ -1,0 +1,5 @@
+datum  chaos2_ring_name  C  0x00000000  8
+datum  chaos2_table_name  C  0x00000008  8
+datum  chaos2_chandelier_name  C  0x00000010  8
+datum  chaos2_object_kinds  D  0x00000000  60
+datum  chaos2_object_list  DHEAD  0x00000000  8

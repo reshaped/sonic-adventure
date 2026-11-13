@@ -1,0 +1,2 @@
+datum  w_robo_shape  D  0x00000000  52
+datum  w_robo_looks  D  0x00000034  228

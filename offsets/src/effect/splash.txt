@@ -1,0 +1,5 @@
+datum  splash_texlist  D  0x00000000  8
+datum  splash_frames  D  0x00000008  160
+datum  splash_anim  D  0x000000a8  20
+datum  splash_pool  D  0x000000bc  16
+datum  splash_defaults  D  0x000000cc  60

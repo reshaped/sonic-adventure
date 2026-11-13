@@ -1,0 +1,7 @@
+datum  event_chaos1_textures  D  0x00000000  72
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  10
+text  TEXT_3  C  0x00000018  11
+text  TEXT_4  C  0x00000024  12
+text  TEXT_5  C  0x00000030  9
+text  TEXT_6  C  0x0000003c  11

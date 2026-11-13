@@ -1,0 +1,10 @@
+datum  card_table_faces  D  0x00000000  13
+datum  card_models  D  0x00000010  40
+datum  card_sparkle_texanims  D  0x00000038  120
+datum  card_sparkle_sprite  D  0x000000b0  32
+datum  card_face_texanims  D  0x000000d0  200
+datum  card_face_sprite  D  0x00000198  32
+datum  card_hand_texanims  D  0x000001b8  120
+datum  card_hand_sprite  D  0x00000230  32
+datum  card_shape  D  0x00000250  52
+datum  card_hand_has  D  0x00000284  1

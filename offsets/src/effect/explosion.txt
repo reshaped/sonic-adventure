@@ -1,0 +1,4 @@
+datum  explosion_texlist  D  0x00000000  8
+datum  explosion_frames  D  0x00000008  160
+datum  explosion_anim  D  0x000000a8  20
+datum  explosion_pool  D  0x000000bc  16

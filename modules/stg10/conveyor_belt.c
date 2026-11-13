@@ -19,7 +19,7 @@
 extern NJS_OBJECT conveyor_belt_object;
 /* the belt's three meshsets */
 extern NJS_MESHSET conveyor_belt_meshsets[];
-/* the moving surface's 44 UVs */
+/* the moving surface's UVs, SURFACE_UVS of them */
 extern NJS_COLOR conveyor_belt_uv[];
 /* the belt's top, which carries its riders, and its body below */
 extern NJS_OBJECT conveyor_belt_top_object;
@@ -40,7 +40,9 @@ extern NJS_OBJECT conveyor_belt_body_object;
 
 /* the moving surface's meshset, whose UVs scroll */
 #define SURFACE 2
-/* the UVs the scroll copies: the surface's 44, then 20 past them */
+/* the UVs conveyor_belt_uv holds for it */
+#define SURFACE_UVS 44
+/* the UVs the scroll copies: the surface's, then 20 past them */
 #define SCROLLED_UVS 64
 
 /* the top and the body are tested only while a player is within REACH of
@@ -211,12 +213,13 @@ static void conveyor_belt_draw(struct task *task)
         to = &conveyor_belt_scrolled->tex.u;
         from = &conveyor_belt_uv->tex.u;
         /* @bug memory: the scroll copies SCROLLED_UVS UVs (MOV #64,R6
-         * at 0x0c902952) from conveyor_belt_uv, which holds 44. the last 20
-         * read the three meshsets that follow it and 8 bytes past them, and
-         * nothing draws their copies */
-#ifdef GCC
-        /* repairs the read the tag names: GCC copies conveyor_belt_uv's 44 */
-        for (i = 0; i < 44; i++) {
+         * at 0x0c902952) from conveyor_belt_uv, which holds SURFACE_UVS. the
+         * last 20 read the three meshsets that follow it and 8 bytes past
+         * them, and nothing draws their copies */
+#ifdef NONMATCHING
+        /* repairs the read the tag names: this side copies the UVs
+         * conveyor_belt_uv holds */
+        for (i = 0; i < SURFACE_UVS; i++) {
 #else
         for (i = 0; i < SCROLLED_UVS; i++) {
 #endif

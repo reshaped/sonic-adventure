@@ -158,17 +158,17 @@ static NJS_LIGHT source_lights[LIGHT_SOURCES];
 static NJS_LIGHT light_main;
 /* the sources in use, as the last editor pass counted them */
 static int source_count;
-#ifdef GCC
+#ifdef NONMATCHING
 /* the statics from light_sources to dat_8c6b9168, in the order the image's
  * bss holds them. light_write_sources and light_read_card_sources copy
  * SOURCES_DATA bytes from light_sources on. light_read_disc_sources reads
  * whole sectors to it. each runs past the sources into the statics after
- * them. the bytes a sources file holds past its sources give the light its
- * turn, color and strengths, light_ry to light_ambient. GCC's bss doesn't
- * keep the statics' order, so under GCC they are the members of one
- * object. each member has its static's name, and a macro below takes that
- * name to the member. SL_10B.BIN's turn, 0x5a0 and 0x5a4 bytes in, is
- * 0xac00 and 0x1000 */
+ * them. past its sources, a sources file holds the light's turn, color and
+ * strengths, light_ry to light_ambient. its later bytes reach source_range
+ * on: the free editor's new source, then source_list. GCC's bss doesn't keep
+ * the statics' order, so here they are the members of one object. each
+ * member has its static's name, and a macro below takes that name to the
+ * member */
 struct sources_file {
     struct light_source light_sources[LIGHT_SOURCES];
     Angle light_ry;
@@ -236,9 +236,10 @@ static Float source_b;
  * light_place_point_and_test reads the first */
 static int source_list[LIGHT_SOURCES];
 static int source_list_count;
-/* nothing names it. light_read_disc reads whole sectors. read to
- * light_sources, a one-sector sources file fills 2048 bytes: the 0x650 up
- * to this array, and its first 0x1b0 */
+/* nothing names it. light_read_disc reads whole sectors to light_sources. a
+ * one-sector sources file fills the 0x650 bytes up to this array, and the
+ * array's first 0x1b0. a two-sector file, as 8 of the disc's 67 are, fills
+ * its first 0x9b0 */
 static char dat_8c6b9168[4096];
 #endif
 /* buInit's work, for one drive of a 128 KB card */
@@ -713,9 +714,9 @@ static int save_commit(void)
     /* @bug uninitialized: with no card mounted, the function returns no value.
      * R0 keeps the NOTICE_SHOW that MOV #4,R0 at 0x8c0114d8 loads for
      * card_notice's store, so it returns 4 */
-#ifdef GCC
-    /* repairs the missing return the tag names: with no card mounted, GCC
-     * returns -1, as for a failed request */
+#ifdef NONMATCHING
+    /* repairs the missing return the tag names. with no card mounted, this
+     * side returns -1, as for a failed request */
     return -1;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -1204,9 +1205,9 @@ int light_write_sources(int stage, int act)
     name_text = (char *)&name;
     name = file;
     image = card_buffer;
-#ifdef GCC
+#ifdef NONMATCHING
     /* the file's SOURCES_DATA bytes run past light_sources into the members
-     * of sources_file after it, so GCC's data points at the whole object */
+     * of sources_file after it */
     data = (char *)&sources_file;
 #else
     data = (char *)light_sources;
@@ -1286,9 +1287,9 @@ static int light_read_card_sources(int stage, int act)
     char *place;
 
     from = card_buffer;
-#ifdef GCC
+#ifdef NONMATCHING
     /* the copy's SOURCES_DATA bytes run past light_sources into the members
-     * of sources_file after it, so GCC's to points at the whole object */
+     * of sources_file after it */
     to = (char *)&sources_file;
 #else
     to = (char *)light_sources;
@@ -1540,9 +1541,9 @@ static void light_editor_step(void)
     if (0) {
         light_editor_mode = EDIT_OFF;
     }
-#ifdef GCC
-    /* repairs the unset rows the tag after the switch names: the palette,
-     * file and host modes have none, so GCC's row goes back to 0 */
+#ifdef NONMATCHING
+    /* repairs the unset rows the tag after the switch names. the palette, file
+     * and host modes have no rows, so the wrap puts light_editor_row at 0 */
     rows = 0;
 #endif
     /* NOLINTBEGIN(clang-diagnostic-sometimes-uninitialized) */
@@ -2627,9 +2628,9 @@ Bool light_read_disc_sources(Uint16 stage, int act)
     char *dest;
     Bool result;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* the read's whole sectors run past light_sources into the members of
-     * sources_file after it, so GCC's dest points at the whole object */
+     * sources_file after it */
     dest = (char *)&sources_file;
 #else
     dest = (char *)light_sources;

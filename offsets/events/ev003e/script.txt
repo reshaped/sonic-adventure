@@ -1,0 +1,9 @@
+datum  ev003e_points  D  0x00000000  3408
+datum  ev003e_path  D  0x00000d50  8
+datum  ev003e_amber  D  0x00000d58  4
+datum  ev003e_black  D  0x00000d5c  4
+datum  ev003e_upgrades  D  0x00000d60  2
+datum  ev003e_upgrades_saved  D  0x00000d64  4
+datum  ev003e_textures  D  0x00000d68  8
+text  TEXT_1  C  0x00000000  2
+text  TEXT_2  C  0x00000004  8

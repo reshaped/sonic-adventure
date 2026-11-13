@@ -49,7 +49,7 @@ extern NJS_ACTION highway_car_2_action;
 extern NJS_ACTION highway_car_3_action;
 /* the matrix of the car being drawn */
 extern NJS_MATRIX traffic_car_matrix;
-#ifdef GCC
+#ifdef NONMATCHING
 /* STG04's tables place it in bss that no source holds, after this file's.
  * the port defines it here */
 NJS_MATRIX traffic_car_matrix;
@@ -595,7 +595,7 @@ static void traffic_car_follow(struct task *task)
     Float degrees;
 
     sample->distance = work->distance;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets delta: path_sample can't fail on
      * traffic_route, as the comment below says */
     delta = 0;

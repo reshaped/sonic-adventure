@@ -10,7 +10,7 @@ from unittest import mock
 
 import link
 from config import Config
-from support import MODULE, tree
+from support import MODULE, WIBO, tree
 
 # S-records as cnvs writes them: a header, two data records, and the end
 HEADER = 'S00E00007461736B202020206D6F746E'
@@ -361,6 +361,19 @@ class Main(unittest.TestCase):
 
 # link.py, as make runs it
 LINK = Path(link.__file__).resolve()
+
+
+class Wibo(unittest.TestCase):
+    def test_is_the_wibo_the_makefile_fetches_where_the_environment_names_none(self):
+        # make names wibo to link.py in WIBO, which the Makefile exports. Run without make, link.py takes the wibo
+        # make fetches where no setting names another
+        env = {name: value for name, value in os.environ.items() if name != 'WIBO'}
+        env['PYTHONPATH'] = str(LINK.parent)
+        named = subprocess.run([sys.executable, '-B', '-c', 'import link\nprint(link.WIBO)\n'], env=env, check=True,
+                               stdout=subprocess.PIPE, text=True).stdout
+        self.assertEqual(named, f'{WIBO}\n')
+
+
 # stand-ins for wibo: each starts a writer, which ignores TERM and makes the file "written" a second on, then makes
 # "started" and hangs. One makes "termed" on TERM and ends; the other ignores TERM
 HANGS = {

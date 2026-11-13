@@ -1,0 +1,2 @@
+datum  move_seat_shapes  D  0x00000000  104
+datum  move_seat_texanim  D  0x00000068  20

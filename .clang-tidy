@@ -34,8 +34,10 @@ WarningsAsErrors: '*'
 HeaderFilterRegex: '^(src|modules)/'
 ExcludeHeaderFilterRegex: '^modules/movie/sdk/'
 CheckOptions:
-  # include-cleaner can suggest C++'s <cstddef> for NULL in C code
-  misc-include-cleaner.IgnoreHeaders: '<cstddef>'
+  # include-cleaner can suggest C++'s <cstddef> for NULL in C code, and
+  # engine/native/intrinsics.h, which compile_flags.txt includes ahead of
+  # each source, for the intrinsics math.h and ninja.h name
+  misc-include-cleaner.IgnoreHeaders: '<cstddef>;engine/native/intrinsics\.h'
   readability-identifier-naming.FunctionCase: lower_case
   readability-identifier-naming.FunctionIgnoredRegexp: '^sb(Init|Exit)System$'
   readability-identifier-naming.VariableCase: lower_case

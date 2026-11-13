@@ -115,7 +115,7 @@ static void shooting_hud_init(void)
 static void shooting_hud_draw(struct task *task)
 {
     rings_shown = -1;
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the score about the screen's left edge */
     port_wide_anchor = WIDE_LEFT;
 #endif
@@ -125,7 +125,7 @@ static void shooting_hud_draw(struct task *task)
     njDrawSprite2D(&score_label, 0, -100.0F,
                    NJD_SPRITE_COLOR | NJD_SPRITE_ALPHA);
     hud_draw_number(&score_digits);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }

@@ -1,0 +1,8 @@
+datum  shelter_jellyfish_textures  D  0x00000000  12
+datum  shelter_jellyfish_texlist  D  0x0000000c  8
+datum  shelter_jellyfish_frames  D  0x00000014  100
+text  TEXT_1  C  0x00000000  5
+text  TEXT_2  C  0x00000008  15
+text  TEXT_3  C  0x00000018  15
+text  TEXT_4  C  0x00000028  15
+text  TEXT_5  C  0x00000038  11

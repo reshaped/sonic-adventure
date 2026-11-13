@@ -1,0 +1,6 @@
+datum  highway_missile_texlist  D  0x00000000  8
+datum  highway_missile_texanim  D  0x00000008  20
+datum  highway_missile_glows  D  0x0000001c  48
+datum  highway_missile_steam_from  D  0x0000004c  12
+datum  highway_missile_steam_to  D  0x00000058  12
+datum  highway_missile_steam  D  0x00000064  60

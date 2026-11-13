@@ -1,4 +1,4 @@
-"""Check make gcc's finished link: what each import, alias and constant
+"""Check make dc's finished link: what each import, alias and constant
 binds, where each anchor lies, which inputs each image takes, and whether
 the declarations of each name agree.
 
@@ -41,6 +41,10 @@ fault.
 
 Then the declarations check runs, with FLAGS, and verify fails on each
 line tools/decls.py's failures() gives.
+
+Where ld.py's link-time compile ran, verify checks the images as
+gcclink.py's link_time() gives them, each link-time object an input in its
+object's place.
 
 verify fails too as gcclink.py's read() does on SPEC and its linked() on
 each final pass, and as elf.py's opened() does on each input.
@@ -230,11 +234,11 @@ def unselected(images, finals):
 def main(argv):
     parser = argparse.ArgumentParser(prog='verify', description=__doc__.split('\n\n')[0])
     parser.add_argument('--abi', metavar='FLAGS', required=True,
-                        help="GCC_ABI, the -m and -fpack-struct= options make gcc compiles its C with")
+                        help="GCC_ABI, the -m and -fpack-struct= options make dc compiles its C with")
     parser.add_argument('spec', metavar='SPEC', help='the spec tools/spec.py writes')
     parser.add_argument('out', metavar='DIR', type=Path, help='the directory tools/ld.py linked its images under')
     args = parser.parse_args(argv)
-    images = gcclink.read(args.spec)
+    images = gcclink.link_time(gcclink.read(args.spec), args.out)
     finals = {name: gcclink.linked(args.out, name, 'final') for name in images}
     problems = misbound(images, finals) + unanchored(images, finals) + unselected(images, finals)
     if problems:

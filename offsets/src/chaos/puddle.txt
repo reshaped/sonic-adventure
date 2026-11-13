@@ -1,0 +1,7 @@
+datum  puddle_textures  D  0x00000000  12
+datum  puddle_texlist  D  0x0000000c  8
+datum  blob_count  B  0x00000000  1
+datum  blob_pos  B  0x00000004  192
+datum  blob_size  B  0x000000c4  64
+datum  puddle_task  B  0x00000104  4
+text  TEXT_1  C  0x00000000  15

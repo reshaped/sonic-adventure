@@ -1,0 +1,223 @@
+# Where each of kernel.txt's warm rows lies, and what its place was costed
+# against, as tools/order.py wrote it. heat is the SHA-256 of heat.txt,
+# the measured heat the cost read, and text the address the image's .text
+# started at. A searched row, searched PATH INPUT PLACE SIZE, follows for
+# each kernel row's section and each warm row's, in kernel.txt's order:
+# INPUT, an input section of the object PATH, lies PLACE bytes into that
+# .text and took SIZE bytes. tools/ld.py lays each warm row's section at
+# its PLACE, so a row that grows within the bytes up to the next row's
+# PLACE moves nothing. It fails a link where a warm row runs past the
+# next row's PLACE, where heat.txt has another hash, where .text starts
+# elsewhere, and where a kernel row's section lies elsewhere or is
+# another size, since the places were costed against the kernels and the
+# heat's fixed stretches, and no other code. make dc-order then writes
+# this table again, and says what it held otherwise: it moves no warm row
+# that fits where it lies, and gives a row that doesn't, or a new one, a
+# place on a line's start with a spare line after it. make dc-order
+# SEARCH=1 also searches the whole block, and writes what it finds where
+# that costs less, and make dc-order PACK=1 lays the rows in kernel.txt's
+# order with no byte free among them. Each is a change to measure, since
+# it moves rows that fit where they lie.
+heat      1f8e03ae0c308beb8c3c5518a73ea2b2e5d8be2fe40aecc29c38180b71683e50
+text      0x8c0100a0
+searched  build/dc/src/collision/world.o              .text.world_land_draw_visible                0x0  0x170
+searched  build/dc/src/system/cache.o                 P                                          0x180  0xf0
+searched  build/dc/sdk/ninja/njkm.o                   .text.njStartVertexNonTexOpaque            0x270  0x68
+searched  build/dc/src/draw/model.o                   .text.set_meshes_header                    0x2d8  0x154
+searched  build/dc/src/draw/model.o                   .text.draw_model_unculled                  0x42c  0x94
+searched  build/dc/src/draw/model.o                   .text.strips_untextured                    0x4c0  0xd0
+searched  build/dc/src/draw/model.o                   .text.make_unlit                           0x590  0x4c
+searched  build/dc/src/draw/model.o                   .text.draw_meshes                          0x620  0x340
+searched  build/dc/sdk/ninja/njTexture.o              .text.njSetTexture                         0x960  0x14
+searched  build/dc/src/draw/model.o                   .text.set_point_alpha                      0x974  0xf0
+searched  build/dc/src/draw/model.o                   .text.strips_env                           0xa64  0xe0
+searched  build/dc/src/draw/model.o                   .text.strips_textured                      0xb44  0xd0
+searched  build/dc/src/draw/model.o                   .text.draw_model_nested                    0xc20  0xc0
+searched  build/dc/src/draw/model.o                   .text.model_in_view                        0xce0  0xa8
+searched  build/dc/src/draw/model.o                   .text.model_off_screen                     0xd88  0x7c
+searched  build/dc/src/draw/model.o                   .text.draw_model                           0xe04  0xd0
+searched  build/dc/src/draw/model.o                   .text.shade_points                         0xed4  0x2c4
+searched  build/dc/src/draw/model.o                   .text.project_and_shade                   0x1198  0x78
+searched  build/dc/src/draw/model.o                   .text.take_constant_attr                  0x1210  0x50
+searched  build/dc/sdk/ninja/njkm.o                   .text.njGetkmPointer                      0x1260  0x40
+searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmPointer                      0x12a0  0x40
+searched  build/dc/src/draw/model.o                   .text.project_points                      0x12e0  0x158
+searched  build/dc/src/system/present.o               .text.present_untimed                     0x1440  0x60
+searched  build/dc/src/system/present.o               .text.present_run                         0x14a0  0x88
+searched  build/dc/src/system/present.o               .text.keep_step                           0x1528  0x154
+searched  build/dc/src/system/present.o               .text.present_record                      0x167c  0x84
+searched  build/dc/src/system/present.o               .text.timer_stop                          0x1700  0x14
+searched  build/dc/src/system/present.o               .text.marks_add                           0x1714  0x74
+searched  build/dc/src/system/present.o               .text.lists_end                           0x1788  0x1c
+searched  build/dc/src/system/present.o               .text.step_measured                       0x17a4  0x100
+searched  build/dc/src/system/present.o               .text.state_get                           0x18a4  0x94
+searched  build/dc/sdk/ninja/njGetMatrix.o            .text.njGetMatrix                         0x19a0  0x54
+searched  build/dc/sdk/ninja/njCalcVector.o           .text.njCalcVector                        0x19f4  0x4c
+searched  build/dc/sdk/ninja/njRotateXYZ.o            .text.njRotateXYZ                         0x1a40  0x9c
+searched  build/dc/sdk/ninja/njRotateX.o              .text.njRotateX                           0x1adc  0x38
+searched  build/dc/sdk/ninja/njRotateY.o              .text.njRotateY                           0x1b14  0x38
+searched  build/dc/sdk/ninja/njSetMatrix.o            .text.njSetMatrix                         0x1b4c  0x98
+searched  build/dc/sdk/ninja/njPopMatrix.o            .text.njPopMatrix                         0x1be4  0x44
+searched  build/dc/sdk/ninja/njPushMatrix.o           .text.njPushMatrix                        0x1c28  0xb4
+searched  build/dc/sdk/ninja/njScale.o                .text.njScale                             0x1cdc  0xa8
+searched  build/dc/src/draw/action.o                  .text.action_draw_motion_tree             0x1f40  0x118
+searched  build/dc/src/draw/action.o                  .text.action_sample_angles                0x2058  0x84
+searched  build/dc/src/draw/action.o                  .text.action_motion_node_2                0x20dc  0x50
+searched  build/dc/src/draw/action.o                  .text.action_translate_keys               0x212c  0x8c
+searched  build/dc/src/draw/action.o                  .text.action_rotate_keys_xyz              0x21b8  0x9c
+searched  build/dc/src/object/placement.o             .text.placement_try_leave_by              0x2254  0x11c
+searched  build/dc/src/draw/action.o                  .text.action_scale_object                 0x2370  0x1c
+searched  build/dc/src/system/task.o                  .text.task_step_level                     0x238c  0x4c
+searched  build/dc/src/draw/tree.o                    .text.draw_nodes                          0x23d8  0x198
+searched  build/dc/src/debug/editor.o                 .text.placement_editing                   0x2570  0x2c
+searched  build/dc/src/collision/polygon.o            .text.polygon_sweep                       0x2620  0xa68
+searched  build/dc/sdk/runtime/atan2f.o               .text.atan2f                              0x3088  0x48
+searched  build/dc/sdk/runtime/_i_atn2s.o             .text._in_atan2s                          0x30d0  0x4c
+searched  build/dc/sdk/runtime/_i_atans.o             .text._in_atans                           0x311c  0x230
+searched  build/dc/sdk/runtime/_i_fmds.o              .text._in_fmods                           0x334c  0xec
+searched  build/dc/sdk/runtime/_a_atans.o             .text._app_atans                          0x3438  0x2c
+searched  build/dc/sdk/runtime/_i_ldes.o              .text._in_ldexps                          0x3464  0x80
+searched  build/dc/sdk/runtime/acosf.o                .text.acosf                               0x34e4  0x54
+searched  build/dc/sdk/runtime/_i_acoss.o             .text._in_acoss                           0x3538  0x24
+searched  build/dc/sdk/runtime/_i_asins.o             .text._in_asins                           0x355c  0xc0
+searched  build/dc/sdk/runtime/asinf.o                .text.asinf                               0x361c  0x48
+searched  build/dc/src/draw/model.o                   .text.points_off_screen                   0x3700  0x11c
+searched  build/dc/src/draw/model.o                   .text.any_past_near                       0x381c  0x18
+searched  build/dc/src/draw/model.o                   .text.points_above                        0x3834  0x6c
+searched  build/dc/src/draw/model.o                   .text.shade_from_bake                     0x38a0  0xf8
+searched  build/dc/src/draw/model.o                   .text.near_clip                           0x39e0  0x748
+searched  build/dc/src/draw/model.o                   .text.triangle_off_screen                 0x4128  0x1ec
+searched  build/dc/src/draw/model.o                   .text.clipped_textured                    0x4314  0x2ec
+searched  build/dc/sdk/ninja/njSprite.o               .text.njDrawSprite3D                      0x4600  0x3c8
+searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmColorMode                    0x49c8  0x74
+searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmTextureNum                   0x4a3c  0x70
+searched  build/dc/sdk/ninja/njkm.o                   .text.njStartVertexTexTransIntens         0x4aac  0x6c
+searched  build/dc/sdk/ninja/njSystem.o               .text.njColorBlendingMode                 0x4b18  0x30
+searched  build/dc/sdk/ninja/njSprite.o               .text.sprite_send_plane                   0x4b48  0x5cc
+searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.process_blends                      0x5114  0x2ec
+searched  build/dc/sdk/shinobi/kdapi.o                .text.publish_devices                     0x5440  0x48
+searched  build/dc/sdk/ninja/njMem.o                  .text.njMemCopy                           0x5488  0xe
+searched  build/dc/src/draw/model.o                   .text.draw_divide_light                   0x5498  0x30
+searched  build/dc/src/system/frame.o                 .text.frame_wait                          0x54c8  0xdc
+searched  build/dc/src/enemy/sai.o                    .text.sai_roll_treads                     0x55a4  0xb4
+searched  build/dc/sdk/sofdec/adx_fs.o                .text.adxf_wait_1ms                       0x5658  0x10
+searched  build/dc/src/system/util.o                  .text.points_blend                        0x5668  0x24
+searched  build/dc/src/system/present.o               .text.present_hold                        0x568c  0x34
+searched  build/dc/src/system/task.o                  .text.heap_calloc                         0x56c0  0x40
+searched  build/dc/src/object/common.o                .text.model_step_solid                    0x5700  0x60
+searched  build/dc/src/collision/polygon.o            .text.strip_next                          0x5760  0x164
+searched  build/dc/src/stage/stage.o                  .text.stage_get_stage_act                 0x58c4  0x1c
+searched  build/dc/src/player/player.o                .text.player_in_range                     0x58e0  0x60
+searched  build/dc/src/object/common.o                .text.object_clear_touch                  0x5940  0x30
+searched  build/dc/src/system/present.o               .text_last.present_sprite                 0x5970  0x1c
+searched  build/dc/sdk/shinobi/sh4tmr.o               .text.syTmrGetCount                       0x598c  0xc
+searched  build/dc/sdk/ninja/kmglobal_kamui_lib.o     .text.kmSetFogTable                       0x5998  0x6c
+searched  build/dc/sdk/shinobi/sy_g2_dma_is_busy.o    .text.syG2DmaIsBusy                       0x5a04  0x1c
+searched  build/dc/src/system/task.o                  .text.task_step_children                  0x5a20  0x24
+searched  build/dc/src/system/present.o               .text.marks_first                         0x5a44  0x28
+searched  build/dc/src/draw/draw.o                    .text.draw_set_material                   0x5a6c  0x2c
+searched  build/dc/src/object/dash_panel.o            .text.dash_panel_step                     0x5a98  0x25c
+searched  build/dc/src/player/tails.o                 .text.tails_bend_points                   0x5cf4  0x1d0
+searched  build/dc/sdk/ninja/njRotateX.o              .text.unlikely.turn_rows                  0x5ec4  0xdc
+searched  build/dc/src/system/texture.o               .text.texture_set_stage                   0x5fa0  0x24
+searched  build/dc/src/collision/polygon.o            .text.strip_next_moved                    0x5fc4  0x168
+searched  build/dc/src/effect/lens.o                  .text.lens_draw                           0x612c  0x2d0
+searched  build/dc/src/draw/action_link.o             .text.action_link_transform               0x63fc  0x138
+searched  build/dc/sdk/sofdec/adx_dcda.o              .text.ADX_DecodeSteFloat                  0x6534  0x1ec
+searched  build/dc/sdk/ninja/njGenerateFogTable3.o    .text.njGenerateFogTable3                 0x6720  0x250
+searched  build/dc/src/effect/spark.o                 .text.spark_step                          0x6970  0x134
+searched  build/dc/src/object/common.o                .text.model_draw                          0x6aa4  0xa0
+searched  build/dc/src/draw/tree.o                    .text.draw_tree                           0x6b44  0x24
+searched  build/dc/src/draw/action_link.o             .text.action_link_rotate_keys             0x6b68  0x12c
+searched  build/dc/sdk/ninja/njControl.o              .text.njSetConstantMaterial               0x6c94  0x2c
+searched  build/dc/src/object/placement.o             .text.placement_try_leave                 0x6cc0  0x20
+searched  build/dc/sdk/ninja/njNearClippingLine.o     .text.njNearClippingLine                  0x6ce0  0x1f4
+searched  build/dc/src/system/present.o               .text.state_put                           0x6ed4  0x94
+searched  build/dc/src/system/util.o                  .text.model_calc_face_normals             0x6f68  0x378
+searched  build/dc/src/system/task.o                  .text.heap_alloc                          0x72e0  0x88
+searched  build/dc/src/enemy/saru.o                   .text.saru_step                           0x7368  0x1260
+searched  build/dc/src/draw/action.o                  .text.action_sample_vector                0x85c8  0x7c
+searched  build/dc/src/system/present.o               .text.present_forget                      0x8644  0x138
+searched  build/dc/src/collision/world.o              .text.world_land_list_visible             0x877c  0x234
+searched  build/dc/src/system/util.o                  .text.model_calc_point_normals            0x89b0  0x4d4
+searched  build/dc/src/draw/action.o                  .text.draw_action                         0x8e84  0x88
+searched  build/dc/sdk/ninja/njRotateZ.o              .text.njRotateZ                           0x8f0c  0x34
+searched  build/dc/src/system/task.o                  .text.task_draw_level                     0x8f40  0x50
+searched  build/dc/src/enemy/spina.o                  .text.spina_c_step                        0x8f90  0x6b0
+searched  build/dc/src/object/item_box.o              .text.item_box_step                       0x9640  0x354
+searched  build/dc/sdk/ninja/njMultiMatrix.o          .text.njMultiMatrix                       0x9994  0x8c
+searched  build/dc/src/enemy/enemy.o                  .text.enemy_collide                       0x9a20  0xa40
+searched  build/dc/src/collision/ground.o             .text.shadow_draw_placed                  0xa460  0xcc
+searched  build/dc/src/draw/action.o                  .text.action_select_steps                 0xa52c  0xb4
+searched  build/dc/src/system/present.o               .text.marks_find                          0xa5e0  0x44
+searched  build/dc/src/draw/model.o                   .text.bake_admit                          0xa624  0x6d0
+searched  build/dc/src/system/present.o               .text.present_shadow                      0xacf4  0xf0
+searched  build/dc/src/player/player.o                .text.ball_drop                           0xade4  0x1a8
+searched  build/dc/sdk/ninja/njCalcVector.o           .text.transform_by                        0xaf8c  0x70
+searched  build/dc/src/collision/collision.o          .text.collision_get_shape_center          0xaffc  0x1a8
+searched  build/dc/src/effect/particle.o              .text.particle_draw_all                   0xb1a4  0xe8
+searched  build/dc/src/draw/model.o                   .text.clipped_env                         0xb28c  0x2d0
+searched  build/dc/src/player/tails.o                 .text.tails_draw                          0xb55c  0x838
+searched  build/dc/src/effect/dust.o                  .text.dust_step                           0xbd94  0xc0
+searched  build/dc/src/system/util.o                  .text.tree_find_node                      0xbe54  0x5c
+searched  build/dc/src/collision/collision.o          .text.collide_enemy_object                0xbeb0  0x430
+searched  build/dc/src/collision/polygon.o            .text_last.heights_visit                  0xc2e0  0x5c
+searched  build/dc/src/object/placement.o             .text.place_near_one                      0xc33c  0x3cc
+searched  build/dc/sdk/ninja/njNearClipping.o         .text.njNearClipping                      0xc708  0x240
+searched  build/dc/src/system/present.o               .text.draw_flats                          0xc948  0x178
+searched  build/dc/src/player/sonic.o                 .text.sonic_step                          0xcac0  0x287c
+searched  build/dc/src/player/player.o                .text.player_step_up                      0xf33c  0x528
+searched  build/dc/src/effect/particle.o              .text.particle_run                        0xf864  0x1b8
+searched  build/dc/src/draw/sprite.o                  .text.sprite_draw_3d                      0xfa1c  0x158
+searched  build/dc/src/player/player.o                .text.player_turn_to_world                0xfb74  0xb8
+searched  build/dc/src/player/tails.o                 .text.tails_step                          0xfc2c  0x1c78
+searched  build/dc/src/object/ring.o                  .text.ring_draw                          0x118a4  0x138
+searched  build/dc/src/collision/world.o              .text.world_collect_near_players         0x119dc  0x3e4
+searched  build/dc/sdk/ninja/njUnitMatrix.o           .text.njUnitMatrix                       0x11dc0  0x78
+searched  build/dc/sdk/ninja/njDrawLine3D.o           .text.njDrawLine3D                       0x11e38  0x524
+searched  build/dc/src/player/npc.o                   .text.npc_step                           0x1235c  0x764
+searched  build/dc/sdk/shinobi/mpdrv.o                .text.mpdrv_setcmd                       0x12ac0  0x220
+searched  build/dc/src/camera/camera.o                .text.camera_push_out                    0x12ce0  0x380
+searched  build/dc/src/system/present.o               .text.keep_flat                          0x13060  0x158
+searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.kmSetVertexRenderState             0x131b8  0x274
+searched  build/dc/sdk/ninja/njtri_filled_with_tex.o  .text.njtri_filled_with_tex              0x1342c  0x1d8
+searched  build/dc/src/draw/model.o                   .text.draw_in_view                       0x13604  0xa8
+searched  build/dc/src/collision/mesh.o               .text.mesh_test_heights                  0x136ac  0x17c
+searched  build/dc/src/collision/polygon.o            .text_last.box_walk_start                0x13828  0xbc
+searched  build/dc/src/collision/collision.o          .text.collision_list_near                0x138e4  0x17c
+searched  build/dc/sdk/shinobi/mpapi.o                .text.mpdrv_frame_send                   0x13a60  0x290
+searched  build/dc/src/player/tails.o                 .text.tails_sway_step                    0x13cf0  0x2e8
+searched  build/dc/sdk/ninja/njDrawTriangle3D.o       .text.njDrawTriangle3D                   0x13fd8  0x2b8
+searched  build/dc/src/collision/polygon.o            .text_last.sweep_touch                   0x14290  0x344
+searched  build/dc/src/object/ring.o                  .text.ring_step                          0x145d4  0x50c
+searched  build/dc/src/player/player.o                .text.player_accel_ground                0x14ae0  0x1f14
+searched  build/dc/src/camera/camera.o                .text.block_holds_player                 0x169f4  0x1f0
+searched  build/dc/src/system/pad.o                   .text.pad_scan                           0x16be4  0x41c
+searched  build/dc/sdk/runtime/memcpy.o               .text.memcpy                             0x17000  0xe4
+searched  build/dc/src/collision/polygon.o            .text.polygon_find_model_heights         0x170e4  0x43c
+searched  build/dc/src/collision/polygon.o            .text.polygon_collect_near               0x17520  0x264
+searched  build/dc/src/collision/world.o              .text.world_list_near                    0x17784  0x2fc
+searched  build/dc/src/collision/mesh.o               .text.mesh_find_heights                  0x17a80  0x14c
+searched  build/dc/src/draw/sprite.o                  .text.sprite_send_facing                 0x17bcc  0x288
+searched  build/dc/src/collision/ground.o             .text.shadow_update                      0x17e54  0x29c
+searched  build/dc/src/collision/polygon.o            .text_last.polygon_find_sides_indexed    0x180f0  0x39c
+searched  build/dc/sdk/ninja/njDetMatrix.o            P                                        0x1848c  0x15c
+searched  build/dc/sdk/shinobi/pdmain.o               .text.pdExecPeripheralServer             0x185e8  0x2ec
+searched  build/dc/src/sound/sound.o                  .text.sound_send_queue                   0x188d4  0x4d8
+searched  build/dc/src/camera/camera.o                .text.camera_task_step                   0x18dac  0xae4
+searched  build/dc/src/system/present.o               .text.keep_draw                          0x19890  0x39c
+searched  build/dc/sdk/ninja/njSprite.o               .text.njDrawSprite2D                     0x19c2c  0x2c0
+searched  build/dc/sdk/shinobi/mpdrv.o                .text.mpdrv_make_devicedata              0x19eec  0x4dc
+searched  build/dc/src/collision/polygon.o            .text.collision_mesh_update              0x1a3c8  0x6bc
+searched  build/dc/src/player/sonic.o                 .text.sonic_sway_step                    0x1aa84  0x3ec
+searched  build/dc/src/collision/collision.o          .text.collide_object                     0x1ae70  0x1640
+searched  build/dc/src/system/present.o               .text.present_draw                       0x1c4b0  0x274
+searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.kmProcessVertexRenderState         0x1c724  0x6f4
+searched  build/dc/sdk/ninja/njModelE.o               .text._njEasyDrawModel                   0x1ce18  0x3f0
+searched  build/dc/src/collision/collision.o          .text.collision_collide_all              0x1d208  0xcfc
+searched  build/dc/src/player/player.o                .text.player_collide_world               0x1df04  0x1dbc
+searched  build/dc/src/collision/collision.o          .text.collision_register                 0x1fcc0  0x1f8
+searched  build/dc/src/draw/pose.o                    .text.pose_node                          0x1feb8  0x478
+searched  build/dc/src/player/player.o                .text.player_update_welds                0x20330  0x9c8
+searched  build/dc/sdk/ninja/njInvertMatrix.o         P                                        0x20cf8  0x808
+searched  build/dc/src/collision/polygon.o            .text_last.polygon_find_heights_indexed  0x21500  0x3e8

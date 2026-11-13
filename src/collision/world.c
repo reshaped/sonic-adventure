@@ -281,6 +281,19 @@ static void world_reset(struct task *task)
     world_near_land_count = 0;
 }
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* forget the land's bakes, and give the collision boxes' words back to the
+ * heap for the land's file */
+LINKED_LAST(world_load_forget)
+static __attribute__((noinline, noclone)) void world_load_forget(void)
+{
+    draw_bake_forget();
+    collision_index_release();
+}
+#endif
+#endif
+
 void world_load_act(int stage, int act)
 {
     struct land_table *land = world_lands[stage][act];
@@ -290,6 +303,11 @@ void world_load_act(int stage, int act)
     int count;
     int i;
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    world_load_forget();
+#endif
+#endif
     if (land == NULL) {
         return;
     }
@@ -620,7 +638,7 @@ static void world_land_list_visible(void)
     } else {
         clip = _nj_far_clip_;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* 16:9 grows the clip so that the near test reaches as far along the
      * view's side edges as it does at 4:3. along a line at an angle a off the
      * camera's heading, the test reaches clip * cos(a). the edges lie where
@@ -708,6 +726,22 @@ void world_set_land_material(Float gray)
     world_land_material = gray;
 }
 
+#ifdef NONMATCHING
+/* whether squared alone shows that the loops' test, njSqrt(squared) -
+ * radius < reach, fails. the land's loops then skip FSQRT. an entry that
+ * passes the test has a root under radius + reach. FSQRT and each operation
+ * here err by under 2^-23 of their result. that entry's squared then lies
+ * under 1 + 2^-21 times the sum's square. the bound is 1 + 2^-10 times it. a
+ * NaN or infinite bound skips nothing. a sum under 0 fails every test, and
+ * may skip anything */
+ALWAYS_INLINE Bool world_beyond(Float squared, Float radius, Float reach)
+{
+    Float sum = radius + reach;
+
+    return squared > sum * sum * (1.0F + 1.0F / 1024.0F);
+}
+#endif
+
 void world_list_near(Float x, Float y, Float z, Float radius)
 {
     struct world_object *out = world_objects;
@@ -777,6 +811,11 @@ void world_list_near(Float x, Float y, Float z, Float radius)
             dx *= dx;
             dy *= dy;
             dz *= dz;
+#ifdef NONMATCHING
+            if (world_beyond(dx + dy + dz, radius, entry->radius)) {
+                continue;
+            }
+#endif
             distance = njSqrt(dx + dy + dz);
             distance -= radius;
             reach = entry->radius;
@@ -969,6 +1008,11 @@ added_done:
                 dx *= dx;
                 dy *= dy;
                 dz *= dz;
+#ifdef NONMATCHING
+                if (world_beyond(dx + dy + dz, radius, entry->radius)) {
+                    continue;
+                }
+#endif
                 center_distance = njSqrt(dx + dy + dz);
                 distance = center_distance - radius;
                 reach = entry->radius;

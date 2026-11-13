@@ -1358,7 +1358,7 @@ void pushed_prop_start(struct task *task, NJS_OBJECT *object,
 
 static void scroll_prop_draw(struct task *task)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* uv_scroll_move points the meshsets' vertuv here, and model.c's
      * clipped strips read each u and v pair as one longword, which faults
      * on an address off 4. GCC aligns this array only to its Sint16s */

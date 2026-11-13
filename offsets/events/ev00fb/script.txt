@@ -1,0 +1,14 @@
+datum  ev00fb_textures  D  0x00000000  16
+text  TEXT_1  C  0x00000018  28
+text  TEXT_2  C  0x0000003c  12
+text  TEXT_3  C  0x0000004c  18
+text  TEXT_4  C  0x00000068  30
+text  TEXT_5  C  0x00000088  12
+text  TEXT_6  C  0x0000009c  12
+text  TEXT_7  C  0x0000000c  4
+text  TEXT_8  C  0x00000010  6
+text  TEXT_9  C  0x00000034  5
+text  TEXT_10  C  0x00000048  4
+text  TEXT_11  C  0x00000060  7
+text  TEXT_12  C  0x00000094  2
+text  TEXT_13  C  0x00000098  2

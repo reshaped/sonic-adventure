@@ -1,0 +1,12 @@
+datum  event_sprite_slots  D  0x00000000  80
+datum  event_sprite_splash_textures  D  0x00000050  96
+datum  event_sprite_texlists  D  0x000000b0  176
+datum  event_sprite_frames  D  0x00000160  320
+text  TEXT_1  C  0x00000000  15
+text  TEXT_2  C  0x00000010  15
+text  TEXT_3  C  0x00000020  15
+text  TEXT_4  C  0x00000030  15
+text  TEXT_5  C  0x00000040  15
+text  TEXT_6  C  0x00000050  15
+text  TEXT_7  C  0x00000060  15
+text  TEXT_8  C  0x00000070  15

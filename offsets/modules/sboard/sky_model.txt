@@ -1,0 +1,14 @@
+datum  dat_0c97adb8  D  0x00000000  40
+datum  dat_0c97ade0  D  0x00000028  240
+datum  dat_0c97aed0  D  0x00000118  288
+datum  dat_0c97aff0  D  0x00000238  480
+datum  dat_0c97b1d0  D  0x00000418  576
+datum  dat_0c97b410  D  0x00000658  48
+datum  dat_0c97b440  D  0x00000688  588
+datum  dat_0c97b68c  D  0x000008d4  588
+datum  dat_0c97b8d8  D  0x00000b20  40
+datum  sunaboard_sky_object  D  0x00000b48  52
+datum  sunaboard_sky_textures  D  0x00000b7c  24
+datum  sunaboard_sky_texlist  D  0x00000b94  8
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  11

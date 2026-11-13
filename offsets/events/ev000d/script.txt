@@ -1,0 +1,13 @@
+datum  ev000d_walk_keys  C  0x00000000  1569
+datum  ev000d_walk  C  0x00000624  8
+datum  ev000d_board_keys  C  0x0000062c  303
+datum  ev000d_board  C  0x0000075c  8
+datum  ev000d_tornado  D  0x00000000  4
+datum  ev000d_tornado_sonic  D  0x00000004  4
+datum  ev000d_fade  D  0x00000008  4
+datum  ev000d_textures  D  0x0000000c  24
+text  TEXT_1  C  0x00000774  30
+text  TEXT_2  C  0x000007a4  16
+text  TEXT_3  C  0x000007b4  22
+text  TEXT_4  C  0x00000770  3
+text  TEXT_5  C  0x00000794  13

@@ -1,0 +1,3 @@
+datum  chaos4_ring_name  C  0x00000000  8
+datum  chaos4_object_kinds  D  0x00000000  20
+datum  chaos4_object_list  DHEAD  0x00000000  8

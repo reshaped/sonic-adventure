@@ -9,6 +9,16 @@
 #include "system/task.h"
 #include "system/util.h"
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* pack(8), as for NJS_VIEW: this side's Ninja moves a matrix on an 8-byte
+ * boundary by pairs of floats. the pieces are an array from heap_alloc,
+ * whose blocks start on 16 bytes. at 132 bytes, every other piece's matrix
+ * would lie 4 past a boundary. pack(8) makes the piece 136, with no member
+ * moved */
+#pragma pack(push, 8)
+#endif
+#endif
 /* the piece of one node */
 struct debris_piece {
     NJS_MATRIX matrix; /* its node's matrix, without the translation */
@@ -21,6 +31,14 @@ struct debris_piece {
     NJS_POINT3 pos;
     struct angles ang; /* the draw doesn't read it */
 };
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma pack(pop)
+_Static_assert(__builtin_offsetof(struct debris_piece, matrix) % 8 == 0 &&
+                   sizeof(struct debris_piece) % 8 == 0,
+               "a piece's matrix lies off the 8-byte boundary");
+#endif
+#endif
 
 /* the debris's record, its task's extra */
 struct debris {

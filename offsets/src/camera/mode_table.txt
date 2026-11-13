@@ -1,0 +1,2 @@
+datum  camera_adjust_list  D  0x00000000  216
+datum  camera_mode_table  D  0x000000d8  12
