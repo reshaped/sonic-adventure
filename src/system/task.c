@@ -27,10 +27,18 @@ struct heap_block {
 extern Uint8 heap_arena[];
 #ifdef NONMATCHING
 /* 1ST_READ.BIN's tables place it in B32, the bss whose objects start on a
- * 32-byte boundary, where no source holds it. the port defines it here, on
- * a 32-byte boundary too */
+ * 32-byte boundary, where no source holds it. the port defines it here. on
+ * the Dreamcast it starts on HEAP_BOUNDARY, the bytes that take each set of
+ * the SH-4's operand cache once, so that no .bss the link lays ahead of the
+ * heap moves a block to another set. a host has no such cache, and COFF
+ * aligns 8 KB at most, so there it keeps the 32-byte boundary */
+#ifdef DREAMCAST
+#define HEAP_BOUNDARY 0x4000
+#else
+#define HEAP_BOUNDARY 32
+#endif
 Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]
-    __attribute__((aligned(32)));
+    __attribute__((aligned(HEAP_BOUNDARY)));
 #endif
 
 static struct heap_block *heap_free_list;

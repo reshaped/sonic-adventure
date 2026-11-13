@@ -79,13 +79,13 @@ NJS_VECTOR sa1_live_light;
 static NJS_VECTOR light_base;
 
 /* palette p takes the operand cache's sets 64p to 64p + 63, and
- * draw_unlit_offsets the first 256. while polygon_sweep's first whole line
- * lies past them, the draws' scratch misses palettes 0 to 3's sets. it
- * takes them only by running on past the cache's last set. GCC lays out
- * .bss last definition first, after the walk's bakes. so 124 bytes of the
- * light, the palette and the walk's other data follow draw_colors, as
- * model.src's did. what this file defines below lies in the room
- * draw_colors' alignment leaves */
+ * draw_unlit_offsets its first 256. the draws' scratch starts past those
+ * 256, as SCRATCH_LINE places it, so a model's points and colors take none
+ * of palettes 0 to 3's sets unless they run on past the cache's last set.
+ * GCC lays out .bss last definition first, after the walk's bakes, so the
+ * light, the palette and the walk's other data follow it, 124 bytes, as
+ * model.src's did, and what this file defines below lies in its
+ * alignment's room */
 #ifdef DREAMCAST
 union draw_colors draw_colors __attribute__((aligned(OC_SIZE), nocommon));
 #else
@@ -106,23 +106,41 @@ _Static_assert(OC_SIZE + (DRAW_MOST_POINTS * 32) <= DRAW_SCRATCH_SIZE &&
                    DRAW_MOST_POINTS >= 4,
                "the draws' scratch may run past DRAW_SCRATCH_SIZE");
 
-/* have the walk take Ninja's screen, with port_draw_aspect for Ninja's x
- * aspect, and place its scratch in _nj_vertex_buf_ */
+/* the first byte of the operand cache's set that the line the draws'
+ * scratch follows takes, for code, an address on a line: code's set, from
+ * set OC_SETS / 2, since palettes 0 to 3 take the sets under it, to set
+ * OC_SETS - 2, since the scratch starts a line on and the set after the
+ * cache's last is its first */
+#define SCRATCH_SET(code)                                                      \
+    (((code) & (OC_SIZE - 1)) < OC_SIZE / 2 ? OC_SIZE / 2                      \
+     : ((code) & (OC_SIZE - 1)) > OC_SIZE - (2 * OC_LINE)                      \
+         ? OC_SIZE - (2 * OC_LINE)                                             \
+         : ((code) & (OC_SIZE - 1)))
+/* the bytes from buffer, a buffer's start, to the line the draws' scratch
+ * follows: the first line there on SCRATCH_SET's set for code. so the
+ * scratch starts on a set from OC_SETS / 2 + 1 to the cache's last, past
+ * the palettes' sets, whichever lines config/1st_read/kernel.txt's windows
+ * give the code. the sets it has before it runs on past the last follow
+ * code's line */
+#define SCRATCH_LINE(buffer, code)                                             \
+    ((SCRATCH_SET(code) - (buffer)) & (OC_SIZE - 1))
+
+/* give the walk port_draw_aspect, in place of Ninja's x aspect, as it takes
+ * Ninja's screen, and place its scratch in _nj_vertex_buf_ */
 void draw_model_init(void)
 {
     Uint32 buffer = (Uint32)_nj_vertex_buf_;
     Uint32 sweep = ((Uint32)polygon_sweep + OC_LINE - 1) & ~(OC_LINE - 1);
-    /* sweep is polygon_sweep's first whole line. no draw reads its literal
-     * pools, so the scratch takes its sets first. project_points' first pass
-     * writes the buffer's line in sweep's set. the scratch starts on the
-     * next, at most OC_SIZE bytes in. a model's n points take 16n bytes,
-     * and their lit and unlit colors 8n each after them. while
-     * project_points runs, its two lines of XMTRX lie past the points. they
-     * pass the colors' end only for n under 4, and stay within the
-     * scratch's first 128 bytes. Ninja's draws and texture loads, which run
-     * between the draws here, take the buffer from its start */
-    void *scratch =
-        (void *)(buffer + ((sweep - buffer) & (OC_SIZE - 1)) + OC_LINE);
+    /* the line SCRATCH_LINE gives lies under OC_SIZE bytes in, and the
+     * walk's project_points' first pass writes it. a model's n points take 16n
+     * bytes from the next line, the scratch, and their lit and unlit colors
+     * 8n each after them. while project_points runs, its two lines of XMTRX
+     * lie past the points, which takes them past the colors' end only for n
+     * under 4, by at most 128 bytes past the scratch. so the scratch reaches
+     * DRAW_SCRATCH_SIZE bytes into the buffer at most, as the assert above
+     * holds. Ninja's draws and texture loads, which run between the draws
+     * here, take the buffer from its start */
+    void *scratch = (void *)(buffer + SCRATCH_LINE(buffer, sweep) + OC_LINE);
 
     sa1_live_screen(port_draw_aspect, scratch);
     sa1_live_palette = draw_colors.words;

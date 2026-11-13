@@ -219,12 +219,15 @@ static inline struct colors *point_colors(struct point *points, int count)
 _Static_assert(sizeof(struct point) == 16, "a point isn't 16 bytes");
 
 /* the operand cache, as live.h's OC_LINE, OC_SETS and OC_SIZE give it. code
- * reads its literal pools through it. config/1st_read/kernel.txt lays out the
- * draws' code first, then the object walks', which call the draws. the sweep's
- * code follows, and no draw reads its pools. project_points' first pass writes
- * _nj_vertex_buf_'s first line in the set of polygon_sweep's first whole line.
- * the points start on the next. their colors follow them, so the draws'
- * scratch takes the sweep's sets first */
+ * reads its literal pools through it. config/1st_read/kernel.txt lays out
+ * the code the draws run first, then the object walks', which call the
+ * draws, then the sweep's, whose pools no draw reads. the draws' scratch in
+ * _nj_vertex_buf_ starts at the first line in the set of polygon_sweep's
+ * first whole line, or in set OC_SETS / 2 where that set lies under it,
+ * or in set OC_SETS - 2 where that set is the cache's last.
+ * project_points' first pass writes that line, the points start on the
+ * next, and their colors follow them, so the scratch takes the sweep's
+ * sets first, and the cache's first OC_SETS / 2 only past its last */
 
 /* claim each line wholly inside [start, end) by MOVCA.L, which reads no
  * memory. as SH4ZAM's shz_dcache_alloc_line says, a claimed line's first word

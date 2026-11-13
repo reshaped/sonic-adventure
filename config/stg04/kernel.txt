@@ -1,8 +1,0 @@
-# STG04.PRS's kernel table. tools/ld.py starts the image's .data, which
-# holds its models, on the 16 KB of the SH-4's operand cache, so that no
-# change to the size of its code or of its read-only data moves a model
-# to another set of the cache.
-#
-# A row is as in config/1st_read/kernel.txt.
-
-starts   .data

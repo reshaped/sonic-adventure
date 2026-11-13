@@ -35,7 +35,9 @@
 # packed, says the image starts none of them, as one whose load area has
 # no room for them must. An image whose table has neither row, or that has
 # no table, starts those config/dreamcast.mk's DC_STARTS names, where its
-# tables place code.
+# tables place code. An image that starts .data, by either, links its
+# content first, so that its models open .data, where no change to another
+# object's data moves them.
 #
 # A last row, last SOURCE, puts the code port.h's LINKED_LAST marks in
 # SOURCE's object ahead of the rest of the image's last code, in row order.
@@ -189,7 +191,13 @@ window   walk      55
 # sweep: the sweep, then the arc tangent of a quotient and the arc cosine,
 # which turn each polygon's normal, and the arc sine, which a hit takes.
 # model.c starts the draws' scratch on the operand cache's set of
-# polygon_sweep's first whole line, so polygon_sweep opens the kernel
+# polygon_sweep's first whole line, so polygon_sweep opens the kernel.
+# Where the windows ahead put that line on one of the cache's first 256
+# sets, which the draws' palettes take, the scratch starts on set 256,
+# and where they put it on the last set, on set 510, so the points that
+# follow the line start past the palettes' sets too. The lower the line's
+# set, the more points a model draws before its scratch runs on past the
+# cache's last set, onto the palettes'
 sweep    src/collision/polygon.c   polygon_sweep
 sweep    sdk/runtime/atan2f.c      atan2f
 sweep    sdk/runtime/_i_atn2s.c    _in_atan2s
@@ -268,132 +276,132 @@ over     sprite   clip
 # njRotateZ and placement_try_leave, are warm rows too, not kernel rows: a
 # kernel row's pool words join the check above of the data they name, and
 # the moves it makes for them move the data after
-warm     sdk/shinobi/kdapi.c       publish_devices
-warm     sdk/ninja/njMem.c         njMemCopy
-warm     src/draw/model.src        draw_divide_light
-warm     src/system/frame.c        frame_wait
-warm     src/enemy/sai.c           sai_roll_treads
-warm     sdk/sofdec/adx_fs.c       adxf_wait_1ms
-warm     src/system/util.c         points_blend
-warm     src/system/present.c      present_hold
-warm     src/system/task.c         heap_calloc
-warm     src/object/common.c       model_step_solid
-warm     src/collision/polygon.c   strip_next
-warm     src/stage/stage.c         stage_get_stage_act
-warm     src/player/player.c       player_in_range
-warm     src/object/common.c       object_clear_touch
-warm     src/system/present.c      present_sprite
-warm     sdk/shinobi/sh4tmr.c      syTmrGetCount
-warm     sdk/ninja/kmglobal_kamui_lib.c kmSetFogTable
-warm     sdk/shinobi/sy_g2_dma_is_busy.c syG2DmaIsBusy
-warm     src/system/task.c         task_step_children
-warm     src/system/present.c      marks_first
-warm     src/draw/draw.c           draw_set_material
-warm     src/object/dash_panel.c   dash_panel_step
-warm     src/player/tails.c        tails_bend_points
-warm     sdk/ninja/njRotateX.c     turn_rows
-warm     src/system/texture.c      texture_set_stage
-warm     src/collision/polygon.c   strip_next_moved
-warm     src/effect/lens.c         lens_draw
-warm     src/draw/action_link.c    action_link_transform
-warm     sdk/sofdec/adx_dcda.c     ADX_DecodeSteFloat
-warm     sdk/ninja/njGenerateFogTable3.c njGenerateFogTable3
-warm     src/effect/spark.c        spark_step
-warm     src/object/common.c       model_draw
-warm     src/draw/tree.c           draw_tree
-warm     src/draw/action_link.c    action_link_rotate_keys
-warm     sdk/ninja/njControl.c     njSetConstantMaterial
-warm     src/object/placement.c    placement_try_leave
-warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
-warm     src/system/present.c      state_put
-warm     src/system/util.c         model_calc_face_normals
-warm     src/system/task.c         heap_alloc
-warm     src/enemy/saru.c          saru_step
-warm     src/draw/action.c         action_sample_vector
-warm     src/system/present.c      present_forget
-warm     src/collision/world.c     world_land_list_visible
-warm     src/system/util.c         model_calc_point_normals
-warm     src/draw/action.c         draw_action
-warm     sdk/ninja/njRotateZ.c     njRotateZ
-warm     src/system/task.c         task_draw_level
-warm     src/enemy/spina.c         spina_c_step
-warm     src/object/item_box.c     item_box_step
-warm     sdk/ninja/njMultiMatrix.c njMultiMatrix
-warm     src/enemy/enemy.c         enemy_collide
-warm     src/collision/ground.c    shadow_draw_placed
-warm     src/draw/action.c         action_select_steps
-warm     src/system/present.c      marks_find
-warm     src/draw/model.src        bake_admit
-warm     src/system/present.c      present_shadow
-warm     src/player/player.c       ball_drop
-warm     sdk/ninja/njCalcVector.c  transform_by
-warm     src/collision/collision.c shape_get_center
-warm     src/effect/particle.c     particle_draw_all
-warm     src/draw/model.src        clipped_env
-warm     src/player/tails.c        tails_draw
-warm     src/effect/dust.c         dust_step
-warm     src/system/util.c         tree_find_node
-warm     src/collision/collision.c collide_enemy_object
-warm     src/collision/polygon.c   heights_visit
-warm     src/object/placement.c    place_near_one
-warm     sdk/ninja/njNearClipping.c njNearClipping
-warm     src/system/present.c      draw_flats
-warm     src/player/sonic.c        sonic_step
-warm     src/player/player.c       player_step_up
-warm     src/effect/particle.c     particle_run
 warm     src/draw/sprite.src       sprite_draw_3d
-warm     src/player/player.c       player_turn_to_world
-warm     src/player/tails.c        tails_step
-warm     src/object/ring.c         ring_draw
-warm     src/collision/world.c     world_collect_near_players
-warm     sdk/ninja/njUnitMatrix.c  njUnitMatrix
-warm     sdk/ninja/njDrawLine3D.c  njDrawLine3D
-warm     src/player/npc.c          npc_step
-warm     sdk/shinobi/mpdrv.c       mpdrv_setcmd
-warm     src/camera/camera.c       camera_push_out
-warm     src/system/present.c      keep_flat
-warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
-warm     sdk/ninja/njtri_filled_with_tex.c njtri_filled_with_tex
-warm     src/draw/model.src        draw_in_view
-warm     src/collision/mesh.src    mesh_test_heights
-warm     src/collision/polygon.c   box_walk_start
-warm     src/collision/collision.c collision_list_near
-warm     sdk/shinobi/mpapi.c       mpdrv_frame_send
-warm     src/player/tails.c        tails_sway_step
-warm     sdk/ninja/njDrawTriangle3D.c njDrawTriangle3D
-warm     src/collision/polygon.c   sweep_touch
-warm     src/object/ring.c         ring_step
-warm     src/player/player.c       player_accel_ground
-warm     src/camera/camera.c       block_holds_player
-warm     src/system/pad.c          pad_scan
-warm     sdk/runtime/memcpy.c      memcpy
-warm     src/collision/polygon.c   polygon_find_model_heights
-warm     src/collision/polygon.c   polygon_collect_near
-warm     src/collision/world.c     world_list_near
-warm     src/collision/mesh.src    mesh_find_heights
-warm     src/draw/sprite.src       sprite_send_facing
-warm     src/collision/ground.c    shadow_update
-warm     src/collision/polygon.c   polygon_find_sides_indexed
-warm     sdk/ninja/njDetMatrix.c   njDetMatrix
-warm     sdk/shinobi/pdmain.c      pdExecPeripheralServer
-warm     src/sound/sound.c         sound_send_queue
-warm     src/camera/camera.c       camera_task_step
-warm     src/system/present.c      keep_draw
-warm     sdk/ninja/njSprite.src    njDrawSprite2D
-warm     sdk/shinobi/mpdrv.c       mpdrv_make_devicedata
-warm     src/collision/polygon.c   collision_mesh_update
-warm     src/player/sonic.c        sonic_sway_step
-warm     src/collision/collision.c collide_object
-warm     src/system/present.c      present_draw
-warm     sdk/ninja/kmvertex_kamui_lib.c kmProcessVertexRenderState
-warm     sdk/ninja/njModelE.c      _njEasyDrawModel
-warm     src/collision/collision.c collision_collide_all
-warm     src/player/player.c       player_collide_world
+warm     src/draw/model.src        clipped_env
 warm     src/collision/collision.c collision_register
+warm     sdk/ninja/njMultiMatrix.c njMultiMatrix
+warm     sdk/shinobi/mpdrv.c       mpdrv_make_devicedata
+warm     src/player/player.c       player_accel_ground
+warm     src/draw/sprite.src       sprite_send_facing
+warm     src/collision/world.c     world_list_near
+warm     src/player/tails.c        tails_sway_step
+warm     sdk/ninja/njRotateZ.c     njRotateZ
+warm     src/draw/action.c         action_select_steps
+warm     sdk/sofdec/adx_fs.c       adxf_wait_1ms
+warm     src/collision/world.c     world_land_list_visible
+warm     src/draw/model.src        draw_in_view
+warm     src/system/present.c      present_hold
+warm     src/system/task.c         task_step_children
+warm     src/object/ring.c         ring_draw
+warm     src/object/dash_panel.c   dash_panel_step
+warm     sdk/shinobi/sy_g2_dma_is_busy.c syG2DmaIsBusy
+warm     src/draw/action.c         draw_action
+warm     sdk/shinobi/mpdrv.c       mpdrv_setcmd
+warm     src/sound/sound.c         sound_send_queue
+warm     src/collision/mesh.src    mesh_test_heights
+warm     src/system/frame.c        frame_wait
+warm     src/system/present.c      keep_draw
+warm     src/system/util.c         model_calc_point_normals
+warm     src/collision/collision.c collision_list_near
+warm     src/object/common.c       model_step_solid
+warm     src/draw/draw.c           draw_set_material
+warm     sdk/ninja/kmglobal_kamui_lib.c kmSetFogTable
+warm     src/system/util.c         tree_find_node
+warm     src/system/task.c         task_draw_level
+warm     src/object/item_box.c     item_box_step
+warm     src/camera/camera.c       block_holds_player
+warm     sdk/ninja/njtri_filled_with_tex.c njtri_filled_with_tex
+warm     src/system/util.c         points_blend
+warm     sdk/ninja/kmvertex_kamui_lib.c kmProcessVertexRenderState
+warm     src/system/present.c      present_draw
+warm     src/enemy/saru.c          saru_step
+warm     src/collision/polygon.c   collision_mesh_update
+warm     src/enemy/sai.c           sai_roll_treads
+warm     sdk/ninja/njDrawTriangle3D.c njDrawTriangle3D
+warm     src/collision/world.c     world_collect_near_players
+warm     src/collision/collision.c collide_enemy_object
+warm     src/camera/camera.c       camera_push_out
+warm     src/collision/polygon.c   polygon_find_model_heights
+warm     src/enemy/enemy.c         enemy_collide
+warm     sdk/sofdec/adx_dcda.c     ADX_DecodeSteFloat
 warm     src/draw/pose.c           pose_node
-warm     src/player/player.c       player_update_welds
-warm     sdk/ninja/njInvertMatrix.c njInvertMatrix
+warm     src/player/player.c       player_in_range
 warm     src/collision/polygon.c   polygon_find_heights_indexed
+warm     src/draw/tree.c           draw_tree
+warm     src/player/player.c       player_update_welds
+warm     src/system/present.c      draw_flats
+warm     sdk/ninja/njSprite.src    njDrawSprite2D
+warm     sdk/ninja/njRotateX.c     turn_rows
+warm     src/object/placement.c    place_near_one
+warm     sdk/shinobi/mpapi.c       mpdrv_frame_send
+warm     src/effect/particle.c     particle_run
+warm     src/collision/polygon.c   polygon_find_sides_indexed
+warm     src/player/tails.c        tails_step
+warm     sdk/ninja/njMem.c         njMemCopy
+warm     src/enemy/spina.c         spina_c_step
+warm     src/player/player.c       player_step_up
+warm     src/system/pad.c          pad_scan
+warm     src/system/present.c      marks_first
+warm     src/system/task.c         heap_alloc
+warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
+warm     src/draw/action_link.c    action_link_transform
+warm     sdk/ninja/njDetMatrix.c   njDetMatrix
+warm     src/player/player.c       player_turn_to_world
+warm     src/collision/collision.c shape_get_center
+warm     src/draw/action.c         action_sample_vector
+warm     sdk/runtime/memcpy.c      memcpy
+warm     src/draw/action_link.c    action_link_rotate_keys
+warm     src/system/present.c      present_forget
+warm     src/effect/dust.c         dust_step
+warm     src/player/sonic.c        sonic_step
+warm     sdk/ninja/njNearClipping.c njNearClipping
+warm     src/system/util.c         model_calc_face_normals
+warm     src/system/present.c      keep_flat
+warm     src/collision/polygon.c   strip_next_moved
+warm     sdk/shinobi/sh4tmr.c      syTmrGetCount
+warm     src/system/present.c      present_shadow
+warm     src/collision/polygon.c   strip_next
+warm     src/player/sonic.c        sonic_sway_step
+warm     src/collision/polygon.c   box_walk_start
+warm     src/object/ring.c         ring_step
+warm     src/collision/polygon.c   sweep_touch
+warm     sdk/ninja/njGenerateFogTable3.c njGenerateFogTable3
+warm     src/effect/particle.c     particle_draw_all
+warm     src/collision/mesh.src    mesh_find_heights
+warm     src/collision/collision.c collide_object
+warm     src/object/placement.c    placement_try_leave
+warm     src/player/npc.c          npc_step
+warm     src/system/present.c      marks_find
+warm     src/player/tails.c        tails_bend_points
+warm     src/collision/polygon.c   heights_visit
+warm     src/draw/model.src        bake_admit
+warm     src/object/common.c       model_draw
+warm     src/system/present.c      state_put
+warm     src/camera/camera.c       camera_task_step
+warm     src/player/player.c       player_collide_world
+warm     sdk/shinobi/pdmain.c      pdExecPeripheralServer
+warm     sdk/ninja/njUnitMatrix.c  njUnitMatrix
+warm     sdk/ninja/njCalcVector.c  transform_by
+warm     src/player/tails.c        tails_draw
+warm     src/collision/ground.c    shadow_update
+warm     src/object/common.c       object_clear_touch
+warm     src/player/player.c       ball_drop
+warm     src/stage/stage.c         stage_get_stage_act
+warm     src/system/task.c         heap_calloc
+warm     src/effect/lens.c         lens_draw
+warm     src/system/present.c      present_sprite
+warm     sdk/shinobi/kdapi.c       publish_devices
+warm     src/collision/collision.c collision_collide_all
+warm     src/collision/polygon.c   polygon_collect_near
+warm     sdk/ninja/njDrawLine3D.c  njDrawLine3D
+warm     src/collision/ground.c    shadow_draw_placed
+warm     src/draw/model.src        draw_divide_light
+warm     src/system/texture.c      texture_set_stage
+warm     sdk/ninja/njControl.c     njSetConstantMaterial
+warm     sdk/ninja/njInvertMatrix.c njInvertMatrix
+warm     src/effect/spark.c        spark_step
+warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
+warm     sdk/ninja/njModelE.c      _njEasyDrawModel
 
 # the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
 # then collision's index of the static meshes, which their sides' and

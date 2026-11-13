@@ -37,8 +37,8 @@ tools/gcclink.py gives, in this order:
 - input: the GCC objects of its sources, in the order relink gives the
   sources. Its content, build/dc/gen/IMAGE/content.o, holds the data of
   all its gen/ ranges, and stands where the first one does, or first of
-  all where the image takes the --starts option's output sections, .data
-  among them, as inputs() says. Then come each
+  all where the image's starts row names .data, as inputs() says. Then
+  come each
   object an --add option gives the image, in their order; each archive
   --archive names, in their order; and libgcc.a;
 - import, alias and constant: a binding for each name the image takes from
@@ -810,18 +810,18 @@ def rowed(image):
 
 def starts(config, default):
     """The output sections of its data that config's image starts on the
-    16 KB of the SH-4's operand cache, in gcclink.STARTS' order, and whether
-    they are default's, as a pair. The image's kernel table gives its own,
-    as rowed() reads them. An image whose table says nothing of them takes
-    default, the --starts option's, where its tables place code, in a
-    section whose name starts with P. Where they place none it starts none,
-    since no code's size moves its data. It fails as rowed() does."""
+    16 KB of the SH-4's operand cache, in gcclink.STARTS' order. The image's
+    kernel table gives its own, as rowed() reads them. An image whose table
+    says nothing of them takes default, the --starts option's, where its
+    tables place code, in a section whose name starts with P. Where they
+    place none it starts none, since no code's size moves its data. It
+    fails as rowed() does."""
     own = rowed(config.name)
     if own is not None:
-        return own, False
+        return own
     if not any(name.startswith('P') for _, name, _, _ in config.placements):
-        return [], False
-    return list(default), True
+        return []
+    return list(default)
 
 
 def lines(known, links, contract, added, begun):
@@ -926,11 +926,10 @@ def main(argv):
             fail(f'--add {image} {path}: no image config/ describes {image}')
         added.setdefault(image, []).append(Path(path))
     default = outputs(args.starts)
-    begun, first = {}, set()
-    for image in known:
-        begun[image], taken = starts(Config(image), default)
-        if taken and '.data' in default:
-            first.add(image)
+    begun = {image: starts(Config(image), default) for image in known}
+    # an image that starts .data opens it with its content, whichever of
+    # its table and the option names the start
+    first = {image for image in known if '.data' in begun[image]}
     if args.list and same_file(args.spec, args.list):
         fail('SPEC and --list name the same file')
     links, unbound = bind(known, contract, args.archive, added, first)

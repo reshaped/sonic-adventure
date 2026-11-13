@@ -912,10 +912,10 @@ class Starts(unittest.TestCase):
         motions = {'config/s_mot/splits.txt': 'D  0x0cc00000  0x0cc00100\nmotion/s.c  D  0x0cc00000  0x0cc00004\n',
                    'config/s_mot/symbols.txt': '', 'motion/s.c': ''}
         with tree({**GAME_TREE, **motions}):
-            self.assertEqual(spec.starts(spec.Config('s_mot'), ['.rodata', '.data', '.bss']), ([], False))
-            self.assertEqual(spec.starts(spec.Config('stga'), ['.rodata', '.bss']), (['.rodata', '.bss'], True))
+            self.assertEqual(spec.starts(spec.Config('s_mot'), ['.rodata', '.data', '.bss']), [])
+            self.assertEqual(spec.starts(spec.Config('stga'), ['.rodata', '.bss']), ['.rodata', '.bss'])
             Path('config/s_mot/kernel.txt').write_text('starts  .data\n')
-            self.assertEqual(spec.starts(spec.Config('s_mot'), []), (['.data'], False))
+            self.assertEqual(spec.starts(spec.Config('s_mot'), []), ['.data'])
 
     def test_fails_on_a_starts_or_packed_row_of_another_form_a_second_of_them_and_an_option_that_names_no_output(self):
         table = 'config/stga/kernel.txt'
@@ -941,9 +941,10 @@ class Starts(unittest.TestCase):
                         "once; make dc gives it config/dreamcast.mk's DC_STARTS") + '$'):
                     self.written('--starts', given)
 
-    def test_links_an_image_s_content_first_where_it_takes_the_option_s_start_of_its_data(self):
-        # stga's gen/ range follows a.c's row of D. The option's .data puts its content ahead of a.o, where it opens
-        # .data. A row of stga's own, or an option without .data, leaves relink's order
+    def test_links_an_image_s_content_first_where_it_starts_its_data_by_the_option_or_by_its_own_row(self):
+        # stga's gen/ range follows a.c's row of D. Where stga starts .data, its content links ahead of a.o, and opens
+        # .data, whether the option names the start or a row of stga's own does. A packed row, a row or an option
+        # without .data, and no option leave relink's order
         files = {'config/imports.txt': PROVIDER, **GENERATED,
                  'build/gen/stga/content.txt': 'dat_0c900104  0x0c900104  4  void *[]\n'}
         units = {**UNITS, 'build/dc/gen/stga/content.o': spec.Unit({'dat_0c900104'}, set(), set())}
@@ -956,18 +957,22 @@ class Starts(unittest.TestCase):
             with self.subTest(options), self.game_tree(files, units):
                 lines = self.written(*options)
                 self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', 'stga']], inputs)
-        for row in ('starts  .data\n', 'packed\n'):
+        rows = {('starts  .data\n', ()): cases[('--starts', '.data')],
+                ('starts  .rodata  .data  .bss\n', ('--starts', '.rodata,.bss')): cases[('--starts', '.data')],
+                ('starts  .rodata  .bss\n', ('--starts', '.rodata,.data,.bss')): relinked,
+                ('packed\n', ('--starts', '.rodata,.data,.bss')): relinked}
+        for (row, options), inputs in rows.items():
             with self.subTest(row), self.game_tree({**files, 'config/stga/kernel.txt': row}, units):
-                lines = self.written('--starts', '.rodata,.data,.bss')
-                self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', 'stga']], relinked)
+                lines = self.written(*options)
+                self.assertEqual([line.split()[2] for line in lines if line.split()[:2] == ['input', 'stga']], inputs)
         # an image without a content keeps its order
         with self.game_tree({'config/imports.txt': PROVIDER}):
             self.assertEqual(spec.inputs(spec.Config('stga'), True), spec.inputs(spec.Config('stga')))
 
-    def test_a_datum_a_change_adds_to_an_object_leaves_the_content_s_where_the_image_takes_the_option_s_start(self):
+    def test_a_datum_a_change_adds_to_an_object_leaves_the_content_s_where_the_image_starts_its_data(self):
         # stga's content holds a model's word, and a.c gains a datum. With no option the content follows a.o's data,
-        # so the word moves. Under the option's .data the content opens .data, which starts on the operand cache's
-        # 16 KB after stga's code, as its empty .rodata does, and the word stays
+        # so the word moves. Where stga starts .data, by the option or by a row of its own, the content opens .data,
+        # which starts on the operand cache's 16 KB after stga's code, as its empty .rodata does, and the word stays
         test_ld.toolchain()
         files = {'config/imports.txt': PROVIDER, **GENERATED,
                  'build/gen/stga/content.txt': 'dat_0c900104  0x0c900104  4  int[]\n'}
@@ -977,24 +982,46 @@ class Starts(unittest.TestCase):
         grown = {**objects, 'build/dc/modules/stga/a.o': compiled(GAME_TREE['modules/stga/a.c']
                                                                   + 'int stage_more = 5;\n')}
         placed = {}
-        for options in ((), ('--starts', '.rodata,.data,.bss')):
+        own = {'config/stga/kernel.txt': 'starts  .rodata  .data  .bss\n'}
+        for case, options, table in (('none', (), {}), ('option', ('--starts', '.rodata,.data,.bss'), {}),
+                                     ('row', (), own)):
             for built in (objects, grown):
-                with tree({**GAME_TREE, **built, **files}), mock.patch.object(gcclink, 'SH_ELF', test_ld.TOOLCHAIN):
+                with tree({**GAME_TREE, **built, **files, **table}), \
+                        mock.patch.object(gcclink, 'SH_ELF', test_ld.TOOLCHAIN):
                     self.written(*options)
                     linked = gcclink.read('spec.txt')
                     layout = ld.link(linked['stga'], gcclink.rooted(linked)['stga'], {}, Path('link'), 'layout')
-                    placed.setdefault(options, []).append(gcclink.exports(layout.elf)['dat_0c900104'].value)
-        self.assertEqual(placed[()][1] - placed[()][0], 4)
-        self.assertEqual(placed[('--starts', '.rodata,.data,.bss')], [0x0C904000, 0x0C904000])
+                    placed.setdefault(case, []).append(gcclink.exports(layout.elf)['dat_0c900104'].value)
+        self.assertEqual(placed['none'][1] - placed['none'][0], 4)
+        self.assertEqual((placed['option'], placed['row']), ([0x0C904000, 0x0C904000], [0x0C904000, 0x0C904000]))
 
-    def test_the_tree_s_tables_start_each_stage_s_data_and_no_option_starts_another_image_s(self):
-        # the layout make dc links: config/dreamcast.mk's DC_STARTS, which dc.mk gives --starts, names none
-        stages = ('stg00', 'stg01', 'stg02', 'stg03', 'stg04', 'stg05', 'stg06', 'stg07', 'stg08', 'stg09', 'stg10',
-                  'stg12')
+    def test_the_tree_starts_the_data_of_each_image_that_holds_code_but_those_its_tables_except(self):
+        # the layout make dc links: config/dreamcast.mk's DC_STARTS, which dc.mk gives --starts, names .rodata, .data
+        # and .bss. Each image whose tables place code takes the three, and so links its content first, but one
+        # whose kernel table has a starts or packed row, which takes that row's: tools/ld.py names such a row where
+        # an image lacks room for its starts. An image of data alone starts none
+        every = ['.rodata', '.data', '.bss']
         setting = re.search(r'(?m)^DC_STARTS :=(.*)$', (ROOT / 'config/dreamcast.mk').read_text())[1].strip()
+        self.assertEqual(spec.outputs(setting), every)
         with cwd(ROOT):
-            begun = {image: spec.starts(spec.Config(image), spec.outputs(setting))[0] for image in images()}
-        self.assertEqual({image: found for image, found in begun.items() if found}, dict.fromkeys(stages, ['.data']))
+            known = images()
+            begun = {image: spec.starts(spec.Config(image), every) for image in known}
+            code = {image for image in known
+                    if any(name.startswith('P') for _, name, _, _ in spec.Config(image).placements)}
+        excepted = {}
+        for table in sorted(ROOT.glob('config/*/kernel.txt')):
+            rows = [line.split('#')[0].split() for line in table.read_text().splitlines()]
+            for row in rows:
+                if row[:1] in (['starts'], ['packed']):
+                    excepted[table.parent.name] = [output for output in every if output in row[1:]]
+        self.assertTrue(set(excepted) <= code)
+        self.assertEqual(begun, {image: excepted.get(image, every if image in code else []) for image in known})
+        # an exception is one: it names fewer than the setting, and says why
+        for image, found in excepted.items():
+            with self.subTest(image):
+                self.assertLess(len(found), len(every))
+                self.assertRegex((ROOT / 'config' / image / 'kernel.txt').read_text(), r'(?m)^# .*\broom\b')
+        self.assertEqual(len(known) - len(code), 7)
 
 
 class Reviewed(unittest.TestCase):

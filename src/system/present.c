@@ -229,15 +229,21 @@ extern Sint32 _stack_size_;
 #define ENGAGE_FRAMES 3
 #define ENGAGE_ROOM (VSYNC_COUNTS / 14)
 #define SETTLE_FRAMES 30
+/* the frames a split its records overflowed stays off: a second at 30 fps,
+ * twice that at each overflow after, up to REFIT_MOST, 16 seconds. a split
+ * that runs REFIT_MOST frames with no overflow waits REFIT_FRAMES again */
+#define REFIT_FRAMES SETTLE_FRAMES
+#define REFIT_MOST (16 * REFIT_FRAMES)
 
 /* the operand cache's line, and the unit of a store's entries, which a kept
  * draw's indexes count */
 #define HELD_LINE 32
 #define HELD_UNIT 16
-/* the most draws step 0 keeps for the second picture. the most sprites the
- * later steps keep for the next first picture. the most views a list's draws
- * are made under */
-#define FIRST_MOST 384
+/* the most draws step 0 keeps for the second picture: a pinball table of
+ * Casinopolis's keeps over 400 sprites a frame. the most sprites the later
+ * steps keep for the next first picture. the most views a list's draws are
+ * made under */
+#define FIRST_MOST 512
 #define LATER_MOST 256
 #define VIEWS_MOST 4
 /* a store's bytes for each draw it may keep. a model's draw takes 176 at most:
@@ -297,8 +303,8 @@ extern Sint32 _stack_size_;
  * each callback in marks. pass_stop tests the prices against pass_end, which
  * present_second alone sets. pass_stop sets stopped. present_second sets
  * dropped, which present_end hands on as holding. present_end alone writes
- * engaged, fit_run, calm, planned and records_fit. it alone sets the shares
- * back, and ages them by shares_age, which present_second restarts */
+ * engaged, fit_run, calm, planned, records_fit and its wait. it alone sets the
+ * shares back, and ages them by shares_age, which present_second restarts */
 
 int frame_redrawing;
 int frame_split;
@@ -373,14 +379,19 @@ static int planned;
 /* the frames of the split since one missed, up to SETTLE_FRAMES */
 static int calm = SETTLE_FRAMES;
 /* TRUE where the last frame that kept records while the split was engaged kept
- * them all. it holds after the split ends, so a split its records overflowed
- * stays off. the frame whose fit would engage the split keeps records too, but
+ * them all. where they overflowed, the split ends, and records_fit stays FALSE
+ * for refit_wait frames, so the split stays off that long. the next overflow
+ * waits refit_next, and refit_calm counts the frames the split has run since
+ * the last. the frame whose fit would engage the split keeps records too, but
  * leaves records_fit be. where they overflow, that frame doesn't fit, and
  * fit_run starts over. a frame that doesn't want the split or runs no stage
  * loop sets records_fit back to TRUE. while it is FALSE, held_store is the
  * store that ran out, which the readout names */
 static int records_fit = TRUE;
 static int held_store;
+static int refit_wait;
+static int refit_next = REFIT_FRAMES;
+static int refit_calm;
 /* stage_ran is TRUE where a stage loop ran step 0 this frame. first_fits is
  * TRUE where step 0 left room for the first picture. spare_fits is TRUE where
  * both halves fit with step 0 longer by ENGAGE_ROOM. later_kept is TRUE where
@@ -2334,6 +2345,9 @@ void present_end(int late)
      * frame where the second half runs short */
     missed = late != 0 || (!frame_split && !(first_fits && render_fits &&
                                              second_fits(step0_cost)));
+    if (!engaged && !records_fit && refit_wait > 0 && --refit_wait == 0) {
+        records_fit = TRUE;
+    }
     fits = stage_ran && !missed && records_fit &&
            (keeping != KEEP_LATER || kept) && spares();
     keeping = KEEP_NONE;
@@ -2346,12 +2360,17 @@ void present_end(int late)
         engaged = fit_run = 0;
         calm = SETTLE_FRAMES;
         records_fit = TRUE;
+        refit_wait = refit_calm = 0;
+        refit_next = REFIT_FRAMES;
         step1_share = STEP1_SHARE;
         pass_share = PASS_SHARE;
         shares_age = 0;
         tail_age = SETTLE_FRAMES;
     } else if (engaged && !records_fit) {
         engaged = FALSE;
+        refit_wait = refit_next;
+        refit_next = refit_next * 2 < REFIT_MOST ? refit_next * 2 : REFIT_MOST;
+        refit_calm = 0;
     } else if (engaged && missed) {
         if (calm < SETTLE_FRAMES) {
             engaged = FALSE;
@@ -2368,6 +2387,10 @@ void present_end(int late)
         }
     } else {
         fit_run = 0;
+    }
+    if (engaged && ++refit_calm >= REFIT_MOST) {
+        refit_calm = 0;
+        refit_next = REFIT_FRAMES;
     }
     if (++shares_age == SETTLE_FRAMES) {
         shares_age = 0;

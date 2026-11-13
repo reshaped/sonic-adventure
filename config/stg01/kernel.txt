@@ -19,12 +19,6 @@
 # A row is as in config/1st_read/kernel.txt, or over KERNEL KERNEL OTHER,
 # which lets the first KERNEL's lines take the sets of the second's, a
 # kernel of OTHER, another image.
-#
-# ld.py starts the image's .data, which holds its models, on the 16 KB of
-# the SH-4's operand cache, so that no change to the size of its code or
-# of its read-only data moves a model to another set of the cache.
-
-starts   .data
 
 pieces   modules/stg01/pier.c       beach_pier_piece_step
 pieces   modules/stg01/pier.c       beach_pier_piece_draw

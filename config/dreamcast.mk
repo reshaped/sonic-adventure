@@ -37,7 +37,7 @@ DC_ADDED := 1st_read:engine/dc/overlay.c 1st_read:engine/dc/wide.c 1st_read:engi
 # joined by commas, that each image whose tables place code starts on the
 # 16 KB of the SH-4's operand cache, as tools/spec.py's --starts takes
 # them, so that no change to the size of what the link lays ahead of one
-# moves its data to another set of the cache. An image's kernel table can
-# name its own, or none where its load area has no room. Empty, only the
-# tables start any
-DC_STARTS :=
+# moves its data to another set of the cache. An image that starts .data
+# links its content first. An image's kernel table can name its own, or
+# none where its load area has no room. Empty, only the tables start any
+DC_STARTS := .rodata,.data,.bss

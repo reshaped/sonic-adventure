@@ -112,7 +112,8 @@ SITES = {
     # each free, which a thread's record hears of too. the heap lies where
     # stubs.py places heap_arena, make dc's address in the domain
     'src/system/task.c': [
-        ('Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]\n    __attribute__((aligned(32)));\n', ''),
+        ('Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]\n    __attribute__((aligned(HEAP_BOUNDARY)));\n',
+         ''),
         ('void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n',
          'void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n'
          '    native_hook_task_destroy(task);\n    native_task_destroy(task);\n'),
