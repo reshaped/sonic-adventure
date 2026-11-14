@@ -319,6 +319,17 @@ void world_load_act(int stage, int act)
              * leaves act in R5 (0x8c054d06), and passing act makes the same
              * call */
             data = loader_read_alloc(land->file, act);
+            /* @bug memory: where the read fails, loader_read_alloc returns
+             * null, which the land keeps, njb_relocate relocates (the JSR at
+             * 0x8c054d10) and the loops add to the entries' offsets */
+#ifdef NONMATCHING
+            /* repairs the relocation the tag names: this side stops there, as
+             * the loader does for a stage it has no files for */
+            if (data == NULL) {
+                for (;;) {
+                }
+            }
+#endif
             land->data = data;
             njb_relocate(data);
             for (i = count, entry = land->entries; i > 0; i--, entry++) {

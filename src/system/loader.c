@@ -55,14 +55,31 @@ static int loader_read(char *name, void *dest)
     if (loader_file == NULL) {
         return -1;
     }
+#ifdef NONMATCHING
+    /* checks the size query the comment names: this side returns -1 where it
+     * fails */
+    if (!gdFsGetFileSize(loader_file, &size)) {
+        gdFsClose(loader_file);
+        return -1;
+    }
+#else
     gdFsGetFileSize(loader_file, &size);
+#endif
     if (size % SECTOR_SIZE != 0) {
         part = 1;
     } else {
         part = 0;
     }
     size = (size / SECTOR_SIZE) + part;
+#ifdef NONMATCHING
+    /* and the read: -1 where it fails, as for a file that doesn't open */
+    if (gdFsRead(loader_file, size, dest) != GDD_ERR_OK) {
+        gdFsClose(loader_file);
+        return -1;
+    }
+#else
     gdFsRead(loader_file, size, dest);
+#endif
     gdFsClose(loader_file);
     return 0;
 }
@@ -581,7 +598,17 @@ void *loader_read_alloc(char *name, int result)
     if ((size = loader_file_size(name)) == -1) {
         return NULL;
     }
+    /* @bug memory: memory holds size bytes, rounded up to the heap's 32-byte
+     * unit, but loader_read reads whole sectors into it. where size isn't a
+     * multiple of SECTOR_SIZE, the read writes up to 2016 bytes past the
+     * block. the malloc is the JSR at 0x8c0a343e */
+#ifdef NONMATCHING
+    /* repairs the overrun the tag names: this side's block holds the whole
+     * sectors */
+    if ((memory = malloc(SECTORS(size) * SECTOR_SIZE)) == NULL) {
+#else
     if ((memory = malloc(size)) == NULL) {
+#endif
         return NULL;
     }
     /* @hack spelling: name passed through file, a copy, which SHC loads
