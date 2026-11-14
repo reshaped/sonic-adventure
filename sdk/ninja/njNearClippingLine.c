@@ -57,6 +57,19 @@ Int njNearClippingLine(NJS_POINT3COL *in, NJS_POINT3COL *out, Uint32 attr)
         }
         out->col[1].color = in->col[1].color;
     }
+    /* @bug uninitialized: a point on the plane is kept but makes no crossing,
+     * since the crossing test wants the product below 0 (FCMP/GT at
+     * 0x8c668a38) and the keep tests take z at _nj_near_clip_ (0x8c668b7e,
+     * 0x8c668be0). with the other point below the plane, one end of out goes
+     * unwritten, and the return of 2 has the caller draw it */
+#ifdef NONMATCHING
+    /* repairs the unwritten end the tag names: this side keeps no line whose
+     * only kept point lies on the plane */
+    if (!cut &&
+        (in->p[0].z < _nj_near_clip_) != (in->p[1].z < _nj_near_clip_)) {
+        return 0;
+    }
+#endif
     if (in->p[0].z < _nj_near_clip_ && in->p[1].z < _nj_near_clip_) {
         return 0;
     }

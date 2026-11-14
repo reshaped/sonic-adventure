@@ -35,10 +35,13 @@ void njDrawLine3D(NJS_POINT3COL *p, Int n, Uint32 attr)
 
     view.p = view_p;
     view.col = view_col;
-    view.tex = view_tex;
     clip.p = clip_p;
     clip.col = clip_col;
-    clip.tex = clip_tex;
+    /* an untextured line has no texture coordinates to copy: with tex null,
+     * njNearClippingLine copies none, where the #else's copies what view_tex
+     * held */
+    view.tex = (attr & NJD_USE_TEXTURE) ? view_tex : NULL;
+    clip.tex = (attr & NJD_USE_TEXTURE) ? clip_tex : NULL;
     njGetkmPointer();
     START_VERTEX(sa1_live_sq, attr);
     for (i = 0; i < n; i++) {
