@@ -82,10 +82,11 @@
  *
  * a frame fits only where its own records and those the split last kept all
  * fit. only a frame that may split, or whose fit would engage the split, keeps
- * records. a scene whose records overflow in the split so holds it off. the
- * hold lasts until a frame that doesn't want the split or runs no stage loop.
- * a stage's load or pause runs none. while it lasts, no frame keeps records,
- * so none retries the split.
+ * records. a scene whose records overflow in the split so holds it off, for
+ * REFIT_FRAMES at first and twice as long at each overflow after, up to
+ * REFIT_MOST. a frame that doesn't want the split or runs no stage loop ends
+ * the hold sooner. a stage's load or pause runs none. while the hold lasts, no
+ * frame keeps records.
  *
  * it carries four costs between frames. three are step 1's and the pass's
  * shares of step 0's time, and the pass's tail. only a split frame measures
