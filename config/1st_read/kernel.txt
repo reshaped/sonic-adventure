@@ -343,7 +343,6 @@ warm     src/player/player.c       player_step_up
 warm     src/system/pad.c          pad_scan
 warm     src/system/present.c      marks_first
 warm     src/system/task.c         heap_alloc
-warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
 warm     src/draw/action_link.c    action_link_transform
 warm     sdk/ninja/njDetMatrix.c   njDetMatrix
 warm     src/player/player.c       player_turn_to_world
@@ -402,6 +401,7 @@ warm     sdk/ninja/njInvertMatrix.c njInvertMatrix
 warm     src/effect/spark.c        spark_step
 warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
 warm     sdk/ninja/njModelE.c      _njEasyDrawModel
+warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
 
 # the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
 # then collision's index of the static meshes, which their sides' and

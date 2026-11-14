@@ -93,8 +93,8 @@ searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmColorMode    
 searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmTextureNum                   0x4a3c  0x70
 searched  build/dc/sdk/ninja/njkm.o                   .text.njStartVertexTexTransIntens         0x4aac  0x6c
 searched  build/dc/sdk/ninja/njSystem.o               .text.njColorBlendingMode                 0x4b18  0x30
-searched  build/dc/sdk/ninja/njSprite.o               .text.sprite_send_plane                   0x4b48  0x5cc
-searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.process_blends                      0x5114  0x2ec
+searched  build/dc/sdk/ninja/njSprite.o               .text.sprite_send_plane                   0x4b48  0x53c
+searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.process_blends                      0x5084  0x2ec
 searched  build/dc/src/draw/sprite.o                  .text.sprite_draw_3d                      0x5440  0x158
 searched  build/dc/src/draw/model.o                   .text.clipped_env                         0x55c0  0x2d0
 searched  build/dc/src/collision/collision.o          .text.collision_register                  0x58c0  0x1f8
@@ -162,7 +162,6 @@ searched  build/dc/src/player/player.o                .text.player_step_up      
 searched  build/dc/src/system/pad.o                   .text.pad_scan                           0x14480  0x41c
 searched  build/dc/src/system/present.o               .text.marks_first                        0x148c0  0x28
 searched  build/dc/src/system/task.o                  .text.heap_alloc                         0x14920  0x88
-searched  build/dc/sdk/ninja/njNearClippingLine.o     .text.njNearClippingLine                 0x149e0  0x1f4
 searched  build/dc/src/draw/action_link.o             .text.action_link_transform              0x14c00  0x138
 searched  build/dc/sdk/ninja/njDetMatrix.o            P                                        0x14d60  0x15c
 searched  build/dc/src/player/player.o                .text.player_turn_to_world               0x14ee0  0xb8
@@ -212,7 +211,7 @@ searched  build/dc/src/system/present.o               .text_last.present_sprite 
 searched  build/dc/sdk/shinobi/kdapi.o                .text.publish_devices                    0x20700  0x48
 searched  build/dc/src/collision/collision.o          .text.collision_collide_all              0x20780  0xcfc
 searched  build/dc/src/collision/polygon.o            .text.polygon_collect_near               0x214a0  0x264
-searched  build/dc/sdk/ninja/njDrawLine3D.o           .text.njDrawLine3D                       0x21740  0x524
+searched  build/dc/sdk/ninja/njDrawLine3D.o           .text.njDrawLine3D                       0x21740  0x548
 searched  build/dc/src/collision/ground.o             .text.shadow_draw_placed                 0x21ca0  0xcc
 searched  build/dc/src/draw/model.o                   .text.draw_divide_light                  0x21da0  0x30
 searched  build/dc/src/system/texture.o               .text.texture_set_stage                  0x21e00  0x24
@@ -221,3 +220,4 @@ searched  build/dc/sdk/ninja/njInvertMatrix.o         P                         
 searched  build/dc/src/effect/spark.o                 .text.spark_step                         0x22700  0x134
 searched  build/dc/sdk/ninja/kmvertex_kamui_lib.o     .text.kmSetVertexRenderState             0x22860  0x274
 searched  build/dc/sdk/ninja/njModelE.o               .text._njEasyDrawModel                   0x22b00  0x3f0
+searched  build/dc/sdk/ninja/njNearClippingLine.o     .text.njNearClippingLine                 0x22f20  0x244
