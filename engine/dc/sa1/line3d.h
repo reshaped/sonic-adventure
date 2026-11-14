@@ -45,11 +45,12 @@ ALWAYS_INLINE Uint32 *sa1_line_3d(Uint32 *sq, const NJS_POINT3COL *p,
     Float y1 = (p->p[1].y * scale_y * z1) + sa1_live_ninja_screen.cy;
     Float dx = x0 - x1;
     Float dy = y0 - y1;
-    Float inv_length = 1.0F / _builtin_sqrtf((dx * dx) + (dy * dy));
-    Float side_x = dy * inv_length * SA1_HALF_WIDTH;
-    Float side_y = -(dx * inv_length * SA1_HALF_WIDTH);
-    Float wide_x = side_x * 2.0F;
-    Float wide_y = side_y * 2.0F;
+    Float length2 = (dx * dx) + (dy * dy);
+    Float inv_length;
+    Float side_x;
+    Float side_y;
+    Float wide_x;
+    Float wide_y;
     Float u0 = textured ? p->tex[0].tex.u * SA1_UV_SCALE : 0.0F;
     Float v0 = textured ? p->tex[0].tex.v * SA1_UV_SCALE : 0.0F;
     Float u1 = textured ? p->tex[1].tex.u * SA1_UV_SCALE : 0.0F;
@@ -57,6 +58,15 @@ ALWAYS_INLINE Uint32 *sa1_line_3d(Uint32 *sq, const NJS_POINT3COL *p,
     Uint32 color0 = p->col[0].color;
     Uint32 color1 = p->col[1].color;
 
+    /* as sa1_send_edge: ends that project to one point send nothing */
+    if (!(length2 > 0.0F)) {
+        return sq;
+    }
+    inv_length = 1.0F / _builtin_sqrtf(length2);
+    side_x = dy * inv_length * SA1_HALF_WIDTH;
+    side_y = -(dx * inv_length * SA1_HALF_WIDTH);
+    wide_x = side_x * 2.0F;
+    wide_y = side_y * 2.0F;
     sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, x0 - side_x, y0 - side_y,
                          z0, textured, u0, v0, color0);
     sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, x1 - side_x, y1 - side_y,

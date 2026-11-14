@@ -70,17 +70,26 @@ ALWAYS_INLINE void sa1_end_at(struct sa1_end *end, const NJS_POINT2COL *p,
 
 /* send the line from a to b at z as a strip of four vertices from sq on. the
  * vertices lie SA1_HALF_WIDTH to either side of the line. return the address
- * past the last */
+ * past the last, or sq where a and b meet */
 ALWAYS_INLINE Uint32 *sa1_send_edge(Uint32 *sq, const struct sa1_end *a,
                                     const struct sa1_end *b, Float z,
                                     Int textured)
 {
     Float dx = b->x - a->x;
     Float dy = b->y - a->y;
-    Float inv_length = 1.0F / _builtin_sqrtf((dx * dx) + (dy * dy));
-    Float side_x = dy * inv_length * SA1_HALF_WIDTH;
-    Float side_y = -(dx * inv_length * SA1_HALF_WIDTH);
+    Float length2 = (dx * dx) + (dy * dy);
+    Float inv_length;
+    Float side_x;
+    Float side_y;
 
+    /* ends that meet on the screen give no side to widen to: 1/length is
+     * infinite there, and the vertices would take NaNs. send none */
+    if (!(length2 > 0.0F)) {
+        return sq;
+    }
+    inv_length = 1.0F / _builtin_sqrtf(length2);
+    side_x = dy * inv_length * SA1_HALF_WIDTH;
+    side_y = -(dx * inv_length * SA1_HALF_WIDTH);
     sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, a->x + side_x,
                          a->y + side_y, z, textured, a->u, a->v, a->color);
     sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, a->x - side_x,
