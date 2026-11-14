@@ -1695,6 +1695,9 @@ static void draws_replay(struct draws *list, int second)
     struct draw_shading shading;
     const sa_draw_kept *draw;
     struct kept_sprite *copy;
+    /* the view and shading shading was turned for, -1 before the first */
+    int shaded_view = -1;
+    int shaded_from = -1;
     int i;
 
     for (i = 0; i < list->view_count; i++) {
@@ -1717,11 +1720,17 @@ static void draws_replay(struct draws *list, int second)
 #endif
         state_put(HELD_ENTRY(list, draw->state));
         if (draw->kind == PRESENT_MODEL) {
-            /* the light lies in view space, so it turns with the move */
-            shading =
-                *(const struct draw_shading *)HELD_ENTRY(list, draw->shade);
-            shading.dir = turned(moves[draw->view], &shading.dir);
-            shading.base = turned(moves[draw->view], &shading.base);
+            /* the light lies in view space, so it turns with the move. a
+             * model with the last one's view and shading takes its light
+             * as turned */
+            if (draw->view != shaded_view || draw->shade != shaded_from) {
+                shading =
+                    *(const struct draw_shading *)HELD_ENTRY(list, draw->shade);
+                shading.dir = turned(moves[draw->view], &shading.dir);
+                shading.base = turned(moves[draw->view], &shading.base);
+                shaded_view = draw->view;
+                shaded_from = draw->shade;
+            }
             draw_put_shading(&shading);
             draw_model((NJS_MODEL *)draw->geometry);
             continue;
