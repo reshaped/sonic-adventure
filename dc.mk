@@ -719,9 +719,11 @@ tools/sh-elf/bin/sh-elf-gcc:
 # AGENTS.md, as of its commit ad2f890, accepts a copy only by its third
 # route, a synchronized copy: the whole library, pulled from upstream by a
 # build mechanism that records the commit, with local changes kept to a
-# minimum and sent upstream. The tree makes none. GitHub's archive of a
+# minimum and sent upstream. The tree makes none of its own: SH4ZAM_AT
+# names a merge, in reshaped/sh4zam, of upstream's master and the changes
+# the tree offers upstream, until upstream takes them. GitHub's archive of a
 # commit holds the same files, but the archive's compressed bytes can change
-SH4ZAM_AT := https://raw.githubusercontent.com/gyrovorbis/sh4zam/7e57d5c7a1c9be699584deae66337536a180b2d4
+SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/68ce191cec3f7521893e0d84e84095e5faceb5e3
 $(SH4ZAM): $(if $(UNFETCHED),FORCE)
 	@$(call status,fetch,$@)
 	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)

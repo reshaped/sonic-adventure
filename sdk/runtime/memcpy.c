@@ -42,12 +42,11 @@ void *memcpy(void *s1, const void *s2, size_t n)
 #undef memcpy
 
 /* blocks that overlap copy by memmove, as the shipped memcpy copies them.
- * memcpy calls no SH4ZAM routine that stores below R15, where
- * syIntMasterISR, in sdk/shinobi/syIntIsr.src, saves the registers of the
- * code an interrupt stops. shz_memcpy128_sh4_ stores FR12 to FR15 and
- * XMTRX there without moving R15. shz_memcpy128 calls it for a block of any
- * size. shz_memcpy32 calls it from 128 bytes, and shz_memcpy64 from 256.
- * shz_memcpy reaches it through shz_memcpy32 */
+ * the rest copy by shz_memcpy4 or shz_memcpy1, not by shz_memcpy, which
+ * gives a block of 128 bytes or more to shz_memcpy128_sh4_. the pinned
+ * SH4ZAM keeps that routine's saves above R15, below which syIntMasterISR,
+ * in sdk/shinobi/syIntIsr.src, pushes, but the routine has yet to run on the
+ * console */
 void *memcpy(void *s1, const void *s2, size_t n)
 {
     uintptr_t to = (uintptr_t)s1;
