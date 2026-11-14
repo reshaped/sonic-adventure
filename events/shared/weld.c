@@ -72,10 +72,23 @@ void event_weld(struct weld *welds, NJS_ACTION *action, Float frame, int node,
                 normals_a = weld->object_a->model->normals;
                 points_b = weld->object_b->model->points;
                 normals_b = weld->object_b->model->normals;
+#ifdef NONMATCHING
+                /* WELD_BOTH's and WELD_TO_A's code reads only b's inverse,
+                 * and WELD_TO_B's only a's, as in motion_weld */
+                if (weld->kind == WELD_TO_B) {
+                    njSetMatrix(&event_weld_inverse_a, &event_weld_matrix_a);
+                    njInvertMatrix(&event_weld_inverse_a);
+                }
+                if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_A) {
+                    njSetMatrix(&event_weld_inverse_b, &event_weld_matrix_b);
+                    njInvertMatrix(&event_weld_inverse_b);
+                }
+#else
                 njSetMatrix(&event_weld_inverse_a, &event_weld_matrix_a);
                 njSetMatrix(&event_weld_inverse_b, &event_weld_matrix_b);
                 njInvertMatrix(&event_weld_inverse_a);
                 njInvertMatrix(&event_weld_inverse_b);
+#endif
                 /* WELD_BOTH moves b's vertices onto a's, as WELD_TO_A
                  * does */
                 switch (weld->kind) {
