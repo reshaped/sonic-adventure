@@ -818,6 +818,12 @@ Sint32 _njSimpleCalcModel(NJS_MODEL *model)
             /* @bug uninitialized: work.normals is unset on this path, and
              * njSimpleCalcModel_Loop2 reads it at 0x8c62bc14 and prefetches
              * through it at 0x8c62bc90, before each point after the first */
+#ifdef NONMATCHING
+            /* repairs the unset pointer the tag names: Loop2 only prefetches
+             * through it, and this side points it at the points, whose lines
+             * the loop reads anyway */
+            work.normals = (NJS_VECTOR *)source_points;
+#endif
             njSimpleCalcModel_Loop2(&work, mp);
         }
     } else {

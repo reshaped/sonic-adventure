@@ -2,7 +2,9 @@
  * code. njMotSrc.c, njMotLinkSrc.c, njCameraMotion.c and njMotionE.c define
  * them for SHC as statics in inline assembly. each includes this under
  * DREAMCAST and NONMATCHING, then declares the ones it calls. each definition
- * has the type those declarations give, so no pointer is const */
+ * has the type those declarations give, so no pointer is const.
+ * weighted_sum_point has no SHC counterpart: the native slice's is a C
+ * wrapper of its weighted_sum, in each file that calls it */
 #ifndef NJMOTION_ZAM_H
 #define NJMOTION_ZAM_H
 #include <ninja.h>
@@ -53,6 +55,51 @@ ALWAYS_INLINE void weighted_sum(Float *a, Float *b, Float *c, Float *d,
               "m"(*(const Float(*)[3])a), "m"(*(const Float(*)[3])b),
               "m"(*(const Float(*)[3])c), "m"(*(const Float(*)[3])d)
             : "fr0", "fr1", "fr2", "fr3");
+}
+
+/* weighted_sum's three dot products returned, not stored: the asm runs the
+ * same loads and FIPRs, and leaves the sum in registers for a caller that
+ * reads it before its own store */
+ALWAYS_INLINE NJS_POINT3 weighted_sum_point(Float *a, Float *b, Float *c,
+                                            Float *d, Float wa, Float wb,
+                                            Float wc, Float wd)
+{
+    register Float weight_a __asm__("fr4") = wa;
+    register Float weight_b __asm__("fr5") = wb;
+    register Float weight_c __asm__("fr6") = wc;
+    register Float weight_d __asm__("fr7") = wd;
+    register Float z __asm__("fr3");
+    Float x;
+    Float y;
+    NJS_POINT3 sum;
+
+    __asm__("fmov.s @%[a]+,fr0\n\t"
+            "fmov.s @%[b]+,fr1\n\t"
+            "fmov.s @%[c]+,fr2\n\t"
+            "fmov.s @%[d]+,fr3\n\t"
+            "fipr fv4,fv0\n\t"
+            "fmov fr3,%[x]\n\t"
+            "fmov.s @%[a]+,fr0\n\t"
+            "fmov.s @%[b]+,fr1\n\t"
+            "fmov.s @%[c]+,fr2\n\t"
+            "fmov.s @%[d]+,fr3\n\t"
+            "fipr fv4,fv0\n\t"
+            "fmov fr3,%[y]\n\t"
+            "fmov.s @%[a]+,fr0\n\t"
+            "fmov.s @%[b]+,fr1\n\t"
+            "fmov.s @%[c]+,fr2\n\t"
+            "fmov.s @%[d]+,fr3\n\t"
+            "fipr fv4,fv0"
+            : [a] "+r"(a), [b] "+r"(b), [c] "+r"(c), [d] "+r"(d), [x] "=&f"(x),
+              [y] "=&f"(y), "=f"(z)
+            : "f"(weight_a), "f"(weight_b), "f"(weight_c), "f"(weight_d),
+              "m"(*(const Float(*)[3])a), "m"(*(const Float(*)[3])b),
+              "m"(*(const Float(*)[3])c), "m"(*(const Float(*)[3])d)
+            : "fr0", "fr1", "fr2");
+    sum.x = x;
+    sum.y = y;
+    sum.z = z;
+    return sum;
 }
 
 /* weighted_sum for Angles, in C: MOV.L has the displacement form FMOV.S

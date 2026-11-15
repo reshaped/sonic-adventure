@@ -54,6 +54,8 @@
 #
 # path                         thing      bin
 engine/dc/batch.h              backend    picture
+engine/dc/crash.c              game       picture
+engine/dc/crash.h              game       picture
 engine/dc/dreamcast.h          game       picture
 engine/dc/math.c               game       play
 engine/dc/mesh.c               game       play

@@ -27,6 +27,8 @@
 *          frame_later_draws                  1st_read    frame_later_draws              0x8c  only src/system/present.c defines it, and the tables give it no address
 *          frame_redrawing                    1st_read    frame_redrawing                0x8c  only src/system/present.c defines it, and the tables give it no address
 *          frame_split                        1st_read    frame_split                    0x8c  only src/system/present.c defines it, and the tables give it no address
+*          loader_must_read_file              1st_read    loader_must_read_file          0x8c  only src/system/loader.c's non-matching side defines it, and the tables give it no address
+*          loader_must_read_prs               1st_read    loader_must_read_prs           0x8c  only src/system/loader.c's non-matching side defines it, and the tables give it no address
 *          path_sample_from                   1st_read    path_sample_from               0x8c  only src/path/path.c's non-matching side defines it, and the tables give it no address
 *          polygon_find_sides_indexed         1st_read    polygon_find_sides_indexed     0x8c  only src/collision/polygon.c's non-matching side defines it, and the tables give it no address
 *          port_band                          1st_read    port_band                      0x8c  only engine/dc/wide.c defines it, and the tables give it no address

@@ -238,6 +238,15 @@ void syBtExit(void)
     end_run("the game left", 0);
 }
 
+/* the game's stop at a failure it can't go on from, as dreamcast.h's
+ * port_stop says. here the run ends with 2 */
+void port_stop(const char *what, const char *name, uint32_t number)
+{
+    fprintf(stderr, "sa1: the game stopped: %s %s 0x%x\n", what,
+            name ? name : "", number);
+    end_run("the game stopped", 2);
+}
+
 /* frame.c's waits call it. native_vsyncs counts the calls, not the host's
  * time, so a run decides at the same steps each time */
 void native_vsync(void)

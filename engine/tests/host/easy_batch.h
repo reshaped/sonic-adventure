@@ -17,7 +17,7 @@ typedef struct zam_screen {
     float scale_x, scale_y;
     float near;
 } zam_screen_t;
-shz_vec3_t zam_xmtrx_transform_vec3_transpose(const float *v);
+shz_vec3_t shz_xmtrx_transform_vec3_transpose(shz_vec3_t vec);
 int zam_xmtrx_project_lit_points(const float *points, const float *normals,
                                  uint32_t count, const zam_screen_t *screen,
                                  shz_vec4_t light, void *out);

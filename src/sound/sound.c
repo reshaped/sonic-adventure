@@ -638,7 +638,7 @@ void sound_load_file(const char *name)
     file = gdFsOpen(name, NULL);
     gdFsGetFileSize(file, &size);
     sectors = SECTORS(size);
-    gdFsRead(file, sectors, WORK_AREA);
+    LOADER_MUST_READ(file, name, sectors, WORK_AREA);
     gdFsClose(file);
     sound_send_multi_unit(WORK_AREA);
 }
@@ -652,7 +652,7 @@ void sound_load_shot_bank(int bank, const char *name)
     file = gdFsOpen(name, NULL);
     gdFsGetFileSize(file, &size);
     sectors = SECTORS(size);
-    gdFsRead(file, sectors, WORK_AREA);
+    LOADER_MUST_READ(file, name, sectors, WORK_AREA);
     gdFsClose(file);
     sound_send_shot_bank(WORK_AREA, bank, size);
 }
@@ -666,7 +666,7 @@ void sound_load_sequence_bank(int bank, const char *name)
     file = gdFsOpen(name, NULL);
     gdFsGetFileSize(file, &size);
     sectors = SECTORS(size);
-    gdFsRead(file, sectors, WORK_AREA);
+    LOADER_MUST_READ(file, name, sectors, WORK_AREA);
     gdFsClose(file);
     sound_send_sequence_bank(WORK_AREA, bank, size);
 }
@@ -680,7 +680,7 @@ void sound_load_program_bank(int bank, const char *name)
     file = gdFsOpen(name, NULL);
     gdFsGetFileSize(file, &size);
     sectors = SECTORS(size);
-    gdFsRead(file, sectors, WORK_AREA);
+    LOADER_MUST_READ(file, name, sectors, WORK_AREA);
     gdFsClose(file);
     sound_send_program_bank(WORK_AREA, bank, size);
 }
@@ -904,7 +904,7 @@ static void sound_init_driver(void)
     file = gdFsOpen("masaru.drv", NULL);
     gdFsGetFileSize(file, &size);
     sectors = SECTORS(size);
-    gdFsRead(file, sectors, WORK_AREA);
+    LOADER_MUST_READ(file, "masaru.drv", sectors, WORK_AREA);
     gdFsClose(file);
     error = sdLibInit(NULL, 0, 0);
     if (error != SDE_ERR_NOTHING) {

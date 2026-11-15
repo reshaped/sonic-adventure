@@ -42,7 +42,8 @@ void texture_release_characters(void);
  * and 1 load the regular pvms, and 2 the shooting stages' two. the set's
  * first list takes the regular slot. its other lists load too, but
  * texture_load_regular leaves none of them recorded. texture_release_regular
- * then releases only the slot's list */
+ * then releases only the slot's list. under NONMATCHING it records each,
+ * and texture_release_regular releases them all */
 void texture_load_regular(int set);
 void texture_release_regular(void);
 /* load the current stage's texture lists: its first four into the stage's
@@ -58,7 +59,8 @@ Bool texture_set_stage(void);
 /* TRUE when the stage's first slot holds a list */
 Bool texture_has_primary_stage_texlist(void);
 /* release the lists in the stage's slots, and the first list after them.
- * the rest stay loaded: texture_release_stage never steps past the first */
+ * the rest stay loaded: texture_release_stage never steps past the first.
+ * under NONMATCHING it releases each */
 void texture_release_stage(void);
 /* load the act's texture lists for its first user, and count the user.
  * FALSE for an act without lists here, highway's among them, and TRUE
@@ -72,6 +74,12 @@ Bool texture_act_in_use(Uint16 stage_act);
 Bool texture_release_act(Uint16 stage_act);
 /* release every act's lists that have users, and zero each count */
 void texture_release_acts(void);
+/* the two loaders below are described as shipped. under NONMATCHING
+ * neither goes on from a file that won't open, give its size or read: each
+ * is loader.h's loader_failed's, and a read is made as
+ * loader_must_read_tries makes it. so no failed load is decoded, and none
+ * leaves texture_load_pvm an earlier load's textures to copy */
+
 /* load name.PRS, a PVM, and copy its first texlist->nbTexture textures
  * into texlist, by position. the PVM loads into a scratch list of 512
  * textures, and nbTexture must not pass 512, unchecked. an entry the PVM

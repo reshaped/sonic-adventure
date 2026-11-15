@@ -82,10 +82,11 @@
  *
  * a frame fits only where its own records and those the split last kept all
  * fit. only a frame that may split, or whose fit would engage the split, keeps
- * records. a scene whose records overflow in the split so holds it off. the
- * hold lasts until a frame that doesn't want the split or runs no stage loop.
- * a stage's load or pause runs none. while it lasts, no frame keeps records,
- * so none retries the split.
+ * records. a scene whose records overflow in the split so holds it off, for
+ * REFIT_FRAMES at first and twice as long at each overflow after, up to
+ * REFIT_MOST. a frame that doesn't want the split or runs no stage loop ends
+ * the hold sooner. a stage's load or pause runs none. while the hold lasts, no
+ * frame keeps records.
  *
  * it carries four costs between frames. three are step 1's and the pass's
  * shares of step 0's time, and the pass's tail. only a split frame measures
@@ -649,9 +650,21 @@ _Static_assert(__builtin_offsetof(__typeof__(saved), view_matrix) % 8 == 0 &&
 #endif
 
 /* copy words 32-bit words from from to to. -Os calls the runtime's memcpy for
- * a struct of 16 bytes or more, which is slower */
+ * a struct of 16 bytes or more, which is slower. words_copy fails the compile
+ * where either pointer names a type GCC aligns to less than a word, as an
+ * NJS_TEXANIM's Sint16s or an NJS_BGRA's bytes: a 32-bit load or store off a
+ * 4-byte boundary is an address error */
+#define WORD_ALIGNED(pointer)                                                  \
+    _Static_assert(_Alignof(__typeof__(*(pointer))) >= sizeof(Uint32),         \
+                   "words_copy takes pointers to word-aligned types")
+#define words_copy(to, from, words)                                            \
+    do {                                                                       \
+        WORD_ALIGNED(to);                                                      \
+        WORD_ALIGNED(from);                                                    \
+        words_copy_words(to, from, words);                                     \
+    } while (0)
 static inline __attribute__((always_inline)) void
-words_copy(void *to, const void *from, int words)
+words_copy_words(void *to, const void *from, int words)
 {
     Uint32 *x = to;
     const Uint32 *y = from;
@@ -659,6 +672,22 @@ words_copy(void *to, const void *from, int words)
 
 #pragma GCC unroll 16
     for (i = 0; i < words; i++) {
+        x[i] = y[i];
+    }
+}
+
+/* copy halves 16-bit words. an NJS_TEXANIM is Sint16s alone, so the game's can
+ * lie 2 bytes off a 32-bit boundary, where words_copy's loads are address
+ * errors: the Egg Hornet's glow's frames lie so */
+static inline __attribute__((always_inline)) void
+halves_copy(void *to, const void *from, int halves)
+{
+    Uint16 *x = to;
+    const Uint16 *y = from;
+    int i;
+
+#pragma GCC unroll 16
+    for (i = 0; i < halves; i++) {
         x[i] = y[i];
     }
 }
@@ -919,7 +948,7 @@ table_entry(struct draws *list, int table, const void *words, Uint32 bytes,
     if (entry == NULL) {
         return 0;
     }
-    words_copy(entry, words, bytes / sizeof(Uint32));
+    words_copy((Uint32 *)entry, (const Uint32 *)words, bytes / sizeof(Uint32));
     list->last[table] = list->top / HELD_UNIT;
     return list->last[table];
 }
@@ -1004,8 +1033,8 @@ static void keep_draw(struct draws *list, enum present_kind kind,
             return;
         }
         words_copy(&copy->sprite, sprite, sizeof(NJS_SPRITE) / sizeof(Uint32));
-        words_copy(&copy->frame, &sprite->tanim[entry],
-                   sizeof(NJS_TEXANIM) / sizeof(Uint32));
+        halves_copy(&copy->frame, &sprite->tanim[entry],
+                    sizeof(NJS_TEXANIM) / sizeof(Uint16));
         copy->sprite.tanim = &copy->frame;
         copy->depth = sprite_get_depth();
         keep.geometry = list->top / HELD_UNIT;
@@ -1694,6 +1723,9 @@ static void draws_replay(struct draws *list, int second)
     struct draw_shading shading;
     const sa_draw_kept *draw;
     struct kept_sprite *copy;
+    /* the view and shading shading was turned for, -1 before the first */
+    int shaded_view = -1;
+    int shaded_from = -1;
     int i;
 
     for (i = 0; i < list->view_count; i++) {
@@ -1716,11 +1748,17 @@ static void draws_replay(struct draws *list, int second)
 #endif
         state_put(HELD_ENTRY(list, draw->state));
         if (draw->kind == PRESENT_MODEL) {
-            /* the light lies in view space, so it turns with the move */
-            shading =
-                *(const struct draw_shading *)HELD_ENTRY(list, draw->shade);
-            shading.dir = turned(moves[draw->view], &shading.dir);
-            shading.base = turned(moves[draw->view], &shading.base);
+            /* the light lies in view space, so it turns with the move. a
+             * model with the last one's view and shading takes its light
+             * as turned */
+            if (draw->view != shaded_view || draw->shade != shaded_from) {
+                shading =
+                    *(const struct draw_shading *)HELD_ENTRY(list, draw->shade);
+                shading.dir = turned(moves[draw->view], &shading.dir);
+                shading.base = turned(moves[draw->view], &shading.base);
+                shaded_view = draw->view;
+                shaded_from = draw->shade;
+            }
             draw_put_shading(&shading);
             draw_model((NJS_MODEL *)draw->geometry);
             continue;

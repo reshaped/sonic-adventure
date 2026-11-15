@@ -30,9 +30,18 @@ struct pose_walk {
 static NJS_POINT3 axis_points[6] = {
 #include "draw/pose/axis_points.inc"
 };
+#ifdef NONMATCHING
+/* axes points its col here, and a line's draw reads each color as one
+ * longword, which faults on an address off 4. GCC aligns this array only to
+ * its bytes */
+static NJS_BGRA axis_colors[6] __attribute__((aligned(4))) = {
+#include "draw/pose/axis_colors.inc"
+};
+#else
 static NJS_BGRA axis_colors[6] = {
 #include "draw/pose/axis_colors.inc"
 };
+#endif
 /* @hack type: axes, an array of one, whose address pose_draw_player's loop
  * keeps in R9 (MOV.L at 0x8c05b1f8, MOV R9,R4 at 0x8c05b214); as a struct
  * passed as &axes, the loop keeps njDrawLine3D in R9 instead and 29 of 143

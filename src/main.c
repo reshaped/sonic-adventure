@@ -28,6 +28,7 @@
 #include "system/frame.h"
 #include "system/history.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/sbinit.h"
 #include "system/texture.h"
@@ -129,7 +130,7 @@ void main(void)
          * in R8 (0x8c056cd8 to 0x8c056ce6); read in the call, 24 of 113 words
          * differ */
         sectors = SECTORS(size);
-        gdFsRead(file, sectors, loader_buffer);
+        LOADER_MUST_READ(file, name, sectors, loader_buffer);
         gdFsClose(file);
         game_release_textures();
         sbExitSystem();

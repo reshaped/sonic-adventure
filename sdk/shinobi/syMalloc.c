@@ -49,7 +49,14 @@ void syMallocInit(void *heap, Uint32 size)
      * #32,R4 at 0x8c61c2e2, and at 0x8ce09466 in LOADER.BIN), but its block
      * still counts all of size. so the heap can reach 32 bytes past the end
      * the caller gave */
+#ifdef NONMATCHING
+    /* repairs the overrun the tag names: this side counts only the units from
+     * heap_base to the end the caller gave */
+    block->header.units =
+        ((Uint32)heap + size - (Uint32)heap_base) / sizeof(union heap_unit);
+#else
     block->header.units = size / sizeof(union heap_unit);
+#endif
     free(block + 1);
 }
 

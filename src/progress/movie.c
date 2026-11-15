@@ -9,6 +9,7 @@
 #include "system/cache.h"
 #include "system/frame.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 
 /* MOVIE.BIN loads at its entry, movie_entry */
 #define MOVIE_LOAD ((void *)movie_entry)

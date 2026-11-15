@@ -51,7 +51,57 @@ void loader_poll_drive(void);
 void loader_note_error(void *obj, Sint32 err);
 
 /* the reads declared from here to loader_file_size share one file handle,
- * so none may start while another runs */
+ * so none may start while another runs.
+ *
+ * each comment below gives the shipped read's results. under NONMATCHING a
+ * read differs once its file has opened. a failed size query returns as a
+ * failed open does. a failed read doesn't return, as loader_failed says.
+ * there loader_read_alloc's block holds the file's whole sectors */
+
+/* the game can't go on without some of what it reads: a program it then
+ * runs, the data a stage or a character plays from, a file's sectors once
+ * the file has opened. under NONMATCHING the calls below read those, and
+ * none returns from a failure. a source reads a file's sectors by
+ * LOADER_MUST_READ, which is loader_must_read there and as shipped gdFsRead,
+ * whose result those sources leave unread. must_load.h gives a source the
+ * other two */
+#ifdef NONMATCHING
+#include <shinobi.h>
+/* a file the game can't go on without failed. what says how in capitals, as
+ * port_stop takes it, name is the file's and error GDFS's, or 0. at an
+ * opened tray or a changed disc the game leaves for the boot ROM, as it
+ * does at a frame's end, once any card save has ended. at any other
+ * failure it stops, by port_stop. it doesn't return */
+void loader_failed(const char *what, const char *name, Sint32 error)
+    __attribute__((noreturn));
+/* gdFsRead of file, whose name is name: sectors sectors into dest. it
+ * returns once they are read. a read that fails is made again, up to tries
+ * in all, each only once the request before it has ended: a failed read can
+ * leave its request running, with dest still the drive's to write. where
+ * gdFsStopRd can't end the request, the game stops, with dest and file
+ * still taken. once every try has failed, loader_failed */
+void loader_must_read_tries(GDFS file, const char *name, Sint32 sectors,
+                            void *dest, int tries);
+/* loader_must_read_tries with one try */
+void loader_must_read(GDFS file, const char *name, Sint32 sectors, void *dest);
+/* loader_read_prs and loader_read_file, but a file that doesn't open or
+ * give its size is loader_failed's. each returns 0 */
+int loader_must_read_prs(char *name, void *dest);
+int loader_must_read_file(char *name, void *dest);
+#define LOADER_MUST_READ(file, name, sectors, dest)                            \
+    loader_must_read(file, name, sectors, dest)
+#else
+#define LOADER_MUST_READ(file, name, sectors, dest)                            \
+    gdFsRead(file, sectors, dest)
+#endif
+/* under NONMATCHING, a call of loader_read_file or loader_read_prs that
+ * leaves the result unread doesn't compile: a source either handles a file
+ * that won't open, or includes must_load.h */
+#ifdef NONMATCHING
+#define LOADER_RESULT __attribute__((warn_unused_result))
+#else
+#define LOADER_RESULT
+#endif
 
 /* read the current stage's programs, and each act's set and camera files.
  * for a stage without files, as STAGE_EGG_CARRIER_2 and
@@ -71,14 +121,14 @@ void loader_free(void *memory);
 /* read the file name into dest in whole sectors, so dest needs room for
  * SECTORS(size) of them. it returns -1 when the open fails, and 0
  * otherwise, even when the size query or the read fails */
-int loader_read_file(char *name, void *dest);
+int loader_read_file(char *name, void *dest) LOADER_RESULT;
 /* read the PRS file name into WORK_AREA and decode it into dest. the file
  * must fit WORK_AREA in whole sectors, and dest must not overlap input the
  * decoder has yet to read. it invalidates the instruction cache, for the
  * code dest may now hold. it returns -1 or 0 as loader_read_file does,
  * not the decoded size. the file must hold a valid PRS stream:
  * prs_decompress checks nothing */
-int loader_read_prs(char *name, void *dest);
+int loader_read_prs(char *name, void *dest) LOADER_RESULT;
 /* a file's size in bytes, or -1 when the open or the size query fails */
 int loader_file_size(char *name);
 

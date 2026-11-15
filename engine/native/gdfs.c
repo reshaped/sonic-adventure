@@ -513,6 +513,12 @@ int32_t gdFsGetStat(struct gdfs *gdfs)
     return gdfs && gdfs->file ? gdfs->stat : GDD_ERR_ILLHNDL;
 }
 
+/* a read here is over when gdFsRead returns, so there is none to stop */
+int32_t gdFsStopRd(struct gdfs *gdfs)
+{
+    return gdfs && gdfs->file ? GDD_ERR_OK : GDD_ERR_ILLHNDL;
+}
+
 void gdFsClose(struct gdfs *gdfs)
 {
     if (gdfs && gdfs->file) {

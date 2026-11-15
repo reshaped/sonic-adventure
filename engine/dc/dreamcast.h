@@ -39,6 +39,18 @@ enum overlay_mark {
  * nothing */
 void overlay_mark(enum overlay_mark mark);
 
+/* take the CPU's address errors and illegal instructions for the crash
+ * screen, engine/dc/crash.h's. sbInitSystem calls it once syHwInit has set
+ * the CPU's vectors and its caches, which it writes through. the
+ * Dreamcast's alone */
+void crash_install(void);
+/* stop the game for good at a failure it can't go on from, and say so: what,
+ * the failure in a few capitals, name, what failed, or null, and number, its
+ * code. the Dreamcast writes them on its crash screen. a host ends its run
+ * with them. it doesn't return */
+void port_stop(const char *what, const char *name, Uint32 number)
+    __attribute__((noreturn));
+
 /* 16:9. Ninja's aspect, _nj_scr_aspect_x_, stays the 1 njInitGlobal gives
  * it. so each projection the game makes lands in the 4:3 picture. 16:9 sets
  * two aspects of the port's in its place, each 1 or 3/4. the picture's is

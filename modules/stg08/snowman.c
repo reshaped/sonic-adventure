@@ -672,15 +672,33 @@ static NJS_MODEL *snowman_head_pieces[] = {
  * one */
 static NJS_POINT3 snowman_blue_points[2];
 static NJS_POINT3 snowman_range_points[2];
+#ifdef NONMATCHING
+/* snowman_blue_line points its col here, and a line's draw reads each color as
+ * one longword, which faults on an address off 4. GCC aligns this array only to
+ * its bytes */
+static NJS_BGRA snowman_blue_colors[2] __attribute__((aligned(4))) = {
+#include "stg08/snowman/snowman_blue_colors.inc"
+};
+#else
 static NJS_BGRA snowman_blue_colors[2] = {
 #include "stg08/snowman/snowman_blue_colors.inc"
 };
+#endif
 static NJS_POINT3COL snowman_blue_line = {
 #include "stg08/snowman/snowman_blue_line.inc"
 };
+#ifdef NONMATCHING
+/* snowman_range_line points its col here, and a line's draw reads each color as
+ * one longword, which faults on an address off 4. GCC aligns this array only to
+ * its bytes */
+static NJS_BGRA snowman_range_colors[2] __attribute__((aligned(4))) = {
+#include "stg08/snowman/snowman_range_colors.inc"
+};
+#else
 static NJS_BGRA snowman_range_colors[2] = {
 #include "stg08/snowman/snowman_range_colors.inc"
 };
+#endif
 static NJS_POINT3COL snowman_range_line = {
 #include "stg08/snowman/snowman_range_line.inc"
 };

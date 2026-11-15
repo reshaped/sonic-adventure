@@ -893,6 +893,11 @@ void texture_load_regular(int set)
                 njLoadTexture(texlist);
             }
             *list = texlist;
+#ifdef NONMATCHING
+            /* repairs the record the tag names: this side keeps each list
+             * in an entry of its own, for texture_release_regular */
+            list++;
+#endif
             pvm++;
             texlist = pvm->texlist;
         }
@@ -1016,6 +1021,11 @@ void texture_release_stage(void)
     while (stage_texlists[i] != NULL) {
         njReleaseTexture(stage_texlists[i]);
         stage_texlists[i] = NULL;
+#ifdef NONMATCHING
+        /* repairs the release the tag names: this side goes on to each
+         * entry */
+        i++;
+#endif
     }
 }
 
@@ -1144,6 +1154,9 @@ void texture_load_pvm(char *name, NJS_TEXLIST *texlist)
     int i;
 
     njSetPvmTextureList(&loaded, pvm_textures, names, PVM_TEXTURES);
+    /* @bug logic: load_prs's result goes unread (the BSR at 0x8c09efc2), so
+     * where the file didn't open the loop below copies what an earlier load
+     * left in pvm_textures into texlist, as this file's textures */
     load_prs(name, &loaded);
     count = texlist->nbTexture;
     textures = texlist->textures;
@@ -1180,8 +1193,31 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
         }
     }
     if (gdfs == NULL) {
+#ifdef NONMATCHING
+        /* repairs the copy texture_load_pvm's tag names: without its file
+         * the list has no textures of its own, so this side doesn't go on
+         * from one that won't open */
+        loader_failed("OPEN", path, 0);
+#endif
         return -1;
     }
+    /* @bug logic: the file is decoded whether or not it was read. the size
+     * query's result goes unread (the JSR at 0x8c09f084). the loop ends
+     * after TRIES failed reads as it does at a read that worked (the BT at
+     * 0x8c09f0b4 falls through to 0x8c09f0b6), and prs_decompress decodes
+     * what the room held (the JSR at 0x8c09f0c0). a read that fails can
+     * leave its request running, which each later try and the decode then
+     * share the room with */
+#ifdef NONMATCHING
+    /* repairs the decode the tag names: this side goes on only from a size
+     * and a read that worked, each try made once the one before has ended */
+    if (!gdFsGetFileSize(gdfs, &size)) {
+        loader_failed("SIZE", path, 0);
+    }
+    sectors = SECTORS(size);
+    file = WORK_AREA_END - FILE_ROOM(size);
+    loader_must_read_tries(gdfs, path, sectors, file, TRIES);
+#else
     gdFsGetFileSize(gdfs, &size);
     sectors = SECTORS(size);
     file = WORK_AREA_END - FILE_ROOM(size);
@@ -1190,6 +1226,7 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
             break;
         }
     }
+#endif
     gdFsClose(gdfs);
     prs_decompress(file, WORK_AREA);
     return njLoadTexturePvmMemory(WORK_AREA, texlist);
@@ -1218,8 +1255,27 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
         }
     }
     if (gdfs == NULL) {
+#ifdef NONMATCHING
+        /* as in load_prs: this side doesn't go on from a file that won't
+         * open */
+        loader_failed("OPEN", name, 0);
+#endif
         return -1;
     }
+    /* @bug logic: the file is decoded whether or not it was read, as in
+     * load_prs: the size query's result goes unread (the JSR at
+     * 0x8c09f164), the loop ends after TRIES failed reads as at a read that
+     * worked (the BT at 0x8c09f194 falls through to 0x8c09f196), and
+     * prs_decompress decodes what the room held (the JSR at 0x8c09f1a0) */
+#ifdef NONMATCHING
+    /* repairs the decode the tag names, as load_prs's does */
+    if (!gdFsGetFileSize(gdfs, &size)) {
+        loader_failed("SIZE", name, 0);
+    }
+    sectors = SECTORS(size);
+    file = WORK_AREA - FILE_ROOM(size);
+    loader_must_read_tries(gdfs, name, sectors, file, TRIES);
+#else
     gdFsGetFileSize(gdfs, &size);
     sectors = SECTORS(size);
     file = WORK_AREA - FILE_ROOM(size);
@@ -1228,6 +1284,7 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
             break;
         }
     }
+#endif
     gdFsClose(gdfs);
     prs_decompress(file, MODULE_AREA);
     return njLoadTexturePvmMemory(MODULE_AREA, texlist);

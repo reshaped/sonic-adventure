@@ -10,6 +10,7 @@
 #include <shinobi.h>
 #include <string.h>
 
+#include "engine/dc/crash.h"
 #include "engine/dc/dreamcast.h"
 #include "main.h"
 #include "stage/stage.h"
@@ -692,6 +693,7 @@ void overlay_end(Uint32 wait, Uint32 busy, int late)
     int figured;
     int most;
 
+    crash_frame();
     /* a skip's frames wait for no vsync, so they add to no count. a half
      * second can hold hundreds of them, each past a budget of 0 */
     if (frame_interval != 0) {

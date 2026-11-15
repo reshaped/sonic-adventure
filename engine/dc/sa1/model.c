@@ -545,7 +545,7 @@ OUT_OF_LINE Bool points_above(const NJS_MODEL *model, Float x, Float y, Float z,
                               Float bound)
 {
     shz_vec4_t plane =
-        zam_xmtrx_transform_vec4_transpose(shz_vec4_init(x, y, z, 0.0F));
+        shz_xmtrx_transform_vec4_transpose(shz_vec4_init(x, y, z, 0.0F));
 
     return zam_vec4_dot_any_above(plane, &model->points->x, model->nbPoint,
                                   bound);
@@ -816,7 +816,8 @@ OUT_OF_LINE Bool shade_from_bake(const NJS_MODEL *model, struct colors *lit,
  * first three columns */
 static inline shz_vec4_t turn_light(void)
 {
-    shz_vec3_t turned = zam_xmtrx_transform_vec3_transpose(&sa1_live_light.x);
+    shz_vec3_t turned = shz_xmtrx_transform_vec3_transpose(
+        shz_vec3_init(sa1_live_light.x, sa1_live_light.y, sa1_live_light.z));
 
     return shz_vec4_init(turned.x, turned.y, turned.z, 0.0F);
 }

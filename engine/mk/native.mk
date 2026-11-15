@@ -147,9 +147,12 @@ NATIVE_CFLAGS := $(NATIVE_ARCH) -std=gnu89 -ffreestanding -nostdinc -isystem $(N
 # optimizer runs on its IR
 NATIVE_PASS_CFLAGS := $(filter-out -ffp-contract=off,$(NATIVE_CFLAGS)) -mfma -frounding-math
 # $(call native_pass,INCLUDES,RELEASE,SHC'S FLAGS) compiles $< to $@ through
-# both passes, under $(call native_pass_flags,RELEASE,SHC'S FLAGS)
+# both passes, under $(call native_pass_flags,RELEASE,SHC'S FLAGS). A source
+# whose double is a float calls the runtime's frexp, which takes a float, as
+# native_frexp: the host's frexp takes a double, and the host's C keeps the
+# name
 native_pass_flags = $(NATIVE_PASS_CFLAGS) -ffp-contract=$(if $(filter r26 r32,$1),on,off) \
-	$(if $(filter -fpu=single -double=float,$2),-Ddouble=float)
+	$(if $(filter -fpu=single -double=float,$2),-Ddouble=float -Dfrexp=native_frexp)
 # The pass reads each source under the release and the flags SHC builds it
 # with, as make dc's float pass reads it. The Makefile's routes give them:
 # R32 and GAME for the game's C and R10 and SDK for the SDK's, but R10 and
@@ -222,10 +225,10 @@ NATIVE_SDK_C  := $(addprefix sdk/ninja/,$(NATIVE_NINJA:%=%.c) njDistanceL2PL.c n
 NATIVE_PLAY_MATH := $(NATIVE)/obj/engine/numeric
 # The C runtime's rand and float math, which play reads, are SHC's, where
 # the host's library would give its own: all of sdk/runtime/ but its
-# strings, its prints, and its double math, which the host's C needs as
+# strings, its prints, and its atan2 and cos, which the host's C needs as
 # its own
 NATIVE_HOST_LIB := memcmp memcpy memset strcat strcmp strcpy strlen strncpy sprintf vsprintf _fmtout toupper \
-	_ctype atan2 cos frexp
+	_ctype atan2 cos
 # Five of them keep a 64-bit double, built without -fpu=single
 NATIVE_WIDE_C := $(addprefix sdk/runtime/,_duchek.c _log10.c _unpack.c _xti.c _xtostr.c)
 NATIVE_RUNTIME_C := $(filter-out $(NATIVE_HOST_LIB:%=sdk/runtime/%.c),$(sort $(wildcard sdk/runtime/*.c)))

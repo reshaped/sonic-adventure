@@ -31,6 +31,7 @@ DC_REPLACED += src/system/math.src:engine/dc/math.c src/collision/mesh.src:engin
 # names: the game's frame end, its toggles and curtain, split frame and
 # skip, which the game reaches through its guards
 DC_ADDED := 1st_read:engine/dc/overlay.c 1st_read:engine/dc/wide.c 1st_read:engine/dc/owner.c \
+    1st_read:engine/dc/crash.c \
     $(patsubst %,1st_read:%,$(filter-out $(foreach r,$(DC_REPLACED),$(word 2,$(subst :, ,$r))),$(NONMATCHING_C)))
 
 # DC_STARTS, the output sections of its data, of .rodata, .data and .bss,

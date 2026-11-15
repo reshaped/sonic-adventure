@@ -33,6 +33,8 @@ EXACT = {
     'shz_xmtrx_write_row', 'shz_xmtrx_read_col', 'shz_xmtrx_write_col', 'shz_xmtrx_get_translation',
     'shz_xmtrx_apply_4x4', 'shz_xmtrx_apply_unaligned_4x4', 'shz_xmtrx_translate', 'shz_xmtrx_scale',
     'shz_xmtrx_transform_vec4', 'shz_xmtrx_transform_vec3', 'shz_xmtrx_transform_point3', 'shz_xmtrx_transform_point2',
+    # FIPRs of the vector with XMTRX's columns
+    'shz_xmtrx_transform_vec4_transpose', 'shz_xmtrx_transform_vec3_transpose',
     'shz_xmtrx_rotate_x_u16', 'shz_xmtrx_rotate_y_u16', 'shz_xmtrx_rotate_z_u16',
     # one product, or one sum, in each lane
     'shz_vec3_scale', 'shz_vec4_scale', 'shz_vec3_add', 'shz_vec3_sub',

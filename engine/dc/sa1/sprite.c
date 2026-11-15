@@ -38,8 +38,7 @@ static const Uint8 sprite_clip_orders[8] = {
 /* what sprite_clip_triangle places a crossing by */
 struct sprite_clip {
     Float near; /* the near clip */
-    Float rhw; /* the crossings' 1/z: 1/near, until
-                * sprite_clip_triangle's @bug overwrites it */
+    Float rhw; /* the crossings' 1/z: 1/near */
     Float scale_x, scale_y; /* from a view x and y at z = near to the screen */
     Float cx, cy; /* the screen's center */
 };
@@ -51,7 +50,7 @@ struct sprite_clip {
 static struct sprite_vertex *
 sprite_clip_triangle(struct sprite_vertex *sq, Uint32 order,
                      const struct sprite_corner corners[3],
-                     const shz_vec3_t views[3], struct sprite_clip *clip)
+                     const shz_vec3_t views[3], const struct sprite_clip *clip)
 {
     struct sprite_corner points[4];
     int count = 0;
@@ -89,12 +88,11 @@ sprite_clip_triangle(struct sprite_vertex *sq, Uint32 order,
     if (!(order & CLIP_FOUR)) {
         return sprite_send_corner(sq, &points[2], KM_VERTEXPARAM_ENDOFSTRIP);
     }
-    /* @bug logic: the waiting point's 1/z overwrites the crossings' 1/near.
-     * when a corner of the first triangle waits, the second triangle's
-     * crossings take that corner's 1/z in place of 1/near. njSprite.src loads
-     * it over 1/near at 0x8c623fd0, and at 0x8ce0db64 in LOADER.BIN, and
-     * sprite.src at 0x8c0a4b44 */
-    clip->rhw = points[2].rhw;
+    /* the shipped send loads the waiting point's 1/z over the crossings'
+     * 1/near here (njSprite.src at 0x8c623fd0, and at 0x8ce0db64 in
+     * LOADER.BIN, and sprite.src at 0x8c0a4b44), so a first triangle's
+     * waiting corner gave the second's crossings its depth. this send keeps
+     * 1/near */
     sq = sprite_send_corner(sq, &points[3], KM_VERTEXPARAM_NORMAL);
     return sprite_send_corner(sq, &points[2], KM_VERTEXPARAM_ENDOFSTRIP);
 }
@@ -102,19 +100,17 @@ sprite_clip_triangle(struct sprite_vertex *sq, Uint32 order,
 /* send the quad of corners as two triangles cut at the near clip, its first
  * three corners and then its last three, from sq on. return the vertex past
  * the last. nearer has a bit for each corner nearer than the clip, 8 for the
- * first down to 1 for the last. a crossing lies between its side's ends in
- * the view. the corners' x, y and 1/z on the screen give back their places in
- * the view */
+ * first down to 1 for the last. views holds the corners' places in the view,
+ * and a crossing lies between its side's ends there. only the corners at or
+ * past the clip are sent, so only their places on the screen are read */
 static struct sprite_vertex *
 sprite_clip_near(struct sprite_vertex *sq, Uint32 nearer,
-                 const struct sprite_corner corners[4])
+                 const struct sprite_corner corners[4],
+                 const shz_vec3_t views[4])
 {
-    shz_vec3_t views[4];
     struct sprite_clip clip;
     Float scale_x = port_draw_aspect * sa1_live_ninja_screen.dist;
     Float scale_y = sa1_live_aspect_y * sa1_live_ninja_screen.dist;
-    Float to_view_x = 1.0F / scale_x;
-    Float to_view_y = 1.0F / scale_y;
 
     clip.near = sa1_live_near_clip;
     clip.rhw = 1.0F / clip.near;
@@ -122,13 +118,6 @@ sprite_clip_near(struct sprite_vertex *sq, Uint32 nearer,
     clip.scale_y = scale_y * clip.rhw;
     clip.cx = sa1_live_ninja_screen.cx;
     clip.cy = sa1_live_ninja_screen.cy;
-    for (int i = 0; i < 4; i++) {
-        Float z = 1.0F / corners[i].rhw;
-
-        views[i].x = (corners[i].x - clip.cx) * to_view_x * z;
-        views[i].y = (corners[i].y - clip.cy) * to_view_y * z;
-        views[i].z = z;
-    }
     sq = sprite_clip_triangle(sq, sprite_clip_orders[nearer >> 1], &corners[0],
                               &views[0], &clip);
     return sprite_clip_triangle(sq, sprite_clip_orders[nearer & 7], &corners[1],
@@ -185,12 +174,14 @@ struct sprite_vertex *sprite_send_plane(const NJS_SPRITE *sp, Int n,
         nearer = (Uint32)(near > views[0].z) << 3 |
                  (Uint32)(near > views[1].z) << 2 |
                  (Uint32)(near > views[2].z) << 1 | (Uint32)(near > views[3].z);
-        /* a corner of a quad the near clip cuts can lie behind the eye, and
-         * its 1/z keeps its sign. sprite_clip_near takes a copy, cut, so
-         * that corners can stay in registers. an array whose address leaves
-         * the function lives in memory. with corners passed in cut's place,
-         * this function takes 16 more instructions, and a frame 4 bytes
-         * larger */
+        /* sprite_clip_near takes a copy, cut, so that corners can stay in
+         * registers. an array whose address leaves the function lives in
+         * memory. with corners passed in cut's place, this function takes 16
+         * more instructions, and a frame 4 bytes larger. a corner nearer than
+         * the clip projects to no point a send reads, and can lie behind the
+         * eye, where its 1/z turns its place on the screen around. so no test
+         * of the screen rejects the quad: one whose corners all project off
+         * one side can still cross it */
         cut[0] = corners[0];
         cut[1] = corners[1];
         cut[2] = corners[2];
@@ -199,10 +190,7 @@ struct sprite_vertex *sprite_send_plane(const NJS_SPRITE *sp, Int n,
         sprite_project(&cut[1], views[1], 1.0F / views[1].z, scale_x, scale_y);
         sprite_project(&cut[2], views[2], 1.0F / views[2].z, scale_x, scale_y);
         sprite_project(&cut[3], views[3], 1.0F / views[3].z, scale_x, scale_y);
-        if (sprite_off_screen(cut)) {
-            return NULL;
-        }
-        return sprite_clip_near(sq, nearer, cut);
+        return sprite_clip_near(sq, nearer, cut, views);
     }
     sprite_project(&corners[0], views[0], 1.0F / views[0].z, scale_x, scale_y);
     sprite_project(&corners[1], views[1], 1.0F / views[1].z, scale_x, scale_y);

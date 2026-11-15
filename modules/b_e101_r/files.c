@@ -7,6 +7,7 @@
 #include "b_e101_r/files.h"
 #include "system/binary.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 
 /* the end of the module's bss, a word of bounds.src's table */
 extern Uint8 *e101_r_bss_end;

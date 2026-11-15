@@ -110,7 +110,8 @@ struct sa1_live_easy {
 static __attribute__((noinline)) int
 easy_project(const NJS_MODEL *model, const struct sa1_live_easy *state)
 {
-    shz_vec3_t turned = zam_xmtrx_transform_vec3_transpose(&state->light.x);
+    shz_vec3_t turned = shz_xmtrx_transform_vec3_transpose(
+        shz_vec3_init(state->light.x, state->light.y, state->light.z));
     Float diffuse = state->negative_diffuse;
 
     return zam_xmtrx_project_lit_points(

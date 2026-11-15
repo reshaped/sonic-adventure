@@ -39,8 +39,20 @@ Sint32 gdFsWaitCompleteReq(GDFS gdfs)
         case GDD_STAT_READ:
         case GDD_STAT_SEEK:
         case GDD_STAT_BUSY:
+            /* @bug logic: a request that stalls after its first sector is
+             * never timed out. trnsed keeps the count the wait began with
+             * (R11, loaded at 0x8c61a11a and written nowhere after), so once
+             * the request has moved a sector each pass finds the counts apart
+             * (CMP/EQ at 0x8c61a150, and at 0x8ce083cc in LOADER.BIN) and
+             * starts the timeout again */
             if (trnsed != gdfs->trnsed) {
                 start = gdg_fs_vcnt;
+#ifdef NONMATCHING
+                /* repairs the timeout the tag names: this side keeps the
+                 * new count, so WAIT_TOUT runs from the request's last
+                 * sector */
+                trnsed = gdfs->trnsed;
+#endif
             }
             break;
         case GDD_STAT_ERR:

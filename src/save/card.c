@@ -2617,7 +2617,7 @@ Bool light_read_disc(const char *name, void *dest)
         part = 0;
     }
     size = (size / SECTOR_SIZE) + part;
-    gdFsRead(file, size, dest);
+    LOADER_MUST_READ(file, name, size, dest);
     gdFsClose(file);
     return TRUE;
 }

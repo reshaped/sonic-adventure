@@ -27,6 +27,7 @@
 #include "stg08/sky_textures.h"
 #include "stg08/snow_slide.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/texture.h"

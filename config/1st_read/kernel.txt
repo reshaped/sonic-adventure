@@ -147,7 +147,7 @@ model    src/draw/model.src        take_constant_attr
 model    sdk/ninja/njkm.c          njGetkmPointer
 model    sdk/ninja/njkm.c          njSetkmPointer
 model    src/draw/model.src        project_points
-window   model     65
+window   model     66
 
 # present: what each draw and each task's step records of the frame, and
 # the helpers a frame that keeps no record calls among the draws
@@ -160,7 +160,7 @@ present  src/system/present.c  marks_add
 present  src/system/present.c  lists_end
 present  src/system/present.c  step_measured
 present  src/system/present.c  state_get
-window   present   43
+window   present   42
 
 # matrix: the matrix stack, its turns and its copies
 matrix   sdk/ninja/njGetMatrix.c   njGetMatrix
@@ -343,7 +343,6 @@ warm     src/player/player.c       player_step_up
 warm     src/system/pad.c          pad_scan
 warm     src/system/present.c      marks_first
 warm     src/system/task.c         heap_alloc
-warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
 warm     src/draw/action_link.c    action_link_transform
 warm     sdk/ninja/njDetMatrix.c   njDetMatrix
 warm     src/player/player.c       player_turn_to_world
@@ -402,6 +401,7 @@ warm     sdk/ninja/njInvertMatrix.c njInvertMatrix
 warm     src/effect/spark.c        spark_step
 warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
 warm     sdk/ninja/njModelE.c      _njEasyDrawModel
+warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
 
 # the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
 # then collision's index of the static meshes, which their sides' and

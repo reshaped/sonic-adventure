@@ -8,6 +8,7 @@
 #include "b_robo/banks.h"
 #include "system/binary.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 
 /* the end of the module's bss, from the table bounds.src makes */
 extern Uint8 *eggmanrobo_bss_end;
