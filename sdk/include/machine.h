@@ -3,11 +3,13 @@
 #define MACHINE_H
 
 #ifdef GCC
+#ifndef XBOX
 /* under -m4-single-only, the FPU model config/gcc.mk's GCC_TARGET gives,
  * GCC's code takes FPSCR's PR and SZ clear. FR is clear as the CPU's reset
  * leaves it. GCC's side of set_fpscr and st_ext below relies on all three */
 #ifndef __SH4_SINGLE_ONLY__
 #error "GCC's side of the code takes -m4-single-only"
+#endif
 #endif
 #endif
 
@@ -20,6 +22,14 @@ int _builtin_get_imask(void);
 void *_builtin_get_vbr(void);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* the Xbox port's SDK layer defines the three: x86 has no SR or VBR. the
+ * mask it keeps orders the game's threads and callbacks as the console's
+ * interrupts were ordered (XBOX.md#architecture) */
+void _builtin_set_imask(int mask);
+int _builtin_get_imask(void);
+void *_builtin_get_vbr(void);
+#else
 /* SHC writes the three in place, and GCC always does: code that runs
  * uncached through P2, as mwsfd.c's switches of the cache do, can't call out
  * to P1. set_imask's LDC writes all of SR, T among it. no load or store moves
@@ -49,6 +59,7 @@ __attribute__((always_inline)) static inline void *_builtin_get_vbr(void)
     return vbr;
 }
 #endif
+#endif
 #define set_imask(mask) _builtin_set_imask(mask)
 #define get_imask() _builtin_get_imask()
 #define get_vbr() _builtin_get_vbr()
@@ -61,12 +72,19 @@ void _builtin_set_fpscr(int cr);
 int _builtin_get_fpscr(void);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* the port's SDK layer defines the two, over SSE's MXCSR: its rounding mode
+ * as FPSCR's RM, and flushing denormals as its DN */
+void _builtin_set_fpscr(int cr);
+int _builtin_get_fpscr(void);
+#else
 /* GCC's set_fpscr keeps FPSCR's PR, SZ and FR as they are, where SHC's
  * writes them from cr. the two agree, since each cr the sources pass holds
  * the three clear. rfiber's FIBER_FPSCR clears them, and every other cr is
  * FPSCR as get_fpscr read it, _fmtout's less PR */
 #define _builtin_set_fpscr __builtin_sh_set_fpscr
 #define _builtin_get_fpscr __builtin_sh_get_fpscr
+#endif
 #endif
 #define set_fpscr(cr) _builtin_set_fpscr(cr)
 #define get_fpscr() _builtin_get_fpscr()
@@ -77,6 +95,13 @@ int _builtin_get_fpscr(void);
 int _builtin_tas(char *addr);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* an atomic OR of bit 7, which x86's LOCK OR or XCHG gives */
+static inline int _builtin_tas(char *addr)
+{
+    return __atomic_fetch_or(addr, (char)0x80, __ATOMIC_SEQ_CST) == 0;
+}
+#else
 static inline int _builtin_tas(char *addr)
 {
     int was_zero;
@@ -88,6 +113,7 @@ static inline int _builtin_tas(char *addr)
     return was_zero;
 }
 #endif
+#endif
 #define tas(addr) _builtin_tas(addr)
 
 /* PREF: prefetch the cache line at p. at a store queue address, write that
@@ -96,12 +122,22 @@ static inline int _builtin_tas(char *addr)
 void _builtin_prefetch(void *p);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* x86 has no store queues: the port's stand-in for them writes memory
+ * directly, so a flush need only keep the stores before it in order */
+static inline void _builtin_prefetch(void *p)
+{
+    (void)p;
+    __asm__ volatile("" : : : "memory");
+}
+#else
 /* PREF at a store queue address writes out the stores before it, so no load
  * or store moves across it. GCC's __builtin_prefetch lets them move */
 static inline void _builtin_prefetch(void *p)
 {
     __asm__ volatile("pref @%0" : : "r"(p) : "memory");
 }
+#endif
 #endif
 #define prefetch(p) _builtin_prefetch(p)
 
@@ -111,6 +147,10 @@ static inline void _builtin_prefetch(void *p)
 void _builtin_st_ext(float (*m)[4]);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* XMTRX is the port's (xbox/include/sh4.h), which defines the store over it */
+void _builtin_st_ext(float (*m)[4]);
+#else
 /* the pair stores run from m's end down, XD14 first, as SHC writes them */
 static inline void _builtin_st_ext(float (*m)[4])
 {
@@ -129,6 +169,7 @@ static inline void _builtin_st_ext(float (*m)[4])
                      : "+r"(end), "=m"(*(float (*)[16])m));
 }
 #endif
+#endif
 #define st_ext(m) _builtin_st_ext(m)
 
 /* TRAPA #trap_no: trap unconditionally, with trap_no << 2 in TRA */
@@ -136,8 +177,13 @@ static inline void _builtin_st_ext(float (*m)[4])
 void _builtin_trapa(int trap_no);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* every trap the tree takes stops the game, as the console's handlers do */
+#define _builtin_trapa(trap_no) __builtin_trap()
+#else
 #define _builtin_trapa(trap_no)                                                \
     __asm__ volatile("trapa %0" : : "i"(trap_no) : "memory")
+#endif
 #endif
 #define trapa(trap_no) _builtin_trapa(trap_no)
 
@@ -148,6 +194,28 @@ char *_builtin_strcpy(char *s1, const char *s2);
 int _builtin_strcmp(const char *s1, const char *s2);
 #endif
 #ifdef GCC
+#ifdef XBOX
+/* C's loops, where the console's runtime takes R0 and R1 outside C's
+ * calling convention. sdk/runtime/strcpy.c's strcpy calls _builtin_strcpy,
+ * so neither calls the C library */
+static inline char *_builtin_strcpy(char *s1, const char *s2)
+{
+    char *to = s1;
+
+    while ((*to++ = *s2++) != '\0') {
+    }
+    return s1;
+}
+
+static inline int _builtin_strcmp(const char *s1, const char *s2)
+{
+    while (*s1 != '\0' && *s1 == *s2) {
+        s1++;
+        s2++;
+    }
+    return (int)*(const unsigned char *)s1 - (int)*(const unsigned char *)s2;
+}
+#else
 /* _slow_strcpy takes s1 in R0 and s2 in R1, outside C's calling convention.
  * it returns s1 in R0 and changes R1 and T alone. the asm moves s1 and s2
  * into R0 and R1 itself. a register variable bound to R0 would hold s1 there
@@ -169,6 +237,7 @@ static inline char *_builtin_strcpy(char *s1, const char *s2)
 }
 
 #define _builtin_strcmp _slow_strcmp1
+#endif
 #endif
 
 #endif

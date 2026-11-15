@@ -107,9 +107,9 @@ KEYWORDS = {'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do
 OPENING = ('if', 'ifdef', 'ifndef')
 LATER = ('elifdef', 'elifndef', 'elif', 'else')
 # whether make gcc's GCC compile defines each macro compiled() reads an
-# #ifdef or #ifndef of: GCC, which its -DGCC defines, and __clang__, which
-# only clang defines
-DEFINED = {'GCC': True, '__clang__': False}
+# #ifdef or #ifndef of: GCC, which its -DGCC defines, __clang__, which
+# only clang defines, and XBOX, which only make pc's compile defines
+DEFINED = {'GCC': True, '__clang__': False, 'XBOX': False}
 # a header a file includes, and the directories an include's header is
 # found in, after its own file's for a quoted include. They are the tree's
 # directories the routes name to -I, in the Makefile's GAME_INC order, then

@@ -21,8 +21,17 @@
  * queue filled at SQ_BASE | (address & SQ_ADDRESS) sends it to address.
  * SQ_AREA moves address's bits 26 to 28 to bits 2 to 4, where the registers
  * take them */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile Uint32 port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(volatile Uint32 *)0xff000038)
 #define QACR1 (*(volatile Uint32 *)0xff00003c)
+#endif
 #define SQ_AREA(address) (((address) >> 24) & 0x1c)
 #define SQ_ADDRESS 0x03ffffff
 #define SQ_BASE 0xe0000000
@@ -46,7 +55,7 @@ static __attribute__((noinline)) struct sprite_vertex *
 sprite_send_facing(const NJS_SPRITE *sprite, Int entry, Uint32 attr,
                    struct sprite_vertex *sq)
 {
-    shz_vec3_t view = shz_xmtrx_transform_point3(zam_load_vec3(&sprite->p));
+    sprite_vec3 view = sprite_view_of(sprite->p.x, sprite->p.y, sprite->p.z);
 
     /* @bug logic: the corners' y scales by sprite->sx, where
      * sprite_send_plane's scales by sprite->sy. sprite.src loads the y scale

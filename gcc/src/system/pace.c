@@ -21,6 +21,10 @@
  * the overlay draws after pillarbox's bands, outside pillarbox, and before
  * the next frame's 16:9 applies, so its readout names the 16:9 the frame was
  * drawn with */
+#ifdef XBOX
+void port_frame_busy(unsigned us);
+Uint32 syTmrCountToMicro(Uint32 count);
+#endif
 void frame_end(Uint32 wait, int late)
 {
     int demo = demo_playing || recording_on;
@@ -37,6 +41,10 @@ void frame_end(Uint32 wait, int late)
      * split frame's busy time leaves out its wait for the middle vsync */
     overlay_end(wait, wait - _nj_wait_vsync_out_ - present_idle(),
                 frame_interval + late, present_reason(fast, late));
+#ifdef XBOX
+    /* the port's report (xbox/port/report.c): the same busy time */
+    port_frame_busy(syTmrCountToMicro(wait - _nj_wait_vsync_out_ - present_idle()));
+#endif
     skip_frame();
     overlay_advance();
     wide_end();

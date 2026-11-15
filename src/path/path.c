@@ -1,6 +1,10 @@
 /* paths: lines of points through a stage, the tasks each act makes for
  * them, and places along them by distance */
 #include <mathf.h>
+#ifdef XBOX
+/* GCC's INFINITY below, which make gcc's headers bring it */
+#include <math.h>
+#endif
 #include <ninja.h>
 #include <sg_xpt.h>
 

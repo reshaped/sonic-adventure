@@ -1,0 +1,16 @@
+// the Xbox host's vertex program for the bloom's passes (video.c's bloom), by
+// hand in NV_vertex_program 1.1 as vertex.vp is: a quad's corners as they
+// are, x and y in the target's pixels, and their texture coordinate, in the
+// source's texels, four times over, each moved by one of c[80] to c[83], for
+// the four taps. c[84] is 0, 1.
+0x00000000, 0x0020001b, 0x0836106c, 0x2070c800,
+0x00000000, 0x00368001, 0x0c36106c, 0x20703800,
+0x00000000, 0x0076121b, 0x0836106c, 0x3070c848,
+0x00000000, 0x00368001, 0x0c36106c, 0x20703848,
+0x00000000, 0x0076321b, 0x0836106c, 0x3070c850,
+0x00000000, 0x00368001, 0x0c36106c, 0x20703850,
+0x00000000, 0x0076521b, 0x0836106c, 0x3070c858,
+0x00000000, 0x00368001, 0x0c36106c, 0x20703858,
+0x00000000, 0x0076721b, 0x0836106c, 0x3070c860,
+0x00000000, 0x00368001, 0x0c36106c, 0x20703860,
+0x00000000, 0x0020061b, 0x0836106c, 0x2070f819,

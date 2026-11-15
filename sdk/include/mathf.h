@@ -16,6 +16,9 @@ float sqrtf(float x);
 #endif
 #ifdef GCC
 #define _builtin_sqrtf __builtin_sqrtf
+#endif
+/* the Xbox port calls the runtime's floorf and ceilf, as SHC's code does */
+#if defined(GCC) && !defined(XBOX)
 #include <zam.h>
 #include <sh4zam/shz_scalar.h>
 

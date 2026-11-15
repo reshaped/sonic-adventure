@@ -1,0 +1,87 @@
+!!VP1.1
+# the Xbox host's vertex program, by hand in NV_vertex_program 1.1, which
+# vp20compiler takes as Cg's output, so that every constant is the host's
+# (Cg's own literals went to c[0], which the host didn't load).
+#
+# its vertices are the renderer's as they come (struct host_vertex, 28
+# bytes): v[0] x, y and rhw, v[8] u and v, v[3] the base color, v[4] the
+# offset color, its alpha the PowerVR's vertex fog. for each vertex
+# (video.c's head):
+# - the position: x and y in pixels, the depth of rhw (depth_of's two
+#   pieces, linear in rhw), w = 1/rhw, rhw kept above 1e-7; x and y
+#   then times c[78]'s, the display's pixels to the game's 640 by 480
+#   (1 and 1, or 2 and 1.5 at 720p);
+# - the texture coordinates scaled to the stored texture;
+# - the base color's alpha forced to 1 where the polygon ignores it, and the
+#   offset color where it has none;
+# - the fog's texture coordinate, TEXCOORD1, for the fog texture on stage 1,
+#   which gives a pixel its fog's share (video.c's fog): s over q is the
+#   table's place for the pixel's own rhw, s = A + B * w over q = w, which
+#   across a triangle is A times rhw, linear on the screen as the PowerVR's
+#   is, plus B; or the vertex's fog on a ramp, s = A + V * the offset
+#   color's alpha over q = 1.
+#
+# the constants, which video.c loads (at 96 + n):
+#   c[0]  1, 0, 0.5, 16
+#   c[1]  the depth's knee, its scale below, its scale above, the depth there
+#   c[2]  the depth's top, 0, 1e-7, 255.9999
+#   c[6]  the depth's bottom piece: the rhw it reaches, its scale, the depth
+#         there (video.c's depth_next: the 2D layers far behind the 3D)
+#   c[3]  the texture's u and v scales, 0, 1                     (a draw's)
+#   c[4]  the fog's A, B and V, and 1 where the base color's alpha is
+#         ignored                                                 (a draw's)
+#   c[5]  the fog's q: its share of w, and its constant; 0; 1 where the
+#         offset color counts                                     (a draw's)
+#   c[72] to c[74]  a model's transform (a host_item's): the rows that give
+#         a point's x and y on the screen, each times its depth z, and z.
+#         for vertices already on the screen, the rows of x, y and 1
+#   c[75] 1, 0 for a model's vertices, whose rhw is 1 / z, and 0, 1 for
+#         those on the screen, whose third coordinate is rhw
+
+# w, and the depth
+# the position: a model's point through its transform, x and y over z and
+# rhw 1 / z, or a vertex on the screen as it is
+DP4 R10.x, v[0], c[72];
+DP4 R10.y, v[0], c[73];
+DP4 R10.z, v[0], c[74];
+RCP R10.w, R10.z;
+MUL R10.xy, R10, R10.w;
+MUL R10.w, R10.w, c[75].x;
+MAD R10.w, v[0].z, c[75].y, R10.w;
+MAX R0.x, R10.w, c[2].z;
+RCP R0.y, R0.x;
+MOV o[HPOS].w, R0.y;
+ADD R4.x, R0.x, -c[6].x;
+MUL R1.x, R4.x, c[1].y;
+ADD R1.x, R1.x, c[6].z;
+MUL R4.y, R0.x, c[6].y;
+SLT R4.z, R0.x, c[6].x;
+ADD R4.w, R4.y, -R1.x;
+MAD R1.x, R4.z, R4.w, R1.x;
+ADD R1.y, R0.x, -c[1].x;
+MAD R1.y, R1.y, c[1].z, c[1].w;
+SLT R1.z, c[1].x, R0.x;
+ADD R1.w, R1.y, -R1.x;
+MAD R1.x, R1.z, R1.w, R1.x;
+MIN o[HPOS].z, R1.x, c[2].x;
+MUL o[HPOS].xy, R10, c[78];
+
+# the texture coordinates
+MUL o[TEX0].xy, v[8], c[3];
+MOV o[TEX0].zw, c[3];
+
+# the fog's texture coordinate
+MAD R2.x, R0.y, c[4].y, c[4].x;
+MAD o[TEX1].x, v[4].w, c[4].z, R2.x;
+MOV o[TEX1].yz, c[0].y;
+MAD o[TEX1].w, R0.y, c[5].x, c[5].y;
+
+# the offset color, where it counts
+MUL o[COL1].xyz, v[4], c[5].w;
+MOV o[COL1].w, c[0].y;
+
+# the base color: its alpha 1 where ignored
+MOV R10, v[3];
+MAX R10.w, v[3].w, c[4].w;
+MOV o[COL0], R10;
+END

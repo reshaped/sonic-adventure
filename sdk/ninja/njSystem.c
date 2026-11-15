@@ -136,6 +136,16 @@ void njBlank(void *arg)
 }
 
 /* wait for a vertical sync to end: the one under way, or else the next */
+#ifdef XBOX
+/* the port layer's wait for the host's next vertical blank, where the
+ * console spins on the video chip's sync status */
+void port_wait_vsync(void);
+
+void waitVsync(void)
+{
+    port_wait_vsync();
+}
+#else
 void waitVsync(void)
 {
     while (!(SYNC_STATUS & SYNC_VERTICAL)) {
@@ -143,6 +153,7 @@ void waitVsync(void)
     while (SYNC_STATUS & SYNC_VERTICAL) {
     }
 }
+#endif
 
 /* set the video output for a cable. cable is a SYE_CBL_CABLE_ type moved into
  * AICA_VIDEO_CABLE by CABLE_SHIFT. any other bit cable holds is set in the

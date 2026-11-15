@@ -21,8 +21,17 @@
 /* the bits of a list's write pointer above its offset */
 #define LIST_TOP 0xfc000000
 
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile Uint32 port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(Uint32 *)0xff000038)
 #define QACR1 (*(Uint32 *)0xff00003c)
+#endif
 
 /* the index in _nj_context_ of the print's vertex context */
 #define DEBUG_CONTEXT 4

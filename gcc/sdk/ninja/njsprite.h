@@ -16,6 +16,30 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+/* a point in view space, and (x, y, z, 1) turned by XMTRX into one: make
+ * gcc's by its own SH-4 entries, the Xbox port's by its native models of
+ * FTRV and XMTRX (xbox/include/sh4.h), which ninja.h includes */
+#ifdef XBOX
+typedef struct {
+    Float x, y, z;
+} sprite_vec3;
+
+static inline sprite_vec3 sprite_view_of(Float x, Float y, Float z)
+{
+    Float v[4] = {x, y, z, 1.0F};
+    sprite_vec3 r;
+
+    sh4_xmtrx_ftrv(v, v);
+    r.x = v[0];
+    r.y = v[1];
+    r.z = v[2];
+    return r;
+}
+#else
+typedef shz_vec3_t sprite_vec3;
+#define sprite_view_of(x, y, z) shz_xmtrx_transform_point3(shz_vec3_init(x, y, z))
+#endif
+
 /* NJS_TEXANIM's u1, v1, u2 and v2 count 256 to the texture's side */
 #define UV_SCALE (1.0F / 256.0F)
 
@@ -197,6 +221,20 @@ ALWAYS_INLINE struct sprite_vertex *
 sprite_send_corner(struct sprite_vertex *sq, const struct sprite_corner *corner,
                    Uint32 control)
 {
+#ifdef XBOX
+    /* the port's store queues are RAM's view, which plain stores reach */
+    Uint32 *words = (Uint32 *)sq;
+    Float *floats = (Float *)sq;
+
+    words[0] = control;
+    floats[1] = corner->x;
+    floats[2] = corner->y;
+    floats[3] = corner->rhw;
+    floats[4] = corner->u;
+    floats[5] = corner->v;
+    floats[6] = 1.0F;
+    return sq + 1;
+#else
     Uint32 *at = &sq->unwritten;
 
     __asm__ volatile("fmov.s %1,@-%0\n\t"
@@ -213,6 +251,7 @@ sprite_send_corner(struct sprite_vertex *sq, const struct sprite_corner *corner,
                        "r"(control));
     /* at now addresses the vertex's first word, its control word */
     return (struct sprite_vertex *)at + 1;
+#endif
 }
 
 static inline struct sprite_vertex *
@@ -242,7 +281,7 @@ sprite_send_quad(struct sprite_vertex *sq,
  * edge of _nj_2d_clip_ */
 static inline struct sprite_vertex *
 sprite_send_facing_at(const NJS_SPRITE *sp, Int n, Uint32 attr, Float y_scale,
-                      shz_vec3_t view, Float z, struct sprite_vertex *sq)
+                      sprite_vec3 view, Float z, struct sprite_vertex *sq)
 {
     struct sprite_corner corners[4];
     Float scale;

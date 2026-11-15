@@ -56,6 +56,7 @@ events/ev0065/script.c                           0x0cb80008                  1  
 events/ev00bf/script.c                           0x0cb80008                  1  data  EVENT_SOUND_ID + 7, the id of a sound the script plays, which no code reads as an address
 loader/main.c                                    0x8c010000                  1  anchor  PASSPORT_AREA     0x8c010000  0x8ce00000  where main reads sp.bin and jumps to it. It is the boot's load address for a disc's first program, below LOADER.BIN's image
 modules/movie/movie.c                            0x8c900000                  1  anchor  WORK              0x8c900000  0x8cc00000  the 3 MB from MODULE_AREA, through P1, that mwPlyCreateSofdec takes as the player's work
+src/progress/movie.c                             0x8ceb0000                  1  anchor  MOVIE_LOAD        0x8ceb0000  0x8cedd678  XBOX's MOVIE_LOAD, MOVIE.BIN's origin, where the console's file loads whole while the port's code for it lives apart
 modules/shooting/shooting.c                      0x0cb80000                  1  anchor  EXTRA_AREA        0x0cb80000  0x0cc00000  EXTRA_AREA as shooting_scene_file holds it. 1ST_READ.BIN's loader reads shtpath1.PRS or shtpath2.PRS there, whose first word points at the course's scenes
 # the bodies 1ST_READ.BIN's sources take from the disc
 build/gen/src/camera/layouts/camera_layouts.inc  0x0cb50000  0x0cb68000    109  anchor  CAMERA_AREA_0     0x0cb50000  0x0cb68000  camera_layouts' rows, each the address of an act's camera file in the area loader_read_camera reads it to

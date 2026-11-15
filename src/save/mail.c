@@ -149,6 +149,12 @@ Bool save_isp_found(void)
 {
     struct isp_flash flash;
 
+#ifdef XBOX
+    /* the port has no flash, and so no ISP's settings, which keeps the
+     * internet entry closed (XBOX.md's out of scope) */
+    (void)flash;
+    return FALSE;
+#endif
     if (isp_read(&flash)) {
         if (flash.first.magic == ISP_MAGIC || flash.second.magic == ISP_MAGIC) {
             return TRUE;

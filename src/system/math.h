@@ -81,7 +81,8 @@ void fill_bytes(void *mem, int value, int count);
  * positive multiple of 32, and mem a multiple of 4 */
 void fill_blocks(void *mem, Uint32 value, int size);
 
-#ifdef GCC
+/* the Xbox port calls the functions themselves, as SHC's code does */
+#if defined(GCC) && !defined(XBOX)
 /* under GCC, a C call of vector_inner_product_across,
  * vector_magnitude_across, vector_unit_across or point_calc_xy runs its
  * helper inline. as in ninja_zam.h, the helper is named zam_ and the

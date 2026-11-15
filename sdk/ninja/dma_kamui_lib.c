@@ -16,8 +16,17 @@
 #define DMAOR (*(volatile KMDWORD *)0xffa00040)
 /* the store queues' address control registers. QACR_AREA moves an address's
  * area, its bits 28 to 26, to bits 4 to 2, where QACR0 and QACR1 take it */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile KMDWORD port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(volatile KMDWORD *)0xff000038)
 #define QACR1 (*(volatile KMDWORD *)0xff00003c)
+#endif
 #define QACR_AREA(address) ((address) >> 24)
 /* channel 2's registers on the system bus: the target in the tile
  * accelerator's address space, the length in bytes, and the start register */

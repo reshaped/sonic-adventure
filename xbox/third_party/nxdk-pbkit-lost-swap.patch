@@ -1,0 +1,17 @@
+--- a/lib/pbkit/pbkit.c
++++ b/lib/pbkit/pbkit.c
+@@ -232,7 +232,13 @@
+     next=pb_BackBufferNxtVBL;
+ 
+     //Is the next back buffer to show up is ready?
+-    if (pb_BackBufferbReady[next]==1)
++    //(pb_lost_swap: and has the ISR swapped it in? a blank that comes while
++    //the ISR has the GPU's interrupts off, the DPC still to run for an earlier
++    //one, reaches the DPC alone: the ISR never swapped. the frame then stays
++    //ready, for the ISR to swap at the next blank, where it was dropped, and
++    //the back buffer was the one on the screen)
++    if (pb_BackBufferbReady[next]==1 &&
++        (VIDEOREG(PCRTC_START)&0x03FFFFFF)==(pb_FBAddr[pb_BackBufferIndex[next]]&0x03FFFFFF))
+     {
+         //screen swapping has been done already, theoretically, in ISR
+         pb_BackBufferbReady[next]=0;

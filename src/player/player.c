@@ -267,6 +267,11 @@ static void player_stop_creep(struct task_work *work,
 static void player_slide_along_wall(struct task_work *work,
                                     struct task_motion *motion,
                                     struct player *record);
+#ifdef GCC
+/* the world objects near the player that its collision takes, where the
+ * console's frames held 16 (player_collide_world, player_collide_pinball) */
+#define PLAYER_CANDIDATES 64
+#endif
 static Uint32 player_collide_ground(struct task_work *work,
                                     struct task_motion *motion,
                                     struct player *record);
@@ -4018,8 +4023,18 @@ static Uint32 player_collide_world(struct task_work *work,
     NJS_VECTOR normal;
     NJS_VECTOR position;
     NJS_POINT3 old_pos;
+    /* @bug memory: candidates takes each world object the sweep gets
+     * near, world_count of them, which reaches WORLD_OBJECTS, into 16
+     * slots, past which it writes over the frame. GCC keeps
+     * PLAYER_CANDIDATES and takes no more: because past 16 the frame's
+     * return address is written over, and the game returns to address 0 */
+#ifdef GCC
+    struct world_object candidates[PLAYER_CANDIDATES];
+    struct world_object sorted[PLAYER_CANDIDATES];
+#else
     struct world_object candidates[16];
     struct world_object sorted[16];
+#endif
     struct polygon_ball *ball;
     struct world_object *world;
     struct world_object *entry;
@@ -4107,6 +4122,11 @@ static Uint32 player_collide_world(struct task_work *work,
     saved = 0;
     count = 0;
     for (i = 0; i < world_count; i++, world++) {
+#ifdef GCC
+        if (count == PLAYER_CANDIDATES) {
+            break;
+        }
+#endif
         if ((world->flags & WORLD_LIQUID) &&
             PLAYER_VARS(work)->character != CHARACTER_E102) {
             continue;
@@ -6077,8 +6097,18 @@ static Uint32 player_collide_pinball(struct task_work *work,
     NJS_VECTOR normal;
     NJS_VECTOR position;
     NJS_POINT3 old_pos;
+    /* @bug memory: candidates takes each world object the sweep gets
+     * near, world_count of them, which reaches WORLD_OBJECTS, into 16
+     * slots, past which it writes over the frame. GCC keeps
+     * PLAYER_CANDIDATES and takes no more: because past 16 the frame's
+     * return address is written over, and the game returns to address 0 */
+#ifdef GCC
+    struct world_object candidates[PLAYER_CANDIDATES];
+    struct world_object sorted[PLAYER_CANDIDATES];
+#else
     struct world_object candidates[16];
     struct world_object sorted[16];
+#endif
     NJS_PLANE plane;
     NJS_POINT3 point;
     struct world_object swap;
@@ -6148,6 +6178,11 @@ static Uint32 player_collide_pinball(struct task_work *work,
     saved = 0;
     count = 0;
     for (i = 0; i < world_count; i++, world++) {
+#ifdef GCC
+        if (count == PLAYER_CANDIDATES) {
+            break;
+        }
+#endif
         if ((world->flags & WORLD_LIQUID) &&
             PLAYER_VARS(work)->character != CHARACTER_E102) {
             continue;
@@ -7516,6 +7551,12 @@ static void player_anim_free_blend(struct player_anim *anim)
     }
 }
 
+#ifdef XBOX
+/* the welds' models are never kept by the port's drawer: as
+ * src/draw/motion.c's motion_weld says */
+void port_keep_welded(const void *model);
+#endif
+
 void player_update_welds(struct task_work *work, struct task_motion *motion,
                          struct player *record)
 {
@@ -7573,6 +7614,10 @@ void player_update_welds(struct task_work *work, struct task_motion *motion,
                 }
                 weld->node_a = tree_node_index(weld->base, weld->object_a);
                 weld->node_b = tree_node_index(weld->base, weld->object_b);
+#ifdef XBOX
+                port_keep_welded(model_a);
+                port_keep_welded(model_b);
+#endif
                 /* fall through */
             case WELD_OFF:
                 break;

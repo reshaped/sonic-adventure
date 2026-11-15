@@ -102,8 +102,14 @@ extern NJS_MATRIX *_nj_base_matrix_ptr_;
 #define NO_CURRENT_TEXTURE 0xffffffff
 
 /* timer 1's start register, and its bit that runs timer 1, as timer.c
- * names them */
+ * names them. the port's is xbox/port/system.c's port_tstr, as timer.c's
+ * is: because the console's address faults on the Xbox */
+#ifdef XBOX
+extern Uint8 port_tstr;
+#define TSTR port_tstr
+#else
 #define TSTR (*(volatile Uint8 *)0xffd80004)
+#endif
 #define STR1 0x02
 
 /* the room the first picture's replay and submit take before the middle
@@ -142,8 +148,10 @@ extern NJS_MATRIX *_nj_base_matrix_ptr_;
 #define FLAT_WORDS 1536
 /* the slots for the tasks the second picture marks, one for each value of
  * the MARKS_BITS bits marks_slot hashes a task to */
-#define MARKS_BITS 10
+#define MARKS_BITS 11
 #define MARKS_MOST (1 << MARKS_BITS)
+/* each task that asks draw_in_view on step 0 is marked, some hundreds a
+ * frame: 11 bits since VIEW_OUT came */
 /* the most shapes the pass keeps for a player */
 #define SHAPES_KEPT 8
 /* the most shadows step 1 keeps for the pass */
@@ -315,7 +323,9 @@ struct flats {
  * where the pass holds them, DREW_FLAT where its callback drew 2D in the pass,
  * SPRITES_LATER where its step drew njDrawSprite3D's sprites after step 0,
  * DREW_SPRITE where its callback drew some in the pass, and DREW_SHADOW where
- * its callback drew a shadow in the pass */
+ * its callback drew a shadow in the pass, FRESH where its step set its
+ * first callback this frame, by a start step, VIEW_OUT where draw_in_view
+ * refused it on step 0, and VIEW_IN where it passed it */
 #define DREW_LATER 0x1
 #define HOLDS 0x2
 #define HAS_HELD 0x4
@@ -323,6 +333,13 @@ struct flats {
 #define SPRITES_LATER 0x10
 #define DREW_SPRITE 0x20
 #define DREW_SHADOW 0x40
+#define FRESH 0x80
+#define VIEW_OUT 0x100
+#define VIEW_IN 0x200
+/* the task present_in_view marked last, and with what, which it needn't
+ * look up again */
+static struct task *view_marked;
+static Uint32 view_mark;
 static struct {
     struct task *task;
     Uint32 marks;
@@ -621,6 +638,28 @@ static void keep_flat(struct flats *flats, enum present_kind kind,
     state_get(&keep->state);
 }
 
+/* draw_in_view's answer on step 0, for the task whose step asks: the pass
+ * calls no callback of a task that draw_in_view refused on step 0 and never
+ * passed. the sai's step draws it within draw_in_view's reach alone, its
+ * callback at any distance, so a far sai showed in the second picture
+ * alone. a task that never asks (the land) is drawn by its callback as
+ * before: a rule on what a step drew missed the draws present_record
+ * doesn't see, the land's among them, and the stage showed in the first
+ * picture alone */
+void present_in_view(int in)
+{
+    struct task *task = present_task;
+    Uint32 mark = in ? VIEW_IN : VIEW_OUT;
+
+    if (keeping != KEEP_FIRST || frame_step != 0 || frame_redrawing || task == NULL ||
+        (task == view_marked && mark == view_mark)) {
+        return;
+    }
+    marks_add(task, mark);
+    view_marked = task;
+    view_mark = mark;
+}
+
 /* keep present_record's draw for a picture to come, and mark its task. it
  * stays out of line, so that present_record's frequent early returns don't
  * save the registers it needs: inlined, they cost 17 cycles a call */
@@ -823,6 +862,9 @@ void present_forget(struct task *task)
     if (mark != NULL) {
         *mark = 0;
     }
+    if (view_marked == task) {
+        view_marked = NULL;
+    }
     draws_forget(&first_draws, task);
     draws_forget(&later_draws, task);
     flats_forget(&first_flats, task);
@@ -848,11 +890,21 @@ void present_run(struct task *task, void (*step)(struct task *task))
     if (frame_redrawing) {
         return;
     }
+    void (*draw)(struct task *task) = task->draw;
+
     present_wide(anchor, cover);
     present_task = task;
     step(task);
     present_task = outer;
     present_wide(anchor, cover);
+    /* a start step, which gives the task its first callback and its next
+     * step, may leave the records the callback reads to that next step: the
+     * amenbo's start leaves its action null. SEGA's pause never calls the
+     * callback between the two, so the pass doesn't either. a step that swaps
+     * one callback for another, or that sets a callback again, isn't one */
+    if ((keeping != KEEP_NONE || frame_split) && draw == NULL && task->draw != NULL && task->step != step) {
+        marks_add(task, FRESH);
+    }
 }
 
 /* the records of task's own that the pass puts back after its callback.
@@ -942,10 +994,14 @@ void present_draw(struct task *task, void (*draw)(struct task *task))
         return;
     }
     mark = marks_find(task);
-    if (mark != NULL && (*mark & DREW_LATER)) {
+    if (mark != NULL && (*mark & (DREW_LATER | FRESH))) {
         return;
     }
     if (draw != NULL && draw != task->step) {
+        /* a task draw_in_view refused on step 0 shows in neither picture */
+        if (mark != NULL && (*mark & (VIEW_OUT | VIEW_IN)) == VIEW_OUT) {
+            return;
+        }
         if (!records_keep(&keep, task)) {
             return;
         }
@@ -1453,6 +1509,7 @@ void present_end(int want, int late)
         memset(marks, 0, sizeof(marks));
         marks_used = 0;
     }
+    view_marked = NULL;
     stage_ran = first_fits = render_fits = FALSE;
     if (planned) {
         keeping = KEEP_FIRST;

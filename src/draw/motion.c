@@ -599,6 +599,15 @@ static void motion_blend_free(struct task_work *work, struct motion *motion)
     }
 }
 
+#ifdef XBOX
+/* the port's drawer keeps a model's vertices from frame to frame where its
+ * data looks the same (xbox/port/render.c's kept models), by a sum of a
+ * few of its points: a weld rewrites a few points of both its models each
+ * frame, which the sum may miss. because a kept record then drew them where
+ * they were, a spike from the character, the welds' models are never kept */
+void port_keep_welded(const void *model);
+#endif
+
 /* PLAYER_WELDING puts one side of each weld on the posed object back to
  * its copies. it then carries those through the two nodes' matrices onto
  * the other side's vertices */
@@ -639,6 +648,10 @@ void motion_weld(struct task_work *work, struct motion *motion)
             }
             weld->node_a = tree_node_index(weld->base, weld->object_a);
             weld->node_b = tree_node_index(weld->base, weld->object_b);
+#ifdef XBOX
+            port_keep_welded(model_a);
+            port_keep_welded(model_b);
+#endif
         }
         break;
     case PLAYER_WELDING:

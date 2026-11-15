@@ -9,8 +9,13 @@
  * data and its stack */
 #define THREAD_SIZE 0x1000
 
+#ifdef XBOX
+/* x86 has one view of memory, so a stack's top needs none */
+#define P1 0
+#else
 /* the base of P1, the SH-4's cached view of memory without translation */
 #define P1 0x80000000
+#endif
 
 /* a thread's record, at the start of its memory. thread_get_data's bytes
  * follow it, and the stack grows down from the memory's end. the threads
@@ -48,6 +53,95 @@ static void prepare(struct thread *thread, void *entry, void *arg);
 static struct thread *thread_alloc(void *entry, void *arg, int size);
 static struct thread *thread_insert_after(struct thread *thread, void *entry,
                                           void *arg, int size);
+
+#ifdef XBOX
+/* the x86 side of thread_yield, resume, run and prepare, which make pc's
+ * split leaves declared: a thread's sp points at the callee-saved registers
+ * thread_switch pushed, EDI, ESI, EBX and EBP, and the address it returns
+ * to. SSE's registers are caller-saved under cdecl, and its MXCSR and the
+ * x87's control word hold the FPU's mode for every thread, so none is
+ * saved. the assembly names no C symbol, whose spelling differs between
+ * the Xbox's target and others */
+
+/* push the callee-saved registers, store ESP at *save, then take ESP from
+ * *load, read only now, so that save and load may be one, and pop the
+ * registers there */
+__attribute__((naked)) static void thread_switch(void **save, void **load)
+{
+    __asm__("movl 4(%esp), %eax\n\t"
+            "movl 8(%esp), %edx\n\t"
+            "pushl %ebp\n\t"
+            "pushl %ebx\n\t"
+            "pushl %esi\n\t"
+            "pushl %edi\n\t"
+            "movl %esp, (%eax)\n\t"
+            "movl (%edx), %esp\n\t"
+            "popl %edi\n\t"
+            "popl %esi\n\t"
+            "popl %ebx\n\t"
+            "popl %ebp\n\t"
+            "ret");
+}
+
+/* take ESP from *load and pop the registers there, never returning */
+__attribute__((naked, noreturn)) static void thread_load(void **load)
+{
+    __asm__("movl 4(%esp), %eax\n\t"
+            "movl (%eax), %esp\n\t"
+            "popl %edi\n\t"
+            "popl %esi\n\t"
+            "popl %ebx\n\t"
+            "popl %ebp\n\t"
+            "ret");
+}
+
+/* a new thread's first turn: entry(arg), returning into thread_exit, as
+ * prepare's frame and the SH-4 side's PR give it */
+static void thread_begin(void (*entry)(void *), void *arg)
+{
+    entry(arg);
+    thread_exit();
+}
+
+void thread_yield(void)
+{
+    struct thread *from = thread_current;
+
+    thread_next();
+    thread_switch(&from->sp, &thread_current->sp);
+}
+
+static void resume(void)
+{
+    thread_load(&thread_current->sp);
+}
+
+/* lay out the thread's stack from its top, aligned to 16, so that
+ * thread_switch's RET enters thread_begin(entry, arg) as a call would, its
+ * arguments 16-byte aligned and its own return address never used */
+static void prepare(struct thread *thread, void *entry, void *arg)
+{
+    Uint32 *frame = (Uint32 *)((Uint32)thread->stack & ~(Uint32)15);
+
+    /* two words of room, then the arguments on a 16-byte boundary, as a
+     * call leaves them, then the never-used return address and RET's */
+    *--frame = 0;
+    *--frame = 0;
+    *--frame = (Uint32)arg;
+    *--frame = (Uint32)entry;
+    *--frame = 0;
+    *--frame = (Uint32)thread_begin;
+    frame -= 4;
+    frame[0] = frame[1] = frame[2] = frame[3] = 0;
+    thread->sp = frame;
+}
+
+static void run(void *entry, void *arg)
+{
+    prepare(thread_current, entry, arg);
+    resume();
+}
+#endif
 
 void thread_init(void)
 {

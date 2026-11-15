@@ -1,5 +1,14 @@
+/* long double, which SHC keeps 64 bits wide under -fpu=single, as the real
+ * double: make pc defines double as float, which would spell long double as
+ * long float: a float of DF's mode is the 64-bit double */
+#ifdef XBOX
+typedef float port_long_double __attribute__((mode(DF)));
+#define long_double port_long_double
+#else
+#define long_double long double
+#endif
 /* 0 for a finite double, 1 for a NaN, 2 for an infinity */
-int _duchek(long double value)
+int _duchek(long_double value)
 {
     /* the high word is the second in memory */
     /* @hack type: value's words read through an unsigned long cursor, in the

@@ -6,8 +6,17 @@
 /* the store queue address control registers, one for each queue. each
  * holds in bits 2 to 4 the memory area its queue writes to, bits 26 to 28 of
  * the address */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile KMDWORD port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(volatile KMDWORD *)0xff000038)
 #define QACR1 (*(volatile KMDWORD *)0xff00003c)
+#endif
 /* the store queues' area. a write to STORE_QUEUE_BASE | (address &
  * STORE_QUEUE_MASK) goes into a queue. a prefetch then writes the queue to
  * address, in the area its QACR register holds */

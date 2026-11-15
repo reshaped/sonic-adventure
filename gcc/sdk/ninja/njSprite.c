@@ -53,15 +53,15 @@ struct sprite_clip {
 static struct sprite_vertex *
 sprite_clip_triangle(struct sprite_vertex *sq, Uint32 order,
                      const struct sprite_corner corners[3],
-                     const shz_vec3_t views[3], struct sprite_clip *clip)
+                     const sprite_vec3 views[3], struct sprite_clip *clip)
 {
     struct sprite_corner points[4];
     int count = 0;
 
     for (int side = 0; side < 3; side++) {
         int from = side == 0 ? 2 : side - 1;
-        const shz_vec3_t *start = &views[from];
-        const shz_vec3_t *end = &views[side];
+        const sprite_vec3 *start = &views[from];
+        const sprite_vec3 *end = &views[side];
         const struct sprite_corner *first = &corners[from];
         const struct sprite_corner *last = &corners[side];
 
@@ -111,7 +111,7 @@ static struct sprite_vertex *
 sprite_clip_near(struct sprite_vertex *sq, Uint32 nearer,
                  const struct sprite_corner corners[4])
 {
-    shz_vec3_t views[4];
+    sprite_vec3 views[4];
     struct sprite_clip clip;
     Float scale_x = port_draw_aspect * _nj_screen_.dist;
     Float scale_y = _nj_scr_aspect_y_ * _nj_screen_.dist;
@@ -139,15 +139,14 @@ sprite_clip_near(struct sprite_vertex *sq, Uint32 nearer,
 
 /* corner's place in the view: sp->p moved by its x and y, through the
  * current matrix */
-static inline shz_vec3_t sprite_view(const NJS_SPRITE *sp,
+static inline sprite_vec3 sprite_view(const NJS_SPRITE *sp,
                                      const struct sprite_corner *corner)
 {
-    return shz_xmtrx_transform_point3(
-        shz_vec3_init(corner->x + sp->p.x, corner->y + sp->p.y, sp->p.z));
+    return sprite_view_of(corner->x + sp->p.x, corner->y + sp->p.y, sp->p.z);
 }
 
 /* put corner where view lands on the screen, and give it the 1/z rhw */
-static inline void sprite_project(struct sprite_corner *corner, shz_vec3_t view,
+static inline void sprite_project(struct sprite_corner *corner, sprite_vec3 view,
                                   Float rhw, Float scale_x, Float scale_y)
 {
     corner->x = (view.x * rhw * scale_x) + _nj_screen_.cx;
@@ -160,7 +159,7 @@ struct sprite_vertex *sprite_send_plane(const NJS_SPRITE *sp, Int n,
 {
     struct sprite_corner corners[4];
     struct sprite_corner cut[4];
-    shz_vec3_t views[4];
+    sprite_vec3 views[4];
     Float far = _nj_far_clip_;
     Float near = _nj_near_clip_;
     Float scale_x;
@@ -228,7 +227,7 @@ static struct sprite_vertex *sprite_send_facing(const NJS_SPRITE *sp, Int n,
                                                 Uint32 attr,
                                                 struct sprite_vertex *sq)
 {
-    shz_vec3_t view = shz_xmtrx_transform_point3(zam_load_vec3(&sp->p));
+    sprite_vec3 view = sprite_view_of(sp->p.x, sp->p.y, sp->p.z);
 
     return sprite_send_facing_at(sp, n, attr, sp->sy, view, view.z, sq);
 }

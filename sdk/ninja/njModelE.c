@@ -29,8 +29,17 @@
 /* the store queues. once QACR0 and QACR1 hold SQ_AREA(address), a queue
  * filled at SQ_BASE | (address & SQ_ADDRESS) is sent to address. SQ_AREA moves
  * address's bits 26 to 28 to bits 2 to 4, where the registers take them */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile Uint32 port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(Uint32 *)0xff000038)
 #define QACR1 (*(Uint32 *)0xff00003c)
+#endif
 #define SQ_AREA(address) (((address) >> 24) & 0x1c)
 #define SQ_ADDRESS 0x03ffffff
 #define SQ_BASE 0xe0000000

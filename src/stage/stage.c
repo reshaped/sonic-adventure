@@ -3265,6 +3265,12 @@ Sint8 stage_get_entrance(void)
     return entrance_next;
 }
 
+#ifdef XBOX
+/* the port's place for player 0 as this stage and act start, from a
+ * report's HOST_POKE (xbox/port/report.c), taken once, as a restart point */
+int port_place_take(int player, NJS_POINT3 *pos, struct angles *ang);
+#endif
+
 void stage_place_player(struct task_work *work)
 {
     int character;
@@ -3273,6 +3279,10 @@ void stage_place_player(struct task_work *work)
     Uint8 seconds;
     int total_seconds;
 
+#ifdef XBOX
+    if (port_place_take(PLAYER_VARS(work)->player, &work->pos, &work->ang)) {
+    } else
+#endif
     if (restart_keep_this_act()) {
         restart_restore(&work->pos, &work->ang);
     } else {

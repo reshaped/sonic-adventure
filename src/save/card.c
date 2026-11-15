@@ -205,6 +205,16 @@ _Static_assert(__builtin_offsetof(struct sources_file, dat_8c6b9168) == 0x650,
  * their members of sources_file. sources_file has external linkage so that
  * GCC expects code outside card.c to read and write it, as the modules do
  * through those names */
+#ifdef XBOX
+/* Clang's file-scope asm takes no operands, so the names take the members'
+ * offsets, which the asserts above hold, each spelled as the target's
+ * assembler spells it */
+#include "xbox/include/asmname.h"
+__asm__("\t.globl\t" ASM_NAME(light_ry) "\n"
+        "\t.set\t" ASM_NAME(light_ry) ", " ASM_NAME(sources_file) "+0x5a0\n"
+        "\t.globl\t" ASM_NAME(light_rz) "\n"
+        "\t.set\t" ASM_NAME(light_rz) ", " ASM_NAME(sources_file) "+0x5a4\n");
+#else
 __asm__("\t.global\t_light_ry\n"
         "\t.type\t_light_ry, @object\n"
         "\t.size\t_light_ry, 4\n"
@@ -215,6 +225,7 @@ __asm__("\t.global\t_light_ry\n"
         "\t.set\t_light_rz, %a1\n"
         :
         : "i"(&light_ry), "i"(&light_rz));
+#endif
 #else
 /* the act's sources, then its light's turn, color and strengths */
 static struct light_source light_sources[LIGHT_SOURCES];

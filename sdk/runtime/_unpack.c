@@ -1,11 +1,20 @@
 #include <multiprec.h>
 #include <string.h>
+/* long double, which SHC keeps 64 bits wide under -fpu=single, as the real
+ * double: make pc defines double as float, which would spell long double as
+ * long float: a float of DF's mode is the 64-bit double */
+#ifdef XBOX
+typedef float port_long_double __attribute__((mode(DF)));
+#define long_double port_long_double
+#else
+#define long_double long double
+#endif
 
 /* unpack value into its sign, 1 or -1, its biased exponent, and 7 bytes of
  * fraction with the leading bit at the top. a subnormal is normalized, with an
  * exponent of 0 or below. value must not be zero, for which the normalizing
  * loop does not end */
-void _unpack(long double value, signed char *sign, short *exponent,
+void _unpack(long_double value, signed char *sign, short *exponent,
              unsigned char *fraction)
 {
     unsigned short *high;

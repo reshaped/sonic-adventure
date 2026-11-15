@@ -1,0 +1,44 @@
+// the Xbox host's combiners for the bloom's other passes (see video.c's bloom), in nvparse's text, which
+// nxdk's fp20compiler takes: the mean of four taps, times the combiners' constant 0: a blur, and at the last
+// pass the glow's strength
+!!TS1.0
+texture_2d();
+texture_2d();
+texture_2d();
+texture_2d();
+!!RC1.0
+{
+  rgb
+  {
+    discard = tex0.rgb * unsigned_invert(zero.rgb);
+    discard = tex1.rgb * unsigned_invert(zero.rgb);
+    spare0 = sum();
+    scale_by_one_half();
+  }
+}
+{
+  rgb
+  {
+    discard = tex2.rgb * unsigned_invert(zero.rgb);
+    discard = tex3.rgb * unsigned_invert(zero.rgb);
+    spare1 = sum();
+    scale_by_one_half();
+  }
+}
+{
+  rgb
+  {
+    discard = spare0.rgb * unsigned_invert(zero.rgb);
+    discard = spare1.rgb * unsigned_invert(zero.rgb);
+    spare0 = sum();
+    scale_by_one_half();
+  }
+}
+{
+  rgb
+  {
+    spare0 = spare0.rgb * const0.rgb;
+  }
+}
+out.rgb = unsigned(spare0.rgb);
+out.a = unsigned_invert(zero.a);

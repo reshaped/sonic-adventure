@@ -455,7 +455,12 @@ static Float squared_length(Float x, Float y, Float z, Float fourth);
 #ifdef GCC
 ALWAYS_INLINE Float squared_length(Float x, Float y, Float z, Float fourth)
 {
+#ifdef XBOX
+    /* the shipped FIPR FV4,FV4, by the port's model (xbox/include/sh4.h) */
+    return sh4_fipr_self(x, y, z, fourth);
+#else
     return zam_fipr_self(x, y, z, fourth);
+#endif
 }
 #else
 /* clang-format off */

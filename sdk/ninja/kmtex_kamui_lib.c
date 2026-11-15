@@ -275,6 +275,19 @@ KMSTATUS kmLoadTexture(PKMSURFACEDESC pSurfaceDesc, PKMDWORD pTexture,
     if (fAutoMipMap == TRUE || fDither == TRUE) {
         return KMSTATUS_INVALID_TEXTURE_TYPE;
     }
+#ifdef XBOX
+    /* the port: a texture the host has converted ahead is noted by its place
+     * in video memory, and its bytes stay where they are
+     * (xbox/port/kamui.c) */
+    {
+        int port_texture_load(const KMSURFACEDESC *surface,
+                              const void *texture);
+
+        if (port_texture_load(pSurfaceDesc, pTexture)) {
+            return KMSTATUS_SUCCESS;
+        }
+    }
+#endif
     if ((pSurfaceDesc->SurfaceType & 0xffff) ==
         KM_SURFACETYPE_SMALLVQ_TEXTURE) {
         load_small_vq((KMDWORD)pSurfaceDesc->pSurface, (KMBYTE *)pTexture,

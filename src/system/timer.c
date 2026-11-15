@@ -14,7 +14,21 @@
  * and the saves of R14 and PR between TSTR's address and its read
  * (0x8c06fae0 to 0x8c06faf0). as volatile, 40 of the 126 words of the six
  * functions that use them differ */
-#ifdef GCC
+#if defined(XBOX)
+/* the port's timer 1: TSTR, TCOR1 and TCR1 keep what they are given.
+ * port_tcnt1_set is a write of TCNT1, and port_tcnt1 returns TCNT1 for a
+ * read: the count down from the last write at 12.5 MHz, by the host's clock,
+ * reloaded from TCOR1 after 0 */
+extern Uint8 port_tstr;
+extern Uint32 port_tcor1;
+extern Uint16 port_tcr1;
+volatile Uint32 *port_tcnt1(void);
+void port_tcnt1_set(Uint32 count);
+#define TSTR port_tstr
+#define TCOR1 port_tcor1
+#define TCNT1 (*port_tcnt1())
+#define TCR1 port_tcr1
+#elif defined(GCC)
 #define TSTR (*(volatile Uint8 *)0xffd80004)
 #define TCOR1 (*(volatile Uint32 *)0xffd80014)
 #define TCNT1 (*(volatile Uint32 *)0xffd80018)
@@ -65,7 +79,11 @@ void timer_start(void)
     timer_marked = TICKS_PER_SECOND;
     TCR1 = TCR_PCLK_4;
     TCOR1 = timer_marked;
+#ifdef XBOX
+    port_tcnt1_set(timer_marked);
+#else
     TCNT1 = timer_marked;
+#endif
     tstr |= STR1;
     TSTR = tstr;
     /* @hack type: a plain 0 as the callback's argument, which puts TSTR's

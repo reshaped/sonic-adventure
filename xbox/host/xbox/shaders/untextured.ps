@@ -1,0 +1,39 @@
+// the Xbox host's combiners for untextured (see video.c), in nvparse's text, which nxdk's fp20compiler takes: the base color alone
+// made by Cg (cgc -profile fp20) from the C for graphics below, with the fog's line mended: Cg 3.1
+// writes the fog texture's alpha, as a color's factor, as ???.(null)
+//
+// the Xbox host's combiners for untextured (see video.c): the base color alone
+// struct vOut {
+//     float4 col0 : COLOR0;
+//     float4 col1 : COLOR1;
+//     float4 tex0 : TEXCOORD0;
+//     float4 tex1 : TEXCOORD1;
+// };
+// 
+// float4 main(vOut I, uniform sampler2D fog : TEXUNIT1, uniform float4 fogcolor) : COLOR
+// {
+// 
+//     float4 c;
+// 
+//     c.rgb = I.col0.rgb;
+//     c.a = I.col0.a;
+//     // the fog, a pixel's own: its share from the fog texture, the table's
+//     // by the pixel's depth or a ramp by the vertices' (video.c's fog), and
+//     // its color the combiners' constant 0
+//     c.rgb = c.rgb * (1.0 - tex2D(fog, I.tex1.xy).a) + fogcolor.rgb * tex2D(fog, I.tex1.xy).a;
+//     return c;
+// }
+!!TS1.0
+nop();
+texture_2d();
+!!RC1.0
+{
+  rgb
+  {
+    discard = col0.rgb * unsigned_invert(tex1.a);
+    discard = const0.rgb * tex1.a;
+    col0 = sum();
+  }
+}
+out.rgb = unsigned(col0.rgb);
+out.a = unsigned(col0.a);

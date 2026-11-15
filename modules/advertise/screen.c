@@ -32,12 +32,21 @@ struct open_work {
     int timer;
 };
 
+/* the file screen's back: the drive screen, which the port passes through
+ * unseen (XBOX.md's out of scope), goes on as soon as it opens, so the
+ * port's file screen goes back to the title past it */
+#ifdef XBOX
+#define FILE_BACK SCREEN_CARD
+#else
+#define FILE_BACK SCREEN_DRIVE
+#endif
+
 /* each entrance's screens, with their links. the menus start at the first:
  * the card screen from the top, and the wheel on a return */
 static const struct screen_entry top_screens[] = {
     {SCREEN_CARD, {SCREEN_NONE, SCREEN_DRIVE}},
     {SCREEN_DRIVE, {SCREEN_CARD, SCREEN_FILE}},
-    {SCREEN_FILE, {SCREEN_DRIVE, SCREEN_MODE}},
+    {SCREEN_FILE, {FILE_BACK, SCREEN_MODE}},
     {SCREEN_MODE, {SCREEN_FILE, SCREEN_CHARACTER}},
     {SCREEN_OPTIONS, {SCREEN_MODE, SCREEN_SOUND_TEST}},
     {SCREEN_SOUND_TEST, {SCREEN_OPTIONS, SCREEN_NONE}},
@@ -51,7 +60,7 @@ static const struct screen_entry return_screens[] = {
     {SCREEN_CHARACTER, {SCREEN_MODE, SCREEN_GAME_BUG}},
     {SCREEN_CARD, {SCREEN_NONE, SCREEN_DRIVE}},
     {SCREEN_DRIVE, {SCREEN_CARD, SCREEN_FILE}},
-    {SCREEN_FILE, {SCREEN_DRIVE, SCREEN_MODE}},
+    {SCREEN_FILE, {FILE_BACK, SCREEN_MODE}},
     {SCREEN_MODE, {SCREEN_FILE, SCREEN_CHARACTER}},
     {SCREEN_OPTIONS, {SCREEN_MODE, SCREEN_SOUND_TEST}},
     {SCREEN_SOUND_TEST, {SCREEN_OPTIONS, SCREEN_NONE}},

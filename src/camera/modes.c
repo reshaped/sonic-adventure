@@ -542,6 +542,51 @@ static void camera_step_guriguri(struct camera_view *view)
     }
 }
 
+#ifdef XBOX
+int sprintf(char *s, const char *format, ...);
+void port_log(const char *text);
+/* the port's record of MAGONOTE's last steps: their inputs and the
+ * camera's place after. because this mode's sweep can reach a speed of
+ * some -1.87e38, which hangs the game or throws the camera out of the
+ * level, the steps are logged once where the place leaves all reason */
+#define MAGONOTE_KEPT 16
+static struct magonote_step {
+    NJS_POINT3 previous, eyes, lead, state_before, state_after;
+    NJS_VECTOR speed, offset, dir;
+    Float length;
+    int steps;
+} magonote_kept[MAGONOTE_KEPT];
+static unsigned magonote_count;
+static int magonote_logged;
+
+static void magonote_check(void)
+{
+    const NJS_POINT3 *p = &camera_state->pos;
+    unsigned n, k;
+    static char line[400];
+
+    if (magonote_logged || (p->x < 1.0e6F && p->x > -1.0e6F && p->y < 1.0e6F && p->y > -1.0e6F &&
+                            p->z < 1.0e6F && p->z > -1.0e6F)) {
+        return;
+    }
+    magonote_logged = 1;
+    port_log("camera: MAGONOTE's place out of reason: its last steps, oldest first");
+    n = magonote_count < MAGONOTE_KEPT ? magonote_count : MAGONOTE_KEPT;
+    for (k = magonote_count - n; k < magonote_count; k++) {
+        const struct magonote_step *m = &magonote_kept[k % MAGONOTE_KEPT];
+
+        sprintf(line,
+                "camera:   step %d: previous %g %g %g, eyes %g %g %g, speed %g %g %g, lead %g %g %g, offset %g %g %g, "
+                "length %g, dir %g %g %g, state %g %g %g to %g %g %g",
+                m->steps, m->previous.x, m->previous.y, m->previous.z, m->eyes.x, m->eyes.y, m->eyes.z, m->speed.x,
+                m->speed.y, m->speed.z, m->lead.x, m->lead.y, m->lead.z, m->offset.x, m->offset.y, m->offset.z,
+                m->length, m->dir.x, m->dir.y, m->dir.z, m->state_before.x, m->state_before.y, m->state_before.z,
+                m->state_after.x, m->state_after.y, m->state_after.z);
+        port_log(line);
+    }
+}
+#endif
+
 /* MAGONOTE's step. its lead is 8 steps of player 0's speed ahead of his
  * eyes. the camera's target takes the lead on the mode's first step, and
  * eases a tenth of the way to it a step after. past 40 from the lead the
@@ -628,6 +673,21 @@ static void camera_step_magonote(struct camera_view *view)
 
         dir = *op;
         njUnitVector(&dir);
+#ifdef XBOX
+        {
+            struct magonote_step *m = &magonote_kept[magonote_count % MAGONOTE_KEPT];
+
+            m->previous = previous;
+            m->eyes = eyes;
+            m->speed = player_motion[0]->speed;
+            m->lead = *lp;
+            m->offset = *op;
+            m->dir = dir;
+            m->length = length;
+            m->state_before = camera_state->pos;
+            m->steps = view->steps;
+        }
+#endif
         if (length > 40.0F) {
             length = ((length - 40.0F) * 0.9F) + 40.0F;
             if (length > 70.0F) {
@@ -642,6 +702,11 @@ static void camera_step_magonote(struct camera_view *view)
         camera_state->pos.x += op->x - (dir.x * length);
         camera_state->pos.y += op->y - (dir.y * length);
         camera_state->pos.z += op->z - (dir.z * length);
+#ifdef XBOX
+        magonote_kept[magonote_count % MAGONOTE_KEPT].state_after = camera_state->pos;
+        magonote_count++;
+        magonote_check();
+#endif
     }
     {
         NJS_MATRIX matrix;

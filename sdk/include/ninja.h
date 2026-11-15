@@ -1267,7 +1267,15 @@ void njInitSprite(void);
  * every compile searches the tree's root */
 #include "../../gcc/src/system/port.h"
 
+#ifdef XBOX
+/* the Xbox port runs Ninja's original bodies as native C in xbox/sdk/ninja/:
+ * sh4.h gives the SH-4's FIPR, FTRV, FSRRA and FSCA and the port's XMTRX,
+ * and njstack.h the matrix stack's depth */
+#include "../../xbox/include/sh4.h"
+#include "../../xbox/sdk/ninja/njstack.h"
+#else
 #include <ninja_zam.h>
+#endif
 #endif
 
 #endif

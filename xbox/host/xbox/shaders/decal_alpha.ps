@@ -1,0 +1,63 @@
+// the Xbox host's combiners for decal_alpha (see video.c), in nvparse's text, which nxdk's fp20compiler takes: instruction 2, the texture over the base color by its alpha
+// made by Cg (cgc -profile fp20) from the C for graphics below, with the fog's line mended: Cg 3.1
+// writes the fog texture's alpha, as a color's factor, as ???.(null)
+//
+// the Xbox host's combiners for decal_alpha (see video.c): instruction 2, the texture over the base color by its alpha
+// struct vOut {
+//     float4 col0 : COLOR0;
+//     float4 col1 : COLOR1;
+//     float4 tex0 : TEXCOORD0;
+//     float4 tex1 : TEXCOORD1;
+// };
+// 
+// float4 main(vOut I, uniform sampler2D tex : TEXUNIT0, uniform sampler2D fog : TEXUNIT1, uniform float4 fogcolor) : COLOR
+// {
+//     float4 t = tex2D(tex, I.tex0.xy);
+//     float4 c;
+// 
+//     c.rgb = lerp(I.col0.rgb, t.rgb, t.a) + I.col1.rgb;
+//     c.a = I.col0.a;
+//     // the fog, a pixel's own: its share from the fog texture, the table's
+//     // by the pixel's depth or a ramp by the vertices' (video.c's fog), and
+//     // its color the combiners' constant 0
+//     c.rgb = c.rgb * (1.0 - tex2D(fog, I.tex1.xy).a) + fogcolor.rgb * tex2D(fog, I.tex1.xy).a;
+//     return c;
+// }
+!!TS1.0
+texture_2d();
+texture_2d();
+!!RC1.0
+{
+  rgb
+  {
+    discard = tex0.rgb * unsigned_invert(zero.rgb);
+    discard = -col0.rgb * unsigned_invert(zero.rgb);
+    tex0 = sum();
+  }
+}
+{
+  rgb
+  {
+    discard = col0.rgb * unsigned_invert(zero.rgb);
+    discard = tex0.a * tex0.rgb;
+    col0 = sum();
+  }
+}
+{
+  rgb
+  {
+    discard = col0.rgb * unsigned_invert(zero.rgb);
+    discard = col1.rgb * unsigned_invert(zero.rgb);
+    col0 = sum();
+  }
+}
+{
+  rgb
+  {
+    discard = col0.rgb * unsigned_invert(tex1.a);
+    discard = const0.rgb * tex1.a;
+    col0 = sum();
+  }
+}
+out.rgb = unsigned(col0.rgb);
+out.a = unsigned(col0.a);

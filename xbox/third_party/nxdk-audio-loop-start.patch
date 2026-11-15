@@ -1,0 +1,49 @@
+diff --git a/audio_buffer.c b/audio_buffer.c
+index ba262a1..f47bbe7 100644
+--- a/audio_buffer.c
++++ b/audio_buffer.c
+@@ -214,6 +214,27 @@ static bool insert_buffer_to_sge (nxAudioVoice *voice, const nxAudioBuffer *buff
+     return true;
+ }
+ 
++/* the port: a static buffer's loop start, in samples (blocks, for ADPCM)
++ * from its start, as CFG_BUF_LBO takes it, for a sound that plays its start
++ * once and then loops a later part of itself, as the Dreamcast AICA's
++ * channels do from LSA to LEA. nxAudioBufferSubmit sets it to 0 */
++bool nxAudioVoiceSetLoopStart (nxAudioVoice *voice, uint32_t sample)
++{
++    if (!voice) {
++        apu_set_last_error(NX_AUDIO_ERR_INVALID_PARAM);
++        return false;
++    }
++
++    const KIRQL irql = KeRaiseIrqlToDpcLevel();
++    apu_wait_for_pio(4);
++    apu_write_reg(APU_VP_OFFSET + NV1BA0_PIO_SET_CURRENT_VOICE, voice->voice_index);
++    apu_write_reg(APU_VP_OFFSET + NV1BA0_PIO_VOICE_LOCK, 1);
++    apu_write_reg(APU_VP_OFFSET + NV1BA0_PIO_SET_VOICE_CFG_BUF_LBO, sample);
++    apu_write_reg(APU_VP_OFFSET + NV1BA0_PIO_VOICE_LOCK, 0);
++    KfLowerIrql(irql);
++    return true;
++}
++
+ bool nxAudioBufferInitialize (nxAudioBuffer *buffer, const void *user_buffer, uint32_t size_bytes)
+ {
+     if (!buffer || !user_buffer || size_bytes == 0) {
+diff --git a/include/nxaudio.h b/include/nxaudio.h
+index 040e7a2..ec20ec2 100644
+--- a/include/nxaudio.h
++++ b/include/nxaudio.h
+@@ -324,6 +324,12 @@ bool nxAudioVoiceSetLooping (nxAudioVoice *voice, bool looping);
+  */
+ bool nxAudioVoiceSetPitch (nxAudioVoice *voice, float pitch);
+ 
++/**
++ * @brief The port: sets a static buffer's loop start, in samples from its start. A looping voice plays the buffer
++ * from its start, then loops from this sample to the end. nxAudioBufferSubmit() sets it to 0.
++ */
++bool nxAudioVoiceSetLoopStart (nxAudioVoice *voice, uint32_t sample);
++
+ /**
+  * @brief Sets the audio format of the voice.
+  * @param voice Pointer to the audio voice to adjust.

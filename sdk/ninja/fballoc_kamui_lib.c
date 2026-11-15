@@ -1743,6 +1743,17 @@ static void fb_move(KMDWORD dst, KMDWORD src, KMDWORD size)
     KMDWORD line;
     int i;
 
+#ifdef XBOX
+    /* the port: its video memory holds no bytes for the textures the host
+     * converted ahead, whose records move instead (xbox/port/kamui.c) */
+    {
+        int port_vram_move(KMDWORD dst, KMDWORD src, KMDWORD size);
+
+        if (port_vram_move(dst, src, size)) {
+            return;
+        }
+    }
+#endif
     if (size > CHUNK) {
         do {
             kmiCopyFromFrameBuffer(&buffer[0], src, CHUNK);

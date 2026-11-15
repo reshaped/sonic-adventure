@@ -1,0 +1,84 @@
+!!VP1.1
+# the Xbox host's vertex program for a model it lights (host.h's
+# host_item, video.c's lit runs): shaders/vertex.vp, but that
+# - v[2] is the vertex's normal in the model's space, its offset field read
+#   as the NV2A's CMP, and its base color's RGB is the palette's: the
+#   combiners (shaders/lit_NAME.ps) take the base color's RGB from stage 2's
+#   texture and the offset color from stage 3's, the palette's two rows, at
+#   the place TEXCOORD2 and TEXCOORD3 give, and the vertex's colors give
+#   only the base color's alpha and the offset color's share;
+# - the vertex's own fog is none, as its offset field holds the normal.
+#
+# the place is the normal's dot with the light, d, times 127.5 / 256 plus
+# 127.5 / 256: the entry (int)(d * 127.5 + 127.5) of the drawer's 256 is
+# its texel. the texture's filter blends between entries, which over a
+# triangle gives what the PowerVR's blend of its vertices' entries gives,
+# within an entry's step.
+#
+# its constants are vertex.vp's, and (at 96 + n):
+#   c[76]  the light in the model's space, 0                     (a run's)
+#   c[77]  127.5 / 256, 127.5 / 256, the base colors' row, the offset
+#          colors' row
+
+# w, and the depth
+# the position: a model's point through its transform, x and y over z and
+# rhw 1 / z, or a vertex on the screen as it is
+DP4 R10.x, v[0], c[72];
+DP4 R10.y, v[0], c[73];
+DP4 R10.z, v[0], c[74];
+RCP R10.w, R10.z;
+MUL R10.xy, R10, R10.w;
+MUL R10.w, R10.w, c[75].x;
+MAD R10.w, v[0].z, c[75].y, R10.w;
+MAX R0.x, R10.w, c[2].z;
+RCP R0.y, R0.x;
+MOV o[HPOS].w, R0.y;
+ADD R4.x, R0.x, -c[6].x;
+MUL R1.x, R4.x, c[1].y;
+ADD R1.x, R1.x, c[6].z;
+MUL R4.y, R0.x, c[6].y;
+SLT R4.z, R0.x, c[6].x;
+ADD R4.w, R4.y, -R1.x;
+MAD R1.x, R4.z, R4.w, R1.x;
+ADD R1.y, R0.x, -c[1].x;
+MAD R1.y, R1.y, c[1].z, c[1].w;
+SLT R1.z, c[1].x, R0.x;
+ADD R1.w, R1.y, -R1.x;
+MAD R1.x, R1.z, R1.w, R1.x;
+MIN o[HPOS].z, R1.x, c[2].x;
+MUL o[HPOS].xy, R10, c[78];
+
+# the texture coordinates
+MUL o[TEX0].xy, v[8], c[3];
+MOV o[TEX0].zw, c[3];
+
+# the fog's texture coordinate: the vertex's own fog none, its offset field
+# the normal's
+MAD o[TEX1].x, R0.y, c[4].y, c[4].x;
+MOV o[TEX1].yz, c[0].y;
+MAD o[TEX1].w, R0.y, c[5].x, c[5].y;
+
+# the palette's place for the pixel: the normal's dot with the light, as
+# the entry (int)(d * 127.5 + 127.5) of 256 is its texel, the base colors'
+# row and the offset colors'
+DP3 R3.x, v[2], c[76];
+MAD R3.x, R3.x, c[77].x, c[77].y;
+MOV o[TEX2].x, R3.x;
+MOV o[TEX2].y, c[77].z;
+MOV o[TEX2].z, c[0].y;
+MOV o[TEX2].w, c[0].x;
+MOV o[TEX3].x, R3.x;
+MOV o[TEX3].y, c[77].w;
+MOV o[TEX3].z, c[0].y;
+MOV o[TEX3].w, c[0].x;
+
+# the offset color's share, which the combiners take times the palette's:
+# 1 where it counts
+MOV o[COL1].xyz, c[5].w;
+MOV o[COL1].w, c[0].y;
+
+# the base color: its alpha 1 where ignored
+MOV R10, v[3];
+MAX R10.w, v[3].w, c[4].w;
+MOV o[COL0], R10;
+END

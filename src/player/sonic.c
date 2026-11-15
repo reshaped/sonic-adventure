@@ -5161,6 +5161,17 @@ static void sonic_light_dash(struct task_work *work, struct task_motion *motion,
         to = ring->pos;
         njAddVector(&to, &shape->center);
         njSubVector(&to, &work->pos);
+#ifdef GCC
+        /* repairs a ring he stands exactly on: its way is no vector, whose
+         * unit and angle are NaN, which the cast makes the least int, inside
+         * the cone, and at distance 0 the ring is the best; he then turns to
+         * atan2f(0, 0), toward +x, and loses the rest. because the
+         * console's steps, by FSRRA's estimate, never end exactly on a ring,
+         * where the port's exact ones can, such a ring is passed */
+        if (to.x == 0.0F && to.y == 0.0F && to.z == 0.0F) {
+            continue;
+        }
+#endif
         njUnitVector(&to);
         angle = vector_angle(&dir, &to, NULL);
         if (angle <= RING_CONE) {

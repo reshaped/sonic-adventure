@@ -8,8 +8,17 @@
 #include "ninja/njkamui.h"
 
 /* the store queue address control registers */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile Uint32 port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(Uint32 *)0xff000038)
 #define QACR1 (*(Uint32 *)0xff00003c)
+#endif
 
 /* a list's address, split for the store queues. SQ_AREA moves its bits 26 to
  * 28 into a QACR's area field. SQ_ADDRESS keeps its low 26 bits, which address

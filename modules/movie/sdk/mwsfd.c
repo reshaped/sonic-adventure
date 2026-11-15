@@ -58,7 +58,8 @@ struct mwsfd_work {
 #define OPERAND_TAGS ((volatile Uint32 *)0xf4000000UL)
 #define OPERAND_LINES 512
 #define OPERAND_TAG_STEP 8
-/* address's P2 alias, through which code runs uncached */
+/* address's P2 alias, through which code runs uncached. the port leaves
+ * the caches as they are: x86's index no RAM */
 #define P2(address) ((Uint32)(address) | 0xa0000000UL)
 
 void mwSfdVsync(void *obj);
@@ -854,7 +855,9 @@ void mwPlyInitSofdec(MWS_PLY_INIT_SFD *iprm)
         mwMngError("E2005 mwPlyInitSofdec: can't init GSC");
     }
     memset(&mwg_ply_work, 0, sizeof(mwg_ply_work));
+#ifndef XBOX
     ((void (*)(void))P2(mwl_cache_index_on))();
+#endif
     syFbrInit(g_fbrWork, MWSFD_FIBERS);
     g_fbrMain = syFbrConvertThreadToFiber(NULL);
     g_fbrSub = syFbrCreateFiber(g_subStack, sizeof(g_subStack),
@@ -890,7 +893,9 @@ void mwPlyFinishSofdec(void)
 #ifdef GCC
     /* repairs the cached write the tag names: GCC calls mwl_cache_index_off
      * through P2 too */
+#ifndef XBOX
     ((void (*)(void))P2(mwl_cache_index_off))();
+#endif
 #else
     mwl_cache_index_off();
 #endif

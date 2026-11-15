@@ -298,7 +298,12 @@ void syCachePurgeAll(void);
 /* invalidate the instruction cache. the function must run uncached, so
  * syCacheICI calls it through its P2 address */
 void syCacheICI_P2_(void);
+#ifdef XBOX
+/* the port has no uncached alias of its code: x86 keeps its caches coherent */
+#define syCacheICI() syCacheICI_P2_()
+#else
 #define syCacheICI() ((void (*)(void))(0xa0000000 | (Uint32)syCacheICI_P2_))()
+#endif
 /* invalidate the operand cache; must run uncached, from P2 */
 void syCacheOCI_P2_(void);
 /* syCacheOCBP writes back and invalidates the operand cache lines over size

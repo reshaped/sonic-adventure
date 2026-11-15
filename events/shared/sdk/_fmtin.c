@@ -4,6 +4,15 @@
 #include <stdio.h>
 
 #include "shared/sdk/scan.h"
+/* long double, which SHC keeps 64 bits wide under -fpu=single, as the real
+ * double: make pc defines double as float, which would spell long double as
+ * long float: a float of DF's mode is the 64-bit double */
+#ifdef XBOX
+typedef float port_long_double __attribute__((mode(DF)));
+#define long_double port_long_double
+#else
+#define long_double long double
+#endif
 
 /* the digits an exponent can have after its leading zeros */
 #define EXPONENT_DIGITS 3
@@ -790,11 +799,11 @@ static int read_decimal(char conversion, void *destination,
         break;
     }
 store_decimal:
-    /* under -fpu=single, double and long double are floats too, so each
+    /* under -fpu=single, double and long_double are floats too, so each
      * store writes one float */
     if (destination) {
         if (state->length == 'L') {
-            *(long double *)destination = *(float *)result;
+            *(long_double *)destination = *(float *)result;
         } else if (state->length == 'l') {
             *(double *)destination = *(float *)result;
         } else {

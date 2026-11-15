@@ -11,7 +11,7 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
-#ifdef GCC
+#if defined(GCC) && !defined(XBOX)
 #include <sh4zam/shz_vector.h>
 #include <sh4zam/shz_xmtrx.h>
 #endif
@@ -94,7 +94,11 @@ struct calc_vertex {
 
 /* the store queue address of the next vertex the drawers write. it lives in
  * R8, where the strip helpers' bodies read and step it */
-#ifdef GCC
+#if defined(XBOX)
+/* the port's: a plain global, which tools/sh2c.py's bodies read as their R8
+ * at entry and write back at their end */
+Float *sq_cursor;
+#elif defined(GCC)
 /* GCC's spelling of the #pragma global_register below. as under SHC, no
  * function of this object saves R8 in its prologue */
 register Float *sq_cursor __asm__("r8");
@@ -879,6 +883,20 @@ ALWAYS_INLINE void send_color(const struct calc_vertex *vertex, Uint32 pcw,
 {
     Float *packet = sq_cursor;
 
+#ifdef XBOX
+    packet[0] = *(const Float *)&pcw;
+    packet[1] = vertex->sx;
+    packet[2] = vertex->sy;
+    packet[3] = vertex->oow;
+    packet[4] = a;
+    packet[5] = r;
+    packet[6] = g;
+    packet[7] = b;
+    sq_cursor = packet + VERTEX_WORDS;
+    return;
+#endif
+
+#ifndef XBOX
     __asm__ volatile("add #16,%[packet]\n\t"
                      "fmov.s %[oow],@-%[packet]\n\t"
                      "fmov.s %[sy],@-%[packet]\n\t"
@@ -894,7 +912,10 @@ ALWAYS_INLINE void send_color(const struct calc_vertex *vertex, Uint32 pcw,
                      : [pcw] "r"(pcw), [sx] "f"(vertex->sx),
                        [sy] "f"(vertex->sy), [oow] "f"(vertex->oow), [a] "f"(a),
                        [r] "f"(r), [g] "f"(g), [b] "f"(b));
+#endif
+#ifndef XBOX
     sq_cursor = packet + VERTEX_WORDS / 2;
+#endif
 }
 
 /* u, v and intensity fill the packet's next three words. the asm leaves the
@@ -904,6 +925,19 @@ ALWAYS_INLINE void send_textured(const struct calc_vertex *vertex, Uint32 pcw,
 {
     Float *packet = sq_cursor;
 
+#ifdef XBOX
+    packet[0] = *(const Float *)&pcw;
+    packet[1] = vertex->sx;
+    packet[2] = vertex->sy;
+    packet[3] = vertex->oow;
+    packet[4] = u;
+    packet[5] = v;
+    packet[6] = intensity;
+    sq_cursor = packet + VERTEX_WORDS;
+    return;
+#endif
+
+#ifndef XBOX
     __asm__ volatile("add #16,%[packet]\n\t"
                      "fmov.s %[oow],@-%[packet]\n\t"
                      "fmov.s %[sy],@-%[packet]\n\t"
@@ -918,7 +952,10 @@ ALWAYS_INLINE void send_textured(const struct calc_vertex *vertex, Uint32 pcw,
                      : [pcw] "r"(pcw), [sx] "f"(vertex->sx),
                        [sy] "f"(vertex->sy), [oow] "f"(vertex->oow), [u] "f"(u),
                        [v] "f"(v), [intensity] "f"(intensity));
+#endif
+#ifndef XBOX
     sq_cursor = packet + VERTEX_WORDS / 2;
+#endif
 }
 #endif
 
@@ -936,10 +973,17 @@ ALWAYS_INLINE void send_textured(const struct calc_vertex *vertex, Uint32 pcw,
 ALWAYS_INLINE void NJM_SET_POLY_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
     const NJS_ARGB *diffuse = &_nj_light_material_.diffuse;
+#ifdef XBOX
+    /* the port's FIPR (xbox/include/sh4.h) */
+    Float intensity =
+        iamb - sh4_fipr(vertex->normal.x, vertex->normal.y, vertex->normal.z,
+                        0.0F, light2.x, light2.y, light2.z, 0.0F);
+#else
     Float intensity =
         iamb - zam_fipr(shz_vec4_init(vertex->normal.x, vertex->normal.y,
                                       vertex->normal.z, 0.0F),
                         shz_vec4_init(light2.x, light2.y, light2.z, 0.0F));
+#endif
 
     send_color(vertex, pcw, diffuse->a, diffuse->r * intensity,
                diffuse->g * intensity, diffuse->b * intensity);
@@ -1036,11 +1080,18 @@ void NJM_SET_POLY_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 ALWAYS_INLINE void _NJM_SET_TEX_STRIP(struct calc_vertex *vertex, Uint32 pcw,
                                       NJS_TEX *uv)
 {
+#ifdef XBOX
+    send_textured(
+        vertex, pcw, (Float)uv->u * TEX_SCALE, (Float)uv->v * TEX_SCALE,
+        iamb - sh4_fipr(light2.x, light2.y, light2.z, 0.0F, vertex->normal.x,
+                        vertex->normal.y, vertex->normal.z, 0.0F));
+#else
     send_textured(
         vertex, pcw, (Float)uv->u * TEX_SCALE, (Float)uv->v * TEX_SCALE,
         iamb - zam_fipr(shz_vec4_init(light2.x, light2.y, light2.z, 0.0F),
                         shz_vec4_init(vertex->normal.x, vertex->normal.y,
                                       vertex->normal.z, 0.0F)));
+#endif
 }
 #else
 /* clang-format off */
@@ -1143,8 +1194,15 @@ void _NJM_SET_TEX_X_STRIP(struct calc_vertex *vertex, Uint32 pcw, NJS_TEX *uv)
  * intensity */
 ALWAYS_INLINE void NJM_SET_ENV_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
+#ifdef XBOX
+    /* the shipped FTRV, by the port's XMTRX (xbox/include/sh4.h) */
+    NJS_POINT3 mapped;
+
+    sh4_xmtrx_apply3(&vertex->normal, 1.0F, &mapped);
+#else
     shz_vec3_t mapped =
         shz_xmtrx_transform_point3(zam_load_vec3(&vertex->normal));
+#endif
 
     send_textured(vertex, pcw, mapped.x, mapped.y, mapped.z);
 }
@@ -1185,8 +1243,14 @@ void NJM_SET_ENV_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 #ifdef GCC
 ALWAYS_INLINE void NJM_SET_ENV_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 {
+#ifdef XBOX
+    NJS_POINT3 mapped;
+
+    sh4_xmtrx_apply3(&vertex->normal, 1.0F, &mapped);
+#else
     shz_vec3_t mapped =
         shz_xmtrx_transform_point3(zam_load_vec3(&vertex->normal));
+#endif
 
     send_textured(vertex, pcw, mapped.x, mapped.y, 1.0F);
 }
@@ -1239,6 +1303,38 @@ void NJM_SET_ENV_X_STRIP(struct calc_vertex *vertex, Uint32 pcw)
 #define NJM_SET_TEX_X_STRIP_END()
 
 /* XMTRX, the current matrix, as an environment START found it */
+#ifdef XBOX
+/* the port's XMTRX (xbox/include/sh4.h): XF0 to XF15, column j at 4j, so
+ * row r is elements r, 4 + r, 8 + r and 12 + r */
+static Float saved_xmtrx[16];
+
+ALWAYS_INLINE void NJM_SET_ENV_X_STRIP_START(void)
+{
+    sh4_xmtrx_get(saved_xmtrx);
+    sh4_xmtrx[0] = saved_xmtrx[0] * 0.5F;
+    sh4_xmtrx[4] = saved_xmtrx[4] * 0.5F;
+    sh4_xmtrx[8] = saved_xmtrx[8] * 0.5F;
+    sh4_xmtrx[12] = 0.5F;
+    sh4_xmtrx[1] = saved_xmtrx[1] * 0.5F;
+    sh4_xmtrx[5] = saved_xmtrx[5] * 0.5F;
+    sh4_xmtrx[9] = saved_xmtrx[9] * 0.5F;
+    sh4_xmtrx[13] = 0.5F;
+}
+
+ALWAYS_INLINE void NJM_SET_ENV_STRIP_START(void)
+{
+    NJM_SET_ENV_X_STRIP_START();
+    sh4_xmtrx[2] = -light2.x;
+    sh4_xmtrx[6] = -light2.y;
+    sh4_xmtrx[10] = -light2.z;
+    sh4_xmtrx[14] = iamb;
+}
+
+ALWAYS_INLINE void NJM_SET_ENV_STRIP_END(void)
+{
+    sh4_xmtrx_set(saved_xmtrx);
+}
+#else
 static shz_mat4x4_t saved_xmtrx;
 
 /* save XMTRX, then halve the first two rows of the current matrix and give
@@ -1268,6 +1364,7 @@ ALWAYS_INLINE void NJM_SET_ENV_STRIP_END(void)
 {
     shz_xmtrx_load_4x4(&saved_xmtrx);
 }
+#endif
 #define NJM_SET_ENV_X_STRIP_END() NJM_SET_ENV_STRIP_END()
 #else
 /* clang-format off */

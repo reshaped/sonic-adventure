@@ -10,8 +10,17 @@
  * QACR0 and QACR1 take it. a queue holds SQ_BYTES bytes, written at
  * SQ_BASE | (address & SQ_ADDRESS). once QACR0 and QACR1 hold address's area,
  * prefetch of the address the bytes were written at sends them to address */
+#ifdef XBOX
+/* the port: the Xbox's flash ROM is at 0xff000000, so the two registers
+ * are xbox/port/system.c's, which nothing reads, since the port maps the
+ * store queues on its memory */
+extern volatile KMDWORD port_qacr[2];
+#define QACR0 (port_qacr[0])
+#define QACR1 (port_qacr[1])
+#else
 #define QACR0 (*(volatile KMDWORD *)0xff000038)
 #define QACR1 (*(volatile KMDWORD *)0xff00003c)
+#endif
 #define QACR_AREA(address) ((address) >> 24)
 #define SQ_ADDRESS 0x03ffffffUL
 #define SQ_BASE 0xe0000000UL

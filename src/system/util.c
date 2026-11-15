@@ -1620,6 +1620,26 @@ int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
     Float nearest;
     Float distance;
 
+#ifdef XBOX
+    {
+        /* a speed out of reason, and who asked: because such a sweep hangs
+         * the game or throws the camera out of the level */
+        static int logged;
+
+        if (logged < 8 && !(speed->x < 1.0e6F && speed->x > -1.0e6F && speed->y < 1.0e6F && speed->y > -1.0e6F &&
+                            speed->z < 1.0e6F && speed->z > -1.0e6F)) {
+            static char line[200];
+            void port_log(const char *text);
+            int sprintf(char *, const char *, ...);
+
+            logged++;
+            sprintf(line, "collision: world_sweep_ball for 0x%08x, at %g %g %g, speed %g %g %g, radius %g",
+                    (unsigned)__builtin_return_address(0), pos->x, pos->y, pos->z, speed->x, speed->y, speed->z,
+                    radius);
+            port_log(line);
+        }
+    }
+#endif
     result = 0;
     objects = world_objects;
     contact = &hit;

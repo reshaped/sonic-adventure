@@ -1233,6 +1233,17 @@ int polygon_collect_near(struct polygon_ball *ball)
         }
         polygon = mesh->polygons;
         last = mesh->last;
+        /* @bug memory: a mesh with no triangles, as a free one, whose object
+         * is null, matches a world entry with a null object, and its null
+         * polygons are read (FMOV.S @(R0,R4),FR2 at 0x8c029742). the console
+         * reads its boot ROM there and goes on */
+#ifdef GCC
+        /* repairs the read the tag names, which faults on the hosts: a mesh
+         * with no triangles has none near */
+        if (polygon == NULL || last == NULL) {
+            continue;
+        }
+#endif
         z = ball->pos.z;
         low = z - mesh->span - reach;
         high = z + mesh->span + reach;
@@ -1272,8 +1283,20 @@ int polygon_collect_near(struct polygon_ball *ball)
                 }
             }
         } else {
+            /* @bug memory: the walk back from the last triangle reads a
+             * triangle's center before it tests the triangle for null, so
+             * past the mesh's first triangle, whose prev is null, it reads
+             * z through null. the console reads its boot ROM there and goes
+             * on */
+#ifdef GCC
+            /* repairs the read the tag names, which faults on the hosts
+             * (Station Square, under Sonic's feet): the null test first */
+            for (polygon = last; polygon != NULL && polygon->center.z > low;
+                 polygon = polygon->prev) {
+#else
             for (polygon = last; polygon->center.z > low && polygon != NULL;
                  polygon = polygon->prev) {
+#endif
                 limit = (reach2 + polygon->radius) * NEAR_SCALE;
                 dx = polygon->center.x;
                 dy = polygon->center.y;
@@ -1792,6 +1815,70 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     touch_polygon_count = 0;
     length = njScalor(&ball->speed);
     spacing = ball->radius * 0.5F;
+#ifdef GCC
+    /* the sweep below steps a ball of no radius, or a speed that isn't a
+     * number, forever: travelled never reaches length. the port's Xbox host
+     * hung there once in Emerald Coast under xemu, where the PC host, on
+     * the same route, didn't. such a sweep touches nothing here */
+    if (!(spacing > 0.0F) || !(length < 1.0e30F)) {
+#ifdef XBOX
+        static Bool logged;
+        void port_log(const char *text);
+
+        if (!logged) {
+            logged = TRUE;
+            port_log(!(spacing > 0.0F) ? "collision: a sweep with no radius, skipped"
+                                       : "collision: a sweep at a speed out of reason, skipped");
+        }
+#endif
+        return FALSE;
+    }
+#ifdef XBOX
+    /* a sweep steps the loop below once a half radius along the speed, for
+     * each triangle near. because a sweep far out of reason (a jump to the
+     * next act's start) takes millions of steps, and seems to freeze the
+     * game, a sweep past FAR_SWEEP takes 256 steps a triangle, widened to
+     * fit, and one of more than 65,536 half radii that many, where
+     * port_sweep_cap (xbox/port/port.c) is set. it is off by default:
+     * because widened steps let a small ball pass a thin floor, play's
+     * sweeps keep the console's steps, and such a sweep is only logged */
+#define FAR_SWEEP 1000.0F
+    if (length > FAR_SWEEP || length > spacing * 65536.0F) {
+        extern volatile int port_sweep_cap;
+        Float widened = length > FAR_SWEEP ? length / 256.0F : length / 65536.0F;
+        static int logged_far;
+        void port_log(const char *text);
+        int sprintf(char *, const char *, ...);
+
+        /* logged either way, the first 20 a run */
+        if (logged_far < 20 && widened > spacing) {
+            static char line[112];
+
+            logged_far++;
+            sprintf(line, "collision: a sweep of %d units, radius %d.%02d, %s", (int)length, (int)ball->radius,
+                    (int)(ball->radius * 100.0F) % 100,
+                    port_sweep_cap ? "its steps widened" : "at the console's steps (port_sweep_cap off)");
+            port_log(line);
+            {
+                /* the ball, its caller (to name by the images' maps), and
+                 * player 0's last frames: because a sweep out of reason may
+                 * never leave this loop, they are logged here */
+                static char more[256];
+                void port_watch_dump(void);
+
+                sprintf(more, "collision:   the ball at %g %g %g, speed %g %g %g, swept for 0x%08x", ball->pos.x,
+                        ball->pos.y, ball->pos.z, ball->speed.x, ball->speed.y, ball->speed.z,
+                        (unsigned)__builtin_return_address(0));
+                port_log(more);
+                port_watch_dump();
+            }
+        }
+        if (port_sweep_cap && widened > spacing) {
+            spacing = widened;
+        }
+    }
+#endif
+#endif
     touch = touch_polygons;
     found = FALSE;
     for (mesh = collision_mesh_list; mesh != NULL; mesh = mesh->next) {

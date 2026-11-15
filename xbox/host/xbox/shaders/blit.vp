@@ -1,0 +1,18 @@
+!!VP1.1
+# the Xbox host's vertex program for the bloom's passes (video.c's bloom), by
+# hand in NV_vertex_program 1.1 as vertex.vp is: a quad's corners as they
+# are, x and y in the target's pixels, and their texture coordinate, in the
+# source's texels, four times over, each moved by one of c[80] to c[83], for
+# the four taps. c[84] is 0, 1.
+MOV o[HPOS].xy, v[0];
+MOV o[HPOS].zw, c[84].xxxy;
+ADD o[TEX0].xy, v[8], c[80];
+MOV o[TEX0].zw, c[84].xxxy;
+ADD o[TEX1].xy, v[8], c[81];
+MOV o[TEX1].zw, c[84].xxxy;
+ADD o[TEX2].xy, v[8], c[82];
+MOV o[TEX2].zw, c[84].xxxy;
+ADD o[TEX3].xy, v[8], c[83];
+MOV o[TEX3].zw, c[84].xxxy;
+MOV o[COL0], v[3];
+END

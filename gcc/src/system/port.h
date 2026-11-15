@@ -126,6 +126,10 @@ void wide_end(void);
 /* the mode wide_apply last applied */
 extern enum wide_mode wide_applied;
 
+/* draw_in_view's answer, in for TRUE, for the task whose step asks it: the
+ * second picture's pass calls no callback of a task refused on step 0 */
+void present_in_view(int in);
+
 /* frame_wait's call once the frame's wait ends. wait is when that wait
  * began, in syTmrGetCount's counts, and late the vsyncs the frame ran late.
  * it measures the frame, runs the skip, plans the next frame's split, draws

@@ -16,3 +16,17 @@ __pycache__/
 *.[Dd][Rr][Vv]
 *.[Gg][Dd][Ii]
 *.[Rr][Aa][Ww]
+
+# the Xbox host's build outputs (nxdk): objects, dependency files, the XBE,
+# its map and the generated DSP program
+*.obj
+*.c.d
+*.cpp.d
+/xbox/host/xbox/bin/
+/xbox/host/xbox/build/
+/xbox/host/xbox/main.exe
+/xbox/host/xbox/main.map
+/xbox/host/xbox/.sound_*
+/xbox/host/xbox/probe/bin/
+/xbox/host/xbox/probe/main.exe
+/xbox/host/xbox/probe/probe.iso

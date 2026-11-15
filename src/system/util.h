@@ -252,7 +252,8 @@ Bool world_sweep_ball_hit(NJS_POINT3 *pos, NJS_VECTOR *speed,
 int string_vformat(char *buffer, const char *format, va_list args);
 int string_format(char *buffer, const char *format, ...);
 
-#ifdef GCC
+/* the Xbox port calls the functions themselves, as SHC's code does */
+#if defined(GCC) && !defined(XBOX)
 /* under GCC, a C call of angle_difference or angle_distance outside util.c
  * runs its helper inline. as in ninja_zam.h, the helper is named zam_ and
  * the function's name, and a macro of the name calls it. each helper's body

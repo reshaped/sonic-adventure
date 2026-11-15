@@ -3,8 +3,17 @@
 #include <string.h>
 
 #include "runtime/print.h"
+/* long double, which SHC keeps 64 bits wide under -fpu=single, as the real
+ * double: make pc defines double as float, which would spell long double as
+ * long float: a float of DF's mode is the 64-bit double */
+#ifdef XBOX
+typedef float port_long_double __attribute__((mode(DF)));
+#define long_double port_long_double
+#else
+#define long_double long double
+#endif
 
-extern int _xti(long double value, int digits, unsigned char *integer,
+extern int _xti(long_double value, int digits, unsigned char *integer,
                 int *scale, signed char *sign);
 extern void _its(unsigned char *value, char *digits, int n);
 
@@ -13,7 +22,7 @@ static void round_digits(char *digits, int position);
 void _xtostr(va_list *arguments, char *text, int conversion,
              struct format_parts *parts)
 {
-    long double value;
+    long_double value;
     int scale;
     signed char sign;
     unsigned char magnitude[8];
@@ -36,7 +45,11 @@ void _xtostr(va_list *arguments, char *text, int conversion,
     int i;
     int j;
 
-#ifdef GCC
+#if defined(XBOX)
+    /* a float argument arrives as a double, and under make pc, whose double
+     * is float, 0.0's type is the real one */
+    value = va_arg(*arguments, __typeof__(0.0));
+#elif defined(GCC)
     /* a float argument arrives as a double, which is float under
      * -m4-single-only. GCC compiles va_arg of float to a trap */
     value = va_arg(*arguments, double);

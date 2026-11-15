@@ -214,6 +214,7 @@ static void lt_rgb_00(NJS_LIGHT *light, NJS_ARGB *color, NJS_POINT3 *point,
                       NJS_VECTOR *normal)
 {
 #ifdef GCC
+#ifndef XBOX
     /* repairs the @bug memory above: a calculator must leave color, point
      * and normal in R5 to R7, and GCC's code may change all three. the
      * variables below hold those registers only at the asm at the end, which
@@ -227,15 +228,20 @@ static void lt_rgb_00(NJS_LIGHT *light, NJS_ARGB *color, NJS_POINT3 *point,
     register NJS_VECTOR *kept_normal __asm__("r7") = normal;
 
 #endif
+#endif
     _nj_ptr_rgb_lt_argb_->a += light->ltcal.mdif.a;
     _nj_ptr_rgb_lt_argb_->r += light->ltcal.mdif.r;
     _nj_ptr_rgb_lt_argb_->g += light->ltcal.mdif.g;
     _nj_ptr_rgb_lt_argb_->b += light->ltcal.mdif.b;
 #ifdef GCC
+#ifndef XBOX
+    /* on x86, tools/sh2c.py's calls of the calculators keep the caller's
+     * R5 to R7, its locals, so the repair needs no asm */
     __asm__ volatile(""
                      :
                      : "r"(kept_color), "r"(kept_point), "r"(kept_normal)
                      : "memory");
+#endif
 #endif
 }
 

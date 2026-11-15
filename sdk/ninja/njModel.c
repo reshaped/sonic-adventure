@@ -5,7 +5,7 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
-#ifdef GCC
+#if defined(GCC) && !defined(XBOX)
 #include <sh4zam/shz_mem.h>
 #include <sh4zam/shz_vector.h>
 #endif
@@ -158,7 +158,11 @@ static NJS_POINT3COL axis_lines = {
 /* the store queue address the next packet goes to. every function of this
  * object keeps it in R8, so the public entries save the caller's R8 and
  * restore it after */
-#ifdef GCC
+#if defined(XBOX)
+/* the port's: a plain global, which tools/sh2c.py's bodies read as their R8
+ * at entry and write back at their end */
+Uint32 *queue_cursor;
+#elif defined(GCC)
 /* GCC's spelling of the #pragma global_register below. as under SHC, no
  * function of this object saves R8 in its prologue */
 register Uint32 *queue_cursor __asm__("r8");
@@ -210,6 +214,25 @@ void CalcModelMatrix(NJS_POINT3 *dst, const NJS_POINT3 *src);
  * a PREF behind a memory clobber. in a function of its own, that spelling
  * runs 38 instructions where the asm runs 17. it also makes njModel.o's text
  * about 8 KB larger */
+#ifdef XBOX
+/* the port's profile counts the packets (xbox/port/port.c) */
+extern unsigned port_ninja_vertices;
+/* the port's store queues are RAM's view: the packet is the vertex's first
+ * 16 bytes, then its payload */
+ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
+{
+    const Uint32 *head = (const Uint32 *)vertex;
+    const Uint32 *payload = (const Uint32 *)&vertex->payload;
+    int k;
+
+    for (k = 0; k < 4; k++) {
+        queue_cursor[k] = head[k];
+        queue_cursor[4 + k] = payload[k];
+    }
+    queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
+    port_ninja_vertices++;
+}
+#else
 ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
 {
     const struct model_vertex *head = vertex;
@@ -234,6 +257,7 @@ ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
         : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7");
     queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
 }
+#endif
 #else
 /* clang-format off */
 #ifndef __clang__
@@ -273,6 +297,18 @@ static void submit_work_vertex(const struct model_vertex *vertex)
  * 8-byte boundary. each block is an element of vtx2 or vtx4, on a 32-byte one
  * in njModelGlobal.src's BSG32. as in submit_work_vertex, the m input keeps
  * GCC's stores to block ahead of the asm, which declares no memory output */
+#ifdef XBOX
+ALWAYS_INLINE void submit_packet(void *block)
+{
+    const Uint32 *source = block;
+    int k;
+
+    for (k = 0; k < 8; k++) {
+        queue_cursor[k] = source[k];
+    }
+    queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
+}
+#else
 ALWAYS_INLINE void submit_packet(void *block)
 {
     const void *source = block;
@@ -295,6 +331,7 @@ ALWAYS_INLINE void submit_packet(void *block)
                      : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7");
     queue_cursor += PACKET_BYTES / sizeof *queue_cursor;
 }
+#endif
 #else
 /* clang-format off */
 #ifndef __clang__
@@ -2651,7 +2688,12 @@ static void model_clip_unlit_triangle(struct model_vertex *v0,
  * ahead of the asm, so the line it writes back holds them */
 ALWAYS_INLINE void writeback_line(void *address)
 {
+#ifdef XBOX
+    /* x86 keeps its caches coherent */
+    (void)address;
+#else
     __asm__ volatile("ocbwb @%0" : : "r"(address) : "memory");
+#endif
 }
 #else
 /* clang-format off */
@@ -2673,8 +2715,13 @@ static void writeback_line(void *address)
  * lines, and the tail nothing */
 ALWAYS_INLINE void prefetch_vertex_head(struct model_vertex *vertex)
 {
+#ifdef XBOX
+    /* the prefetch only hints the cache, which the Xbox's fills itself */
+    (void)vertex;
+#else
     SHZ_PREFETCH(vertex);
     SHZ_PREFETCH(&vertex->payload);
+#endif
 }
 
 ALWAYS_INLINE void prefetch_vertex_tail(void)
@@ -2721,8 +2768,14 @@ static void prefetch_vertex_tail(void)
  * FR7 */
 ALWAYS_INLINE Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
 {
+#ifdef XBOX
+    /* the port's FIPR (xbox/include/sh4.h) */
+    return sh4_fipr(normal->x, normal->y, normal->z, 0.0F, point->x, point->y,
+                    point->z, 0.0F);
+#else
     return zam_fipr(shz_vec4_init(normal->x, normal->y, normal->z, 0.0F),
                     shz_vec4_init(point->x, point->y, point->z, 0.0F));
+#endif
 }
 #else
 /* clang-format off */
@@ -2826,10 +2879,20 @@ static void store_vertex_color(struct model_vertex *vertex, NJS_ARGB *color)
 ALWAYS_INLINE Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a,
                                          NJS_POINT3 *c)
 {
+#ifdef XBOX
+    /* the shipped body's products and FSUBs in its order, then its FIPR by
+     * the port's model (xbox/include/sh4.h) */
+    Float cross_y = b->x * a->z - b->z * a->x;
+    Float cross_z = b->y * a->x - b->x * a->y;
+    Float cross_x = b->z * a->y - b->y * a->z;
+
+    return sh4_fipr(c->y, c->z, c->x, 0.0F, cross_y, cross_z, cross_x, 0.0F);
+#else
     shz_vec3_t cross = shz_vec3_cross(shz_vec3_deref(a), shz_vec3_deref(b));
 
     return zam_fipr(shz_vec4_init(c->y, c->z, c->x, 0.0F),
                     shz_vec4_init(cross.y, cross.z, cross.x, 0.0F));
+#endif
 }
 #else
 /* clang-format off */

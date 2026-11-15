@@ -1,4 +1,5 @@
-/* the model renderer in C, on SH4ZAM's FTRV and FIPR. make gcc compiles it
+/* the model renderer in C, on the SH-4's FTRV and FIPR (the SH-4's own under
+ * make gcc, the port's native models under XBOX). make gcc compiles it
  * in place of model.src. model.src's project_points projects x by
  * _nj_screen_.dist alone, and its cull_model tests x by it. its near clip
  * takes dist times _nj_scr_aspect_x_, as Ninja's own projections do. the two
@@ -62,15 +63,114 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
+#ifndef XBOX
 #include <sh4zam/shz_mem.h>
 #include <sh4zam/shz_vector.h>
 #include <sh4zam/shz_xmtrx.h>
+#endif
 
 #include "draw/model.h"
 #include "sdk/ninja/njkamui.h"
 #include "system/frame.h"
 
 #define OUT_OF_LINE static __attribute__((noinline, noclone))
+
+/* the vectors and the FTRV and FIPR the drawer runs. make gcc's are its own
+ * SH-4 entries, each draw_ name one of them. the Xbox port's are its native
+ * models of the SH-4's instructions and its XMTRX (xbox/include/sh4.h),
+ * which ninja.h includes */
+#ifdef XBOX
+typedef struct {
+    Float x, y;
+} draw_vec2;
+typedef struct {
+    Float x, y, z;
+} draw_vec3;
+typedef struct {
+    Float x, y, z, w;
+} draw_vec4;
+
+ALWAYS_INLINE draw_vec4 draw_vec4_init(Float x, Float y, Float z, Float w)
+{
+    draw_vec4 v = {x, y, z, w};
+
+    return v;
+}
+
+/* FTRV XMTRX of v */
+ALWAYS_INLINE draw_vec4 draw_xmtrx_vec4(draw_vec4 v)
+{
+    sh4_xmtrx_ftrv(&v.x, &v.x);
+    return v;
+}
+
+/* FTRV XMTRX of (p, 1), its first three results */
+ALWAYS_INLINE draw_vec3 draw_xmtrx_point3(const NJS_POINT3 *p)
+{
+    draw_vec4 v = draw_xmtrx_vec4(draw_vec4_init(p->x, p->y, p->z, 1.0F));
+    draw_vec3 r = {v.x, v.y, v.z};
+
+    return r;
+}
+
+/* FTRV XMTRX of (n, 0), its first three results */
+ALWAYS_INLINE draw_vec3 draw_xmtrx_vec3(const NJS_VECTOR *n)
+{
+    draw_vec4 v = draw_xmtrx_vec4(draw_vec4_init(n->x, n->y, n->z, 0.0F));
+    draw_vec3 r = {v.x, v.y, v.z};
+
+    return r;
+}
+
+/* FIPR of a and b, a first */
+ALWAYS_INLINE Float draw_fipr(draw_vec4 a, draw_vec4 b)
+{
+    return sh4_fipr(a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w);
+}
+
+/* two FIPRs of l, with r1 and with r2 */
+ALWAYS_INLINE draw_vec2 draw_dot2(draw_vec4 l, draw_vec4 r1, draw_vec4 r2)
+{
+    draw_vec2 r = {draw_fipr(l, r1), draw_fipr(l, r2)};
+
+    return r;
+}
+
+/* XMTRX's column j, XF4j to XF4j+3 */
+ALWAYS_INLINE draw_vec4 draw_xmtrx_col(int j)
+{
+    return draw_vec4_init(sh4_xmtrx[4 * j], sh4_xmtrx[4 * j + 1],
+                          sh4_xmtrx[4 * j + 2], sh4_xmtrx[4 * j + 3]);
+}
+
+/* (FIPRs of dir with XMTRX's first three columns, 0): a direction in the
+ * model's space */
+ALWAYS_INLINE draw_vec4 draw_in_model(draw_vec4 dir)
+{
+    return draw_vec4_init(draw_fipr(dir, draw_xmtrx_col(0)),
+                          draw_fipr(dir, draw_xmtrx_col(1)),
+                          draw_fipr(dir, draw_xmtrx_col(2)), 0.0F);
+}
+
+/* MOVCA.L's claim of a cache line, which x86 leaves to its cache */
+#define draw_alloc_line(p) ((void)(p))
+#else
+typedef shz_vec2_t draw_vec2;
+typedef shz_vec3_t draw_vec3;
+typedef shz_vec4_t draw_vec4;
+#define draw_vec4_init shz_vec4_init
+#define draw_xmtrx_vec4 shz_xmtrx_transform_vec4
+#define draw_xmtrx_point3(p) shz_xmtrx_transform_point3(zam_load_vec3(p))
+#define draw_xmtrx_vec3(n) shz_xmtrx_transform_vec3(zam_load_vec3(n))
+#define draw_fipr zam_fipr
+#define draw_dot2 shz_vec4_dot2
+#define draw_xmtrx_col shz_xmtrx_read_col
+#define draw_in_model(dir)                                                     \
+    shz_vec3_vec4(shz_vec4_dot3((dir), shz_xmtrx_read_col(0),                  \
+                                shz_xmtrx_read_col(1), shz_xmtrx_read_col(2)), \
+                  0.0F)
+#define draw_alloc_line shz_dcache_alloc_line
+#endif
 
 /* masks, as njModel.c names them: the material index in a meshset's
  * type_matId, the texture number in a material's attr_texId, and a strip's
@@ -323,9 +423,9 @@ static inline Uint32 drawn_flags(const NJS_MATERIAL *material)
     return constant_attr ? (flags & attr_and) | attr_or : flags;
 }
 
-static inline shz_vec3_t view_point(const NJS_POINT3 *p)
+static inline draw_vec3 view_point(const NJS_POINT3 *p)
 {
-    return shz_xmtrx_transform_point3(zam_load_vec3(p));
+    return draw_xmtrx_point3(p);
 }
 
 /* whether the sphere of radius r about center, in view space, may be in
@@ -334,7 +434,7 @@ static inline shz_vec3_t view_point(const NJS_POINT3 *p)
  * edge of _nj_2d_clip_. the edge tests project the sphere's sides at its far
  * z, center.z + r. the side tests scale x by side, the bottom test scales y
  * by bottom, and the top test scales y by top */
-static inline Bool sphere_in_view(shz_vec3_t center, Float r, Float near,
+static inline Bool sphere_in_view(draw_vec3 center, Float r, Float near,
                                   Float side, Float bottom, Float top)
 {
     Float inv;
@@ -386,7 +486,7 @@ static inline Bool past_edge(struct edge edge, Float across, Float z,
  * part at z >= 1, which lies there too */
 OUT_OF_LINE Bool model_off_screen(const NJS_MODEL *model)
 {
-    shz_vec3_t center = view_point(&model->center);
+    draw_vec3 center = view_point(&model->center);
     Float reach = LAND_REACH * model->r;
 
     return past_edge(view.left, center.x, center.z, reach) ||
@@ -411,7 +511,7 @@ struct projecting {
     Float x, y;
 };
 
-static inline struct projecting project_begin(shz_vec4_t v,
+static inline struct projecting project_begin(draw_vec4 v,
                                               const struct projection *by)
 {
     struct projecting p = {v.z, 1.0F / v.z, v.x * by->scale_x,
@@ -423,16 +523,23 @@ static inline struct projecting project_begin(shz_vec4_t v,
 /* the vector at *from, with w, and *from stepped past it. FMOV.S takes no
  * displacement, so the asm loads the three through *from by post-increment,
  * as model.src's loops do */
-ALWAYS_INLINE shz_vec4_t next_vector(const NJS_VECTOR **from, Float w)
+ALWAYS_INLINE draw_vec4 next_vector(const NJS_VECTOR **from, Float w)
 {
     Float x, y, z;
 
+#ifdef XBOX
+    x = (*from)->x;
+    y = (*from)->y;
+    z = (*from)->z;
+    (*from)++;
+#else
     __asm__("fmov.s @%[from]+,%[x]\n\t"
             "fmov.s @%[from]+,%[y]\n\t"
             "fmov.s @%[from]+,%[z]"
             : [from] "+r"(*from), [x] "=f"(x), [y] "=f"(y), [z] "=f"(z)
             : "m"(**from));
-    return shz_vec4_init(x, y, z, w);
+#endif
+    return draw_vec4_init(x, y, z, w);
 }
 
 /* PREF the line PREFETCH_AHEAD bytes past p. the address is an integer,
@@ -442,13 +549,18 @@ ALWAYS_INLINE shz_vec4_t next_vector(const NJS_VECTOR **from, Float w)
  * loop PREFs at the top of a pass, before its loads */
 static inline void prefetch_ahead(const void *p)
 {
+#ifdef XBOX
+    /* a prefetch is a hint, which the port leaves out */
+    (void)p;
+#else
     SHZ_PREFETCH((Uint32)p + PREFETCH_AHEAD);
+#endif
 }
 
 /* the point at *from in view space, with *from stepped past it */
-ALWAYS_INLINE shz_vec4_t view_next(const NJS_POINT3 **from)
+ALWAYS_INLINE draw_vec4 view_next(const NJS_POINT3 **from)
 {
-    return shz_xmtrx_transform_vec4(next_vector(from, 1.0F));
+    return draw_xmtrx_vec4(next_vector(from, 1.0F));
 }
 
 /* write p's x and y on the screen and its 1/z into point, and return point.
@@ -464,12 +576,19 @@ static inline struct point *project_end(struct point *point,
     Float x = p.x * p.rhw + by->cx;
     Float y = p.y * p.rhw + by->cy;
 
+#ifdef XBOX
+    point->at.x = x;
+    point->at.y = y;
+    point->at.rhw = p.rhw;
+    word = (Float *)point;
+#else
     __asm__ volatile("fmov.s %[rhw],@-%[word]\n\t"
                      "fmov.s %[y],@-%[word]\n\t"
                      "fmov.s %[x],@-%[word]"
                      : [word] "+r"(word)
                      : [rhw] "f"(p.rhw), [x] "f"(x), [y] "f"(y)
                      : "memory");
+#endif
     return (struct point *)word;
 }
 
@@ -511,7 +630,7 @@ OUT_OF_LINE int project_points(const NJS_MODEL *model, struct point *points)
     a = project_begin(view_next(&from), &by);
     a_near = !(a.z > by.near);
     while (end - from > 1) {
-        shz_vec4_t next;
+        draw_vec4 next;
         struct projecting b;
 
         prefetch_ahead(from);
@@ -523,7 +642,7 @@ OUT_OF_LINE int project_points(const NJS_MODEL *model, struct point *points)
          * in R0, so a's x takes whatever R0 holds, until project_end writes
          * it. the line's other words hold what the cache held, not the zeros
          * SH4ZAM's doc says, until project_end and shade_points write them */
-        shz_dcache_alloc_line(points);
+        draw_alloc_line(points);
         points = project_end(points, a, &by) + 1;
         points = project_end(points, b, &by) + 1;
         a = project_begin(next, &by);
@@ -531,7 +650,7 @@ OUT_OF_LINE int project_points(const NJS_MODEL *model, struct point *points)
     }
     /* the last line holds a, and for an even count the last point after it */
     near_points += a_near;
-    shz_dcache_alloc_line(points);
+    draw_alloc_line(points);
     points = project_end(points, a, &by) + 1;
     if (from != end) {
         struct projecting b = project_begin(view_next(&from), &by);
@@ -587,23 +706,20 @@ OUT_OF_LINE void shade_points(const NJS_MODEL *model, struct point *points,
     const Uint32 *palette = shade_palette;
     const Uint32 *offsets = palette + 1;
     Uint32 *lit = lit_offsets;
-    shz_vec4_t dir = shz_vec4_init(light_dir.x, light_dir.y, light_dir.z, 0.0F);
-    shz_vec4_t light;
+    draw_vec4 dir = draw_vec4_init(light_dir.x, light_dir.y, light_dir.z, 0.0F);
+    draw_vec4 light;
     int left;
 
     /* light_dir in the model's space: its dot with each of XMTRX's first
      * three columns */
-    light = shz_vec3_vec4(shz_vec4_dot3(dir, shz_xmtrx_read_col(0),
-                                        shz_xmtrx_read_col(1),
-                                        shz_xmtrx_read_col(2)),
-                          0.0F);
+    light = draw_in_model(dir);
     if (!(first_flags & NJD_FLAG_IGNORE_SPECULAR) &&
         first->specular.color != 0) {
         offsets += DRAW_PALETTE_ENTRIES * 2;
     }
     for (left = model->nbPoint; left > 3; left -= 4) {
-        shz_vec4_t n;
-        shz_vec2_t ab, cd;
+        draw_vec4 n;
+        draw_vec2 ab, cd;
         int a, b, c, d;
 
         /* a PREF for each pair of normals, 24 bytes, under a line, so that
@@ -611,11 +727,11 @@ OUT_OF_LINE void shade_points(const NJS_MODEL *model, struct point *points,
         prefetch_ahead(normal);
         prefetch_ahead(normal + 2);
         n = next_vector(&normal, 1.0F);
-        ab = shz_vec4_dot2(light, n, next_vector(&normal, 1.0F));
+        ab = draw_dot2(light, n, next_vector(&normal, 1.0F));
         a = (int)(ab.x * HALF_255 + HALF_255);
         b = (int)(ab.y * HALF_255 + HALF_255);
         n = next_vector(&normal, 1.0F);
-        cd = shz_vec4_dot2(light, n, next_vector(&normal, 1.0F));
+        cd = draw_dot2(light, n, next_vector(&normal, 1.0F));
         c = (int)(cd.x * HALF_255 + HALF_255);
         d = (int)(cd.y * HALF_255 + HALF_255);
         if ((Uint32)(a | b | c | d) > DRAW_PALETTE_ENTRIES - 1) {
@@ -636,8 +752,8 @@ OUT_OF_LINE void shade_points(const NJS_MODEL *model, struct point *points,
         lit += 4;
     }
     if (left > 1) {
-        shz_vec4_t n = next_vector(&normal, 1.0F);
-        shz_vec2_t ab = shz_vec4_dot2(light, n, next_vector(&normal, 1.0F));
+        draw_vec4 n = next_vector(&normal, 1.0F);
+        draw_vec2 ab = draw_dot2(light, n, next_vector(&normal, 1.0F));
         int a = palette_entry((int)(ab.x * HALF_255 + HALF_255));
         int b = palette_entry((int)(ab.y * HALF_255 + HALF_255));
 
@@ -650,8 +766,8 @@ OUT_OF_LINE void shade_points(const NJS_MODEL *model, struct point *points,
         left -= 2;
     }
     if (left > 0) {
-        shz_vec4_t n = next_vector(&normal, 1.0F);
-        int a = palette_entry((int)(zam_fipr(light, n) * HALF_255 + HALF_255));
+        draw_vec4 n = next_vector(&normal, 1.0F);
+        int a = palette_entry((int)(draw_fipr(light, n) * HALF_255 + HALF_255));
 
         points[0].color.color = palette[a * 2];
         lit[0] = offsets[a * 2];
@@ -761,6 +877,17 @@ ALWAYS_INLINE struct vertex_words take_point(const struct strips *strips,
 {
     struct vertex_words p;
 
+#ifdef XBOX
+    {
+        const Float *words = (const Float *)&strips->points[index];
+
+        p.x = words[0];
+        p.y = words[1];
+        p.rhw = words[2];
+        p.base = words[3];
+        p.offset = ((const Float *)strips->offsets)[index];
+    }
+#else
     __asm__("shll2 %[k]\n\t"
             "fmov.s @(%[k],%[offsets]),%[offset]\n\t"
             "shll2 %[k]\n\t"
@@ -773,6 +900,7 @@ ALWAYS_INLINE struct vertex_words take_point(const struct strips *strips,
               [base] "=f"(p.base), [offset] "=f"(p.offset)
             : [offsets] "r"(strips->offsets), [points] "r"(strips->points)
             : "memory");
+#endif
     return p;
 }
 
@@ -800,6 +928,20 @@ ALWAYS_INLINE struct vertex *send_textured(struct vertex *sq, Uint32 control,
                                            struct vertex_words p, Float u,
                                            Float v)
 {
+#ifdef XBOX
+    {
+        Float *words = (Float *)sq;
+
+        sq->control = control;
+        words[1] = p.x;
+        words[2] = p.y;
+        words[3] = p.rhw;
+        words[4] = u;
+        words[5] = v;
+        words[6] = p.base;
+        words[7] = p.offset;
+    }
+#else
     __asm__ volatile(
         "add #32,%[sq]\n\t"
         "fmov.s %[offset],@-%[sq]\n\t"
@@ -814,6 +956,7 @@ ALWAYS_INLINE struct vertex *send_textured(struct vertex *sq, Uint32 control,
         : [sq] "+r"(sq)
         : [control] "r"(control), [x] "f"(p.x), [y] "f"(p.y), [rhw] "f"(p.rhw),
           [u] "f"(u), [v] "f"(v), [base] "f"(p.base), [offset] "f"(p.offset));
+#endif
     return sq + 1;
 }
 
@@ -823,7 +966,7 @@ static inline void env_uv(const struct strips *strips, int index, Float *u,
                           Float *v)
 {
     const NJS_VECTOR *n = &strips->normals[index];
-    shz_vec4_t turned = shz_xmtrx_transform_vec4(next_vector(&n, 0.0F));
+    draw_vec4 turned = draw_xmtrx_vec4(next_vector(&n, 0.0F));
 
     *u = turned.x * 0.5F + 0.5F;
     *v = turned.y * 0.5F + 0.5F;
@@ -864,10 +1007,14 @@ static inline int next_index(const Sint16 **mesh)
 {
     int index;
 
+#ifdef XBOX
+    index = *(*mesh)++;
+#else
     __asm__("mov.w @%[mesh]+,%[index]"
             : [mesh] "+r"(*mesh), [index] "=r"(index)
             :
             : "memory");
+#endif
     return index;
 }
 
@@ -879,11 +1026,17 @@ static inline void next_uv(const NJS_TEX **vertuv, Float *u, Float *v)
 {
     int tex_u, tex_v;
 
+#ifdef XBOX
+    tex_u = ((const Sint16 *)*vertuv)[0];
+    tex_v = ((const Sint16 *)*vertuv)[1];
+    (*vertuv)++;
+#else
     __asm__("mov.w @%[vertuv]+,%[u]\n\t"
             "mov.w @%[vertuv]+,%[v]"
             : [vertuv] "+r"(*vertuv), [u] "=r"(tex_u), [v] "=r"(tex_v)
             :
             : "memory");
+#endif
     *u = (Float)tex_u * INV_255;
     *v = (Float)tex_v * INV_255;
 }
@@ -976,8 +1129,7 @@ static inline void take_corner(struct corner *corner,
         corner->u = (Float)vertuv->tex.u;
         corner->v = (Float)vertuv->tex.v;
     } else if (uv == ENV_UV) {
-        shz_vec3_t turned =
-            shz_xmtrx_transform_vec3(zam_load_vec3(&strips->normals[index]));
+        draw_vec3 turned = draw_xmtrx_vec3(&strips->normals[index]);
 
         corner->u = turned.x * HALF_255 + HALF_255;
         corner->v = turned.y * HALF_255 + HALF_255;
@@ -1288,6 +1440,1125 @@ static inline void set_material_header(const NJS_MATERIAL *material,
  * meshset to the translucent list, after set_point_alpha. a textured
  * meshset under NJD_FLAG_IGNORE_LIGHT sends draw_unlit_offsets as its offset
  * colors, and shades as a decal when opaque */
+#ifdef XBOX
+/* the port's profile (xbox/port/port.h): the vertices the drawer sends, a
+ * meshset's from its store queue pointer, and the models it draws, with
+ * whether their points changed since they were last drawn */
+struct port_counts {
+    unsigned drawer_models, drawer_points, drawer_vertices;
+    unsigned changed_models, changed_points;
+    unsigned ninja_vertices;
+    unsigned packed_loads, copied_loads;
+    unsigned gpu_vertices;
+    unsigned kept_vertices, built_vertices;
+    unsigned long long drawer_tsc, render_tsc;
+};
+#define PORT_TSC_BEGIN unsigned long long port_tsc = port_profile ? __builtin_ia32_rdtsc() : 0
+#define PORT_TSC_END()                                                    \
+    do {                                                                  \
+        if (port_profile) {                                               \
+            port_counts.drawer_tsc += __builtin_ia32_rdtsc() - port_tsc; \
+        }                                                                 \
+    } while (0)
+extern struct port_counts port_counts;
+extern volatile int port_profile;
+void port_count_model(const void *model, const void *points, int count);
+static void *port_sq_start;
+
+/* the port's models for the host to transform (host_api's video_vertices3).
+ * a model the drawer needn't clip, one wholly past the near plane and within
+ * GPU_GUARD pixels of the screen by its sphere of LAND_REACH times r, isn't
+ * projected, and its opaque meshsets don't go through the lists: each is a
+ * run of the renderer's (xbox/port/render.c's port_run_begin), the vertices
+ * the host draws, a point of the model's where x, y and 1/z would be, with
+ * the uv and the colors a strip's vertex takes, and its triangles' indices.
+ * the list takes the meshset's header, as ever, and one parameter that
+ * names the run, for the list's order. the run's transform is XMTRX with
+ * the projection folded in. the points are shaded as ever, so the colors
+ * are the palette's. a meshset under NJD_FLAG_USE_ALPHA is a run too, unless
+ * port_gpu_models lacks bit 1: the translucent list is sorted by each
+ * strip's nearest vertex, and so is such a run's each strip, a part of the
+ * run with the 1/z of its nearest vertex, which the drawer finds by the
+ * transform's third row. (sorted as one, at the model's center, Emerald
+ * Coast's water, one meshset, drew out of order with what lies in it, and
+ * left dark squares around Sonic and the sprites there, on a real Xbox.)
+ * without the bit such a meshset is projected and goes through its list,
+ * as before.
+ * the sphere is the model's own for draw_model's and draw_model_nested's
+ * models, which model_in_view culls by it, and LAND_REACH times it for
+ * draw_model_unculled's, the land's */
+extern volatile int port_gpu_models;
+/* how far past the screen a model's sphere may reach: less across, where
+ * the Xbox's antialiased surface doubles x */
+#define GPU_GUARD_X 256.0F
+#define GPU_GUARD_Y 512.0F
+#define PARA_MODEL 0xc0000000u
+
+/* the renderer's vertex, xbox/port/host.h's host_vertex */
+struct run_vertex {
+    Float x, y, z;
+    Float u, v;
+    Uint32 base, offset;
+};
+int port_run_begin(struct run_vertex **vertices, int *vertex_room, Uint16 **indices, int *index_room);
+/* a strip of a translucent run, the renderer's run_part: its indices in the
+ * run's, and the 1/z of its nearest vertex */
+struct run_part {
+    int first_index, index_count;
+    Float rhw_near;
+};
+struct run_part *port_run_parts(int *room);
+extern unsigned port_run_unfit;
+extern unsigned port_run_unfit_vertices;
+void port_run_end(int run, int vertices, int indices, int part_total, const Float transform[12], Float rhw_near,
+                  Float rhw_mid, unsigned serial);
+void port_run_lit(int run, const Float light[3], const Uint32 *palette, const Uint32 *offsets);
+
+/* the model's sphere in view space, by the tests above: whether the host
+ * can take the model, and the largest 1/z and the center's */
+static Bool gpu_takes(const NJS_MODEL *model, Float reach_scale, Float *rhw_near, Float *rhw_mid)
+{
+    draw_vec3 c;
+    Float reach;
+    Float inv;
+
+    if (!port_gpu_models || model->nbPoint > DRAW_MOST_POINTS) {
+        return FALSE;
+    }
+    c = view_point(&model->center);
+    reach = reach_scale * model->r;
+    if (!(c.z - reach > view.near)) {
+        return FALSE;
+    }
+    inv = 1.0F / (c.z - reach);
+    if (!((c.x - reach) * view.scale_x * inv + view.cx > -GPU_GUARD_X) ||
+        !((c.x + reach) * view.scale_x * inv + view.cx < view.w + GPU_GUARD_X) ||
+        !((c.y - reach) * view.scale_y * inv + view.cy > -GPU_GUARD_Y) ||
+        !((c.y + reach) * view.scale_y * inv + view.cy < view.h + GPU_GUARD_Y)) {
+        return FALSE;
+    }
+    *rhw_near = inv;
+    *rhw_mid = 1.0F / c.z;
+    return TRUE;
+}
+
+/* the rows of XMTRX that give a point's x * scale_x + z * cx, its
+ * y * scale_y + z * cy and its z in view space, which over z are where
+ * project_points puts it */
+static void gpu_transform(Float rows[12])
+{
+    /* XMTRX's columns, which are where it puts the axes and the origin */
+    draw_vec4 ex = draw_xmtrx_col(0);
+    draw_vec4 ey = draw_xmtrx_col(1);
+    draw_vec4 ez = draw_xmtrx_col(2);
+    draw_vec4 t = draw_xmtrx_col(3);
+
+    rows[0] = ex.x * view.scale_x + ex.z * view.cx;
+    rows[1] = ey.x * view.scale_x + ey.z * view.cx;
+    rows[2] = ez.x * view.scale_x + ez.z * view.cx;
+    rows[3] = t.x * view.scale_x + t.z * view.cx;
+    rows[4] = ex.y * view.scale_y + ex.z * view.cy;
+    rows[5] = ey.y * view.scale_y + ey.z * view.cy;
+    rows[6] = ez.y * view.scale_y + ez.z * view.cy;
+    rows[7] = t.y * view.scale_y + t.z * view.cy;
+    rows[8] = ex.z;
+    rows[9] = ey.z;
+    rows[10] = ez.z;
+    rows[11] = t.z;
+}
+
+/* a meshset's polygons into a run, each a strip, as send_strips sends them:
+ * a vertex is its point, as the model has it, the uv send_point gives it,
+ * the base color shade_points left in points and its offset color, 0 for an
+ * untextured one. a strip's triangles all turn as its first. it returns the
+ * vertices, and *index_count the indices; a polygon the room can't hold
+ * ends the run */
+static Uint32 keep_cmp(const NJS_VECTOR *n, Float scale);
+
+static int gpu_send(const NJS_MODEL *model, const struct strips *strips, enum uv uv, struct run_vertex *out,
+                    int vertex_room, Uint16 *indices, int index_room, int *index_count, const Float *depth_row,
+                    struct run_part *run_parts, int part_room, int *part_total, const Float *lit_scale)
+{
+    const NJS_POINT3 *from = model->points;
+    const Sint16 *mesh = strips->meshset->meshes;
+    const NJS_TEX *vertuv = uv == MESH_UV ? &strips->meshset->vertuv->tex : NULL;
+    int sent = 0;
+    int named = 0;
+    int made = 0;
+    int polygons;
+
+    for (polygons = strips->meshset->nbMesh; polygons != 0; polygons--) {
+        int size = next_polygon_size(strips, &mesh);
+        Float nearest = 1.0e30F;
+        int k;
+
+        if (size < 3 || sent + size > vertex_room || named + (size - 2) * 3 > index_room ||
+            (depth_row != NULL && made >= part_room)) {
+            break;
+        }
+        for (k = 0; k < size; k++) {
+            int index = *mesh++;
+            struct run_vertex *v = &out[sent + k];
+
+            v->x = from[index].x;
+            v->y = from[index].y;
+            v->z = from[index].z;
+            if (depth_row != NULL) {
+                /* the vertex's depth in view space, for the nearest of
+                 * them, which the translucent list sorts the run by */
+                Float z = depth_row[0] * from[index].x + depth_row[1] * from[index].y +
+                          depth_row[2] * from[index].z + depth_row[3];
+
+                if (z < nearest) {
+                    nearest = z;
+                }
+            }
+            v->u = 0.0F;
+            v->v = 0.0F;
+            if (uv == MESH_UV) {
+                next_uv(&vertuv, &v->u, &v->v);
+            } else if (uv == ENV_UV) {
+                env_uv(strips, index, &v->u, &v->v);
+            }
+            v->base = strips->points[index].color.color;
+            v->offset = uv == NO_UV ? 0 : strips->offsets[index];
+            if (lit_scale != NULL) {
+                /* lit by the host (port_run_lit): the base color's alpha,
+                 * and the point's normal, over the model's scale */
+                v->base &= 0xff000000u;
+                v->offset = keep_cmp(&model->normals[index], *lit_scale);
+            }
+            if (k >= 2) {
+                indices[named++] = (Uint16)(sent + k - 2 + (k & 1));
+                indices[named++] = (Uint16)(sent + k - 1 - (k & 1));
+                indices[named++] = (Uint16)(sent + k);
+            }
+        }
+        if (depth_row != NULL) {
+            /* the strip is a part, sorted by its nearest vertex */
+            run_parts[made].first_index = named - (size - 2) * 3;
+            run_parts[made].index_count = (size - 2) * 3;
+            run_parts[made].rhw_near = nearest > 0.0F ? 1.0F / nearest : 1.0e30F;
+            made++;
+        }
+        sent += size;
+    }
+    *index_count = named;
+    *part_total = made;
+    return sent;
+}
+
+/* whether all of a meshset's polygons fit the room gpu_send has: the
+ * vertices, the indices and, where part_room isn't negative, a part a
+ * strip. gpu_send ends the run at a polygon the room can't hold, so a
+ * meshset that doesn't fit whole would draw in part, the rest left out,
+ * and whole the next frame. because that flickered where a frame filled the
+ * arena, such a meshset goes through its list, whole. a polygon of fewer than
+ * three points ends gpu_send's run, so it ends the count too */
+static Bool gpu_fits(const struct strips *strips, int vertex_room, int index_room, int part_room, int *wanted)
+{
+    const Sint16 *mesh = strips->meshset->meshes;
+    int vertices = 0;
+    int indices = 0;
+    int parts = 0;
+    int polygons;
+
+    for (polygons = strips->meshset->nbMesh; polygons != 0; polygons--) {
+        int size = next_polygon_size(strips, &mesh);
+
+        if (size < 3) {
+            break;
+        }
+        mesh += size;
+        vertices += size;
+        indices += (size - 2) * 3;
+        parts++;
+    }
+    *wanted = vertices;
+    return vertices <= vertex_room && indices <= index_room && (part_room < 0 || parts <= part_room);
+}
+
+/* the kept models (xbox/port/render.c): a model that is as it was when it
+ * was last drawn, under the same light and palette, keeps the vertices its
+ * runs were given, in the host's store, and is neither shaded nor written
+ * again: its meshsets are runs of those vertices. what a model's vertices
+ * come from, and so what the drawer compares:
+ * - the light in the model's space, within KEEP_LIGHT, a fifth of a palette
+ *   entry's step: the land's is the same from frame to frame but for
+ *   rounding, as the camera moves;
+ * - a signature: the palette's colors, which of them the offsets are, the
+ *   material mode, and each meshset's flags as drawn, its own, and its
+ *   material's alpha;
+ * - the model's data: its points and normals and each meshset's polygons
+ *   and uvs. a sum over all of it is compared one draw in KEEP_FULL, and a
+ *   sum over a few words of each (the first, the last, some between) at the
+ *   others, which finds a model the game moves or scrolls as a whole.
+ * a model under another light than its records were built by takes one
+ * more record, up to KEEP_VARIANTS of them: a model placed many times,
+ * turned differently, is under another light at each place. one that
+ * turns leaves its record behind, unused, and goes as before: it takes
+ * another only every KEEP_RECENT frames. a model whose signature or data changed within
+ * KEEP_RECENT frames of its build isn't kept for a while, longer each time:
+ * one that morphs, or whose uvs scroll. a model with an NJD_FLAG_USE_ENV
+ * meshset, whose uvs are the view's, isn't kept, nor one of more than
+ * KEEP_SETS meshsets */
+struct keep_set {
+    Uint16 first, count;
+    Uint32 indices;
+    Uint32 mesh_words; /* its polygons' words, and KEEP_SET_UVS where each vertex has a uv */
+};
+#define KEEP_SET_UVS 0x80000000u
+#define KEEP_SETS 16
+struct keep_info {
+    Float light[3];
+    Uint32 signature, probe, full;
+    Uint32 built;
+    Uint32 quiet_until;
+    Uint8 strikes, sets, held, spare;
+    Float box[6];
+    struct keep_set set[KEEP_SETS];
+};
+int port_keep_next(const void *model, int after);
+struct keep_info *port_keep_info(int id);
+int port_keep_note(const void *model);
+int port_keep_begin(const void *model, int reuse, int vertices, struct run_vertex **out, Uint16 **indices);
+void port_keep_drop(int id);
+int port_run_kept(int id, int set, int part_total, const Float transform[12], Float rhw_near, Float rhw_mid,
+                  unsigned serial);
+unsigned port_keep_frame(void);
+/* HOST_VERTEX_CHECK=1 (the host sets it): each kept hit sums all of the
+ * model's data, not a few words, and a record the few words passed but
+ * the whole doesn't is logged (render.c) and built again */
+extern volatile int port_keep_check;
+/* a weld's model (src/draw/motion.c), whose points change each frame */
+int port_keep_never(const void *model);
+void port_keep_stale(const void *model, int id);
+#define KEEP_LIGHT (1.0F / 1024.0F)
+#define KEEP_FULL 16
+#define KEEP_RECENT 60
+#define KEEP_MOST_VERTICES 16384
+/* the records a model may have at once, each under a light of its own: a
+ * model placed many times, turned differently, has another light in its
+ * space at each */
+#define KEEP_VARIANTS 4
+enum keep_state { KEEP_NONE, KEEP_HIT, KEEP_BUILD };
+/* why models weren't drawn from the store, for the renderer's log: a stale
+ * signature, a light beyond the model's records, a stale whole sum or
+ * sampled sum; then the draws of a model that isn't kept for now, and of
+ * one that can't be */
+extern unsigned port_keep_why[6];
+typedef Uint32 __attribute__((may_alias)) keep_word;
+typedef Uint16 __attribute__((may_alias)) keep_half;
+
+static inline Uint32 keep_mix(Uint32 h, Uint32 word)
+{
+    h = (h ^ word) * 0x9e3779b1u;
+    return h ^ (h >> 15);
+}
+
+static Uint32 keep_words(Uint32 h, const void *from, int words)
+{
+    const keep_word *w = from;
+    int k;
+
+    for (k = 0; k < words; k++) {
+        h = keep_mix(h, w[k]);
+    }
+    return h;
+}
+
+static Uint32 keep_halves(Uint32 h, const void *from, int halves)
+{
+    const keep_half *w = from;
+    int k;
+
+    for (k = 0; k + 1 < halves; k += 2) {
+        h = keep_mix(h, (Uint32)w[k] | (Uint32)w[k + 1] << 16);
+    }
+    if (k < halves) {
+        h = keep_mix(h, w[k]);
+    }
+    return h;
+}
+
+/* a sum over the colors a model shades from: the palette's 256 pairs and
+ * the next's, where a specular material's offsets are. it is made once a
+ * frame for a palette, and again where a few of its words have changed */
+static Uint32 keep_palette_sum(const Uint32 *palette)
+{
+    static struct {
+        const Uint32 *palette;
+        Uint32 frame, sample, sum;
+    } memo[8];
+    static int next;
+    Uint32 frame = port_keep_frame();
+    Uint32 sample = palette[0] ^ palette[255] * 3 ^ palette[510] * 5 ^ palette[511] * 7 ^ palette[513] * 11 ^
+                    palette[1023] * 13;
+    int k;
+
+    for (k = 0; k < 8; k++) {
+        if (memo[k].palette == palette && memo[k].frame == frame && memo[k].sample == sample) {
+            return memo[k].sum;
+        }
+    }
+    k = next;
+    next = (next + 1) & 7;
+    memo[k].palette = palette;
+    memo[k].frame = frame;
+    memo[k].sample = sample;
+    memo[k].sum = keep_words(0x811c9dc5u, palette, DRAW_PALETTE_ENTRIES * 4);
+    return memo[k].sum;
+}
+
+/* the same for draw_unlit_offsets, an unlit textured meshset's offsets */
+static Uint32 keep_unlit_sum(void)
+{
+    static Uint32 at_frame, sum;
+    Uint32 frame = port_keep_frame();
+
+    if (at_frame != frame) {
+        at_frame = frame;
+        sum = keep_words(0x811c9dc5u, draw_unlit_offsets, DRAW_UNLIT_OFFSETS);
+    }
+    return sum;
+}
+
+/* whether the drawer may keep model at all, and the signature of what its
+ * colors come from besides the light and its data */
+/* whether the host lights model's kept vertices (host.h's host_item,
+ * port_gpu_models' bit 4), so that its records hold under any light. a
+ * meshset's colors are then the palette's, as shade_points gives them, but
+ * where keep_unlit says they don't depend on the light */
+static Bool keep_lit(const NJS_MODEL *model)
+{
+    return (port_gpu_models & 16) && model->normals != NULL;
+}
+
+/* whether a meshset drawn under drawn has colors that don't depend on the
+ * light, which a lit model's run then keeps as the drawer made them: one
+ * under NJD_FLAG_IGNORE_LIGHT that is translucent, whose points
+ * set_point_alpha turns white, or textured, an opaque one a decal (no base
+ * color) with draw_unlit_offsets */
+static Bool keep_unlit(Uint32 drawn)
+{
+    return (drawn & NJD_FLAG_IGNORE_LIGHT) && (drawn & (NJD_FLAG_USE_TEXTURE | NJD_FLAG_USE_ALPHA));
+}
+
+/* whether set_point_alpha turns the points white under drawn, for the
+ * meshsets after it too */
+static Bool keep_whitens(Uint32 drawn)
+{
+    return (drawn & NJD_FLAG_IGNORE_LIGHT) && (drawn & NJD_FLAG_USE_ALPHA);
+}
+
+/* the most of any component of model's normals, at least 1: the host's
+ * normals (keep_cmp) hold -1 to 1, so a longer normal goes over it, and the
+ * light the host takes times it, which gives the same dot */
+static Float keep_normal_scale(const NJS_MODEL *model)
+{
+    Float most = 1.0F;
+    int k;
+
+    for (k = 0; k < model->nbPoint; k++) {
+        const NJS_VECTOR *n = &model->normals[k];
+        Float m = __builtin_fabsf(n->x);
+
+        m = __builtin_fabsf(n->y) > m ? __builtin_fabsf(n->y) : m;
+        m = __builtin_fabsf(n->z) > m ? __builtin_fabsf(n->z) : m;
+        most = m > most ? m : most;
+    }
+    return most;
+}
+
+/* a component f of -1 to 1 as a signed field of the NV2A's CMP, to the
+ * nearest of its steps, the largest one */
+static Uint32 keep_cmp_field(Float f, int largest, Uint32 mask)
+{
+    Float scaled = f * (Float)largest;
+    int v = (int)(scaled + (scaled < 0.0F ? -0.5F : 0.5F));
+
+    v = v > largest ? largest : v < -largest ? -largest : v;
+    return (Uint32)v & mask;
+}
+
+/* normal n over scale, packed as the NV2A's CMP: x and y in 11 bits, z in
+ * 10 (host.h's host_item) */
+static Uint32 keep_cmp(const NJS_VECTOR *n, Float scale)
+{
+    Float inv = 1.0F / scale;
+
+    return keep_cmp_field(n->x * inv, 1023, 0x7ff) | keep_cmp_field(n->y * inv, 1023, 0x7ff) << 11 |
+           keep_cmp_field(n->z * inv, 511, 0x3ff) << 22;
+}
+
+static Bool keep_signature(const NJS_MODEL *model, Uint32 *signature)
+{
+    const NJS_MATERIAL *first = &model->mats[model->meshsets->type_matId & MATERIAL_ID];
+    const NJS_MESHSET *meshset = model->meshsets;
+    Uint32 h = 0x811c9dc5u;
+    Bool unlit = FALSE;
+    int k;
+
+    if (model->nbMeshset > KEEP_SETS || model->nbMeshset == 0 || model->nbPoint == 0) {
+        return FALSE;
+    }
+    h = keep_mix(h, (Uint32)model->points);
+    h = keep_mix(h, (Uint32)model->normals);
+    h = keep_mix(h, (Uint32)model->nbPoint);
+    h = keep_mix(h, (Uint32)model->meshsets);
+    h = keep_mix(h, (Uint32)model->mats);
+    h = keep_mix(h, (Uint32)model->nbMeshset);
+    /* a model the host lights takes the palette as it draws, so its
+     * records hold under any palette's colors */
+    h = keep_mix(h, keep_lit(model) ? 0x4c495448u : keep_palette_sum(shade_palette));
+    h = keep_mix(h, !(drawn_flags(first) & NJD_FLAG_IGNORE_SPECULAR) && first->specular.color != 0);
+    h = keep_mix(h, (Uint32)alpha_mode);
+    if (alpha_mode != ALPHA_OWN) {
+        h = keep_words(h, &_nj_constant_material_.a, 1);
+    }
+    for (k = 0; k < model->nbMeshset; k++, meshset++) {
+        const NJS_MATERIAL *material = &model->mats[meshset->type_matId & MATERIAL_ID];
+        Uint32 drawn = drawn_flags(material);
+        Uint32 own = material->attrflags;
+
+        if ((own & NJD_FLAG_USE_TEXTURE) && (own & NJD_FLAG_USE_ENV)) {
+            return FALSE;
+        }
+        if ((drawn & NJD_FLAG_USE_ALPHA) && !(port_gpu_models & 2)) {
+            return FALSE;
+        }
+        if ((drawn & NJD_FLAG_USE_TEXTURE) && (drawn & NJD_FLAG_IGNORE_LIGHT)) {
+            unlit = TRUE;
+        }
+        h = keep_mix(h, meshset->type_matId);
+        h = keep_mix(h, meshset->nbMesh);
+        h = keep_mix(h, (Uint32)meshset->meshes);
+        h = keep_mix(h, (Uint32)meshset->vertuv);
+        h = keep_mix(h, drawn);
+        h = keep_mix(h, own);
+        h = keep_mix(h, material->diffuse.argb.a);
+    }
+    if (unlit) {
+        h = keep_mix(h, keep_unlit_sum());
+    }
+    *signature = h;
+    return TRUE;
+}
+
+/* the sums over a kept model's data: all of it, or a few words of each
+ * part */
+static Uint32 keep_sum(const NJS_MODEL *model, const struct keep_info *info, Bool full)
+{
+    const NJS_MESHSET *meshset = model->meshsets;
+    int n = model->nbPoint;
+    Uint32 h = 0x811c9dc5u;
+    int k;
+
+    if (full) {
+        h = keep_words(h, model->points, n * 3);
+        h = keep_words(h, model->normals, n * 3);
+    } else {
+        const int at[4] = {0, n / 3, n * 2 / 3, n - 1};
+
+        for (k = 0; k < 4; k++) {
+            h = keep_words(h, &model->points[at[k]], 3);
+            h = keep_words(h, &model->normals[at[k]], 3);
+        }
+    }
+    for (k = 0; k < info->sets; k++, meshset++) {
+        int words = (int)(info->set[k].mesh_words & ~KEEP_SET_UVS);
+        int uvs = (info->set[k].mesh_words & KEEP_SET_UVS) ? info->set[k].count : 0;
+
+        if (full) {
+            h = keep_halves(h, meshset->meshes, words);
+            if (uvs != 0) {
+                h = keep_words(h, meshset->vertuv, uvs);
+            }
+        } else {
+            if (words >= 2) {
+                h = keep_halves(h, meshset->meshes, 2);
+                h = keep_halves(h, meshset->meshes + (words / 2 & ~1), 2);
+                h = keep_halves(h, meshset->meshes + words - 2, 2);
+            }
+            if (uvs != 0) {
+                h = keep_words(h, meshset->vertuv, 1);
+                h = keep_words(h, (const keep_word *)meshset->vertuv + uvs / 2, 1);
+                h = keep_words(h, (const keep_word *)meshset->vertuv + uvs - 1, 1);
+            }
+        }
+    }
+    return h;
+}
+
+/* the light in the model's space, as shade_points makes it */
+static void keep_light(Float light[3])
+{
+    draw_vec4 l = draw_in_model(draw_vec4_init(light_dir.x, light_dir.y, light_dir.z, 0.0F));
+
+    light[0] = l.x;
+    light[1] = l.y;
+    light[2] = l.z;
+}
+
+/* what the drawer does with model: draws its kept vertices (*id the record
+ * that holds them), builds them (*id a record of the model's without any,
+ * or -1), or neither */
+static enum keep_state keep_look(const NJS_MODEL *model, int *id, Uint32 *signature, Float light[3])
+{
+    Uint32 now = port_keep_frame();
+    struct keep_info *info;
+    int match = -1;
+    int bare = -1; /* the model's record that holds no vertices */
+    int variants = 0;
+    Uint32 newest = 0; /* the frame the last of its records was built in */
+    int at;
+    Bool ok;
+    Bool lit;
+
+    *id = -1;
+    if (!(port_gpu_models & 4)) {
+        return KEEP_NONE;
+    }
+    if (port_keep_never(model) || !keep_signature(model, signature)) {
+        port_keep_why[5]++;
+        return KEEP_NONE;
+    }
+    keep_light(light);
+    lit = keep_lit(model);
+    for (at = port_keep_next(model, -1); at >= 0; at = port_keep_next(model, at)) {
+        int k;
+
+        info = port_keep_info(at);
+        if (!info->held) {
+            bare = at;
+            continue;
+        }
+        variants++;
+        if (info->built > newest) {
+            newest = info->built;
+        }
+        /* a record the host lights holds under any light: its light[0]
+         * is its normals' scale (keep_normal_scale) */
+        for (k = 0; k < 3 && !lit; k++) {
+            Float off = info->light[k] - light[k];
+
+            if (!(off < KEEP_LIGHT && off > -KEEP_LIGHT)) {
+                break;
+            }
+        }
+        if (k == 3 || lit) {
+            match = at;
+        }
+    }
+    if (bare >= 0 && now < port_keep_info(bare)->quiet_until) {
+        port_keep_why[4]++;
+        return KEEP_NONE;
+    }
+    if (match < 0) {
+        /* under a light none of its records has. one more record, where
+         * the others were all built this frame, the model placed several
+         * times, or none lately: a model whose light has moved on within
+         * KEEP_RECENT frames of its last record is turning, and a record
+         * a frame would fill the store with what no later frame draws */
+        if (variants >= KEEP_VARIANTS || (variants != 0 && newest != now && now - newest < KEEP_RECENT)) {
+            port_keep_why[1]++;
+            return KEEP_NONE;
+        }
+        *id = bare;
+        return KEEP_BUILD;
+    }
+    info = port_keep_info(match);
+    ok = info->signature == *signature;
+    if (!ok) {
+        port_keep_why[0]++;
+    } else if ((now + (Uint32)match) % KEEP_FULL == 0) {
+        ok = keep_sum(model, info, TRUE) == info->full;
+        if (!ok) {
+            port_keep_why[2]++;
+        }
+    } else {
+        ok = keep_sum(model, info, FALSE) == info->probe;
+        if (!ok) {
+            port_keep_why[3]++;
+        } else if (port_keep_check && keep_sum(model, info, TRUE) != info->full) {
+            /* stale, though its few words held: drawn, it would show the
+             * model as it was when built */
+            port_keep_stale(model, match);
+            port_keep_why[2]++;
+            ok = FALSE;
+        }
+    }
+    if (ok) {
+        *id = match;
+        return KEEP_HIT;
+    }
+    {
+        /* stale: its vertices go, and the model's record without any says
+         * how long it isn't kept, where this one was built lately */
+        Bool recent = now - info->built < KEEP_RECENT;
+
+        port_keep_drop(match);
+        if (bare < 0) {
+            bare = port_keep_note(model);
+        }
+        if (bare < 0) {
+            return KEEP_NONE;
+        }
+        info = port_keep_info(bare);
+        if (recent) {
+            if (info->strikes < 4) {
+                info->strikes++;
+            }
+            info->quiet_until = now + ((Uint32)KEEP_RECENT << info->strikes);
+            return KEEP_NONE;
+        }
+        info->strikes = 0;
+    }
+    *id = bare;
+    return KEEP_BUILD;
+}
+
+/* the vertices model's runs take, as gpu_send would send them, with each
+ * meshset's count, polygons' words and uvs in sets: 0 where they are too
+ * many to keep */
+static int keep_count(const NJS_MODEL *model, struct keep_set sets[KEEP_SETS])
+{
+    const NJS_MESHSET *meshset = model->meshsets;
+    int total = 0;
+    int k;
+
+    for (k = 0; k < model->nbMeshset; k++, meshset++) {
+        int fixed = polygon_sizes[(meshset->type_matId & NJD_MESHSET_MASK) >> MESHSET_TYPE_SHIFT];
+        const NJS_MATERIAL *material = &model->mats[meshset->type_matId & MATERIAL_ID];
+        const Sint16 *mesh = meshset->meshes;
+        int count = 0;
+        int polygons;
+
+        for (polygons = meshset->nbMesh; polygons != 0; polygons--) {
+            int size = fixed != 0 ? fixed : *mesh++ & STRIP_COUNT;
+
+            if (size < 3) {
+                break;
+            }
+            mesh += size;
+            count += size;
+        }
+        if (count > 0xffff || total + count > KEEP_MOST_VERTICES) {
+            return 0;
+        }
+        sets[k].first = (Uint16)total;
+        sets[k].count = (Uint16)count;
+        sets[k].indices = 0;
+        sets[k].mesh_words =
+            (Uint32)(mesh - meshset->meshes) | ((material->attrflags & NJD_FLAG_USE_TEXTURE) ? KEEP_SET_UVS : 0);
+        total += count;
+    }
+    return total;
+}
+
+/* the parts of a translucent meshset's run, one for each strip, as
+ * gpu_send makes them: its indices in the run's and the 1/z of its nearest
+ * vertex, by depth_row, the transform's third row. it returns their count */
+static int gpu_parts(const NJS_MODEL *model, const struct strips *strips, const Float *depth_row,
+                     struct run_part *run_parts, int part_room)
+{
+    const NJS_POINT3 *from = model->points;
+    const Sint16 *mesh = strips->meshset->meshes;
+    int named = 0;
+    int made = 0;
+    int polygons;
+
+    for (polygons = strips->meshset->nbMesh; polygons != 0; polygons--) {
+        int size = next_polygon_size(strips, &mesh);
+        Float nearest = 1.0e30F;
+        int k;
+
+        if (size < 3 || made >= part_room) {
+            break;
+        }
+        for (k = 0; k < size; k++) {
+            int index = *mesh++;
+            Float z = depth_row[0] * from[index].x + depth_row[1] * from[index].y + depth_row[2] * from[index].z +
+                      depth_row[3];
+
+            if (z < nearest) {
+                nearest = z;
+            }
+        }
+        run_parts[made].first_index = named;
+        run_parts[made].index_count = (size - 2) * 3;
+        run_parts[made].rhw_near = nearest > 0.0F ? 1.0F / nearest : 1.0e30F;
+        named += (size - 2) * 3;
+        made++;
+    }
+    return made;
+}
+
+/* the box that holds model's points, as box[0..2] its least x, y and z and
+ * box[3..5] its most */
+static void model_box(const NJS_MODEL *model, Float box[6])
+{
+    const NJS_POINT3 *p = model->points;
+    int k;
+
+    box[0] = box[3] = p->x;
+    box[1] = box[4] = p->y;
+    box[2] = box[5] = p->z;
+    for (k = 1, p++; k < model->nbPoint; k++, p++) {
+        if (p->x < box[0]) {
+            box[0] = p->x;
+        }
+        if (p->x > box[3]) {
+            box[3] = p->x;
+        }
+        if (p->y < box[1]) {
+            box[1] = p->y;
+        }
+        if (p->y > box[4]) {
+            box[4] = p->y;
+        }
+        if (p->z < box[2]) {
+            box[2] = p->z;
+        }
+        if (p->z > box[5]) {
+            box[5] = p->z;
+        }
+    }
+}
+
+/* gpu_takes' tests by the model's box, for one whose sphere fails them:
+ * every point lies among the box's corners, so where each corner is past
+ * the near plane and within the guard of the screen, each point is */
+static Bool box_takes(const Float box[6], Float *rhw_near, Float *rhw_mid)
+{
+    Float nearest = 1.0e30F;
+    Float sum = 0.0F;
+    int k;
+
+    for (k = 0; k < 8; k++) {
+        NJS_POINT3 corner = {box[(k & 1) ? 3 : 0], box[(k & 2) ? 4 : 1], box[(k & 4) ? 5 : 2]};
+        draw_vec3 c = view_point(&corner);
+        Float inv;
+        Float x, y;
+
+        if (!(c.z > view.near)) {
+            return FALSE;
+        }
+        inv = 1.0F / c.z;
+        x = c.x * view.scale_x * inv + view.cx;
+        y = c.y * view.scale_y * inv + view.cy;
+        if (!(x > -GPU_GUARD_X) || !(x < view.w + GPU_GUARD_X) || !(y > -GPU_GUARD_Y) ||
+            !(y < view.h + GPU_GUARD_Y)) {
+            return FALSE;
+        }
+        if (c.z < nearest) {
+            nearest = c.z;
+        }
+        sum += c.z;
+    }
+    *rhw_near = 1.0F / nearest;
+    *rhw_mid = 8.0F / sum;
+    return TRUE;
+}
+
+/* a model the host takes: its meshsets as draw_meshes sends them, as runs.
+ * a kept model's are runs of the vertices the host's store holds (state
+ * KEEP_HIT), or of those built into it now (KEEP_BUILD). any other's are
+ * written into the frame's arena, the opaque ones, and the translucent
+ * ones under port_gpu_models' bit 1; the rest are projected, from a second
+ * set of points made as the first of them comes, and so is a meshset the
+ * renderer has no run for */
+static struct point gpu_projected[DRAW_MOST_POINTS] __attribute__((aligned(32)));
+
+static void gpu_draw(const NJS_MODEL *model, Float rhw_near, Float rhw_mid, enum keep_state state, int kept,
+                     Uint32 signature, const Float light[3])
+{
+    struct point *points = (struct point *)_nj_vertex_buf_;
+    const NJS_MATERIAL *first = &model->mats[model->meshsets->type_matId & MATERIAL_ID];
+    const NJS_MESHSET *meshset = model->meshsets;
+    struct strips strips = {NULL, 0, points, NULL, model->normals};
+    static unsigned serials;
+    unsigned serial = ++serials; /* this draw of a model, for its runs to share its transform */
+    struct keep_info *info = NULL;
+    struct keep_set sets[KEEP_SETS];
+    struct run_vertex *kept_vertices = NULL;
+    Uint16 *kept_indices = NULL;
+    Float rows[12];
+    Bool lit = FALSE;
+    Float lit_scale = 1.0F;
+    Float lit_light[3] = {0.0F, 0.0F, 0.0F};
+    const Uint32 *lit_pairs = NULL; /* the pairs whose offset colors a lit run takes */
+    Bool whitened = FALSE; /* a meshset so far turned the points white (keep_whitens) */
+    Bool projected = FALSE;
+    Bool have_rows = FALSE;
+    int meshsets;
+    int set = 0;
+    int k;
+
+    if (state == KEEP_BUILD) {
+        int total = keep_count(model, sets);
+
+        if (total != 0) {
+            kept = port_keep_begin(model, kept, total, &kept_vertices, &kept_indices);
+        }
+        if (kept_vertices == NULL) {
+            /* no room in the store, or no record: not asked again for a
+             * while, and written anew like any other */
+            if (kept >= 0) {
+                port_keep_info(kept)->quiet_until = port_keep_frame() + KEEP_RECENT;
+            }
+            state = KEEP_NONE;
+        }
+    }
+    if (state != KEEP_NONE) {
+        info = port_keep_info(kept);
+        /* lit by the host: a record's normals are over its scale, which its
+         * light[0] keeps, and the light the host takes is times it */
+        lit = keep_lit(model);
+        if (lit) {
+            lit_scale = state == KEEP_BUILD ? keep_normal_scale(model) : info->light[0];
+            lit_light[0] = light[0] * lit_scale;
+            lit_light[1] = light[1] * lit_scale;
+            lit_light[2] = light[2] * lit_scale;
+            lit_pairs = shade_palette + 1;
+            if (!(drawn_flags(first) & NJD_FLAG_IGNORE_SPECULAR) && first->specular.color != 0) {
+                lit_pairs += DRAW_PALETTE_ENTRIES * 2;
+            }
+        }
+    }
+    if (state != KEEP_HIT) {
+        /* the points' colors alone: their places are the model's own */
+        shade_points(model, points, first, drawn_flags(first));
+    }
+    if (port_profile) {
+        port_count_model(model, model->points, model->nbPoint);
+    }
+    for (meshsets = model->nbMeshset; meshsets != 0; meshsets--, meshset++, set++) {
+        const NJS_MATERIAL *material = &model->mats[meshset->type_matId & MATERIAL_ID];
+        Uint32 drawn = drawn_flags(material);
+        Uint32 own = material->attrflags;
+        enum uv uv = !(own & NJD_FLAG_USE_TEXTURE) ? NO_UV : (own & NJD_FLAG_USE_ENV) ? ENV_UV : MESH_UV;
+        struct run_vertex *run_vertices = NULL;
+        Uint16 *run_indices = NULL;
+        int vertex_room = 0, index_room = 0;
+        int run = -1;
+        struct vertex *sq;
+        struct vertex *start;
+
+        set_material_header(material, drawn);
+        strips.offsets = lit_offsets;
+        strips.meshset = meshset;
+        strips.polygon_size = polygon_sizes[(meshset->type_matId & NJD_MESHSET_MASK) >> MESHSET_TYPE_SHIFT];
+        if ((drawn & NJD_FLAG_USE_TEXTURE) && (drawn & NJD_FLAG_IGNORE_LIGHT)) {
+            strips.offsets = draw_unlit_offsets;
+        }
+        if ((drawn & NJD_FLAG_USE_ALPHA) && state != KEEP_HIT) {
+            /* the points take the alpha, and under NJD_FLAG_IGNORE_LIGHT
+             * the white, which the meshsets after it read too */
+            set_point_alpha(points, model->nbPoint, material, drawn);
+        }
+        if (keep_whitens(drawn)) {
+            whitened = TRUE;
+        }
+        if (drawn & NJD_FLAG_USE_TEXTURE) {
+            sq = drawn & NJD_FLAG_USE_ALPHA ? njStartVertexTexTrans() : njStartVertexTexOpaque();
+        } else {
+            sq = drawn & NJD_FLAG_USE_ALPHA ? njStartVertexNonTexTrans() : njStartVertexNonTexOpaque();
+        }
+        start = sq;
+        if (state != KEEP_NONE) {
+            /* a kept model's meshset: a run of the store's vertices */
+            struct run_part *run_parts = NULL;
+            int part_room = 0;
+            int part_total = 0;
+
+            if (!have_rows) {
+                gpu_transform(rows);
+                have_rows = TRUE;
+            }
+            if (state == KEEP_BUILD) {
+                int index_count = 0;
+                int unused = 0;
+                int sent = gpu_send(model, &strips, uv, kept_vertices + sets[set].first, sets[set].count,
+                                    kept_indices + sets[set].first * 3, sets[set].count * 3, &index_count, NULL, NULL,
+                                    0, &unused, lit && !keep_unlit(drawn) ? &lit_scale : NULL);
+
+                sets[set].count = (Uint16)sent;
+                sets[set].indices = (Uint32)index_count;
+                info->set[set] = sets[set];
+                if (port_profile) {
+                    port_counts.built_vertices += (unsigned)sent;
+                }
+            } else if (port_profile) {
+                port_counts.kept_vertices += info->set[set].count;
+            }
+            if (drawn & NJD_FLAG_USE_ALPHA) {
+                run_parts = port_run_parts(&part_room);
+                part_total = gpu_parts(model, &strips, &rows[8], run_parts, part_room);
+            }
+            run = info->set[set].indices != 0
+                      ? port_run_kept(kept, set, part_total, rows, rhw_near, rhw_mid, serial)
+                      : -1;
+            if (run >= 0 && lit && !keep_unlit(drawn)) {
+                /* an untextured meshset's vertices take no offset color,
+                 * and points an earlier meshset turned white a white base */
+                port_run_lit(run, lit_light, whitened ? NULL : shade_palette, uv == NO_UV ? NULL : lit_pairs);
+            }
+            if (run >= 0) {
+                Uint32 *words = (Uint32 *)sq;
+
+                words[0] = PARA_MODEL;
+                words[1] = (Uint32)run;
+                for (k = 2; k < 8; k++) {
+                    words[k] = 0;
+                }
+                sq++;
+                if (port_profile) {
+                    port_counts.drawer_vertices += info->set[set].count;
+                    port_counts.gpu_vertices += info->set[set].count;
+                }
+            }
+            njEndVertex((Uint32 *)sq);
+            continue;
+        }
+        if (!(drawn & NJD_FLAG_USE_ALPHA) || (port_gpu_models & 2)) {
+            run = port_run_begin(&run_vertices, &vertex_room, &run_indices, &index_room);
+        }
+        if (run >= 0) {
+            int part_room = -1;
+            int wanted;
+
+            if (drawn & NJD_FLAG_USE_ALPHA) {
+                port_run_parts(&part_room);
+            }
+            if (!gpu_fits(&strips, vertex_room, index_room, part_room, &wanted)) {
+                /* begun, not ended: the run's slot stays free. its
+                 * vertices count in what the frame wanted of the arena */
+                run = -1;
+                port_run_unfit++;
+                port_run_unfit_vertices += (unsigned)wanted;
+            }
+        }
+        if (run < 0) {
+            /* projected, through its list, with the colors the points
+             * hold now */
+            if (!projected) {
+                project_points(model, gpu_projected);
+                projected = TRUE;
+            }
+            for (k = 0; k < model->nbPoint; k++) {
+                gpu_projected[k].color = points[k].color;
+            }
+            strips.points = gpu_projected;
+        } else {
+            strips.points = points;
+        }
+        if (run >= 0) {
+            Uint32 *words = (Uint32 *)sq;
+            int index_count;
+            struct run_part *run_parts = NULL;
+            int part_room = 0;
+            int part_total = 0;
+            int sent;
+
+            if (!have_rows) {
+                gpu_transform(rows);
+                have_rows = TRUE;
+            }
+            /* a translucent run's strips sort apart, as the list's do: each
+             * by the 1/z of its nearest vertex */
+            if (drawn & NJD_FLAG_USE_ALPHA) {
+                run_parts = port_run_parts(&part_room);
+            }
+            sent = gpu_send(model, &strips, uv, run_vertices, vertex_room, run_indices, index_room, &index_count,
+                            (drawn & NJD_FLAG_USE_ALPHA) ? &rows[8] : NULL, run_parts, part_room, &part_total, NULL);
+            port_run_end(run, sent, index_count, part_total, rows, rhw_near, rhw_mid, serial);
+            words[0] = PARA_MODEL;
+            words[1] = (Uint32)run;
+            for (k = 2; k < 8; k++) {
+                words[k] = 0;
+            }
+            sq++;
+            if (port_profile) {
+                port_counts.drawer_vertices += (unsigned)sent;
+                port_counts.gpu_vertices += (unsigned)sent;
+            }
+        } else {
+            if (uv == NO_UV) {
+                sq = strips_untextured(sq, &strips);
+            } else if (uv == ENV_UV) {
+                sq = strips_env(sq, &strips);
+            } else {
+                sq = strips_textured(sq, &strips);
+            }
+            if (port_profile) {
+                port_counts.drawer_vertices += (unsigned)(sq - start);
+            }
+        }
+        njEndVertex((Uint32 *)sq);
+    }
+    if (state == KEEP_BUILD) {
+        /* built: what it was built from, for the next draw to compare */
+        for (k = 0; k < 3; k++) {
+            info->light[k] = light[k];
+        }
+        if (lit) {
+            info->light[0] = lit_scale;
+        }
+        info->signature = signature;
+        info->sets = (Uint8)model->nbMeshset;
+        info->probe = keep_sum(model, info, FALSE);
+        info->full = keep_sum(model, info, TRUE);
+        info->built = port_keep_frame();
+        model_box(model, info->box);
+        info->held = 1;
+    }
+}
+
+/* draw model by the host where it can take it, by its sphere of reach_scale
+ * times r, or else by its box: whether it did. get_pointer has it take
+ * Kamui's pointer first, as draw_model does before its meshes */
+static Bool gpu_try(const NJS_MODEL *model, Float reach_scale, Bool get_pointer)
+{
+    Float rhw_near, rhw_mid;
+    Float light[3] = {0.0F, 0.0F, 0.0F};
+    Uint32 signature = 0;
+    enum keep_state state;
+    int kept;
+
+    if (!port_gpu_models || model->nbPoint > DRAW_MOST_POINTS) {
+        return FALSE;
+    }
+    if (gpu_takes(model, reach_scale, &rhw_near, &rhw_mid)) {
+        state = keep_look(model, &kept, &signature, light);
+    } else if (port_gpu_models & 8) {
+        Float box[6];
+
+        state = keep_look(model, &kept, &signature, light);
+        if (state == KEEP_HIT) {
+            if (!box_takes(port_keep_info(kept)->box, &rhw_near, &rhw_mid)) {
+                return FALSE;
+            }
+        } else {
+            if (model->nbPoint == 0) {
+                return FALSE;
+            }
+            model_box(model, box);
+            if (!box_takes(box, &rhw_near, &rhw_mid)) {
+                return FALSE;
+            }
+        }
+    } else {
+        return FALSE;
+    }
+    if (get_pointer) {
+        njGetkmPointer();
+    }
+    gpu_draw(model, rhw_near, rhw_mid, state, kept, signature, light);
+    return TRUE;
+}
+#endif
+
 OUT_OF_LINE void draw_meshes(const NJS_MODEL *model, struct point *points,
                              Bool clipped)
 {
@@ -1295,6 +2566,11 @@ OUT_OF_LINE void draw_meshes(const NJS_MODEL *model, struct point *points,
     struct strips strips = {NULL, 0, points, NULL, model->normals};
     int meshsets;
 
+#ifdef XBOX
+    if (port_profile) {
+        port_count_model(model, model->points, model->nbPoint);
+    }
+#endif
     for (meshsets = model->nbMeshset; meshsets != 0; meshsets--, meshset++) {
         const NJS_MATERIAL *material =
             &model->mats[meshset->type_matId & MATERIAL_ID];
@@ -1321,6 +2597,9 @@ OUT_OF_LINE void draw_meshes(const NJS_MODEL *model, struct point *points,
         strips.polygon_size =
             polygon_sizes[(meshset->type_matId & NJD_MESHSET_MASK) >>
                           MESHSET_TYPE_SHIFT];
+#ifdef XBOX
+        port_sq_start = sq;
+#endif
         if (!(own & NJD_FLAG_USE_TEXTURE)) {
             sq = clipped ? clipped_untextured(sq, &strips)
                          : strips_untextured(sq, &strips);
@@ -1330,6 +2609,12 @@ OUT_OF_LINE void draw_meshes(const NJS_MODEL *model, struct point *points,
             sq = clipped ? clipped_textured(sq, &strips)
                          : strips_textured(sq, &strips);
         }
+#ifdef XBOX
+        if (port_profile) {
+            port_counts.drawer_vertices +=
+                (unsigned)((char *)sq - (char *)port_sq_start) / 32;
+        }
+#endif
         njEndVertex(sq);
     }
 }
@@ -1364,6 +2649,18 @@ OUT_OF_LINE int project_and_shade(const NJS_MODEL *model)
     return near_points;
 }
 
+#ifdef XBOX
+static void draw_model_body(NJS_MODEL *model);
+void draw_model(NJS_MODEL *model)
+{
+    PORT_TSC_BEGIN;
+
+    draw_model_body(model);
+    PORT_TSC_END();
+}
+#define draw_model draw_model_body
+static
+#endif
 void draw_model(NJS_MODEL *model)
 {
     int near_points;
@@ -1375,6 +2672,16 @@ void draw_model(NJS_MODEL *model)
     present_record(PRESENT_MODEL, model, 0, 0, 0.0F, 0);
     if (model_in_view(model)) {
         take_constant_attr();
+#ifdef XBOX
+        {
+            if (gpu_try(model, 1.0F, TRUE)) {
+                reset_shading();
+                njSetkmPointer();
+                present_untimed(FALSE);
+                return;
+            }
+        }
+#endif
         near_points = project_and_shade(model);
         if (near_points < model->nbPoint) {
             njGetkmPointer();
@@ -1389,6 +2696,18 @@ void draw_model(NJS_MODEL *model)
 
 /* unlike draw_model, it sets the shading back to MODULATE_ALPHA for a model
  * in view even when every point is near */
+#ifdef XBOX
+static void draw_model_nested_body(NJS_MODEL *model);
+void draw_model_nested(NJS_MODEL *model)
+{
+    PORT_TSC_BEGIN;
+
+    draw_model_nested_body(model);
+    PORT_TSC_END();
+}
+#define draw_model_nested draw_model_nested_body
+static
+#endif
 void draw_model_nested(NJS_MODEL *model)
 {
     int near_points;
@@ -1400,6 +2719,15 @@ void draw_model_nested(NJS_MODEL *model)
     present_record(PRESENT_MODEL, model, 0, 0, 0.0F, 0);
     if (model_in_view(model)) {
         take_constant_attr();
+#ifdef XBOX
+        {
+            if (gpu_try(model, 1.0F, FALSE)) {
+                reset_shading();
+                present_untimed(FALSE);
+                return;
+            }
+        }
+#endif
         near_points = project_and_shade(model);
         if (near_points < model->nbPoint) {
             draw_meshes(model, (struct point *)_nj_vertex_buf_,
@@ -1413,6 +2741,18 @@ void draw_model_nested(NJS_MODEL *model)
 /* a model off the screen is neither projected nor sent. when one of its
  * points lies past view.near, its meshsets still set the header words, so
  * that the run leaves them as model.src's does */
+#ifdef XBOX
+static void draw_model_unculled_body(NJS_MODEL *model);
+void draw_model_unculled(NJS_MODEL *model)
+{
+    PORT_TSC_BEGIN;
+
+    draw_model_unculled_body(model);
+    PORT_TSC_END();
+}
+#define draw_model_unculled draw_model_unculled_body
+static
+#endif
 void draw_model_unculled(NJS_MODEL *model)
 {
     int near_points;
@@ -1426,11 +2766,24 @@ void draw_model_unculled(NJS_MODEL *model)
         }
         return;
     }
+#ifdef XBOX
+    {
+        if (gpu_try(model, LAND_REACH, FALSE)) {
+            return;
+        }
+    }
+#endif
     near_points = project_and_shade(model);
     if (near_points < model->nbPoint) {
         draw_meshes(model, (struct point *)_nj_vertex_buf_, near_points != 0);
     }
 }
+
+#ifdef XBOX
+#undef draw_model
+#undef draw_model_nested
+#undef draw_model_unculled
+#endif
 
 void draw_models_begin(void)
 {
@@ -1455,9 +2808,14 @@ Bool draw_in_view(Float x, Float y, Float z, Float radius)
      * bottom test's y by the side tests' scale, and its FMUL FR7,FR3 at
      * 0x8c039d82 multiplies _nj_scr_aspect_y_ by cx for the top test's
      * scale */
-    return frame_step == 0 &&
-           sphere_in_view(view_point(&center), radius, _nj_near_clip_, side,
-                          side, _nj_scr_aspect_y_ * _nj_screen_.cx);
+    Bool in = frame_step == 0 &&
+              sphere_in_view(view_point(&center), radius, _nj_near_clip_, side,
+                             side, _nj_scr_aspect_y_ * _nj_screen_.cx);
+
+    /* for the split frame's pass, which calls no callback of a task this
+     * refused on step 0 */
+    present_in_view(in);
+    return in;
 }
 
 void draw_set_light(Float x, Float y, Float z)

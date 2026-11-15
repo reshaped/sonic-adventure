@@ -11,7 +11,13 @@
 #include "system/loader.h"
 
 /* MOVIE.BIN loads at its entry, movie_entry */
+#ifdef XBOX
+/* MOVIE.BIN's origin: the port's code for it lives apart from its data,
+ * which loads where the console's file, entry and all, does */
+#define MOVIE_LOAD ((void *)0x8ceb0000)
+#else
 #define MOVIE_LOAD ((void *)movie_entry)
+#endif
 
 int movie_request;
 

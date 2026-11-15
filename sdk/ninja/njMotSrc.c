@@ -3,7 +3,9 @@
  * njSetMotionCallback */
 #include <ninja.h>
 #include <sg_xpt.h>
-#ifdef GCC
+#ifdef XBOX
+#include "xbox/sdk/ninja/njmotion.h"
+#elif defined(GCC)
 #include "ninja/njmotion_zam.h"
 #endif
 

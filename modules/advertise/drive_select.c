@@ -250,6 +250,19 @@ static void drive_select_run(struct drive_select *work)
     work->phase += NJM_DEG_ANG(4);
     switch (work->state) {
     case DRIVE_CHOOSING:
+#ifdef XBOX
+        /* the port keeps its saves on the one drive, A1, and the screen goes
+         * on as though it were chosen, once a poll finds the card ready
+         * (XBOX.md's out of scope). with none ready, it goes on without one */
+        if (work->any_ready) {
+            select_slot(work, 0);
+            advertise_sound_stop();
+            work->state = DRIVE_LOAD;
+        } else if (work->empty_polls > EMPTY_POLLS) {
+            work->state = DRIVE_WITHOUT_CARD;
+        }
+        break;
+#endif
         if (pad_press_repeat[0] & PDD_DGT_KL) {
             move_selection(work, DRIVE_LEFT);
         } else if (pad_press_repeat[0] & PDD_DGT_KR) {
@@ -593,6 +606,11 @@ static void drive_select_draw(struct task *task)
 {
     struct drive_select *work = task->extra;
 
+#ifdef XBOX
+    /* the port's drive screen is never seen */
+    (void)work;
+    return;
+#endif
     if (work->tint != 0) {
         screen_blend_alpha();
         screen_quad_tint(work->tint);
