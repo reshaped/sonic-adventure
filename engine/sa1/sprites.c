@@ -121,9 +121,9 @@ static Bool facing_sent(const NJS_SPRITE *sp, int n, uint32_t attr)
 }
 
 /* whether engine/dc/sa1/sprite.c's sprite_send_plane sends frame n, its x
- * scaled by port_draw_aspect. the off-screen test projects all four corners,
- * even of a frame the near clip cuts. a corner behind the eye keeps its 1/z's
- * sign */
+ * scaled by port_draw_aspect. it sends every frame the near clip cuts. so
+ * only a frame with every corner at or past the near clip takes the
+ * off-screen test */
 static Bool plane_sent(const NJS_SPRITE *sp, int n, uint32_t attr)
 {
     float far_clip = _nj_far_clip_;
@@ -145,6 +145,9 @@ static Bool plane_sent(const NJS_SPRITE *sp, int n, uint32_t attr)
     }
     if (past == 4 || nearer == 4) {
         return FALSE;
+    }
+    if (nearer > 0) {
+        return TRUE;
     }
     for (int i = 0; i < 4; i++) {
         float inverse = 1.0F / views[i][2];

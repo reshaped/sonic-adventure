@@ -1726,6 +1726,11 @@ static void draws_replay(struct draws *list, int second)
     /* the view and shading shading was turned for, -1 before the first */
     int shaded_view = -1;
     int shaded_from = -1;
+#ifdef DREAMCAST
+    /* the view and matrix whose product XMTRX holds, -1 before the first */
+    int loaded_view = -1;
+    int loaded_matrix = -1;
+#endif
     int i;
 
     for (i = 0; i < list->view_count; i++) {
@@ -1740,8 +1745,16 @@ static void draws_replay(struct draws *list, int second)
         }
         /* the draw's matrix times the move, made in the current matrix */
 #ifdef DREAMCAST
-        shz_xmtrx_load_4x4((const shz_mat4x4_t *)&moves[draw->view]);
-        shz_xmtrx_apply_4x4(HELD_ENTRY(list, draw->matrix));
+        /* no draw the replay makes leaves XMTRX changed: a model's
+         * projection puts back the matrix it keeps, and the sprites only
+         * read it. so a draw with the view and matrix of the last one
+         * replayed finds their product there */
+        if (draw->view != loaded_view || draw->matrix != loaded_matrix) {
+            shz_xmtrx_load_4x4((const shz_mat4x4_t *)&moves[draw->view]);
+            shz_xmtrx_apply_4x4(HELD_ENTRY(list, draw->matrix));
+            loaded_view = draw->view;
+            loaded_matrix = draw->matrix;
+        }
 #else
         njSetMatrix(NULL, &moves[draw->view]);
         njMultiMatrix(NULL, HELD_ENTRY(list, draw->matrix));

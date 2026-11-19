@@ -41,7 +41,7 @@ searched  build/dc/src/draw/model.o                   .text.project_and_shade   
 searched  build/dc/src/draw/model.o                   .text.take_constant_attr                  0x1224  0x50
 searched  build/dc/sdk/ninja/njkm.o                   .text.njGetkmPointer                      0x1274  0x40
 searched  build/dc/sdk/ninja/njkm.o                   .text.njSetkmPointer                      0x12b4  0x40
-searched  build/dc/src/draw/model.o                   .text.project_points                      0x12f4  0x158
+searched  build/dc/src/draw/model.o                   .text.project_points                      0x12f4  0x150
 searched  build/dc/src/system/present.o               .text.present_untimed                     0x1460  0x60
 searched  build/dc/src/system/present.o               .text.present_run                         0x14c0  0x88
 searched  build/dc/src/system/present.o               .text.keep_step                           0x1548  0x154
@@ -84,7 +84,7 @@ searched  build/dc/sdk/runtime/asinf.o                .text.asinf               
 searched  build/dc/src/draw/model.o                   .text.points_off_screen                   0x3700  0x11c
 searched  build/dc/src/draw/model.o                   .text.any_past_near                       0x381c  0x18
 searched  build/dc/src/draw/model.o                   .text.points_above                        0x3834  0x68
-searched  build/dc/src/draw/model.o                   .text.shade_from_bake                     0x389c  0xf8
+searched  build/dc/src/draw/model.o                   .text.shade_from_bake                     0x389c  0xf4
 searched  build/dc/src/draw/model.o                   .text.near_clip                           0x39e0  0x748
 searched  build/dc/src/draw/model.o                   .text.triangle_off_screen                 0x4128  0x1ec
 searched  build/dc/src/draw/model.o                   .text.clipped_textured                    0x4314  0x2ec

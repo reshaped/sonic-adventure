@@ -362,7 +362,9 @@ std::vector<uint8_t> record(uint16_t kind, Record body,
 
     body.head = {kind, static_cast<uint16_t>(bytes.size())};
     memcpy(bytes.data(), &body, sizeof body);
-    memcpy(bytes.data() + sizeof body, more.data(), more.size());
+    if (!more.empty()) {
+        memcpy(bytes.data() + sizeof body, more.data(), more.size());
+    }
     return bytes;
 }
 
@@ -1036,6 +1038,15 @@ int record_bounds()
           give(record(SA_CAP_END, end), SA_PC_ENDED));
     CHECK(fake.last.size() == 3 * (corners - 2));
     CHECK(held->failures.empty() && held->totals.refused == 0);
+    /* the overlay's text writes a list of no triangles for an empty line. its
+     * record holds no points. it draws nothing, and nothing is refused */
+    sa_triangles none{};
+
+    none.texture = SA_CAP_NONE;
+    none.form = SA_TRIANGLES_LIST;
+    CHECK(begin() && give(record(SA_CAP_TRIANGLES, none), SA_OK) &&
+          give(record(SA_CAP_END, end), SA_PC_ENDED));
+    CHECK(fake.last.empty() && held->totals.refused == 0);
     for (bool &b : fake.busy) {
         b = false;
     }
@@ -1171,8 +1182,11 @@ int client_released()
  * draw in parts. the raster gets each triangle of that picture's records
  * once, its corners in order. the mesh that fills its record, one strip in
  * the adapter's test, draws each of its triangles. a texture whose texels
- * came in parts is made at its load. the capture holds each of these, and
- * palettes that change */
+ * came in parts is made at its load. where palettes come among a picture's
+ * draws, each draw shades from the version ahead of it. that picture's draws
+ * are of one unlit textured model. in each of its versions, the first
+ * palette's base colors are one color, and the unlit offsets are one color.
+ * the capture holds each of these, and palettes that change */
 int adapter_capture(const char *path)
 {
     using Corners = std::array<uint32_t, 3>;
@@ -1212,10 +1226,19 @@ int adapter_capture(const char *path)
     /* that mesh, and its strip's triangles */
     uint32_t filled = SA_CAP_NONE;
     uint32_t filled_triangles = 0;
-    /* the palettes records, the pictures in parts and those of that mesh */
+    /* the latest palettes' first base color and first unlit offset, and
+     * those each of the open picture's draws took. changed says palettes
+     * came among its draws */
+    const size_t unlit = SA_CAP_PALETTES_COUNT * SA_CAP_PALETTE_ENTRIES * 2;
+    std::array<uint32_t, 2> latest{};
+    std::vector<std::array<uint32_t, 2>> shaded;
+    bool changed = false;
+    /* the palettes records, the pictures in parts, those of that mesh and
+     * those whose palettes changed among their draws */
     uint32_t versions = 0;
     uint32_t in_parts = 0;
     uint32_t of_filled = 0;
+    uint32_t of_changed = 0;
     /* the texture the last texels were a part of, and the textures made of
      * their texels */
     uint32_t parted_texture = SA_CAP_NONE;
@@ -1230,6 +1253,12 @@ int adapter_capture(const char *path)
         CHECK(head.size >= sizeof head && head.size <= file.size() - at &&
               head.size % 4 == 0);
         if (head.kind == SA_CAP_PALETTES) {
+            const uint8_t *words = body + offsetof(sa_cap_palettes, words);
+
+            CHECK(head.size == sizeof(sa_cap_palettes));
+            memcpy(&latest[0], words, sizeof latest[0]);
+            memcpy(&latest[1], words + unlit * 4, sizeof latest[1]);
+            changed = changed || !shaded.empty();
             versions++;
         } else if (head.kind == SA_CAP_PICTURE) {
             sa_cap_picture picture;
@@ -1242,6 +1271,8 @@ int adapter_capture(const char *path)
             given.clear();
             parted = false;
             filling = 0;
+            shaded.clear();
+            changed = false;
             fake.last.clear();
         } else if (head.kind == SA_CAP_MESH &&
                    head.size == SA_CAP_RECORD_MOST) {
@@ -1272,6 +1303,7 @@ int adapter_capture(const char *path)
 
             memcpy(&draw, body, std::min<size_t>(sizeof draw, head.size));
             filling += draw.mesh == filled ? 1 : 0;
+            shaded.push_back(latest);
         } else if (head.kind == SA_CAP_TRIANGLES) {
             sa_cap_triangles draw;
 
@@ -1337,9 +1369,23 @@ int adapter_capture(const char *path)
             CHECK(fake.last.size() == 3 * filled_triangles * filling);
             of_filled++;
         }
+        /* the raster takes each draw's corners in turn, as many for each */
+        if (result == SA_PC_ENDED && changed) {
+            const size_t each = fake.last.size() / shaded.size();
+
+            CHECK(each != 0 && fake.last.size() == each * shaded.size());
+            for (size_t i = 0; i < fake.last.size(); i++) {
+                const std::array<uint32_t, 2> &colors = shaded[i / each];
+
+                CHECK(fake.last[i].base == as_raster(colors[0]) &&
+                      fake.last[i].offset == as_raster(colors[1]));
+            }
+            of_changed++;
+        }
         at += head.size;
     }
-    CHECK(versions >= 2 && in_parts >= 1 && of_filled >= 1 && of_texels >= 1);
+    CHECK(versions >= 2 && in_parts >= 1 && of_filled >= 1 && of_texels >= 1 &&
+          of_changed >= 1);
     for (bool &b : fake.busy) {
         b = false;
     }

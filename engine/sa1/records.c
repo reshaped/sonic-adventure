@@ -899,9 +899,10 @@ static void to_world(float world[12])
     }
 }
 
-/* the palettes the picture about to open shades from. where they changed since
- * the last version given, they get a new version. the adapter keeps only the
- * last, so a value held before gets a new version too */
+/* the palettes as they stand, for the picture about to open or the draw about
+ * to be made. where they changed since the last version given, they get a new
+ * version. either way palettes_words then holds the last version given. the
+ * adapter keeps only the last, so a value held before gets a new version too */
 static void snap_palettes(void)
 {
     static uint32_t last[sizeof palettes_words / 4];
@@ -918,6 +919,30 @@ static void snap_palettes(void)
         memcpy(record + offsetof(sa_cap_palettes, palettes), &id, sizeof id);
         emit(SA_CAP_PALETTES, record, sizeof record, palettes_words,
              sizeof palettes_words);
+    }
+}
+
+/* the palettes ahead of a palette draw of points points under palette. the
+ * draw reads palette, and the offset colors of the palette after it where it
+ * is specular. it reads the unlit offsets of its points. the Dreamcast's walk
+ * reads them at the call. the game may change them between two draws of one
+ * picture. Sky Deck's sky sets the unlit offsets for its own draw alone. so
+ * where either palette or those offsets changed since the last version given,
+ * the palettes get a new version */
+static void palettes_drawn(uint32_t palette, int32_t points)
+{
+    enum { PALETTE_WORDS = SA_CAP_PALETTE_ENTRIES * 2 };
+    const size_t unlit = SA_CAP_PALETTES_COUNT * PALETTE_WORDS;
+    const size_t from = palette * PALETTE_WORDS;
+    size_t offsets = points < 0                      ? 0
+                     : points > SA_CAP_UNLIT_OFFSETS ? SA_CAP_UNLIT_OFFSETS
+                                                     : (size_t)points;
+
+    if (memcmp(&palettes_words[from], &sa1_live_colors[from],
+               2 * PALETTE_WORDS * sizeof palettes_words[0]) != 0 ||
+        memcmp(&palettes_words[unlit], &sa1_live_colors[unlit],
+               offsets * sizeof palettes_words[0]) != 0) {
+        snap_palettes();
     }
 }
 
@@ -1163,7 +1188,8 @@ void native_task_destroy(struct task *task)
 }
 
 /* present.c's runs of a task's step and draw callback. in the native slice,
- * task.c calls native_task_step and native_task_draw in their place */
+ * task.c calls native_task_step and native_task_draw in their place, and
+ * Ice Cap's snow trail native_task_step for a flake's first draw */
 void present_run(struct task *task, void (*step)(struct task *task));
 void present_draw(struct task *task, void (*draw)(struct task *task));
 
@@ -1684,6 +1710,9 @@ void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
     }
     struct draw_state state = state_now(header, attrs);
 
+    if (mode == SA_SHADE_PALETTE) {
+        palettes_drawn(state.palette, model->nbPoint);
+    }
     to_world(draw.object_to_world);
     part = part_drawn(model, draw.object_to_world);
     if (!model_draw(model, mode, &state, &draw, &reads)) {
@@ -2143,12 +2172,16 @@ void sa1_record_sprite(const NJS_SPRITE *sprite, int entry, uint32_t attr,
 }
 
 /* a texture by its global index, as Ninja's texture memory finds it. the
- * current list's entry comes first, then any texture keyed by its texture
- * memory. E-101 mkII's jets draw a texture their list doesn't hold. it returns
- * SA_CAP_NONE for none */
+ * current list's entry comes first. else it is the texture keyed by the
+ * record Ninja's draw takes, where the table holds it. E-101 mkII's jets draw a
+ * texture their list doesn't hold. it returns SA_CAP_NONE for none */
 static uint32_t texture_global(uint32_t global_index)
 {
     const NJS_TEXLIST *list = _nj_current_texlist;
+    const NJS_TEXMEMLIST *held;
+    Sint32 record;
+    uint64_t key;
+    uint32_t slot;
 
     for (uint32_t i = 0; list && i < list->nbTexture; i++) {
         const NJS_TEXMEMLIST *memory = native_widen(list->textures[i].texaddr);
@@ -2157,16 +2190,20 @@ static uint32_t texture_global(uint32_t global_index)
             return texture_of(list, i);
         }
     }
-    for (uint32_t i = 0; i < TABLE_SLOTS; i++) {
-        uint64_t key = textures.keys[i];
-
-        if (key != 0 && key != TABLE_GONE && key >> 32 != INDEX_ALONE &&
-            (uint32_t)key == global_index) {
-            textures.used[i] = picture_number;
-            return textures.ids[i];
-        }
+    /* the shim's search, as njSetkmTextureNumG calls it, gives record 0 for
+     * an index no record holds. record 0 is no texture's */
+    record = njSearchTexList(_nj_texmemlist, _nj_texmemsize, global_index);
+    if (record <= 0) {
+        return SA_CAP_NONE;
     }
-    return SA_CAP_NONE;
+    held = &_nj_texmemlist[record];
+    key = (uint64_t)(uintptr_t)held << 32 | held->globalIndex;
+    slot = table_find(&textures, key);
+    if (textures.keys[slot] != key) {
+        return SA_CAP_NONE;
+    }
+    textures.used[slot] = picture_number;
+    return textures.ids[slot];
 }
 
 /* the current texture, which Ninja's triangles take by global index */

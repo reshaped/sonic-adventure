@@ -114,6 +114,7 @@ struct Object {
     Object *sampler = nullptr;
     uint32_t sampler_at = 0;
     bool compute = false; /* a pipeline */
+    uint32_t family = 0; /* a command pool's queue family */
     /* a swapchain's images, the one acquired and not shown or -1, and
      * whether it is retired */
     std::vector<Object *> images;
@@ -126,6 +127,11 @@ std::set<const void *> made;
 /* the physical devices listed: one for each of control.names, or the one */
 std::vector<Object> physical(1);
 Object queue;
+/* each physical device's queue families. the first draws but can't
+ * compute. each takes its timestamps' bits from control */
+const VkQueueFamilyProperties FAMILIES[] = {
+    {VK_QUEUE_GRAPHICS_BIT, 1, 64, {1, 1, 1}},
+    {VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 1, 64, {1, 1, 1}}};
 
 __attribute__((format(printf, 1, 2))) void fault(const char *format, ...)
 {
@@ -382,6 +388,13 @@ bool bound(Object *commands, int point, uint32_t count, const char *call)
     return true;
 }
 
+/* the memory types a buffer may take: the first two, or with a buffer_heap
+ * the last two */
+uint32_t buffer_types()
+{
+    return control.buffer_heap != 0 ? 6U : 3U;
+}
+
 /* bind a buffer or an image to memory: once, within it, and over no other
  * that lives there */
 VkResult bind(Object *object, VkDeviceMemory handle, VkDeviceSize at,
@@ -401,6 +414,9 @@ VkResult bind(Object *object, VkDeviceMemory handle, VkDeviceSize at,
     }
     if (object->kind == IMAGE && memory->type != 0) {
         fault("%s binds an image to a memory type it can't take", call);
+    }
+    if (object->kind == BUFFER && (buffer_types() & 1U << memory->type) == 0) {
+        fault("%s binds a buffer to a memory type it can't take", call);
     }
     if (at + object->size > memory->size) {
         fault("%s binds past the end of its memory", call);
@@ -567,14 +583,17 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties(
     VkPhysicalDevice, uint32_t *count, VkQueueFamilyProperties *families)
 {
-    if (families != nullptr && *count != 0) {
-        families[0] = {
-            VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 1, 64, {1, 1, 1}};
+    for (uint32_t i = 0;
+         families != nullptr && i < *count && i < std::size(FAMILIES); i++) {
+        families[i] = FAMILIES[i];
+        families[i].timestampValidBits = control.timestamp_bits;
     }
-    *count = 1;
+    *count = static_cast<uint32_t>(std::size(FAMILIES));
 }
 
-/* two types of memory: the device's own, and the host's, cached */
+/* two types of memory in one heap: the device's own, and the host's,
+ * cached. a buffer_heap adds a third type, the device's own, in a second
+ * heap */
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties(
     VkPhysicalDevice, VkPhysicalDeviceMemoryProperties *properties)
 {
@@ -588,6 +607,13 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties(
         VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     properties->memoryHeapCount = 1;
     properties->memoryHeaps[0].size = VkDeviceSize{1} << 32;
+    if (control.buffer_heap != 0) {
+        properties->memoryTypeCount = 3;
+        properties->memoryTypes[2] = {VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1};
+        properties->memoryHeapCount = 2;
+        properties->memoryHeaps[1] = {control.buffer_heap,
+                                      VK_MEMORY_HEAP_DEVICE_LOCAL_BIT};
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures(
@@ -672,8 +698,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     memset(has, 0, sizeof *has);
     has->minImageCount = 2;
     has->currentExtent = {control.width, control.height};
+    if (control.follows) {
+        has->currentExtent = {UINT32_MAX, UINT32_MAX};
+    }
+    has->minImageExtent = control.least;
+    has->maxImageExtent = control.most;
+    has->maxImageArrayLayers = 1;
+    has->supportedTransforms = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     has->currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    has->supportedCompositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    has->supportedCompositeAlpha = control.alpha;
+    has->supportedUsageFlags = control.usage;
     return VK_SUCCESS;
 }
 
@@ -717,10 +751,18 @@ VKAPI_ATTR void VKAPI_CALL vkGetDeviceQueue(VkDevice device, uint32_t, uint32_t,
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-vkCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *,
+vkCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *info,
                     const VkAllocationCallbacks *, VkCommandPool *pool)
 {
-    return create(device, __func__, POOL, pool);
+    Object *one = nullptr;
+    VkResult result = create(device, __func__, POOL, pool, &one);
+
+    if (info->queueFamilyIndex >= std::size(FAMILIES)) {
+        fault("%s takes a queue family the device lacks", __func__);
+    } else if (result == VK_SUCCESS) {
+        one->family = info->queueFamilyIndex;
+    }
+    return result;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyCommandPool(VkDevice device,
@@ -978,7 +1020,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetBufferMemoryRequirements(
 
     use(device, DEVICE, __func__);
     *need = {one != nullptr ? (one->size + 255) & ~VkDeviceSize{255} : 256, 256,
-             3};
+             buffer_types()};
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkBindBufferMemory(VkDevice device,
@@ -990,17 +1032,29 @@ VKAPI_ATTR VkResult VKAPI_CALL vkBindBufferMemory(VkDevice device,
     return bind(use(buffer, BUFFER, __func__), memory, at, __func__);
 }
 
+/* memory past the size of its type's heap is refused, as a driver refuses
+ * it */
 VKAPI_ATTR VkResult VKAPI_CALL
 vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo *info,
                  const VkAllocationCallbacks *, VkDeviceMemory *memory)
 {
+    VkPhysicalDeviceMemoryProperties has;
+    uint32_t type = info->memoryTypeIndex;
     Object *one = nullptr;
 
-    if (info->memoryTypeIndex > 1) {
+    vkGetPhysicalDeviceMemoryProperties(nullptr, &has);
+    if (type >= has.memoryTypeCount) {
         fault("%s takes a memory type the device lacks", __func__);
     }
     VkResult result = create(device, __func__, MEMORY, memory, &one);
 
+    if (result == VK_SUCCESS && type < has.memoryTypeCount &&
+        info->allocationSize >
+            has.memoryHeaps[has.memoryTypes[type].heapIndex].size) {
+        end(one);
+        *memory = reinterpret_cast<VkDeviceMemory>(&poison);
+        return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
     if (result == VK_SUCCESS) {
         one->size = info->allocationSize;
         one->type = info->memoryTypeIndex;
@@ -1524,6 +1578,11 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDispatch(VkCommandBuffer commands, uint32_t,
         fault("%s runs with no pipeline bound", __func__);
         return;
     }
+    if (!(FAMILIES[c->owner->family].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
+        fault("%s takes a command buffer whose queue family can't compute",
+              __func__);
+        return;
+    }
     if (!bound(c, 1, 1, __func__)) {
         return;
     }
@@ -1729,14 +1788,13 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWriteTimestamp(VkCommandBuffer commands,
     }
 }
 
-/* a picture takes 1,000 ticks, of a nanosecond each */
+/* a picture's timer gives control's two timestamps, a nanosecond a tick */
 VKAPI_ATTR VkResult VKAPI_CALL vkGetQueryPoolResults(VkDevice device,
                                                      VkQueryPool pool, uint32_t,
                                                      uint32_t, size_t,
                                                      void *ticks, VkDeviceSize,
                                                      VkQueryResultFlags)
 {
-    const uint64_t took[2] = {0, 1000};
     VkResult result;
 
     if (use(device, DEVICE, __func__) == nullptr ||
@@ -1746,7 +1804,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetQueryPoolResults(VkDevice device,
     if (fails(__func__, result)) {
         return result;
     }
-    memcpy(ticks, took, sizeof took);
+    memcpy(ticks, control.timestamps, sizeof control.timestamps);
     return VK_SUCCESS;
 }
 
@@ -1763,8 +1821,21 @@ vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR *info,
     if (old != nullptr) {
         old->retired = true;
     }
+    control.swapchain = *info;
     if (info->imageExtent.width == 0 || info->imageExtent.height == 0) {
         fault("%s takes an extent of no size", __func__);
+    } else if (info->imageExtent.width < control.least.width ||
+               info->imageExtent.height < control.least.height ||
+               info->imageExtent.width > control.most.width ||
+               info->imageExtent.height > control.most.height) {
+        fault("%s takes an extent past the surface's bounds", __func__);
+    }
+    if ((info->imageUsage & ~control.usage) != 0) {
+        fault("%s takes a usage the surface's images lack", __func__);
+    }
+    if (info->compositeAlpha == 0 ||
+        (info->compositeAlpha & ~control.alpha) != 0) {
+        fault("%s takes an alpha mode the surface lacks", __func__);
     }
     VkResult result = create(device, __func__, SWAPCHAIN, swapchain, &one);
 

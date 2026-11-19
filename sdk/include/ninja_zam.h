@@ -40,7 +40,7 @@
  *
  * SH4ZAM's XMTRX product ends on one FRCHG, which flips FPSCR's FR. so
  * njMultiMatrix returns with FR flipped, whether md is null or not.
- * src/system/present.c's replay flips it once for each draw it replays. a
+ * src/system/present.c's replay flips it once for each product it makes. a
  * function kmiExCallBackFunc calls must return with FR as it got it
  * (kamui.h). so one that runs an odd count of these products must flip FR
  * back */

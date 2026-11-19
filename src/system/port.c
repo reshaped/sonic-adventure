@@ -16,6 +16,7 @@
 #define CHORD (PDD_DGT_TL | PDD_DGT_TR)
 
 int port_toggles[TOGGLES] = {FALSE, FALSE, FALSE};
+int port_chosen[TOGGLES] = {FALSE, FALSE, FALSE};
 
 /* whether the curtain falls, and the drawn frames it has faded in */
 static int curtain_on;
@@ -86,6 +87,7 @@ void port_chord(PDS_PERIPHERAL *pad)
              * rather than flip. its toggle is on while a page shows */
             port_toggles[i] =
                 i == TOGGLE_READOUT ? overlay_page() : !port_toggles[i];
+            port_chosen[i] = TRUE;
             overlay_note(i);
         }
     } else if (!(pad->on & (CHORD | PAD_DIRECTIONS))) {

@@ -25,8 +25,8 @@ struct beam_texture {
 };
 
 /* a beam from pos, swinging at random. params are copied, but pos is kept
- * and must outlive the beam. when no task can be made, it stores through a
- * null task */
+ * and must outlive the beam. when no task can be made, the image's stores
+ * through a null task, and a port's makes no beam */
 void beam_create(NJS_POINT3 *pos, struct beam_params *params);
 /* draw a quad on the screen along a ray or a line. the ray runs from pos to
  * a tip length along -z, turned about x by ang->x and then about y by

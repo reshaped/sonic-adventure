@@ -65,6 +65,12 @@ void reset()
     device->fail_run = 1;
     device->fail_result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
     device->max_bias = 4.0F;
+    device->usage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    device->alpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    device->least = {1, 1};
+    device->most = {16384, 16384};
+    device->follows = false;
     device->names.clear();
     device->lacks = nullptr;
     device->calls.clear();
@@ -75,6 +81,10 @@ void reset()
     device->draws.clear();
     device->shaded = nullptr;
     device->resolved = nullptr;
+    device->timestamp_bits = 64;
+    device->timestamps[0] = 0;
+    device->timestamps[1] = 1000;
+    device->buffer_heap = 0;
 }
 
 bool among(const char *call, std::initializer_list<const char *> names)
@@ -289,11 +299,11 @@ void retire(Run &run, int at, pc::Raster &raster, uint32_t frame)
     });
 }
 
-/* a headless raster at twice the size, read back. its textures take slots,
- * two of one size at once. the huge ones take memory of their own and
- * together fill a load's staging. one texture is freed while its load
- * records. the pictures come sorted and not, and the last outgrows its
- * frame's vertex buffer */
+/* a headless raster at twice the size, read back. its first picture only
+ * clears. its textures take slots, two of one size at once. the huge ones
+ * take memory of their own and together fill a load's staging. one texture
+ * is freed while its load records. the pictures come sorted and not, and
+ * the last outgrows its frame's vertex buffer */
 void headless(Run &run)
 {
     static const pc::Image small = image_of(8, 8);
@@ -311,6 +321,8 @@ void headless(Run &run)
         })) {
         return;
     }
+    submit(run, __LINE__, raster, 1, 0, {}, true);
+    retire(run, __LINE__, raster, 1);
     uint32_t first = texture(run, __LINE__, raster, small);
     uint32_t second = texture(run, __LINE__, raster, large);
 
@@ -570,6 +582,95 @@ int outgrown()
     return 0;
 }
 
+/* a swapchain asks for nothing its surface lacks. a surface whose images
+ * can't be copied to opens no raster, and the raster says why. a surface
+ * without opaque alpha gets inherit where it offers that, and else its first
+ * mode. one that leaves its extent to the swapchain gets the window's size,
+ * held within the surface's bounds. a window of no size still gets no
+ * swapchain there */
+int surfaced()
+{
+    static const struct {
+        VkCompositeAlphaFlagsKHR offered;
+        VkCompositeAlphaFlagBitsKHR taken;
+    } ALPHAS[] = {
+        {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR | VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+         VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR},
+        {VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR |
+             VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+         VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
+        {VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR |
+             VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+         VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR},
+        {VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+         VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR}};
+    /* a window's sizes, and the extent each gets between 320 by 240 and
+     * 1024 by 768 */
+    static const struct {
+        VkExtent2D window;
+        VkExtent2D taken;
+    } EXTENTS[] = {{{800, 600}, {800, 600}},
+                   {{200, 150}, {320, 240}},
+                   {{2000, 1500}, {1024, 768}},
+                   {{2000, 100}, {1024, 240}}};
+    pc::Window window = {800, 600};
+    pc::PictureUniform picture{};
+    std::vector<pc::Vertex> vertices(3);
+    std::vector<pc::Batch> batches = {batch(0, 1, 0, 0, false)};
+    std::string why;
+
+    reset();
+    device->width = window.width;
+    device->height = window.height;
+    device->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    {
+        pc::Raster raster;
+        pc::RasterOptions options;
+
+        options.window = &window;
+        CHECK(!raster.open(options, why) && !why.empty());
+        CHECK(made("vkCreateSwapchainKHR") == 0);
+    }
+    CHECK(device->faults == 0 && device->live == 0);
+    for (const auto &each : ALPHAS) {
+        reset();
+        device->alpha = each.offered;
+        {
+            pc::Raster raster;
+            pc::RasterOptions options;
+
+            options.window = &window;
+            CHECK(raster.open(options, why));
+            CHECK(device->swapchain.compositeAlpha == each.taken);
+        }
+        CHECK(device->faults == 0 && device->live == 0);
+    }
+    reset();
+    device->follows = true;
+    device->least = {320, 240};
+    device->most = {1024, 768};
+    {
+        pc::Raster raster;
+        pc::RasterOptions options;
+
+        options.window = &window;
+        CHECK(raster.open(options, why));
+        for (const auto &each : EXTENTS) {
+            window = {each.window.width, each.window.height};
+            CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+            CHECK(device->swapchain.imageExtent.width == each.taken.width &&
+                  device->swapchain.imageExtent.height == each.taken.height);
+        }
+        uint32_t swapchains = made("vkCreateSwapchainKHR");
+
+        window = {0, 0};
+        CHECK(raster.submit(0, picture, 0, vertices, batches, true, why) &&
+              made("vkCreateSwapchainKHR") == swapchains);
+    }
+    CHECK(device->faults == 0 && device->live == 0);
+    return 0;
+}
+
 /* a sampler as a sample asks it of Vulkan, at a bias */
 bool samples(const VkSamplerCreateInfo &made, uint32_t sample, float bias)
 {
@@ -713,6 +814,35 @@ int counted()
     return 0;
 }
 
+/* the blend lists' buffer takes at most a quarter of the heap its memory
+ * lies in. here images take the device's own memory from the first heap,
+ * and buffers take it from a second, of 512 KiB. a quarter of that holds the
+ * lists' head of 16 bytes and 8,191 fragments of 16. the device's shaders
+ * read that capacity from the head */
+int budgeted()
+{
+    static uint32_t capacity;
+    pc::PictureUniform picture{};
+    std::vector<pc::Vertex> vertices(3);
+    std::vector<pc::Batch> batches = {batch(0, 1, 0, 0, true)};
+    std::string why;
+
+    reset();
+    device->buffer_heap = VkDeviceSize{512} << 10;
+    device->shaded = [](uint32_t *head) { capacity = head[1]; };
+    {
+        pc::Raster raster;
+        pc::RasterOptions options;
+
+        CHECK(raster.open(options, why));
+        CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+        raster.wait(0);
+        CHECK(capacity == 8191);
+    }
+    CHECK(device->faults == 0 && device->live == 0);
+    return 0;
+}
+
 /* a present the device fails leaves an acquired image that nothing shows,
  * so the raster breaks. it refuses each later picture and texture with that
  * reason, and its end leaves no object alive */
@@ -796,6 +926,42 @@ int given()
         CHECK(raster.done(0) && gives(0));
     }
     CHECK(device->faults == 0 && device->live == 0);
+    return 0;
+}
+
+/* a picture's time is the ticks between its two timestamps, a nanosecond
+ * each here. the counter wraps past its valid bits, so a picture may end on
+ * a count below the one it began on. it does at 36 bits and at 64 */
+int timed()
+{
+    static const struct {
+        uint32_t bits;
+        uint64_t began;
+        uint64_t ended;
+    } TIMES[] = {{64, 0, 1000},
+                 {36, (uint64_t{1} << 36) - 500, 500},
+                 {64, UINT64_MAX - 499, 500}};
+    pc::PictureUniform picture{};
+    std::vector<pc::Vertex> vertices(3);
+    std::vector<pc::Batch> batches = {batch(0, 1, 0, 0, false)};
+    std::string why;
+
+    for (const auto &each : TIMES) {
+        reset();
+        device->timestamp_bits = each.bits;
+        device->timestamps[0] = each.began;
+        device->timestamps[1] = each.ended;
+        {
+            pc::Raster raster;
+            pc::RasterOptions options;
+
+            CHECK(raster.open(options, why));
+            CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+            raster.wait(0);
+            CHECK(raster.gpu_ns(0) == 1000);
+        }
+        CHECK(device->faults == 0 && device->live == 0);
+    }
     return 0;
 }
 
@@ -1041,10 +1207,16 @@ int main()
     int line = outgrown();
 
     if (line == 0) {
+        line = surfaced();
+    }
+    if (line == 0) {
         line = unshown();
     }
     if (line == 0) {
         line = given();
+    }
+    if (line == 0) {
+        line = timed();
     }
     if (line == 0) {
         line = starved();
@@ -1066,6 +1238,9 @@ int main()
     }
     if (line == 0) {
         line = counted();
+    }
+    if (line == 0) {
+        line = budgeted();
     }
     if (line == 0) {
         line = named();

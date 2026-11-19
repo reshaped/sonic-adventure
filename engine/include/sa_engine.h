@@ -24,9 +24,13 @@ extern "C" {
 
 #define SA_ENGINE_ABI_VERSION 0U
 
-/* a call that can fail returns a result, and writes its outputs only when
- * it returns SA_OK. 0 and above are outcomes, and below 0 errors. an error
- * leaves the engine as the call found it */
+/* a call that can fail returns a result. 0 and above are outcomes, and
+ * below 0 errors. an error keeps no handle the call took, and opens no
+ * picture or scene. a call that fails may still have written some of its
+ * outputs, such as part of a storage read's buffer. so a client reads
+ * outputs only after SA_OK. before it fails, a call may show a picture
+ * whose time has come, or post events. so a client polls for events
+ * whatever a call returns */
 typedef int32_t sa_result;
 enum {
     SA_OK = 0,
@@ -126,7 +130,7 @@ enum {
      * value holds its status and two data bytes, from the low byte up */
     SA_AUDIO_MIDI = 11,
     /* port key.id plays sequence sound & 0xff of sequence bank sound >> 8
-     * at priority; stops; or takes value as its volume over updates */
+     * at priority; stops; or takes value as its volume */
     SA_AUDIO_SEQUENCE = 12,
     SA_AUDIO_SEQUENCE_STOP = 13,
     SA_AUDIO_SEQUENCE_VOLUME = 14,
@@ -156,7 +160,9 @@ typedef struct sa_audio_command {
     sa_ref key;
     int32_t priority; /* a sequence's */
     int32_t value; /* as kind says */
-    int32_t updates; /* the updates a volume takes to change, or 0 */
+    /* the updates a volume should take to change, or 0. a backend may set
+     * the volume at once, as the PC's does */
+    int32_t updates;
     float pos[3]; /* 0 */
     float radius; /* 0 */
     int32_t result; /* 0 */
@@ -596,9 +602,15 @@ sa_result sa_storage_write(sa_engine *engine, const char *name,
                            const void *data, uint32_t bytes,
                            sa_handle *request);
 
-/* queue commands, copied during the call, to sound at the logical time the
- * last sa_clock_tick gave. a queue with no room for them all takes none of
- * them, and the call gives SA_ERR_FULL */
+/* queue commands, copied during the call. a backend may carry them out only
+ * when it next renders sound, as the PC's does. so commands queued a frame
+ * apart may take effect together. a queue with no room for them all takes
+ * none of them, and the call gives SA_ERR_FULL. what a queue refuses is
+ * lost. the PC's queue then refuses every command, bank and stream until
+ * its backend next renders sound. that render carries out what the queue
+ * holds, then stops each note, sequence and stream at once. it forgets each
+ * program or sequence bank the queue refused, so their notes and sequences
+ * go unplayed. nothing the client may have stopped plays on */
 sa_result sa_audio_submit(sa_engine *engine, const sa_audio_command *commands,
                           uint32_t count);
 /* a bank of the sound library's, in its own format, as SEGA's driver reads
@@ -618,7 +630,8 @@ typedef struct sa_audio_bank {
 /* place a bank, copied during the call, for the commands queued after it.
  * SA_ERR_INVALID refuses a bank that passes sound memory. it refuses a
  * program bank that lacks its SMPB mark or its 0x30-byte header. it refuses
- * one whose tables pass its bytes too */
+ * one whose tables pass its bytes too. SA_ERR_FULL refuses a bank the queue
+ * has no room for, as sa_audio_submit says */
 sa_result sa_audio_load(sa_engine *engine, const sa_audio_bank *bank);
 /* play stream from the start of an ADX file's bytes, copied during the
  * call. it starts in order with the commands. a stream whose file holds a
@@ -629,7 +642,8 @@ sa_result sa_audio_load(sa_engine *engine, const sa_audio_bank *bank);
  * at 2. the count is the 16 bits at 0x16. the 32 bits at 0x1c give the loop's
  * first sample, and those at 0x24 the sample it ends before. a loop that ends
  * at or before its first sample is none. nor is one that ends past the file's
- * samples, which the 32 bits at 12 count */
+ * samples, which the 32 bits at 12 count. SA_ERR_FULL refuses a stream the
+ * queue has no room for, as sa_audio_submit says */
 sa_result sa_audio_stream(sa_engine *engine, uint32_t stream, const void *data,
                           uint32_t bytes);
 

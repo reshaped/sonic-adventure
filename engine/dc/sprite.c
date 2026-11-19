@@ -8,7 +8,14 @@
  * sprite_draw_3d maps a list's write pointer into the store queue area and
  * leaves room there for the strip's polygon header. the call writes the
  * strip's vertices after that room. when a strip is sent, the draw writes its
- * header into the room with sprite_begin, and njEndVertex ends it */
+ * header into the room with sprite_begin, and njEndVertex ends it.
+ *
+ * the room serves only a list that goes to the vertex buffer in RAM, as the
+ * translucent list does. the opaque list goes straight to the tile
+ * accelerator, which takes words in the order they come. there a strip's
+ * vertices would arrive ahead of their header. so attr must hold
+ * NJD_SPRITE_ALPHA, as each of the game's calls does. sprite.src's
+ * sprite_draw_3d sends the vertices ahead of the header too */
 #include <kamui.h>
 #include <ninja.h>
 #include <sg_xpt.h>

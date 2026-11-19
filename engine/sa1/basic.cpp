@@ -175,8 +175,10 @@ void mesh_bytes(const Model &model, std::vector<uint8_t> &out)
     head.materials = model.materials;
     out.resize(at + (model.points.size() + model.normals.size()) * 4);
     memcpy(out.data(), &head, sizeof head);
-    memcpy(out.data() + at, model.points.data(), model.points.size() * 4);
-    at += model.points.size() * 4;
+    if (!model.points.empty()) {
+        memcpy(out.data() + at, model.points.data(), model.points.size() * 4);
+        at += model.points.size() * 4;
+    }
     if (!model.normals.empty()) {
         memcpy(out.data() + at, model.normals.data(), model.normals.size() * 4);
         at += model.normals.size() * 4;
@@ -192,8 +194,10 @@ void mesh_bytes(const Model &model, std::vector<uint8_t> &out)
         out.resize(at + sizeof s + corner_bytes + set.uv.size() * 4);
         memcpy(out.data() + at, &s, sizeof s);
         at += sizeof s;
-        memcpy(out.data() + at, set.corners.data(), set.corners.size() * 2);
-        at += corner_bytes;
+        if (!set.corners.empty()) {
+            memcpy(out.data() + at, set.corners.data(), set.corners.size() * 2);
+            at += corner_bytes;
+        }
         if (!set.uv.empty()) {
             memcpy(out.data() + at, set.uv.data(), set.uv.size() * 4);
             at += set.uv.size() * 4;

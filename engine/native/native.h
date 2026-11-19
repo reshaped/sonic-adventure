@@ -109,8 +109,8 @@ extern char native_last_opened[64];
 /* play.c's engine, or null in a run without one. the game's calls name it
  * where make dc's name SA_DC_ENGINE */
 extern struct sa_engine *native_engine;
-/* the engine the adapter's sound calls reach, play's, or null in a run
- * without one */
+/* the engine the adapter's sound calls reach, play's, or null where nothing
+ * plays or keeps its sound */
 extern struct sa_engine *native_sound_engine;
 /* SSE's MXCSR at reset: round to nearest, every exception masked. a call
  * into the engine runs under it. the game rounds toward zero and flushes, as

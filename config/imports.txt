@@ -43,6 +43,7 @@
 *          present_welded                     1st_read    present_welded                 0x8c  only src/system/present.c defines it, and the tables give it no address
 *          skip_owed                          1st_read    skip_owed                      0x8c  only src/event/skip.c defines it, and the tables give it no address
 *          stage_limit_cleared                1st_read    stage_limit_cleared            0x8c  only src/stage/stage.c's non-matching side defines it, and the tables give it no address
+*          texture_release_stage_within       1st_read    texture_release_stage_within   0x8c  only src/system/texture.c's non-matching side defines it, and the tables give it no address
 1st_read   draw_palettes                      1st_read    draw_colors                    -     palette.src's name for draw_colors, an object that starts with the palettes
 1st_read   kmi_profile_unsigned_fallback      1st_read    kmiGetProfileInt               -     kmiGetProfileInt declared with a KMDWORD fallback, for kmiInitializeDriver's call
 1st_read   pad_jump_buttons_signed            1st_read    pad_jump_buttons               -     pad_jump_buttons as a Sint32, for race_sonic_drive's read

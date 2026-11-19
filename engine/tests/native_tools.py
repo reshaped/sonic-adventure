@@ -1606,8 +1606,9 @@ class Refs(unittest.TestCase):
                 subprocess.run(['clang', *flags, '-S', '-emit-llvm', '-Xclang', '-disable-llvm-passes', '-o', ir,
                                 source], check=True)
                 ir.write_text(refs.Pass(DOMAIN, check).run(ir.read_text()))
+                # as native.mk links a domain past 0: no relaxing, which binutils 2.42 fails at for Scrt1.o's main
                 subprocess.run(['clang', *flags, '-no-pie', '-nostartfiles', f'-Wl,-Ttext-segment={DOMAIN + 0x400000:#x}',
-                                '-o', program, *crt[:3], ir, narrow, '-lc', *crt[3:]], check=True)
+                                '-Wl,--no-relax', '-o', program, *crt[:3], ir, narrow, '-lc', *crt[3:]], check=True)
                 self.assertEqual(subprocess.run([program]).returncode, 0)
                 # a host pointer parked in a reference: truncated unseen, or refused at the narrowing
                 outside = subprocess.run([program, 'x'], capture_output=True, text=True)

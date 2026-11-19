@@ -55,10 +55,12 @@
 #define TA_ISP_BASE 0xa05f8128U
 #define TA_ISP_CURRENT 0xa05f8138U
 
-/* INT_STATUS's bits. INT_ISP_OVERFLOW is INT_STATUS_ERROR's */
+/* INT_STATUS's bits. INT_ISP_OVERFLOW and INT_OL_OVERFLOW are
+ * INT_STATUS_ERROR's, and the second is INT_VBLANK_IN's bit there */
 #define INT_RENDER_END 0x07U
 #define INT_VBLANK_IN 0x08U
 #define INT_ISP_OVERFLOW 0x04U
+#define INT_OL_OVERFLOW 0x08U
 static const uint32_t list_ends[LISTS] = {0x80, 0x100, 0x200, 0x400, 0x200000};
 
 /* BACKGROUND_TAG's fields: the plane's skip, and its packet's offset in the
@@ -353,8 +355,8 @@ static void render_started(int slot)
 }
 
 /* raise one interrupt of these events and run the handler. l ends the lists
- * of the tile accelerator's slot. v is a vblank, r a render's end and o an
- * ISP overflow */
+ * of the tile accelerator's slot. v is a vblank, r a render's end, o an ISP
+ * overflow and O an object list overflow */
 static void interrupt(const char *events)
 {
     uint32_t status = 0;
@@ -382,6 +384,9 @@ static void interrupt(const char *events)
             break;
         case 'o':
             error |= INT_ISP_OVERFLOW;
+            break;
+        case 'O':
+            error |= INT_OL_OVERFLOW;
             break;
         }
     }
@@ -686,6 +691,23 @@ static void overflow(void)
     }
 }
 
+/* at 60 fps a flip whose slot overflows waits for a later vblank or its
+ * lists' end. neither the overflow's own interrupt, even with a vblank in it,
+ * nor an object list overflow's lets it go on. Kamui's handler takes such a
+ * vblank while the slot is still in the tile accelerator. a flip fails where
+ * it goes on ahead of its events */
+static void overflow_waits(void)
+{
+    set_up("a flip whose slot overflows waits for a vblank", 1);
+    flip(1, "oOv");
+    set_up("a flip whose slot overflows waits for its lists' end", 1);
+    flip(1, "ol");
+    set_up("a flip whose slot overflows in a vblank's interrupt waits for the "
+           "next vblank",
+           1);
+    flip(1, "(vo)v");
+}
+
 /* 60 fps ends with a picture finished and waiting for its render. the next
  * flip goes on at the vblank that starts its render, not at the first
  * render's end. the frame is Kamui's from that vblank. the flip after it has
@@ -821,6 +843,7 @@ int main(int argc, char **argv)
     late_second();
     reset();
     overflow();
+    overflow_waits();
     leaving();
     leaving_idle();
     leaving_split();

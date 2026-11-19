@@ -237,8 +237,8 @@ struct Push {
     uint32_t flags;
     uint32_t blend;
 };
-/* a fragment's bytes, as the shaders' Fragment. FRAGMENTS_A_PIXEL is the
- * lists' room, in fragments a pixel of the target on average */
+/* a fragment's bytes, as the shaders' Fragment. FRAGMENTS_A_PIXEL bounds
+ * the lists' room, in fragments a pixel of the target on average */
 constexpr VkDeviceSize FRAGMENT = 16;
 constexpr VkDeviceSize FRAGMENTS_A_PIXEL = 16;
 /* the compute shaders' local size, each way */
@@ -319,6 +319,12 @@ uint32_t sampler_of(uint32_t sample)
     return sample | filter;
 }
 
+/* value, held from least to most */
+uint32_t clamped(uint32_t value, uint32_t least, uint32_t most)
+{
+    return value < least ? least : value > most ? most : value;
+}
+
 /* a call's result as words, for a reason */
 std::string words(VkResult result)
 {
@@ -384,6 +390,7 @@ struct Raster::Impl {
     std::vector<VkSemaphore> rendered; /* one for each image */
     VkQueryPool timer = VK_NULL_HANDLE;
     float timer_period = 0.0F; /* nanoseconds a tick, 0 where none */
+    uint64_t timer_mask = 0; /* a timestamp's valid bits, each set */
     uint32_t resolution = 1; /* RasterOptions', 0 only with a window */
     bool wide = false; /* the picture shows 16:9 */
     VkExtent2D target{}; /* the target's size, which the images below take */
@@ -1146,18 +1153,48 @@ bool Raster::Impl::make_target(VkExtent2D size, std::string &why)
     free_target();
     free_scaled(readout);
     free_scaled(fitted);
+    /* buffers of one usage and no flags take the same memory types whatever
+     * their size, so a small one of the lists' usage shows the types the
+     * lists' buffer may take */
+    VkBufferUsageFlags lists = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    VkBufferCreateInfo probe_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    VkBuffer probe = VK_NULL_HANDLE;
+    VkMemoryRequirements need;
+
+    probe_info.size = LIST_HEAD;
+    probe_info.usage = lists;
+    if (!made(vk.vkCreateBuffer(device, &probe_info, nullptr, &probe), probe,
+              "vkCreateBuffer", why)) {
+        return false;
+    }
+    vk.vkGetBufferMemoryRequirements(device, probe, &need);
+    vk.vkDestroyBuffer(device, probe, nullptr);
     /* room for FRAGMENTS_A_PIXEL fragments a pixel on average, up to the
      * most a storage buffer holds. only the device writes the fragments, so
-     * they lie in its memory */
+     * they lie in its memory, of the type make_buffer takes. their buffer
+     * takes at most a quarter of that type's heap. the rest is left to the
+     * target, the window's images and the textures */
     VkDeviceSize most =
         (properties.limits.maxStorageBufferRange - LIST_HEAD) / FRAGMENT;
     VkDeviceSize room =
         VkDeviceSize{size.width} * size.height * FRAGMENTS_A_PIXEL;
+    uint32_t local =
+        memory_type(need.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     VkCommandBuffer c = load(why);
     VkImageView views[2];
     VkFramebufferCreateInfo frame_info{
         VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 
+    if (local != UINT32_MAX) {
+        uint32_t heap = memory_properties.memoryTypes[local].heapIndex;
+        VkDeviceSize quarter =
+            (memory_properties.memoryHeaps[heap].size / 4 - LIST_HEAD) /
+            FRAGMENT;
+
+        most = quarter < most ? quarter : most;
+    }
     capacity = static_cast<uint32_t>(room < most ? room : most);
     frame_info.renderPass = pass;
     frame_info.attachmentCount = 2;
@@ -1195,10 +1232,7 @@ bool Raster::Impl::make_target(VkExtent2D size, std::string &why)
              framebuffer, "vkCreateFramebuffer", why) &&
         make_buffer(fragments,
                     LIST_HEAD + static_cast<VkDeviceSize>(capacity) * FRAGMENT,
-                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                    why, true) &&
+                    lists, why, true) &&
         (!readback || (size.width == WIDTH && size.height == HEIGHT) ||
          make_scaled(readout, {WIDTH, HEIGHT}, why));
     if (!whole) {
@@ -1393,8 +1427,9 @@ void Raster::Impl::free_swapchain_images()
 
 /* the swapchain for the window as it stands, in place of any before it.
  * a window of no size gets none. false, with why, where the surface won't
- * say what it takes, and the swapchain before stays. false too where the
- * device won't make the new one whole, and then there is none */
+ * say what it takes or its images can't be copied to, and the swapchain
+ * before stays. false too where the device won't make the new one whole,
+ * and then there is none */
 bool Raster::Impl::make_swapchain(std::string &why)
 {
     VkSurfaceCapabilitiesKHR has;
@@ -1403,6 +1438,8 @@ bool Raster::Impl::make_swapchain(std::string &why)
     uint32_t height = 0;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> modes;
+    VkImageUsageFlags usage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     if (!took(vk.vkDeviceWaitIdle(device), "vkDeviceWaitIdle", why) ||
         !took(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical, surface,
@@ -1410,11 +1447,27 @@ bool Raster::Impl::make_swapchain(std::string &why)
               "vkGetPhysicalDeviceSurfaceCapabilitiesKHR", why)) {
         return false;
     }
+    /* the picture reaches the surface's images by a clear and a blit, which
+     * are transfers. Vulkan has every surface offer a color attachment's
+     * use, so a surface refused here lacks the transfers */
+    if ((has.supportedUsageFlags & usage) != usage) {
+        why = "the surface's images can't be copied to";
+        return false;
+    }
     window_size(window, width, height);
     VkExtent2D extent = has.currentExtent;
 
+    /* a surface that leaves its extent to the swapchain takes the window's,
+     * held within the surface's bounds. a window of no size keeps its size,
+     * and so gets no swapchain */
     if (extent.width == UINT32_MAX) {
         extent = {width, height};
+        if (width != 0 && height != 0) {
+            extent = {clamped(width, has.minImageExtent.width,
+                              has.maxImageExtent.width),
+                      clamped(height, has.minImageExtent.height,
+                              has.maxImageExtent.height)};
+        }
     }
     bool sized = extent.width != 0 && extent.height != 0;
 
@@ -1490,13 +1543,20 @@ bool Raster::Impl::make_swapchain(std::string &why)
     info.imageColorSpace = format.colorSpace;
     info.imageExtent = swap_extent;
     info.imageArrayLayers = 1;
-    info.imageUsage =
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    info.imageUsage = usage;
     info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.preTransform = has.currentTransform;
-    info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    if (!(has.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)) {
-        info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    /* opaque ignores the alpha the picture holds. where the surface lacks
+     * it, inherit leaves alpha to the window system. a surface with neither
+     * gets the first mode it offers */
+    for (VkCompositeAlphaFlagBitsKHR alpha :
+         {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+          VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+          VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR}) {
+        if (has.supportedCompositeAlpha & alpha) {
+            info.compositeAlpha = alpha;
+            break;
+        }
     }
     info.presentMode = mode;
     info.clipped = VK_TRUE;
@@ -1743,6 +1803,9 @@ bool Raster::open(const RasterOptions &options, std::string &why)
     std::vector<VkQueueFamilyProperties> families(count);
     vk.vkGetPhysicalDeviceQueueFamilyProperties(r.physical, &count,
                                                 families.data());
+    /* the one queue draws, dispatches the resolve and the area filter, and
+     * shows the window where there is one */
+    VkQueueFlags needs = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     r.family = UINT32_MAX;
     for (uint32_t i = 0; i < count && r.family == UINT32_MAX; i++) {
         VkBool32 shows = VK_TRUE;
@@ -1753,17 +1816,20 @@ bool Raster::open(const RasterOptions &options, std::string &why)
                     "vkGetPhysicalDeviceSurfaceSupportKHR", why)) {
             return false;
         }
-        if ((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && shows) {
+        if ((families[i].queueFlags & needs) == needs && shows) {
             r.family = i;
         }
     }
     if (r.family == UINT32_MAX) {
-        why = "no graphics queue that can show the window";
+        why = "no queue that can draw, compute and show the window";
         return false;
     }
     /* a family with no timestamp bits can't say what a picture took */
-    if (families[r.family].timestampValidBits != 0) {
+    uint32_t valid = families[r.family].timestampValidBits;
+
+    if (valid != 0) {
         r.timer_period = r.properties.limits.timestampPeriod;
+        r.timer_mask = valid < 64 ? (uint64_t{1} << valid) - 1 : UINT64_MAX;
     }
     float priority = 1.0F;
     VkDeviceQueueCreateInfo queue_info{
@@ -2213,8 +2279,12 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
         }
         r.drawn.emplace_back(p, set);
     }
-    memcpy(f.vertices.mapped, vertices.data(),
-           vertices.size() * sizeof(Vertex));
+    /* an empty vector's data may be null. memcpy takes no null pointer, even
+     * for no bytes */
+    if (!vertices.empty()) {
+        memcpy(f.vertices.mapped, vertices.data(),
+               vertices.size() * sizeof(Vertex));
+    }
     memcpy(f.uniform.mapped, &picture, sizeof picture);
     if (!r.took(vk.vkResetFences(r.device, 1, &f.fence), "vkResetFences",
                 why)) {
@@ -2358,6 +2428,15 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
             c, r.readout.image != VK_NULL_HANDLE ? r.readout.image : r.color,
             VK_IMAGE_LAYOUT_GENERAL, f.readback.buffer, 1, &copy);
     }
+    /* lost, cut and read take the copies from mapped memory once the fence
+     * signals. a fence's signal alone doesn't make the device's writes
+     * visible to the host, so the copies end with a barrier to the host's
+     * reads */
+    all.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    all.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    vk.vkCmdPipelineBarrier(c, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                            VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &all, 0, nullptr,
+                            0, nullptr);
     if (swap_image != UINT32_MAX) {
         VkImage to = r.swap_images[swap_image];
         VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -2515,8 +2594,12 @@ uint64_t Raster::gpu_ns(uint32_t frame)
                                    VK_QUERY_RESULT_64_BIT) != VK_SUCCESS) {
         return 0;
     }
-    return static_cast<uint64_t>(static_cast<double>(ticks[1] - ticks[0]) *
-                                 r.timer_period);
+    /* the counter wraps past its valid bits, so a picture may end on a
+     * count below the one it began on. masked to those bits, the difference
+     * is still the picture's ticks */
+    return static_cast<uint64_t>(
+        static_cast<double>((ticks[1] - ticks[0]) & r.timer_mask) *
+        r.timer_period);
 }
 
 bool Raster::read(uint32_t frame, void *rgba)

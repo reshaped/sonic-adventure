@@ -6,6 +6,7 @@
  * mesh.src tells that mark from a mesh by its sign, since a P1 address is
  * negative. a host's address can take either sign, so collision_mesh_free
  * compares prev with LIST_MARK itself */
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -54,6 +55,19 @@ static struct {
     struct polygon *P32 first, *P32 last;
 } buckets[BUCKETS];
 
+/* the land near two players far apart can ask more polygons than the pool
+ * lends: Sonic's and Tails' in Lost World and Final Egg, and the racers' in
+ * Tails' Ice Cap. collision_mesh_update then leaves one mesh short of its
+ * model and each mesh after it empty. the searches read an empty mesh's
+ * first polygon through null, and polygon_find_floor's skip can step past a
+ * short mesh's last. the console reads the bottom of its memory there. a
+ * host's read of null ends the game. so a mesh that leaves the pool none to
+ * lend ends at end_polygon, and an empty one is end_polygon alone. its
+ * center lies past every window's end, so a walk by centers stops at it.
+ * its corners are one point, so a walk of the whole list takes no surface
+ * from it. a mesh the pool served whole ends in null as before */
+static struct polygon end_polygon = {.center = {INFINITY, INFINITY, INFINITY}};
+
 #define LIST_MARK                                                              \
     ((struct collision_mesh * P32)(uint32_t)(-(intptr_t)&collision_mesh_list))
 
@@ -100,7 +114,8 @@ struct collision_mesh *collision_mesh_alloc(void)
 
 void collision_mesh_free(struct collision_mesh *mesh)
 {
-    if (mesh->polygons && mesh->last) {
+    /* an empty mesh's last is end_polygon, which is no pool's */
+    if (mesh->polygons && mesh->last && mesh->last != &end_polygon) {
         mesh->last->next = free_polygons;
         free_polygons = mesh->polygons;
     }
@@ -179,4 +194,11 @@ void collision_mesh_take_buckets(struct collision_mesh *mesh)
         }
     }
     mesh->last = last;
+    if (!free_polygons->next) {
+        if (last) {
+            last->next = &end_polygon;
+        } else {
+            mesh->polygons = mesh->last = &end_polygon;
+        }
+    }
 }

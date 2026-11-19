@@ -450,6 +450,24 @@ int check()
         why != "a model that runs past its file") {
         return 46;
     }
+    /* a model of no points takes the last meshset alone, of no polygons
+     * again. it converts to a mesh of neither points nor corners */
+    pc::Model bare;
+
+    put16(laid, 114, 0);
+    put32(laid, 8, 0);
+    put32(laid, 12, base + 112);
+    put16(laid, 20, 1);
+    if (!pc::ninja_model(laid, base, 0, bare, why) || !bare.points.empty() ||
+        bare.meshsets.size() != 1 || !bare.meshsets[0].corners.empty()) {
+        return 47;
+    }
+    pc::mesh_bytes(bare, converted);
+    if (!pc::mesh_view(converted.data(),
+                       static_cast<uint32_t>(converted.size()), view) ||
+        view.count != 0 || view.meshsets != 1 || view.triangles != 0) {
+        return 47;
+    }
     /* a face turned from the light has a dot above 0. SA_SHADE_RAMP stays at
      * ambient there, and SA_SHADE_LINEAR falls below it */
     sa_shade shade{};
@@ -464,9 +482,12 @@ int check()
     if (pc::ninja_intensity(shade, 1.0F) != -0.25F) {
         return 8;
     }
-    /* an intensity past 0 to 1 is held, and alpha never moves */
+    /* an intensity past 0 to 1 is held, and alpha never moves. one past
+     * int's range is held too. one that is no number scales by 0 */
     if (pc::ninja_scaled(0x80ff4000, 2.0F) != 0x80ff4000 ||
-        pc::ninja_scaled(0x80ff4000, -1.0F) != 0x80000000) {
+        pc::ninja_scaled(0x80ff4000, -1.0F) != 0x80000000 ||
+        pc::ninja_scaled(0x80ff4000, 1e10F) != 0x80ff4000 ||
+        pc::ninja_scaled(0x80ff4000, NAN) != 0x80000000) {
         return 9;
     }
     /* the full drawer's light of njLtSrcs.c's type 0x13: ambient, diffuse

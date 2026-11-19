@@ -14,10 +14,12 @@ class Disc {
 public:
     void add_root(const std::string &root) { roots_.push_back(root); }
     /* the file at path, as "SONICADV/STG01.BIN", under the first root that
-     * holds it. it returns false where none does or the read fails */
+     * holds it as spelled, or else the first that holds it in another case.
+     * it returns false where none does or the read fails */
     bool read(const std::string &path, std::vector<uint8_t> &bytes) const;
-    /* each dir/name under the roots whose name ends in suffix, once. the
-     * first root's come first, and each root's are sorted by name */
+    /* each dir/NAME under the roots whose name ends in suffix, without case,
+     * once. NAME is in upper case, as the disc spells it. the first root's
+     * come first, and each root's are sorted by name */
     std::vector<std::string> list(const std::string &dir,
                                   const std::string &suffix) const;
 

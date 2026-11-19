@@ -215,11 +215,15 @@ sa_result sa_pc_broken(sa_engine *engine, char *why, uint32_t bytes);
 /* sound's rate, in frames a second, each frame two int16_t, left first */
 #define SA_PC_SOUND_RATE 44100U
 /* where no audio device plays the sound, render frames of it to out on the
- * caller's thread. it first carries out the commands queued so far */
+ * caller's thread. it first carries out the commands queued so far. where a
+ * device plays the sound, or the engine made none, it renders nothing and
+ * gives SA_ERR_UNSUPPORTED */
 sa_result sa_pc_audio_render(sa_engine *engine, int16_t *out, uint32_t frames);
 /* what sound took: commands the queue refused, and the most it held. a
  * refused sa_audio_submit counts each of its commands. a call the queue
- * refuses changes refused, and nothing else of the engine */
+ * refuses changes refused. the queue then refuses every command, bank and
+ * stream until the next render. that render silences what plays, as
+ * sa_audio_submit says */
 typedef struct sa_pc_sound_stats {
     uint32_t refused;
     uint32_t most_queued; /* of SA_PC_SOUND_QUEUE */

@@ -1,5 +1,6 @@
 #include "disc.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
@@ -102,50 +103,109 @@ bool prs_decode(const std::vector<uint8_t> &in, std::vector<uint8_t> &out)
     }
 }
 
-bool Disc::read(const std::string &path, std::vector<uint8_t> &bytes) const
+namespace {
+
+/* name in upper case, as the disc spells its names */
+std::string upper(std::string name)
 {
-    for (const std::string &root : roots_) {
-        FILE *file = fopen((root + "/" + path).c_str(), "rb");
+    for (char &c : name) {
+        c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
+    }
+    return name;
+}
 
-        if (file == nullptr) {
-            continue;
-        }
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
+/* in out, path under root as the host spells it. a copy of the disc may spell
+ * its names in another case, so each of path's names matches without case. it
+ * returns false where one is missing */
+bool path_nocase(const std::string &root, const std::string &path,
+                 std::string &out)
+{
+    out = root;
+    for (size_t at = 0; at <= path.size();) {
+        size_t end = std::min(path.find('/', at), path.size());
+        std::string name = upper(path.substr(at, end - at));
+        DIR *d = opendir(out.c_str());
+        std::string spelled;
 
-        if (size < 0) {
-            fclose(file);
+        if (d == nullptr) {
             return false;
         }
-        fseek(file, 0, SEEK_SET);
-        bytes.resize(static_cast<size_t>(size));
-        size_t got =
-            bytes.empty() ? 0 : fread(bytes.data(), 1, bytes.size(), file);
-        fclose(file);
-        return got == bytes.size();
+        while (const dirent *entry = readdir(d)) {
+            if (upper(entry->d_name) == name) {
+                spelled = entry->d_name;
+                break;
+            }
+        }
+        closedir(d);
+        if (spelled.empty()) {
+            return false;
+        }
+        out += "/" + spelled;
+        at = end + 1;
     }
-    return false;
+    return true;
+}
+
+} // namespace
+
+bool Disc::read(const std::string &path, std::vector<uint8_t> &bytes) const
+{
+    FILE *file = nullptr;
+    std::string spelled;
+
+    for (size_t i = 0; file == nullptr && i < roots_.size(); i++) {
+        file = fopen((roots_[i] + "/" + path).c_str(), "rb");
+    }
+    /* another case takes a read of each directory on path's way, so it is
+     * sought only where no root holds path as spelled */
+    for (size_t i = 0; file == nullptr && i < roots_.size(); i++) {
+        if (path_nocase(roots_[i], path, spelled)) {
+            file = fopen(spelled.c_str(), "rb");
+        }
+    }
+    if (file == nullptr) {
+        return false;
+    }
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+
+    if (size < 0) {
+        fclose(file);
+        return false;
+    }
+    fseek(file, 0, SEEK_SET);
+    bytes.resize(static_cast<size_t>(size));
+    size_t got = bytes.empty() ? 0 : fread(bytes.data(), 1, bytes.size(), file);
+    fclose(file);
+    return got == bytes.size();
 }
 
 std::vector<std::string> Disc::list(const std::string &dir,
                                     const std::string &suffix) const
 {
+    const std::string ending = upper(suffix);
     std::vector<std::string> paths;
 
     for (const std::string &root : roots_) {
-        DIR *d = opendir((root + "/" + dir).c_str());
+        std::string folder = root + "/" + dir;
+        DIR *d = opendir(folder.c_str());
         size_t first = paths.size();
 
+        if (d == nullptr && path_nocase(root, dir, folder)) {
+            d = opendir(folder.c_str());
+        }
         if (d == nullptr) {
             continue;
         }
         while (const dirent *entry = readdir(d)) {
-            std::string name = entry->d_name;
+            /* the disc's spelling, whatever the host's, so a copy in another
+             * case lists and sorts as the disc does */
+            std::string name = upper(entry->d_name);
             std::string path = dir + "/" + name;
 
-            if (name.size() >= suffix.size() &&
-                name.compare(name.size() - suffix.size(), suffix.size(),
-                             suffix) == 0 &&
+            if (name.size() >= ending.size() &&
+                name.compare(name.size() - ending.size(), ending.size(),
+                             ending) == 0 &&
                 std::find(paths.begin(), paths.end(), path) == paths.end()) {
                 paths.push_back(path);
             }

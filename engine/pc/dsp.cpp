@@ -192,9 +192,9 @@ void Dsp::run(int32_t outputs[16])
         if (s.yrl) {
             yreg = inputs;
         }
-        /* the accumulator the step before left, doubled where SHIFT is odd.
-         * SHIFT 0 and 1 hold it to 24 bits, and 2 and 3 wrap it */
-        int32_t shifted = s.shift & 1 ? acc * 2 : acc;
+        /* the accumulator the step before left, doubled under SHIFT 1 and 2
+         * but not 3. SHIFT 0 and 1 hold it to 24 bits, and 2 and 3 wrap it */
+        int32_t shifted = s.shift == 1 || s.shift == 2 ? acc * 2 : acc;
 
         shifted = s.shift < 2 ? clamp24(shifted) : sign(shifted, 24);
         acc = sign(static_cast<int32_t>(static_cast<int64_t>(x) * y >> 12) + b,

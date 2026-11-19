@@ -1103,6 +1103,73 @@ static void palette_versions(void)
     CHECK(versions == before + 3);
 }
 
+/* a palette draw takes the palettes as they stand at its call. Sky Deck's sky
+ * sets every unlit offset gray for its own draw alone. so a new version comes
+ * among the picture's draws, between the draw ahead of the sky and the sky's.
+ * the picture names the version before. both draws here are of one model,
+ * unlit and textured, so its points take the unlit offsets. the pictures test
+ * holds each draw to its own version's colors */
+static void palettes_among_draws(void)
+{
+    enum { UNLIT = SA_PALETTES * SA_PALETTE_ENTRIES * 2 };
+    const Uint32 base = 0xff406080;
+    const Uint32 gray = 0x00505050;
+    static Uint32 kept[sizeof sa1_live_colors / sizeof sa1_live_colors[0]];
+    static NJS_MATERIAL unlit = {.attrflags = NJD_FLAG_USE_TEXTURE |
+                                              NJD_FLAG_IGNORE_LIGHT};
+    static NJS_MESHSET set;
+    static NJS_MODEL sky = {points, normals, 4,         &set, &unlit,
+                            1,      1,       {0, 0, 0}, 2};
+    static sa_cap_palettes named, grayed;
+    sa_cap_picture picture;
+    const uint8_t *opened;
+    const uint8_t *named_at;
+    const uint8_t *grayed_at;
+    int pictures = 0;
+    int versions = 0;
+    int draws = 0;
+
+    __wrap_frame_wait();
+    read_file();
+    while (record(SA_CAP_PICTURE, pictures)) {
+        pictures++;
+    }
+    while (record(SA_CAP_PALETTES, versions)) {
+        versions++;
+    }
+    while (record(SA_REC_DRAW, draws)) {
+        draws++;
+    }
+    memcpy(kept, sa1_live_colors, sizeof kept);
+    set = meshsets[0];
+    for (int i = 0; i < SA_PALETTE_ENTRIES; i++) {
+        sa1_live_colors[2 * i] = base;
+    }
+    reset();
+    draw_model(&sky);
+    for (int i = 0; i < SA_UNLIT_OFFSETS; i++) {
+        sa1_live_colors[UNLIT + i] = gray;
+    }
+    draw_model(&sky);
+    memcpy(sa1_live_colors, kept, sizeof kept);
+    __wrap_frame_wait();
+    read_file();
+    opened = record(SA_CAP_PICTURE, pictures);
+    named_at = record(SA_CAP_PALETTES, versions);
+    grayed_at = record(SA_CAP_PALETTES, versions + 1);
+    CHECK(opened && named_at && grayed_at && record(SA_REC_DRAW, draws + 1) &&
+          !record(SA_CAP_PALETTES, versions + 2));
+    CHECK(named_at < opened && record(SA_REC_DRAW, draws) < grayed_at &&
+          grayed_at < record(SA_REC_DRAW, draws + 1));
+    memcpy(&picture, opened, sizeof picture);
+    memcpy(&named, named_at, sizeof named);
+    memcpy(&grayed, grayed_at, sizeof grayed);
+    CHECK(picture.palettes == named.palettes &&
+          grayed.palettes > named.palettes);
+    CHECK(named.words[0] == base && named.words[UNLIT] == 0);
+    CHECK(grayed.words[0] == base && grayed.words[UNLIT] == gray);
+}
+
 /* a full draw's shade takes Ninja's lights, recorded ahead of it. each light
  * that is on goes into world space by its own matrix. its type is the word
  * njCreateLight writes past ltcal, where the SH-4 lays attr. a one-sided
@@ -2675,6 +2742,7 @@ int main(int argc, char **argv)
     filter_and_adjust();
     white_after_unlit();
     palette_versions();
+    palettes_among_draws();
     full_drawer();
     drawers_out();
     camera_cuts();

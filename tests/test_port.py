@@ -20,6 +20,7 @@ from test_wide import ROOT, bodies, places, sources
 # the source that defines each name a step reads of the port's features
 DEFINED = {
     'port_toggles': 'src/system/port.c',
+    'port_chosen': 'src/system/port.c',
     'port_chord': 'src/system/port.c',
     'port_curtain': 'src/system/port.c',
     'port_curtain_shown': 'src/system/port.c',
@@ -53,6 +54,15 @@ PLACES = {
         ('engine/sa1/overlay.c', 'overlay_draw'),
         ('engine/sa1/overlay.c', 'overlay_page'),
         ('engine/sa1/overlay.c', 'overlay_note'),
+        ('engine/sa1/overlay.c', 'sa1_wide_on'),
+        ('engine/sa1/overlay.c', 'sa1_fast_on'),
+    },
+    # the chord and the PC's two settings mark the toggle they set, and a save's load leaves a marked one alone
+    'port_chosen': {
+        ('src/system/port.h', None),
+        ('src/system/port.c', None),
+        ('src/system/port.c', 'port_chord'),
+        ('src/save/save.c', 'save_load'),
         ('engine/sa1/overlay.c', 'sa1_wide_on'),
         ('engine/sa1/overlay.c', 'sa1_fast_on'),
     },
@@ -97,7 +107,8 @@ PLACES = {
     },
 }
 # the functions that assign each datum a step reads, as (file, function): frame_end sets the window and the split
-# once a frame, the chord flips the toggles, and a save's load and the PC's two settings turn on the two they keep.
+# once a frame, the chord flips the toggles, and a save's load and the PC's two settings set the two they keep. The
+# chord and those settings mark each toggle they set as the player's own.
 # A definition's initialiser, at file scope, is no assignment
 WRITERS = {
     'port_view_aspect': {('src/system/pace.c', 'frame_end')},
@@ -105,6 +116,11 @@ WRITERS = {
     'port_toggles': {
         ('src/system/port.c', 'port_chord'),
         ('src/save/save.c', 'save_load'),
+        ('engine/sa1/overlay.c', 'sa1_wide_on'),
+        ('engine/sa1/overlay.c', 'sa1_fast_on'),
+    },
+    'port_chosen': {
+        ('src/system/port.c', 'port_chord'),
         ('engine/sa1/overlay.c', 'sa1_wide_on'),
         ('engine/sa1/overlay.c', 'sa1_fast_on'),
     },

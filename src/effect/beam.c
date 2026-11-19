@@ -89,6 +89,13 @@ void beam_create(NJS_POINT3 *pos, struct beam_params *params)
     /* @bug memory: with no task, BT/S at 0x8c0477be goes on to these
      * stores, which write through task_create's 0 at 0x8c047876 and
      * 0x8c047878 */
+#ifdef NONMATCHING
+    /* repairs the stores the tag names: with no task, this side makes no
+     * beam, as the image makes none */
+    if (task == NULL) {
+        return;
+    }
+#endif
     task->step = beam_grow;
     task->draw = beam_draw;
 }

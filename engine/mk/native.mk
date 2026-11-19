@@ -475,10 +475,13 @@ $(NATIVE)/stubs.o: $(NATIVE)/stubs.c $(NATIVE_NEEDS)
 	$(Q)$(NATIVE_CC) $(NATIVE_ARCH) -std=gnu17 -O1 -w -c -o $@ $<
 # Past 0, the image lies in the domain too, and syCacheICI's P2 call with it.
 # An image above 2 GB starts from crt files that address it relatively, as a
-# PIE's do
+# PIE's do. Scrt1.o loads main's address from the GOT, and the linker would
+# relax that load to a 32-bit address, which binutils 2.42 fails at above
+# 4 GB where a later one leaves the load, so the link relaxes nothing
 native_at = $(shell printf '%#x' $$(($(NATIVE_DOMAIN) + $1)))
 native_crt = $(if $(filter-out 0,$(NATIVE_DOMAIN)),$(foreach f,$1,$(shell $(NATIVE_CC) -print-file-name=$f)))
-NATIVE_LINK := $(if $(filter-out 0,$(NATIVE_DOMAIN)),-nostartfiles -Wl$(comma)-Ttext-segment=$(call native_at,0x400000))
+NATIVE_LINK := $(if $(filter-out 0,$(NATIVE_DOMAIN)),-nostartfiles -Wl$(comma)-Ttext-segment=$(call native_at,0x400000) \
+	-Wl$(comma)--no-relax)
 NATIVE_LINK_FLAGS = $(NATIVE_LINK) -no-pie -Wl,--defsym,syCacheICI_P2_=$(call native_at,0xb0000000) \
 	$(call native_crt,Scrt1.o crti.o crtbeginS.o) $(NATIVE_WRAPS:%=-Wl$(comma)--wrap=%) \
 	$$(awk '{ printf " -Wl,--defsym,%s=%s", $$1, $$2 }' $(NATIVE)/aliases.txt)

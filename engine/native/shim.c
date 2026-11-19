@@ -239,6 +239,17 @@ int32_t syCfgGetSoundMode(int32_t *mode)
     return 0;
 }
 
+/* the boot ROM's record of the console, whose address kbCfgGetId returns:
+ * its id in bytes 0 to 7, its area at byte 10 and its settings in bytes 16
+ * to 23. the shim's record holds zeros. an area of 0 is none of '0', '1' and
+ * '2', so the download reader takes an event file of any area */
+static uint8_t console_record[24];
+
+void *kbCfgGetId(void)
+{
+    return console_record;
+}
+
 /* the pads: a controller in port A, whose record pads.c fills, and nothing
  * in the other ports. Shinobi numbers six sockets to a port, so PDD_PORT_A0
  * is 0 and PDD_PORT_B0 6. each socket answers its port's record, and a

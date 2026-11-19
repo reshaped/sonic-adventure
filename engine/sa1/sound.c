@@ -1,9 +1,12 @@
 /* the game's sound below its own queue. the adapter gives the calls the game
  * makes of Shinobi's sound library and of CRI's ADX streams. each goes to
  * native_sound_engine as the ABI's audio commands, banks and streams, or
- * nowhere while that is NULL. a stream's state and time, which the game
- * reads back, follow the vsyncs and not the device. so play takes the same
- * steps with sound or without */
+ * nowhere while that is NULL. what the engine refuses is lost. the PC's
+ * engine then silences what plays, as sa_audio_submit says, so nothing the
+ * game stopped plays on. the game never waits for the render to make room
+ * in a full queue. a stream's state and time, which the game reads back,
+ * follow the vsyncs and not the device. so play takes the same steps with
+ * sound or without */
 #include <shinobi.h>
 #include <sofdec.h>
 
@@ -421,7 +424,7 @@ struct talk {
     int used;
     int stream;
     Sint32 stat;
-    unsigned long started; /* the vsync it started at */
+    unsigned long started; /* the vsync its time counts from */
     uint32_t rate, samples; /* the file's, from its header */
     int loops;
 };
@@ -510,7 +513,10 @@ static void start(struct talk *talk, size_t size, int32_t wait_ms)
     talk->rate = big32(bytes + ADX_RATE);
     talk->samples = big32(bytes + ADX_SAMPLES);
     talk->loops = loops(size);
-    talk->started = native_vsyncs;
+    /* its time counts from when it is heard, rounded up to a vsync. the game
+     * thus reads it ended once its last sample is heard, as on the console */
+    talk->started =
+        native_vsyncs + (wait_ms * 1000000ULL + VSYNC_NS - 1) / VSYNC_NS;
     talk->stat = ADXT_STAT_PLAYING;
     if (native_sound_engine) {
         if (wait_ms) {
@@ -524,9 +530,13 @@ static void start(struct talk *talk, size_t size, int32_t wait_ms)
     }
 }
 
-/* the samples a stream has played by the vsyncs since it started */
+/* the samples a stream has played by the vsyncs since its time began. it has
+ * played none while it waits */
 static uint32_t played(const struct talk *talk)
 {
+    if (native_vsyncs < talk->started) {
+        return 0;
+    }
     return (uint32_t)((unsigned long long)(native_vsyncs - talk->started) *
                       talk->rate * VSYNC_NS / 1000000000ULL);
 }

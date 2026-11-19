@@ -403,6 +403,11 @@ void Client::triangles(const sa_triangles &t, const uint8_t *points)
     sa_triangles out = t;
     std::vector<sa_point> copy(sa_triangles_points(t.form, t.count));
 
+    /* a list of no points draws nothing, and the engine would refuse it.
+     * the readout writes one for each line it has nothing to print on */
+    if (copy.empty()) {
+        return;
+    }
     memcpy(copy.data(), points, copy.size() * sizeof(sa_point));
     out.head.kind = SA_REC_TRIANGLES;
     out.texture = t.flags & SA_TRIANGLES_TEXTURE ? texture(t.texture) : SA_NULL;
@@ -602,7 +607,8 @@ sa_result Client::record(const uint8_t *body, uint32_t size)
         break;
     }
     case SA_CAP_PALETTES: {
-        /* the version before ends here, and no later picture names it */
+        /* the version before ends here, and no later picture names it. one
+         * among a picture's draws shades the draws after it */
         Palettes &p = names.palettes;
         const size_t at = offsetof(sa_cap_palettes, words);
         memcpy(&p.id, body + offsetof(sa_cap_palettes, palettes), sizeof p.id);
@@ -610,6 +616,9 @@ sa_result Client::record(const uint8_t *body, uint32_t size)
         memcpy(p.record.words, body + at,
                std::min<size_t>(sizeof p.record.words, head.size - at));
         totals.palettes_given++;
+        if (in_picture && sa_present_palettes(engine, &p.record) != SA_OK) {
+            failures["palettes the runtime refused"]++;
+        }
         break;
     }
     case SA_CAP_LOAD: {
@@ -677,6 +686,10 @@ sa_result Client::record(const uint8_t *body, uint32_t size)
         shades_given.clear();
         sa_result begun = sa_present_begin(engine, &p);
         if (begun != SA_OK) {
+            /* the engine refuses a picture where its events fill their
+             * ring. only a poll empties it, and end polls only once a
+             * picture ends */
+            events();
             return begun;
         }
         sa_present_fog(engine, &fog);

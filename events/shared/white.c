@@ -64,8 +64,16 @@ void event_white_start(int in_steps, int out_steps)
     white = VARS(event_white->work)->white;
     /* 255.0F / 0 is infinite, which the SH-4's conversion to int turns into
      * 0x7fffffff. its low byte makes the change 255 */
+#ifdef NONMATCHING
+    /* x86-64's conversion turns infinity into 0x80000000, whose low byte is
+     * 0. the white would then never climb or fall. this side gives 0 steps
+     * the SH-4's change */
+    white->in_step = in_steps != 0 ? 255.0F / in_steps : 255;
+    white->out_step = out_steps != 0 ? 255.0F / out_steps : 255;
+#else
     white->in_step = 255.0F / in_steps;
     white->out_step = 255.0F / out_steps;
+#endif
     white->hold = 0;
     white->timer = 0;
     if (event_white != NULL) {
@@ -90,8 +98,14 @@ void event_white_start_hold(int in_steps, int hold, int out_steps)
     event_white = task_create(TASK_WORK, 5, event_white_init);
     event_wait(1);
     white = VARS(event_white->work)->white;
+#ifdef NONMATCHING
+    /* this side gives 0 steps the SH-4's change, as in event_white_start */
+    white->in_step = in_steps != 0 ? 255.0F / in_steps : 255;
+    white->out_step = out_steps != 0 ? 255.0F / out_steps : 255;
+#else
     white->in_step = 255.0F / in_steps;
     white->out_step = 255.0F / out_steps;
+#endif
     white->hold = hold;
     white->timer = 0;
     if (event_white != NULL) {
