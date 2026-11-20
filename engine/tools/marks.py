@@ -117,8 +117,10 @@ SITES = {
         ('void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n',
          'void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n'
          '    native_hook_task_destroy(task);\n    native_task_destroy(task);\n'),
-        # the adapter keys a draw to the task whose step runs
+        # the adapter keys a draw to the task whose step runs, a child's as a
+        # root's
         ('                present_run(task, step);\n#else', '                native_task_step(task, step);\n#else'),
+        ('        present_run(child, child->step);\n#else', '        native_task_step(child, child->step);\n#else'),
         ('void task_draw_level(int level)\n{\n    struct task *task;\n    struct task *next;\n'
          '    void (*draw)(struct task *task);\n\n',
          'void task_draw_level(int level)\n{\n    struct task *task;\n    struct task *next;\n'
@@ -140,6 +142,11 @@ SITES = {
         # the host's tasks and block headers take twice the SH-4's bytes, and the
         # heap twice its room, which stubs.py's heap_arena holds
         ('#define HEAP_SIZE 0x90000', '#define HEAP_SIZE 0x120000'),
+    ],
+    # the adapter keys a flake's first draw to the flake, though the player's
+    # step makes it
+    'modules/stg08/snow_trail.c': [
+        ('            present_run(task, flake_draw);\n#else', '            native_task_step(task, flake_draw);\n#else'),
     ],
     # the adapter hears of the land the land's task takes, as the task is
     # about to draw it, and of the land it lets go: the act's scene

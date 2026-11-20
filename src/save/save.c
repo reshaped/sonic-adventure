@@ -292,13 +292,15 @@ void save_load(void)
     load_story(&save);
     load_stage_clears(&save);
 #ifdef NONMATCHING
-    /* a save switches on the toggles that were on as it was stored. it
-     * switches none off, so a toggle set before the load stands */
-    if (save.flags & SAVE_WIDE) {
-        port_toggles[TOGGLE_WIDE] = TRUE;
+    /* a save gives each toggle the state it had as the save was stored, on
+     * or off, so that none carries from one save to the next. a toggle the
+     * player has set since boot keeps its state instead. store_switches
+     * puts that state in the next save stored */
+    if (!port_chosen[TOGGLE_WIDE]) {
+        port_toggles[TOGGLE_WIDE] = (save.flags & SAVE_WIDE) != 0;
     }
-    if (save.flags & SAVE_FAST) {
-        port_toggles[TOGGLE_FAST] = TRUE;
+    if (!port_chosen[TOGGLE_FAST]) {
+        port_toggles[TOGGLE_FAST] = (save.flags & SAVE_FAST) != 0;
     }
 #endif
 }

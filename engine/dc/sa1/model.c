@@ -510,9 +510,13 @@ OUT_OF_LINE Bool model_off_screen(const NJS_MODEL *model)
 
 /* PREF the line ZAM_PREFETCH_AHEAD bytes past p. the address is an integer,
  * since it may lie past p's array. SH4ZAM's SHZ_PREFETCH clobbers no memory,
- * where machine.h's prefetch clobbers it for the store queues. but it is an
- * asm volatile, which GCC's scheduler moves no instruction across. so each
- * loop PREFs at the top of a pass, before its loads */
+ * where machine.h's prefetch clobbers it for the store queues. it is still an
+ * asm volatile, which GCC's scheduler moves no instruction across. GCC's
+ * other passes may move a load across it. in the model.o make dc builds, each
+ * strip loop but strips_culled's PREFs at the top of a pass, before its loads.
+ * strips_culled's loops test for a reversed strip first, as the C orders it.
+ * where a polygon gives its own count, that test loads the count ahead of the
+ * PREF */
 static inline void prefetch_ahead(const void *p)
 {
     SHZ_PREFETCH((Uint32)p + ZAM_PREFETCH_AHEAD);

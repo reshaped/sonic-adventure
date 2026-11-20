@@ -12,7 +12,14 @@
  *
  * FPSCR must hold PR and SZ clear, as GCC leaves them. an asm that changes
  * SZ or FR sets it back before it ends. an interrupt taken in between must
- * save and restore FPSCR and both banks */
+ * save and restore FPSCR, FPUL and both banks.
+ *
+ * an operand an asm changes as it runs is an early clobber, &, where a
+ * register input could begin with its value. GCC gives two such operands one
+ * register, as it gives a count of 3 and a shift of 3, and the change would
+ * reach the input. a pointer the asm steps stays plain where a memory operand
+ * takes the same address. as an early clobber it could not share that
+ * operand's register, and no register input begins with its value */
 #ifndef BATCH_H
 #define BATCH_H
 
@@ -76,9 +83,11 @@ typedef struct zam_screen {
  * loads both from M's first six. no result keeps what it loads from M. for
  * an even count the asm subtracts the last pass's count of a. for an odd
  * count the tail writes only a. the last line's second half then keeps the
- * copy and what the cache held. NEGC of -1 gives 1 - T, a point's nearness.
- * a pass PREFs ZAM_PREFETCH_AHEAD bytes past its pair's start and reads 24
- * bytes of points, under a line. so its PREFs skip no line */
+ * copy and what the cache held. NEGC of -1 gives 1 - T, a point's nearness,
+ * which the even count's correction reads for a. SUBC of -1 adds b's to the
+ * count with no register between. a pass PREFs ZAM_PREFETCH_AHEAD bytes past
+ * its pair's start and reads 24 bytes of points, under a line. so its PREFs
+ * skip no line */
 ALWAYS_INLINE int zam_xmtrx_project_points(const float *points, uint32_t count,
                                            const zam_screen_t *screen,
                                            void *heads, uint32_t control)
@@ -93,7 +102,7 @@ ALWAYS_INLINE int zam_xmtrx_project_points(const float *points, uint32_t count,
     uint32_t passes = count >> 1;
     int near_points = 0;
     uint32_t ahead;
-    int a_near, b_near;
+    int a_near;
 
     /* P goes into the FR bank, and FRCHG trades it for M. FTRV then turns
      * each of M's columns by P. P's w row reaches only P * M's w row, which
@@ -105,150 +114,149 @@ ALWAYS_INLINE int zam_xmtrx_project_points(const float *points, uint32_t count,
      * tail test it. a count of 1 goes to label 5 first. the asm clobbers
      * memory. as a memory operand, the lines it writes would take a register
      * of their own */
-    __asm__ volatile(
-        "tst %[count],%[count]\n\t"
-        "bt 4f\n\t"
-        "fmov.s @%[by]+,fr11\n\t"
-        "fmov.s @%[by]+,fr15\n\t"
-        "fmov.s @%[by]+,fr0\n\t"
-        "fmov.s @%[by]+,fr5\n\t"
-        "fldi0 fr8\n\t"
-        "fldi0 fr9\n\t"
-        "fldi0 fr1\n\t"
-        "fldi0 fr2\n\t"
-        "fldi0 fr4\n\t"
-        "fldi0 fr6\n\t"
-        "fldi1 fr10\n\t"
-        "fldi0 fr12\n\t"
-        "fldi0 fr13\n\t"
-        "fldi0 fr14\n\t"
-        "movca.l %[control],@%[kept]\n\t"
-        "add #32,%[kept]\n\t"
-        "movca.l %[control],@%[kept]\n\t"
-        "add #32,%[kept]\n\t"
-        "frchg\n\t"
-        "fschg\n\t"
-        "fmov dr14,@-%[kept]\n\t"
-        "fmov dr12,@-%[kept]\n\t"
-        "fmov dr10,@-%[kept]\n\t"
-        "fmov dr8,@-%[kept]\n\t"
-        "fmov dr6,@-%[kept]\n\t"
-        "fmov dr4,@-%[kept]\n\t"
-        "fmov dr2,@-%[kept]\n\t"
-        "fmov dr0,@-%[kept]\n\t"
-        "fschg\n\t"
-        "ftrv xmtrx,fv0\n\t"
-        "ftrv xmtrx,fv4\n\t"
-        "ftrv xmtrx,fv8\n\t"
-        "ftrv xmtrx,fv12\n\t"
-        "fldi0 fr3\n\t"
-        "fldi0 fr7\n\t"
-        "fldi0 fr11\n\t"
-        "fmov.s @%[by],fr15\n\t"
-        "frchg\n\t"
-        "fldi1 fr6\n\t"
-        "tst %[passes],%[passes]\n\t"
-        "bf.s 1f\n\t"
-        "fldi0 fr7\n"
-        "5:\n\t"
-        "shlr %[count]\n\t"
-        "subc %[count],%[count]\n\t"
-        "mov %[from],%[by]\n\t"
-        "mov #1,%[passes]\n\t"
-        "bf.s 1f\n\t"
-        "mov %[kept],%[from]\n\t"
-        "fmov.s @%[by]+,fr0\n\t"
-        "fmov.s @%[by]+,fr1\n\t"
-        "fmov.s @%[by],fr2\n\t"
-        "fmov.s fr2,@-%[from]\n\t"
-        "fmov.s fr1,@-%[from]\n\t"
-        "fmov.s fr0,@-%[from]\n"
-        "1:\n\t"
-        "fmov.s @%[from]+,fr0\n\t"
-        "fdiv fr6,fr14\n\t"
-        "fmov.s @%[from]+,fr1\n\t"
-        "mov %[from],%[ahead]\n\t"
-        "fmov.s @%[from]+,fr2\n\t"
-        "add #12,%[to]\n\t"
-        "fldi1 fr3\n\t"
-        "fcmp/gt fr7,fr6\n\t"
-        "ftrv xmtrx,fv0\n\t"
-        "movca.l %[control],@%[to]\n\t"
-        "fmov.s @%[from]+,fr4\n\t"
-        "fmul fr10,fr8\n\t"
-        "fmov.s @%[from]+,fr5\n\t"
-        "fmul fr10,fr9\n\t"
-        "fmov.s @%[from]+,fr6\n\t"
-        "add #16,%[to]\n\t"
-        "fadd fr11,fr8\n\t"
-        "fldi1 fr7\n\t"
-        "fadd fr15,fr9\n\t"
-        "add %[past_z],%[ahead]\n\t"
-        "ftrv xmtrx,fv4\n\t"
-        "fmov.s fr10,@-%[to]\n\t"
-        "fldi1 fr10\n\t"
-        "negc %[minus_one],%[b_near]\n\t"
-        "mov.l %[control],@(4,%[to])\n\t"
-        "add %[b_near],%[near_points]\n\t"
-        "fdiv fr2,fr10\n\t"
-        "fmov.s fr9,@-%[to]\n\t"
-        "fcmp/gt fr3,fr2\n\t"
-        "fmov fr1,fr9\n\t"
-        "fmul fr14,fr12\n\t"
-        "fmov.s fr8,@-%[to]\n\t"
-        "fmul fr14,fr13\n\t"
-        "fmov fr0,fr8\n\t"
-        "add #28,%[to]\n\t"
-        "fadd fr11,fr12\n\t"
-        "pref @%[ahead]\n\t"
-        "fadd fr15,fr13\n\t"
-        "fmov.s fr14,@-%[to]\n\t"
-        "negc %[minus_one],%[a_near]\n\t"
-        "fldi1 fr14\n\t"
-        "add %[a_near],%[near_points]\n\t"
-        "fmov.s fr13,@-%[to]\n\t"
-        "dt %[passes]\n\t"
-        "fmov.s fr12,@-%[to]\n\t"
-        "fmov fr4,fr12\n\t"
-        "bf.s 1b\n\t"
-        "fmov fr5,fr13\n\t"
-        "cmp/pl %[count]\n\t"
-        "bt 5b\n\t"
-        "tst %[count],%[count]\n\t"
-        "bf 2f\n\t"
-        "bra 3f\n\t"
-        "sub %[a_near],%[near_points]\n"
-        "2:\n\t"
-        "add #12,%[to]\n\t"
-        "movca.l %[control],@%[to]\n\t"
-        "add #16,%[to]\n\t"
-        "fmul fr10,fr8\n\t"
-        "fmul fr10,fr9\n\t"
-        "fadd fr11,fr8\n\t"
-        "fadd fr15,fr9\n\t"
-        "fmov.s fr10,@-%[to]\n\t"
-        "fmov.s fr9,@-%[to]\n\t"
-        "fmov.s fr8,@-%[to]\n"
-        "3:\n\t"
-        "fschg\n\t"
-        "fmov @%[kept]+,xd0\n\t"
-        "fmov @%[kept]+,xd2\n\t"
-        "fmov @%[kept]+,xd4\n\t"
-        "fmov @%[kept]+,xd6\n\t"
-        "fmov @%[kept]+,xd8\n\t"
-        "fmov @%[kept]+,xd10\n\t"
-        "fmov @%[kept]+,xd12\n\t"
-        "fmov @%[kept]+,xd14\n\t"
-        "fschg\n"
-        "4:"
-        : [from] "+r"(from), [to] "+r"(to), [kept] "+r"(kept),
-          [passes] "+r"(passes), [count] "+r"(count),
-          [near_points] "+r"(near_points), [by] "+r"(by), [ahead] "=&r"(ahead),
-          [a_near] "=&r"(a_near), [b_near] "=&r"(b_near)
-        : [past_z] "I08"(ZAM_PREFETCH_AHEAD - 8), [minus_one] "r"(-1),
-          [control] "z"(control)
-        : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7", "fr8", "fr9",
-          "fr10", "fr11", "fr12", "fr13", "fr14", "fr15", "t", "memory");
+    __asm__ volatile("tst %[count],%[count]\n\t"
+                     "bt 4f\n\t"
+                     "fmov.s @%[by]+,fr11\n\t"
+                     "fmov.s @%[by]+,fr15\n\t"
+                     "fmov.s @%[by]+,fr0\n\t"
+                     "fmov.s @%[by]+,fr5\n\t"
+                     "fldi0 fr8\n\t"
+                     "fldi0 fr9\n\t"
+                     "fldi0 fr1\n\t"
+                     "fldi0 fr2\n\t"
+                     "fldi0 fr4\n\t"
+                     "fldi0 fr6\n\t"
+                     "fldi1 fr10\n\t"
+                     "fldi0 fr12\n\t"
+                     "fldi0 fr13\n\t"
+                     "fldi0 fr14\n\t"
+                     "movca.l %[control],@%[kept]\n\t"
+                     "add #32,%[kept]\n\t"
+                     "movca.l %[control],@%[kept]\n\t"
+                     "add #32,%[kept]\n\t"
+                     "frchg\n\t"
+                     "fschg\n\t"
+                     "fmov dr14,@-%[kept]\n\t"
+                     "fmov dr12,@-%[kept]\n\t"
+                     "fmov dr10,@-%[kept]\n\t"
+                     "fmov dr8,@-%[kept]\n\t"
+                     "fmov dr6,@-%[kept]\n\t"
+                     "fmov dr4,@-%[kept]\n\t"
+                     "fmov dr2,@-%[kept]\n\t"
+                     "fmov dr0,@-%[kept]\n\t"
+                     "fschg\n\t"
+                     "ftrv xmtrx,fv0\n\t"
+                     "ftrv xmtrx,fv4\n\t"
+                     "ftrv xmtrx,fv8\n\t"
+                     "ftrv xmtrx,fv12\n\t"
+                     "fldi0 fr3\n\t"
+                     "fldi0 fr7\n\t"
+                     "fldi0 fr11\n\t"
+                     "fmov.s @%[by],fr15\n\t"
+                     "frchg\n\t"
+                     "fldi1 fr6\n\t"
+                     "tst %[passes],%[passes]\n\t"
+                     "bf.s 1f\n\t"
+                     "fldi0 fr7\n"
+                     "5:\n\t"
+                     "shlr %[count]\n\t"
+                     "subc %[count],%[count]\n\t"
+                     "mov %[from],%[by]\n\t"
+                     "mov #1,%[passes]\n\t"
+                     "bf.s 1f\n\t"
+                     "mov %[kept],%[from]\n\t"
+                     "fmov.s @%[by]+,fr0\n\t"
+                     "fmov.s @%[by]+,fr1\n\t"
+                     "fmov.s @%[by],fr2\n\t"
+                     "fmov.s fr2,@-%[from]\n\t"
+                     "fmov.s fr1,@-%[from]\n\t"
+                     "fmov.s fr0,@-%[from]\n"
+                     "1:\n\t"
+                     "fmov.s @%[from]+,fr0\n\t"
+                     "fdiv fr6,fr14\n\t"
+                     "fmov.s @%[from]+,fr1\n\t"
+                     "mov %[from],%[ahead]\n\t"
+                     "fmov.s @%[from]+,fr2\n\t"
+                     "add #12,%[to]\n\t"
+                     "fldi1 fr3\n\t"
+                     "fcmp/gt fr7,fr6\n\t"
+                     "ftrv xmtrx,fv0\n\t"
+                     "movca.l %[control],@%[to]\n\t"
+                     "fmov.s @%[from]+,fr4\n\t"
+                     "fmul fr10,fr8\n\t"
+                     "fmov.s @%[from]+,fr5\n\t"
+                     "fmul fr10,fr9\n\t"
+                     "fmov.s @%[from]+,fr6\n\t"
+                     "add #16,%[to]\n\t"
+                     "fadd fr11,fr8\n\t"
+                     "fldi1 fr7\n\t"
+                     "fadd fr15,fr9\n\t"
+                     "add %[past_z],%[ahead]\n\t"
+                     "ftrv xmtrx,fv4\n\t"
+                     "fmov.s fr10,@-%[to]\n\t"
+                     "fldi1 fr10\n\t"
+                     "subc %[minus_one],%[near_points]\n\t"
+                     "mov.l %[control],@(4,%[to])\n\t"
+                     "fdiv fr2,fr10\n\t"
+                     "fmov.s fr9,@-%[to]\n\t"
+                     "fcmp/gt fr3,fr2\n\t"
+                     "fmov fr1,fr9\n\t"
+                     "fmul fr14,fr12\n\t"
+                     "fmov.s fr8,@-%[to]\n\t"
+                     "fmul fr14,fr13\n\t"
+                     "fmov fr0,fr8\n\t"
+                     "add #28,%[to]\n\t"
+                     "fadd fr11,fr12\n\t"
+                     "pref @%[ahead]\n\t"
+                     "fadd fr15,fr13\n\t"
+                     "fmov.s fr14,@-%[to]\n\t"
+                     "negc %[minus_one],%[a_near]\n\t"
+                     "fldi1 fr14\n\t"
+                     "add %[a_near],%[near_points]\n\t"
+                     "fmov.s fr13,@-%[to]\n\t"
+                     "dt %[passes]\n\t"
+                     "fmov.s fr12,@-%[to]\n\t"
+                     "fmov fr4,fr12\n\t"
+                     "bf.s 1b\n\t"
+                     "fmov fr5,fr13\n\t"
+                     "cmp/pl %[count]\n\t"
+                     "bt 5b\n\t"
+                     "tst %[count],%[count]\n\t"
+                     "bf 2f\n\t"
+                     "bra 3f\n\t"
+                     "sub %[a_near],%[near_points]\n"
+                     "2:\n\t"
+                     "add #12,%[to]\n\t"
+                     "movca.l %[control],@%[to]\n\t"
+                     "add #16,%[to]\n\t"
+                     "fmul fr10,fr8\n\t"
+                     "fmul fr10,fr9\n\t"
+                     "fadd fr11,fr8\n\t"
+                     "fadd fr15,fr9\n\t"
+                     "fmov.s fr10,@-%[to]\n\t"
+                     "fmov.s fr9,@-%[to]\n\t"
+                     "fmov.s fr8,@-%[to]\n"
+                     "3:\n\t"
+                     "fschg\n\t"
+                     "fmov @%[kept]+,xd0\n\t"
+                     "fmov @%[kept]+,xd2\n\t"
+                     "fmov @%[kept]+,xd4\n\t"
+                     "fmov @%[kept]+,xd6\n\t"
+                     "fmov @%[kept]+,xd8\n\t"
+                     "fmov @%[kept]+,xd10\n\t"
+                     "fmov @%[kept]+,xd12\n\t"
+                     "fmov @%[kept]+,xd14\n\t"
+                     "fschg\n"
+                     "4:"
+                     : [from] "+&r"(from), [to] "+&r"(to), [kept] "+&r"(kept),
+                       [passes] "+&r"(passes), [count] "+&r"(count),
+                       [near_points] "+&r"(near_points), [by] "+&r"(by),
+                       [ahead] "=&r"(ahead), [a_near] "=&r"(a_near)
+                     : [past_z] "I08"(ZAM_PREFETCH_AHEAD - 8),
+                       [minus_one] "r"(-1), [control] "z"(control)
+                     : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7",
+                       "fr8", "fr9", "fr10", "fr11", "fr12", "fr13", "fr14",
+                       "fr15", "t", "memory");
     return near_points;
 }
 
@@ -676,7 +684,7 @@ zam_vec4_dot_palette_pairs(shz_vec4_t light, const float **normals,
         ".Lhold_ended%=:\n\t" ZAM_HOLD_PAIR(".Lended%=")
         /* clang-format on */
         ".Ldone%=:"
-        : [normal] "+r"(*normals), [lit] "+r"(*colors), [passes] "+r"(passes),
+        : [normal] "+r"(*normals), [lit] "+r"(*colors), [passes] "+&r"(passes),
           [ahead] "=&r"(ahead), [a] "=&r"(a), [b] "=&r"(b),
           [color] "=&r"(color), [offset] "=&r"(offset), [k] "=&z"(k),
           "=m"(*(uint32_t (*)[])(*colors))
@@ -699,55 +707,54 @@ zam_vec4_dot_palette_pairs(shz_vec4_t light, const float **normals,
  *
  * a pass of the loop stores from DR0 and DR2 the pair the pass before
  * loaded. it loads its own pair's colors by the entries the pass before
- * read. it then reads the next pair's entries, a's by way of next. the code
- * before the loop begins the first pair, and the code after it stores the
- * last. the loop reads two entries past the last pair's. each pair's colors
- * go down from the end of its 16 bytes, by pre-decrement. the asm clobbers
- * memory. as a memory operand, the palette would take a register for its
- * address, 1024 bytes below middle */
+ * read. it then reads the next pair's entries, each into the register whose
+ * address the pass has just loaded by. the code before the loop begins the
+ * first pair, and the code after it stores the last. the loop reads two
+ * entries past the last pair's. each pair's colors go down from the end of
+ * its 16 bytes, by pre-decrement. the asm clobbers memory. as a memory
+ * operand, the palette would take a register for its address, 1024 bytes
+ * below middle */
 ALWAYS_INLINE void zam_palette_pairs(const int8_t *entries, uint32_t *colors,
                                      int pairs, const uint32_t *middle)
 {
-    int a, b, next;
+    int a, b;
 
-    __asm__ volatile(
-        "mov.b @%[entry]+,%[a]\n\t"
-        "mov.b @%[entry]+,%[b]\n\t"
-        "fschg\n\t"
-        "add #16,%[lit]\n\t"
-        "shad %[three],%[a]\n\t"
-        "shad %[three],%[b]\n\t"
-        "add %[middle],%[a]\n\t"
-        "add %[middle],%[b]\n\t"
-        "fmov @%[a],dr0\n\t"
-        "fmov @%[b],dr2\n\t"
-        "mov.b @%[entry]+,%[a]\n\t"
-        "dt %[pairs]\n\t"
-        "bt.s 2f\n\t"
-        "mov.b @%[entry]+,%[b]\n"
-        "1:\n\t"
-        "shad %[three],%[a]\n\t"
-        "fmov dr2,@-%[lit]\n\t"
-        "shad %[three],%[b]\n\t"
-        "fmov dr0,@-%[lit]\n\t"
-        "add %[middle],%[a]\n\t"
-        "mov.b @%[entry]+,%[next]\n\t"
-        "add %[middle],%[b]\n\t"
-        "fmov @%[a],dr0\n\t"
-        "dt %[pairs]\n\t"
-        "fmov @%[b],dr2\n\t"
-        "mov %[next],%[a]\n\t"
-        "mov.b @%[entry]+,%[b]\n\t"
-        "bf.s 1b\n\t"
-        "add #32,%[lit]\n"
-        "2:\n\t"
-        "fmov dr2,@-%[lit]\n\t"
-        "fmov dr0,@-%[lit]\n\t"
-        "fschg"
-        : [entry] "+r"(entries), [lit] "+r"(colors), [pairs] "+r"(pairs),
-          [a] "=&r"(a), [b] "=&r"(b), [next] "=&r"(next)
-        : [middle] "r"(middle), [three] "r"(3)
-        : "fr0", "fr1", "fr2", "fr3", "t", "memory");
+    __asm__ volatile("mov.b @%[entry]+,%[a]\n\t"
+                     "mov.b @%[entry]+,%[b]\n\t"
+                     "fschg\n\t"
+                     "add #16,%[lit]\n\t"
+                     "shad %[three],%[a]\n\t"
+                     "shad %[three],%[b]\n\t"
+                     "add %[middle],%[a]\n\t"
+                     "add %[middle],%[b]\n\t"
+                     "fmov @%[a],dr0\n\t"
+                     "fmov @%[b],dr2\n\t"
+                     "mov.b @%[entry]+,%[a]\n\t"
+                     "dt %[pairs]\n\t"
+                     "bt.s 2f\n\t"
+                     "mov.b @%[entry]+,%[b]\n"
+                     "1:\n\t"
+                     "shad %[three],%[a]\n\t"
+                     "fmov dr2,@-%[lit]\n\t"
+                     "shad %[three],%[b]\n\t"
+                     "fmov dr0,@-%[lit]\n\t"
+                     "add %[middle],%[a]\n\t"
+                     "dt %[pairs]\n\t"
+                     "add %[middle],%[b]\n\t"
+                     "fmov @%[a],dr0\n\t"
+                     "mov.b @%[entry]+,%[a]\n\t"
+                     "fmov @%[b],dr2\n\t"
+                     "mov.b @%[entry]+,%[b]\n\t"
+                     "bf.s 1b\n\t"
+                     "add #32,%[lit]\n"
+                     "2:\n\t"
+                     "fmov dr2,@-%[lit]\n\t"
+                     "fmov dr0,@-%[lit]\n\t"
+                     "fschg"
+                     : [entry] "+&r"(entries), [lit] "+&r"(colors),
+                       [pairs] "+&r"(pairs), [a] "=&r"(a), [b] "=&r"(b)
+                     : [middle] "r"(middle), [three] "r"(3)
+                     : "fr0", "fr1", "fr2", "fr3", "t", "memory");
 }
 
 #endif

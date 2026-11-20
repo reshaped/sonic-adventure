@@ -3,6 +3,7 @@
  * sdk/sofdec. load and stream copy their bytes at the call. the checks clear
  * the caller's bytes after each call to show this. main returns 0, 99 where
  * create fails, or the number of the first check that fails */
+#include <fenv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -189,6 +190,20 @@ std::vector<uint8_t> programs()
     return b;
 }
 
+/* programs() with program 0 looping over its first two samples, 0x4000 and
+ * 0, and program 1 over its first two ADPCM codes, which give 238 and 808 */
+std::vector<uint8_t> looping()
+{
+    std::vector<uint8_t> b = programs();
+
+    put16(b, 0x68 + 0, 1 << 9); /* loops, 16-bit */
+    put16(b, 0x68 + 6, 2); /* LEA */
+    put16(b, 0x100 + 2, 0);
+    put16(b, 0x530 + 0, 1 << 9 | 2 << 7); /* loops, ADPCM */
+    put16(b, 0x530 + 6, 2); /* LEA */
+    return b;
+}
+
 void step(std::vector<uint8_t> &b, uint32_t image, uint32_t i, uint32_t w0,
           uint32_t w1, uint32_t w2, uint32_t w3)
 {
@@ -204,8 +219,10 @@ void step(std::vector<uint8_t> &b, uint32_t image, uint32_t i, uint32_t w0,
  * input 0 at a coefficient of 4095. step 1 writes it to output 0 and to the
  * ring. step 3 reads the ring 100 words on, and step 5 takes the read. steps
  * 6 and 7 write it to output 1 at a coefficient of 4095. so output 1 is
- * output 0 100 samples late. steps 84 and 85 write input 1 to output 2 at
- * coefficient 84. it is 0 until qsound sets it */
+ * output 0 100 samples late. steps 8 to 11 each take input 2 at a coefficient
+ * of 3072, three quarters. steps 9 to 12 write what the step before took to
+ * outputs 3 to 6, under SHIFT 0 to 3. steps 84 and 85 write input 1 to output
+ * 2 at coefficient 84. it is 0 until qsound sets it */
 std::vector<uint8_t> fx_programs()
 {
     constexpr uint32_t IMAGE = 0x40;
@@ -219,6 +236,9 @@ std::vector<uint8_t> fx_programs()
     put32(b, 0x14 + 0x24, IMAGE); /* its registers' image */
     put32(b, IMAGE + 0, 0x7ff8);
     put32(b, IMAGE + 4 * 6, 0x7ff8);
+    for (uint32_t i = 8; i < 12; i++) {
+        put32(b, IMAGE + 4 * i, 0x6000);
+    }
     put32(b, IMAGE + 0x200 + 4, 100); /* MADRS 1 */
     step(b, IMAGE, 0, 0, 0xb000, 0x0002, 0); /* XSEL YSEL IRA 0x20, ZERO */
     step(b, IMAGE, 1, 0, 0, 0x5000, 0); /* MWT, EWT to 0 */
@@ -226,6 +246,11 @@ std::vector<uint8_t> fx_programs()
     step(b, IMAGE, 5, 0, 0x0040, 0, 0); /* IWT to 0 */
     step(b, IMAGE, 6, 0, 0xa000, 0x0002, 0); /* XSEL YSEL IRA 0, ZERO */
     step(b, IMAGE, 7, 0, 0, 0x1100, 0); /* EWT to 1 */
+    step(b, IMAGE, 8, 0, 0xb100, 0x0002, 0); /* XSEL YSEL IRA 0x22, ZERO */
+    step(b, IMAGE, 9, 0, 0xb100, 0x1302, 0); /* as 8, and EWT to 3, SHIFT 0 */
+    step(b, IMAGE, 10, 0, 0xb100, 0x1412, 0); /* as 8, and EWT to 4, SHIFT 1 */
+    step(b, IMAGE, 11, 0, 0xb100, 0x1522, 0); /* as 8, and EWT to 5, SHIFT 2 */
+    step(b, IMAGE, 12, 0, 0, 0x1630, 0); /* EWT to 6, SHIFT 3 */
     step(b, IMAGE, 84, 0, 0xb080, 0x0002, 0); /* XSEL YSEL IRA 0x21, ZERO */
     step(b, IMAGE, 85, 0, 0, 0x1200, 0); /* EWT to 2 */
     return b;
@@ -391,6 +416,29 @@ int loops(pc::Sound &sound)
     if (!plays(sound, back, false, left, right) ||
         !plays(sound, past, false, left, right)) {
         return 64;
+    }
+    /* a header whose rate is 0 starts nothing, and stops the stream that
+     * played. its start divides by no rate and takes no cosine, so it
+     * raises no floating-point exception */
+    std::vector<uint8_t> still = looped(1, 0x34);
+    std::vector<int16_t> out(2 * 32);
+    int loudest = 0;
+
+    big(still, 8, 0, 4);
+    sound.stream(0, file.data(), static_cast<uint32_t>(file.size()));
+    sound.render(out.data(), 32);
+    sound.stream(0, still.data(), static_cast<uint32_t>(still.size()));
+    feclearexcept(FE_ALL_EXCEPT);
+    sound.render(out.data(), 0);
+    if (fetestexcept(FE_DIVBYZERO | FE_INVALID) != 0) {
+        return 65;
+    }
+    sound.render(out.data(), 32);
+    for (int16_t sample : out) {
+        loudest = abs(sample) > loudest ? abs(sample) : loudest;
+    }
+    if (loudest != 0) {
+        return 66;
     }
     return 0;
 }
@@ -1084,6 +1132,120 @@ int quietest(pc::Sound &sound)
     return 0;
 }
 
+/* after quietest: past a loop's last sample comes its first. a voice
+ * interpolates toward it, as MAME's aica.cpp does in 16 bits. an octave
+ * down, each sample takes two frames. so the second frame of the loop's
+ * last sample stands halfway to its first, in 16 bits and in ADPCM */
+int wraps(pc::Sound &sound)
+{
+    sa_audio_command set[] = {midi(1, 0xb0, 32, 1), midi(1, 0xb0, 7, 127)};
+    sa_audio_command off = midi(1, 0x80, 48, 0);
+    const struct {
+        sa_audio_command program;
+        int16_t heard[5];
+    } voices[] = {{midi(1, 0xc0, 0, 0), {0x4000, 0x2000, 0, 0x2000, 0x4000}},
+                  {midi(1, 0xc0, 1, 0), {238, 523, 808, 523, 238}}};
+    std::vector<int16_t> rest(2 * 400);
+
+    if (place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000, looping()) != SA_OK ||
+        sound.submit(set, 2) != SA_OK) {
+        return 67;
+    }
+    for (const auto &v : voices) {
+        sa_audio_command note[] = {v.program, midi(1, 0x90, 48, 127)};
+        int16_t out[2 * 5];
+
+        sound.submit(note, 2);
+        sound.render(out, 5);
+        sound.submit(&off, 1);
+        sound.render(rest.data(), 400);
+        for (int i = 0; i < 5; i++) {
+            if (out[2 * i] != v.heard[i]) {
+                fprintf(stderr, "sound: a loop's frame %d is %d, not %d\n", i,
+                        out[2 * i], v.heard[i]);
+                return 68;
+            }
+        }
+    }
+    return 0;
+}
+
+/* after wraps: what a full queue refuses is lost, and the render then
+ * silences what plays. here two looping notes and a looping stream play.
+ * the second note's program has RR 0, so no release ends it. the queue fills
+ * while the render waits. it then refuses the first note's off, the stream's
+ * stop, and the notes' bank placed again. the render carries out what the
+ * queue held, then stops the notes and the stream at once and forgets the
+ * bank. so nothing plays from the render's first frame */
+int refusals(pc::Sound &sound)
+{
+    std::vector<uint8_t> bank = looping();
+    const std::vector<uint8_t> file = looped(1, 0x34);
+    std::vector<sa_audio_command> nothing(SA_PC_SOUND_QUEUE);
+    sa_audio_command note[] = {midi(1, 0xb0, 32, 1),  midi(1, 0xc0, 0, 0),
+                               midi(1, 0xb0, 7, 127), midi(1, 0x90, 60, 127),
+                               midi(1, 0xb1, 32, 1),  midi(1, 0xc1, 1, 0),
+                               midi(1, 0x91, 60, 127)};
+    sa_audio_command off = midi(1, 0x80, 60, 0), stop{};
+    std::vector<int16_t> out(2 * 400);
+    uint32_t refused = sound.stats().refused;
+    auto loudest = [&out]() {
+        int most = 0;
+
+        for (uint32_t i = 0; i < 400; i++) {
+            most = abs(out[2 * i]) > most ? abs(out[2 * i]) : most;
+            most = abs(out[2 * i + 1]) > most ? abs(out[2 * i + 1]) : most;
+        }
+        return most;
+    };
+
+    put16(bank, 0x530 + 10, 15 << 10); /* program 1's RR 0, no key scale */
+    stop.kind = SA_AUDIO_STREAM_STOP;
+    if (place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000, bank) != SA_OK ||
+        sound.submit(note, 7) != SA_OK ||
+        sound.stream(0, file.data(), static_cast<uint32_t>(file.size())) !=
+            SA_OK) {
+        return 80;
+    }
+    sound.render(out.data(), 400);
+    if (loudest() == 0) {
+        return 81;
+    }
+    if (sound.submit(nothing.data(), SA_PC_SOUND_QUEUE) != SA_OK ||
+        sound.submit(&off, 1) != SA_ERR_FULL ||
+        sound.submit(&stop, 1) != SA_ERR_FULL ||
+        place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000, bank) != SA_ERR_FULL ||
+        sound.stats().refused != refused + 3) {
+        return 82;
+    }
+    sound.render(out.data(), 400);
+    if (loudest() != 0) {
+        fprintf(stderr, "sound: what a refusal stopped plays on at %d\n",
+                loudest());
+        return 83;
+    }
+    /* a note of the bank refused goes unplayed. the queue then takes the
+     * bank again, and its note plays */
+    uint32_t unplayed = sound.stats().unplayed;
+
+    sound.submit(&note[3], 1);
+    sound.render(out.data(), 1);
+    if (out[0] != 0 || sound.stats().unplayed != unplayed + 1) {
+        return 84;
+    }
+    if (place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000, bank) != SA_OK ||
+        sound.submit(&note[3], 1) != SA_OK) {
+        return 85;
+    }
+    sound.render(out.data(), 1);
+    sound.submit(&off, 1);
+    if (out[0] != 0x4000) {
+        return 86;
+    }
+    sound.render(out.data(), 400);
+    return 0;
+}
+
 /* commands for port 0's channel 0, and the notes a sound that carries them
  * out in order leaves unplayed. a command takes program 0 or 7, or plays key
  * 60. programs()'s program 0 plays the key, and its bank holds no program 7.
@@ -1114,7 +1276,7 @@ struct Script {
 };
 
 /* a batch of commands is queued whole or not at all, on a sound of its own.
- * a batch the queue has no room for leaves the queue as it found it */
+ * a batch the queue has no room for leaves what the queue holds as it was */
 int batches()
 {
     static pc::Sound sound;
@@ -1140,26 +1302,35 @@ int batches()
         sound.stats().most_queued != SA_PC_SOUND_QUEUE - room) {
         return 71;
     }
-    /* one command more than the room is refused, and none of it is queued */
-    const Script before = script;
-
-    if (submit(room + 1) != SA_ERR_FULL ||
-        sound.stats().most_queued != SA_PC_SOUND_QUEUE - room ||
-        sound.stats().refused != room + 1) {
-        return 72;
-    }
-    script = before;
-    /* so the room takes a batch of its size. the full queue then takes a
-     * batch of none, and refuses one command */
+    /* the room takes a batch of its size. the full queue then takes a batch
+     * of none, and refuses one command */
     if (submit(room) != SA_OK || sound.submit(nullptr, 0) != SA_OK ||
-        sound.submit(batch.data(), 1) != SA_ERR_FULL) {
+        sound.submit(batch.data(), 1) != SA_ERR_FULL ||
+        sound.stats().refused != 1) {
         return 73;
     }
     /* the render carries out the batches taken, each command once and in
-     * its order, and none of the batch refused */
+     * its order, and not the command refused */
     sound.render(frame, 1);
     if (sound.stats().unplayed != script.unplayed) {
         return 74;
+    }
+    /* one command more than the room, here the whole queue, is refused, and
+     * none of it is queued. the queue then refuses a command it has room
+     * for, though it takes a batch of none, until a render */
+    const Script before = script;
+
+    if (submit(SA_PC_SOUND_QUEUE + 1) != SA_ERR_FULL ||
+        sound.stats().most_queued != SA_PC_SOUND_QUEUE ||
+        sound.submit(nullptr, 0) != SA_OK ||
+        sound.submit(batch.data(), 1) != SA_ERR_FULL ||
+        sound.stats().refused != SA_PC_SOUND_QUEUE + 3) {
+        return 72;
+    }
+    script = before;
+    sound.render(frame, 1);
+    if (sound.stats().unplayed != script.unplayed) {
+        return 78;
     }
     /* a batch leaves the queue's next place 100 before its end. so a batch
      * of 200 runs past the end and on from the start */
@@ -1178,6 +1349,38 @@ int batches()
     return 0;
 }
 
+/* the DSP's SHIFT, on fx_programs()'s steps 8 to 12, as MAME's aicadsp.cpp
+ * has it. steps 8 to 11 take three quarters of a sample sent to input 2.
+ * output 3 + n gives that through SHIFT n. SHIFT 1 and 2 double it, and 0
+ * and 3 don't. SHIFT 0 and 1 hold it to 16 bits, and 2 and 3 wrap it.
+ * doubled, a sample of 0x1000 stays within 16 bits, and one of 0x6000
+ * passes them */
+int shifts()
+{
+    static pc::Dsp dsp;
+    const std::vector<uint8_t> fpb = fx_programs();
+    const struct {
+        int32_t sample;
+        int32_t gives[4];
+    } runs[] = {{0x1000, {0xc00, 0x1800, 0x1800, 0xc00}},
+                {0x6000, {0x4800, 0x7fff, -0x7000, 0x4800}}};
+    int32_t outputs[16];
+
+    dsp.load(fpb.data() + 0x40, pc::Dsp::RING_LEAST); /* its image */
+    for (const auto &r : runs) {
+        dsp.send(2, r.sample);
+        dsp.run(outputs);
+        for (int n = 0; n < 4; n++) {
+            if (outputs[3 + n] != r.gives[n]) {
+                fprintf(stderr, "sound: SHIFT %d gives %d of %d, not %d\n", n,
+                        outputs[3 + n], r.sample, r.gives[n]);
+                return 90;
+            }
+        }
+    }
+    return 0;
+}
+
 } // namespace
 
 int main()
@@ -1192,7 +1395,10 @@ int main()
     failed = failed ? failed : loops(sound);
     failed = failed ? failed : faults(sound);
     failed = failed ? failed : quietest(sound);
+    failed = failed ? failed : wraps(sound);
+    failed = failed ? failed : refusals(sound);
     failed = failed ? failed : batches();
+    failed = failed ? failed : shifts();
 
     sound.destroy();
     if (failed) {

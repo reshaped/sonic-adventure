@@ -8,7 +8,8 @@
  *
  *   --window ROOT | --headless ROOT   the build's images, and where pictures
  *                    go. with neither, a window on the build's own images
- *   --pace 0         no wait for a vsync's time: as fast as the host runs
+ *   --pace 0         no wait for a vsync's time: as fast as the host runs.
+ *                    1, the default, waits it out
  *   --pictures DIR   each picture as DIR/pic-NNNN-tTICK.png, and under a
  *                    rate each between as -bN after it
  *   --video FILE     the picture each vsync shows, as 640 by 480 RGBA rows,
@@ -79,7 +80,8 @@ int pc_png_write(const char *path, uint32_t width, uint32_t height,
 #define PICTURE_BYTES (SA_PC_WIDTH * SA_PC_HEIGHT * 4U)
 /* the frames of sound one render takes, two samples each */
 #define RENDER_FRAMES 1024U
-/* the pictures a run's figures keep, an hour's at 30 a second */
+/* the pictures whose times the run's report keeps, an hour's at 30 a second.
+ * its other figures, the readout and --times take every picture */
 #define MOST_TIMED 108000U
 
 /* the head of Shinobi's PDS_PERIPHERAL, the game's pad record */
@@ -121,6 +123,10 @@ static uint64_t next_vsync;
 static int recorded_pads;
 static struct timed *timed;
 static uint32_t timed_count;
+/* the pictures the run ended. each after the first MOST_TIMED takes past, whose
+ * times the report leaves out */
+static uint32_t pictures;
+static struct timed past;
 static uint64_t vsyncs, late_vsyncs, lost_vsyncs;
 /* the most a picture took of the backend's bounds */
 static uint32_t most_arena, most_shades, most_triangles, most_lost, most_cut,
@@ -129,7 +135,8 @@ static uint32_t most_arena, most_shades, most_triangles, most_lost, most_cut,
  * in the scene. last_full is the SA_PC_FULL_* store that last had no room */
 static uint64_t repeated;
 static uint32_t last_full;
-static int pending_stats;
+/* the picture ended whose stats take_stats has yet to read, or null */
+static struct timed *pending;
 
 static uint64_t now_ns(void)
 {
@@ -145,8 +152,11 @@ static int whole(const char *value, uint32_t most, uint32_t *number)
     char *end;
     unsigned long n = strtoul(value, &end, 10);
 
+    if (value[0] < '0' || value[0] > '9' || *end || n > most) {
+        return 0;
+    }
     *number = (uint32_t)n;
-    return value[0] >= '0' && value[0] <= '9' && !*end && n <= most;
+    return 1;
 }
 
 /* take one of the settings. it returns 1 for its own name, -1 for a value it
@@ -163,8 +173,12 @@ static int setting(const char *name, const char *value)
         char *end;
         double hz = strtod(value, &end);
 
+        /* a NaN compares false, so the range refuses it */
+        if (!value[0] || *end || !(hz >= 0 && hz <= 1000)) {
+            return -1;
+        }
         options.rate = (uint32_t)(hz * 1000.0 + 0.5);
-        return value[0] && !*end && hz >= 0 && hz <= 1000 ? 1 : -1;
+        return 1;
     }
     if (!strcmp(name, "size")) {
         return whole(value, 8, &options.scale) ? 1 : -1;
@@ -224,6 +238,7 @@ void native_play_alert(const char *words)
 
 int native_play_option(const char *name, const char *value)
 {
+    uint32_t n;
     int took;
 
     if (!strcmp(name, "--window") || !strcmp(name, "--headless")) {
@@ -231,7 +246,11 @@ int native_play_option(const char *name, const char *value)
         options.flags = name[2] == 'w' ? options.flags | SA_PC_WINDOW
                                        : options.flags & ~SA_PC_WINDOW;
     } else if (!strcmp(name, "--pace")) {
-        paced = atoi(value) != 0;
+        if (!whole(value, 1, &n)) {
+            fprintf(stderr, "sa1: %s won't take \"%s\"\n", name, value);
+            exit(2);
+        }
+        paced = (int)n;
     } else if (!strcmp(name, "--pictures")) {
         pictures_dir = value;
         options.flags |= SA_PC_READBACK;
@@ -371,7 +390,7 @@ void native_play_close(void)
     fprintf(
         stderr,
         "sa1: %u pictures on %s, %llu vsyncs, %llu reached late, %llu lost\n",
-        timed_count, device, (unsigned long long)vsyncs,
+        pictures, device, (unsigned long long)vsyncs,
         (unsigned long long)late_vsyncs, (unsigned long long)lost_vsyncs);
     report("the game's thread gave", offsetof(struct timed, give_ns));
     report("sa_present_end took", offsetof(struct timed, end_ns));
@@ -414,11 +433,12 @@ void native_play_close(void)
 static void take_stats(void)
 {
     sa_pc_stats stats;
+    struct timed *t = pending;
 
-    if (!pending_stats || sa_pc_stats_read(engine, &stats) != SA_OK) {
+    if (!t || sa_pc_stats_read(engine, &stats) != SA_OK) {
         return;
     }
-    pending_stats = 0;
+    pending = NULL;
     most_arena = stats.arena > most_arena ? stats.arena : most_arena;
     most_shades = stats.shades > most_shades ? stats.shades : most_shades;
     most_triangles =
@@ -429,16 +449,14 @@ static void take_stats(void)
     most_events = stats.events;
     repeated += stats.repeated;
     last_full = stats.full != 0 ? stats.full : last_full;
-    timed[timed_count - 1].cpu_ns = stats.cpu_ns;
-    timed[timed_count - 1].gpu_ns = stats.gpu_ns;
+    t->cpu_ns = stats.cpu_ns;
+    t->gpu_ns = stats.gpu_ns;
     sa1_figures.device_ns = stats.gpu_ns;
     if (times) {
-        const struct timed *t = &timed[timed_count - 1];
-
         fprintf(times,
                 "%u\t%llu\t%llu\t%llu\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t"
                 "%llu\t%llu\n",
-                timed_count - 1, (unsigned long long)native_vsyncs,
+                pictures - 1, (unsigned long long)native_vsyncs,
                 (unsigned long long)t->give_ns, (unsigned long long)t->end_ns,
                 (unsigned long long)t->cpu_ns, (unsigned long long)t->gpu_ns,
                 stats.draws, stats.triangles, t->meshes, t->mesh_bytes,
@@ -542,14 +560,14 @@ static void give_picture(const uint8_t *records, size_t bytes)
         ended |= result == SA_PC_ENDED;
         at += head.size;
     }
-    if (ended && timed_count < MOST_TIMED) {
-        timed[timed_count].give_ns = now_ns() - began;
-        timed[timed_count].end_ns = end_ns;
-        timed[timed_count].meshes = meshes;
-        timed[timed_count].mesh_bytes = mesh_bytes;
-        timed[timed_count].textures = textures;
-        timed_count++;
-        pending_stats = 1;
+    if (ended) {
+        pending = timed_count < MOST_TIMED ? &timed[timed_count++] : &past;
+        pending->give_ns = now_ns() - began;
+        pending->end_ns = end_ns;
+        pending->meshes = meshes;
+        pending->mesh_bytes = mesh_bytes;
+        pending->textures = textures;
+        pictures++;
     }
     if (ended && shown) {
         keep_picture(picture, tick);
@@ -697,9 +715,10 @@ void native_play_open(const char *disc, int recorded)
     }
     native_engine = engine;
     native_card_engine = engine;
-    /* sound where something hears it: a window's device, or a WAV */
-    if (audio ||
-        ((options.flags & SA_PC_WINDOW) && (options.flags & SA_PC_SOUND))) {
+    /* sound where something hears it: a WAV, or a window's device. a render
+     * of no frames is refused where a device plays the sound, and succeeds
+     * where none does, as in a window whose device didn't open */
+    if (audio || sa_pc_audio_render(engine, NULL, 0) != SA_OK) {
         native_sound_engine = engine;
     }
     recorded_pads = recorded;

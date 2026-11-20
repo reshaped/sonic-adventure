@@ -34,6 +34,25 @@ struct TestDevice {
     float max_bias = 4.0F;
     uint32_t width = 0;
     uint32_t height = 0;
+    /* the timestamps' valid bits, and the two each picture's timer gives.
+     * the two lie within those bits */
+    uint32_t timestamp_bits = 64;
+    uint64_t timestamps[2] = {0, 1000};
+    /* where not 0, the bytes of a second heap. its memory is the device's
+     * own, of a third type, and buffers take that type or the host's. images
+     * still take the first type alone */
+    VkDeviceSize buffer_heap = 0;
+    /* what the surface offers: the usages its images take, its alpha modes
+     * and the bounds of a swapchain's extent. with follows, the surface has
+     * no size of its own, and a swapchain's extent decides it */
+    VkImageUsageFlags usage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    VkCompositeAlphaFlagsKHR alpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    VkExtent2D least = {1, 1};
+    VkExtent2D most = {16384, 16384};
+    bool follows = false;
+    /* what the last swapchain was asked to be */
+    VkSwapchainCreateInfoKHR swapchain{};
     /* the names of the devices the next open finds listed, in order. with
      * none, it finds the one device, under a name of the test's own */
     std::vector<const char *> names;

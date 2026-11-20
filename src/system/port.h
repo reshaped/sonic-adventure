@@ -35,6 +35,9 @@ enum port_toggle { TOGGLE_READOUT, TOGGLE_WIDE, TOGGLE_FAST, TOGGLES };
  * is asked for. frame_end asks 60 only where the game's frames may
  * split, each showing two pictures */
 extern int port_toggles[TOGGLES];
+/* TRUE once the player has set a toggle since boot, by the chord or one of
+ * the PC's settings. a save's load leaves such a toggle as it stands */
+extern int port_chosen[TOGGLES];
 /* fade a black curtain over the game in where on is TRUE, and out where it
  * is FALSE. while draw_off is TRUE it falls at once. the readout and the
  * note that names a toggle as it flips show over it */
@@ -171,8 +174,9 @@ struct present_figures {
     Uint32 pass; /* the second picture's pass's time, 0 where none ran */
     Uint32 ta; /* the last transfer's length, as step 0's end found it */
     /* the store that ran out as the split last ended, or STORES where none
-     * holds the split off. a full store holds it off until a frame that
-     * doesn't want it or runs no stage loop */
+     * holds the split off. a full store holds it off for 30 frames at first,
+     * and twice as many at each overflow after, up to 480. a frame that
+     * doesn't want the split or runs no stage loop ends the hold sooner */
     int out;
     /* the percent of each store's room this frame took, 100 where it ran
      * out */

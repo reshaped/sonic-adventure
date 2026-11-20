@@ -596,7 +596,10 @@ void World::draw(const sa_draw &d, const MeshView &mesh,
 
     m.mesh = mesh;
     m.materials = materials;
-    m.name = written(d.mesh, d.flags) ? shape_of(mesh) : d.mesh;
+    /* a writer's shape is hashed only where the key below takes the name */
+    m.name = written(d.mesh, d.flags) && d.thing == 0 && !of_scene(d.instance)
+                 ? shape_of(mesh)
+                 : d.mesh;
     bool again = last_mesh(s, m, textures);
 
     if (!room(again ? 0 : mesh.materials, 0)) {
@@ -1267,11 +1270,14 @@ void World::put(const Snapshot &s, uint32_t i, uint32_t from, float alpha,
             const MeshView &b = s.store.meshes[s.kept[i].geometry].mesh;
 
             /* a writer's mesh drawn again with the same shape moves its
-             * points between the two. its normals keep the newer length */
+             * points between the two. its normals keep the newer length. a
+             * resource's bytes don't change while lent, so one drawn in both
+             * pictures stays as it is */
             if (written(s.store.draws[s.kept[i].state].mesh, s.kept[i].attr) &&
                 a.count == b.count && a.count <= MESH_POINTS &&
                 a.meshsets == b.meshsets && a.triangles == b.triangles &&
-                (a.normals == nullptr) == (b.normals == nullptr)) {
+                (a.normals == nullptr) == (b.normals == nullptr) &&
+                a.points != b.points) {
                 float *points = scratch_.data();
                 float *normals = points + (MESH_POINTS * 3);
 

@@ -76,8 +76,12 @@
 /* the most bytes a pixel takes */
 #define PIXEL_BYTES 4
 
-/* the vblanks with no frame that make a hang, half a minute at 60 Hz, which
- * no load takes, and the vblanks between its writes after that */
+/* the vblanks with no frame and no picture that make a hang, half a minute
+ * at 60 Hz, and the vblanks between its writes after that. a load takes
+ * less than half a minute unless a read stalls or slows to a crawl. GDFS
+ * times a read out after 20 seconds without a sector. stopping the read can
+ * take 40 seconds more. the screen can then show over a load that recovers,
+ * until the game's next picture */
 #define CRASH_HANG 1800
 #define HANG_AGAIN 30
 
@@ -160,12 +164,16 @@ static struct {
     Uint32 pr;
     Uint32 r[15];
 } stopped;
+/* the lines from the top down to the lowest any screen has drawn */
+static int lines_drawn;
 
 /* TRUE once crash_frame has joined the vblank's chain. the vblanks since a
- * frame last ended, and those until a hang next writes */
+ * frame last ended or a picture was last sent to be shown, those until a
+ * hang next writes, and _nj_vsync_count_ as the last vblank found it */
 static int started;
 static volatile Uint32 idle;
 static Uint32 again;
+static Uint32 sent;
 
 static void report(void) __attribute__((noreturn, used));
 static void report_again(void) __attribute__((noreturn, used));
@@ -347,6 +355,18 @@ static void draw(int line, const char *text)
     for (column = 0; column < COLUMNS; column++) {
         put(column, line, *text ? *text++ : ' ');
     }
+    if (line >= lines_drawn) {
+        lines_drawn = line + 1;
+    }
+}
+
+/* blank the lines below line that an earlier screen drew. callers left there
+ * would read as this screen's */
+static void blank_below(int line)
+{
+    while (++line < lines_drawn) {
+        draw(line, "");
+    }
 }
 
 /* copy from to to in capitals, up to end, and return where it stopped */
@@ -495,9 +515,9 @@ static int show_registers(int line)
     return line;
 }
 
-/* write the callers the stack at sp holds, as the header says. it reads the
- * stack only where sp is a word's address in main memory, and no further
- * than memory's end in sp's view */
+/* write the callers the stack at sp holds, as the header says, and blank the
+ * lines below them. it reads the stack only where sp is a word's address in
+ * main memory, and no further than memory's end in sp's view */
 static void show_callers(int line, Uint32 sp)
 {
     char text[COLUMNS + 1];
@@ -510,6 +530,7 @@ static void show_callers(int line, Uint32 sp)
 
     if (!in_memory(sp, sizeof(Uint32))) {
         draw(line, "NO STACK AT SP");
+        blank_below(line);
         return;
     }
     words = (MEMORY_SIZE - ((sp & ((1U << VIEW_SHIFT) - 1)) - MEMORY)) >> 2;
@@ -534,6 +555,7 @@ static void show_callers(int line, Uint32 sp)
     }
     *to = 0;
     draw(line, text);
+    blank_below(line);
 }
 
 /* clear SR.BL and mask every interrupt. an exception then enters
@@ -612,6 +634,7 @@ static void report_again(void)
     to = field(to, text, "PC", pc, end);
     *to = 0;
     draw(line, text);
+    blank_below(line);
     for (;;) {
     }
 }
@@ -639,6 +662,16 @@ static void hang_vblank(void *arg)
     int line;
 
     (void)arg;
+    /* a picture sent to be shown is the game running too. the count moves
+     * as the game asks a flip, ahead of the flip itself. the movie player,
+     * and each other loop on njWaitVSync, ends no frame, and the opening's
+     * movies play for longer than CRASH_HANG */
+    if (sent != _nj_vsync_count_) {
+        sent = _nj_vsync_count_;
+        idle = 0;
+        again = 0;
+        return;
+    }
     if (++idle < CRASH_HANG) {
         return;
     }

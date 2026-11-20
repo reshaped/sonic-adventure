@@ -3,7 +3,9 @@
  * the host. the game's thread queues what it asks for. one other thread
  * carries out the queue, then renders. it is the audio device's thread or
  * the caller of sa_pc_audio_render. the game's thread never waits for the
- * render: a full queue refuses */
+ * render: a full queue refuses. what it refuses is lost, and the queue then
+ * refuses all until the render has carried out what it holds and silenced
+ * what plays */
 #ifndef PC_SOUND_H
 #define PC_SOUND_H
 #include <stdint.h>
@@ -24,8 +26,15 @@ constexpr uint32_t BANKS = 128;
 constexpr uint32_t STREAMS = 2;
 /* the DSP's outputs */
 constexpr uint32_t FX_OUTPUTS = 16;
-/* the byte ring's size. the ring carries banks and streams to the render */
-constexpr uint32_t SOUND_BYTES = 32U << 20;
+/* the byte ring's size. the ring carries banks and streams to the render.
+ * in any two vsyncs, the game gives at most a stage's banks, two music
+ * files and two voices. the banks fit sound memory. the disc's longest
+ * music file is 16.7 MB, and its longest voice 0.5 MB. a bank or stream
+ * that would pass the ring's end starts at its start, which can leave as
+ * many bytes unused. so the ring holds all the game gives between renders
+ * no more than two vsyncs apart. it holds a lone stream of STREAM_BYTES
+ * wherever the last one ended */
+constexpr uint32_t SOUND_BYTES = 64U << 20;
 /* the most a stream's file holds: over eight minutes of stereo ADX at
  * 44.1 kHz */
 constexpr uint32_t STREAM_BYTES = 24U << 20;
@@ -169,7 +178,9 @@ public:
 
 private:
     bool push(const Entry &entry, const void *data, uint32_t bytes);
+    void lose(const sa_audio_bank *bank, uint32_t count);
     void drain();
+    void silence();
     void midi(uint32_t port, uint32_t message);
     void sequence_start(uint32_t port, uint32_t bank, uint32_t number);
     void sequence_stop(uint32_t port);
@@ -184,6 +195,7 @@ private:
     int added_level(const Voice &voice, int x) const;
     void start_stream(uint32_t index, const uint8_t *data, uint32_t bytes);
     int32_t sample(Voice &voice, uint32_t at);
+    int32_t loop_first(Voice &voice);
     void voice_frame(Voice &voice, float &left, float &right);
     void stream_frame(Stream &stream, float &left, float &right);
     bool stream_take(Stream &stream, int16_t *out);
@@ -221,6 +233,10 @@ private:
     uint64_t age_ = 0;
     bool mono_ = false; /* from SA_AUDIO_SPACE: each pan plays centred */
     int32_t wait_[STREAMS] = {}; /* each stream's next lead, in ms */
+    /* the refusals the render has yet to silence, and the program and
+     * sequence banks whose loads they refused, a bit each */
+    std::atomic<uint32_t> lost_{0};
+    std::atomic<uint64_t> lost_banks_[2][BANKS / 64] = {};
     std::atomic<uint32_t> refused_{0}, most_queued_{0};
     std::atomic<uint32_t> most_voices_{0}, unplayed_{0};
 };

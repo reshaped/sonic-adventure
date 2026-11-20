@@ -62,6 +62,14 @@ Bool texture_has_primary_stage_texlist(void);
  * the rest stay loaded: texture_release_stage never steps past the first.
  * under NONMATCHING it releases each */
 void texture_release_stage(void);
+#ifdef NONMATCHING
+/* release each of the stage's lists after its slots whose record or names
+ * reach into start up to end. the release takes each such list out of the
+ * stage's lists. a caller releases them ahead of a load that writes those
+ * bytes: this side's texture_release_stage would release such a list as the
+ * stage ends, from whatever the load left there */
+void texture_release_stage_within(const Uint8 *start, const Uint8 *end);
+#endif
 /* load the act's texture lists for its first user, and count the user.
  * FALSE for an act without lists here, highway's among them, and TRUE
  * otherwise */

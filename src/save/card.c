@@ -53,7 +53,8 @@
 #define FILE_HEADER(icons) (128 + ((icons) * 512))
 
 /* the saves' file is ten blocks: a header with a two-frame icon, then the
- * saves */
+ * saves. SAVES_DATA is the room after the header, which is more than saves
+ * holds */
 #define SAVES_BLOCKS 10
 #define SAVES_DATA ((SAVES_BLOCKS * BLOCK_SIZE) - FILE_HEADER(2))
 
@@ -699,7 +700,17 @@ static int save_commit(void)
     header.visual_data = NULL;
     header.visual_type = BUD_VISUALTYPE_NONE;
     header.save_data = data;
+#ifdef NONMATCHING
+    /* repairs the read the tag names: this side copies the saves alone. the
+     * file still takes ten blocks, with zeros after the saves. save_read
+     * reads back only the saves, so either side reads the other's file */
+    header.save_size = sizeof(saves);
+#else
+    /* @bug memory: SAVES_DATA is the room the ten blocks leave after the
+     * header, more than saves holds, so buMakeBackupFileImage copies the
+     * bytes after saves into the file too (MOV.W at 0x8c011422) */
     header.save_size = SAVES_DATA;
+#endif
     size =
         buCalcBackupFileSize(header.icon_num, header.visual_type, SAVES_DATA);
     if (size == BAD_HEADER) {

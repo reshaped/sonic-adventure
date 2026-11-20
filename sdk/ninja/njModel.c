@@ -214,9 +214,9 @@ void CalcModelMatrix(NJS_POINT3 *dst, const NJS_POINT3 *src);
  * queue writes need. the m inputs keep GCC's stores to the vertex ahead of
  * the asm. the asm writes only the store queue area, which no C reads, so it
  * declares no memory output. SH4ZAM's spelling is two shz_memcpy8 calls and
- * a PREF behind a memory clobber. in a function of its own, that spelling
- * runs 38 instructions where the asm runs 17. it also makes njModel.o's text
- * about 8 KB larger */
+ * a PREF behind a memory clobber. at njModel.o's -Os, GCC leaves
+ * shz_memcpy8's SH-4 body, shz_memcpy8_sh4, out of line, so that spelling
+ * makes two calls for each vertex */
 ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
 {
     const struct model_vertex *head = vertex;
@@ -274,12 +274,13 @@ static void submit_work_vertex(const struct model_vertex *vertex)
  * queue_cursor 32 bytes. FPSCR.SZ must be 0, as for submit_work_vertex */
 #ifdef DREAMCAST
 #ifdef NONMATCHING
-/* the asm is shz_sq_memcpy32_1's, with its two FSCHGs moved inside, as in
- * submit_work_vertex. SH4ZAM runs each FSCHG in an asm of its own, and a move
- * GCC puts between them would move a pair. the pair moves need block on an
- * 8-byte boundary. each block is an element of vtx2 or vtx4, on a 32-byte one
- * in njModelGlobal.src's BSG32. as in submit_work_vertex, the m input keeps
- * GCC's stores to block ahead of the asm, which declares no memory output */
+/* the asm is the pinned SH4ZAM's shz_sq_memcpy32_1's, whose two FSCHGs lie
+ * inside it. at njModel.o's -Os, GCC leaves that routine's SH-4 body,
+ * shz_sq_memcpy32_1_sh4, out of line. through SH4ZAM, each clipper would call
+ * it for each packet. the pair moves need block on an 8-byte boundary. each
+ * block is an element of vtx2 or vtx4, on a 32-byte one in njModelGlobal.src's
+ * BSG32. as in submit_work_vertex, the m input keeps GCC's stores to block
+ * ahead of the asm, which declares no memory output */
 ALWAYS_INLINE void submit_packet(void *block)
 {
     const void *source = block;

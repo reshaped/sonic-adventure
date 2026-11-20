@@ -41,10 +41,11 @@ public:
     /* a new handle of kind, from 1 to SA_HANDLE_KINDS, or SA_NULL where every
      * slot is taken */
     sa_handle take(uint32_t kind);
-    /* handle's slot, or -1 where it is null or gone. a caller that accepts
-     * only one kind tests SA_HANDLE_KIND itself */
+    /* handle's slot, or -1 where it is null, gone or never taken. a caller
+     * that accepts only one kind tests SA_HANDLE_KIND itself */
     int32_t find(sa_handle handle) const;
-    /* end handle: SA_OK, or SA_ERR_HANDLE where it is null or gone */
+    /* end handle: SA_OK, or SA_ERR_HANDLE where it is null, gone or never
+     * taken */
     sa_result give(sa_handle handle);
 
 private:

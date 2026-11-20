@@ -80,6 +80,53 @@ engine-pace: build/engine/tests/pace
 	@$(call status,pace,the frame's end under an engine that applies$(comma) holds or refuses the mode)
 .PHONY: engine-pace
 
+# What a save keeps of 16:9 and 60 fps. engine-test builds the game's saves,
+# src/save/save.c, and the toggles' chord, src/system/port.c, for the host
+# as it builds pace.c, and links them with engine/tests/save.c, a game and
+# an overlay of the test's own. save.c keeps a table nothing reads, as the
+# image does, so the compile takes no warning of an unused variable
+SAVE_TESTED := engine/tests/save.c src/save/save.c src/system/port.c
+build/engine/tests/save: $(SAVE_TESTED) src/save/save.h src/save/card.h src/save/minigame.h src/system/port.h \
+		src/system/chord.h src/system/pad.h src/system/timer.h src/progress/progress.h src/stage/stage.h \
+		src/player/player.h src/collision/ground.h src/hud/hud.h sdk/include/ninja.h sdk/include/njtypes.h \
+		sdk/include/sg_xpt.h sdk/include/shinobi.h sdk/include/machine.h engine/dc/dreamcast.h engine/engine.mk \
+		$(ENGINE_CC)
+	$(Q)mkdir -p $(@D)
+	$(Q)$(CC) -std=gnu17 -Wall -Wextra -Werror -Wno-unused-variable -DNONMATCHING -Isrc -idirafter sdk/include \
+		-o $@ $(SAVE_TESTED)
+engine-test: engine-save
+engine-save: build/engine/tests/save
+	$(Q)build/engine/tests/save
+	@$(call status,save,a save's load and store of the toggles the player has and hasn't set)
+.PHONY: engine-save
+
+# Ice Cap's release of the texture lists a load writes over. engine-test
+# builds the game's texture lists, src/system/texture.c, for the host as it
+# builds save.c, and links them with engine/tests/texture.c, which gives the
+# stage a table of its own and keeps each release. texture.c too keeps a
+# table nothing reads. Its other tables name the lists, pvms and calls of
+# every stage, act and character, which the test never reaches. The link
+# takes each name it lacks at 0, as owner.mk's link of Kamui's frame does,
+# so the test runs where that one does, on x86-64 Linux. texture.c includes
+# a header for each of those tables, so each object's .d file keeps its
+# headers
+ifeq ($(HOST),Linux x86_64)
+TEXTURE_TESTED := engine/tests/texture.c src/system/texture.c
+TEXTURE_OBJ := $(TEXTURE_TESTED:%.c=build/engine/tests/texture-obj/%.o)
+$(TEXTURE_OBJ): build/engine/tests/texture-obj/%.o: %.c engine/engine.mk $(ENGINE_CC)
+	$(Q)mkdir -p $(@D)
+	$(Q)$(CC) -std=gnu17 -Wall -Wextra -Werror -Wno-unused-variable -fno-pie -DNONMATCHING -Isrc -Imodules \
+		-idirafter sdk/include -MD -MP -MF $(@:.o=.d) -c -o $@ $<
+-include $(TEXTURE_OBJ:.o=.d)
+build/engine/tests/texture: $(TEXTURE_OBJ)
+	$(Q)$(CC) -no-pie -Wl,--unresolved-symbols=ignore-all -o $@ $^
+engine-test: engine-texture
+engine-texture: build/engine/tests/texture
+	$(Q)build/engine/tests/texture
+	@$(call status,texture,Ice Cap's release of the lists a load writes over$(comma) and the stage's after it)
+.PHONY: engine-texture
+endif
+
 # The runtime's core, engine/runtime/, which every program of the engine's
 # links beside one backend. Its test links it beside a backend of its own
 ENGINE_RUNTIME_OBJ := build/engine/runtime/engine.o

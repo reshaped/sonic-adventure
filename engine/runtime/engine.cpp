@@ -109,7 +109,11 @@ int32_t Handles::find(sa_handle handle) const
     uint32_t slot = handle & (SA_HANDLE_SLOTS - 1);
     uint32_t entry = (SA_HANDLE_KIND(handle) << 8) | handle_generation(handle);
 
-    if (handle == SA_NULL || slot >= count_ || slots_[slot] != entry) {
+    /* take never gives generation 0, so a handle of generation 0 is never
+     * live. a free slot holds 0, which a handle of kind 0 and generation 0
+     * would otherwise match */
+    if (handle_generation(handle) == 0 || slot >= count_ ||
+        slots_[slot] != entry) {
         return -1;
     }
     return static_cast<int32_t>(slot);

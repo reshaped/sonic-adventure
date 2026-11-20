@@ -372,9 +372,12 @@ static KMSTATUS flip(int go_on)
     DEVICE.ta_busy = 1;
     DEVICE.lists_done = 0;
     DEVICE.lists_sent = DEVICE.lists_used;
-    DEVICE.flip_pending = 1;
     STATS.ta_wait = 0;
+    /* the slot's state ahead of the flip: at 60 fps an interrupt between
+     * the two would find a flip pending whose slot still fills, and
+     * release_flip would let it go on before its lists are sent */
     DEVICE.slot_state[slot] = SLOT_IN_TA;
+    DEVICE.flip_pending = 1;
     QACR0 = QACR_AREA(TA_INPUT);
     QACR1 = QACR_AREA(TA_INPUT);
     kmiMemCopy4((void *)SQ_BASE, (void *)&list_end, 4);
@@ -649,14 +652,25 @@ static int slot_waits(void)
 /* at 60 fps, let a pending flip go on once three things hold. its slot is
  * past the tile accelerator. the slot before it is past its render, since
  * the next slot takes that slot's bank. the vblank the flip waits for, if
- * any, has come. an overflowed slot counts as past both, as Kamui's handler
- * shows it as rendered */
-static void release_flip(void)
+ * any, has come. an overflowed slot counts as past its render, as Kamui's
+ * handler shows it as rendered. it is past the tile accelerator once its
+ * lists have ended there, or at a vblank after the overflow, where Kamui's
+ * frame lets such a flip go on. neither frame tests nor stops the slot's
+ * transfer at that vblank, so nothing there shows that the slot's buffered
+ * lists have all arrived before the flip opens the next bank. a vblank in
+ * the overflow's own interrupt doesn't let the flip go on. Kamui's handler
+ * takes that vblank while the slot is still in the tile accelerator. vblank
+ * is TRUE in an interrupt that brought a vblank after the slot overflowed in
+ * an earlier one */
+static void release_flip(int vblank)
 {
     KMINT32 own = DEVICE.slot_state[DEVICE.write_slot];
     KMINT32 before =
         DEVICE.slot_state[(DEVICE.write_slot + SLOTS - 1) & (SLOTS - 1)];
 
+    if (own == SLOT_OVERFLOW && DEVICE.ta_busy != 0 && !vblank) {
+        return;
+    }
     if (DEVICE.flip_pending != 0 && !vblank_awaited && own != SLOT_IN_TA &&
         before != SLOT_IN_TA && before != SLOT_TA_DONE &&
         before != SLOT_RENDERING) {
@@ -691,7 +705,7 @@ static void vblank_in(void)
             start_oldest();
             vblank_awaited = 0;
             if (!sixty_asked && !slot_waits()) {
-                release_flip();
+                release_flip(1);
                 sixty = 0;
             }
         }
@@ -775,10 +789,16 @@ static void grow(int lists)
 static KMINT32 handle_interrupt(void)
 {
     KMDWORD status = INT_STATUS;
+    /* whether the interrupt brought a vblank, which release_flip asks once
+     * status holds the error status below */
+    int vblank = (status & INT_VBLANK_IN) != 0;
+    /* whether the write slot overflowed in an earlier interrupt, read ahead
+     * of the overflow test below, which can mark it in this one */
+    int overflowed = DEVICE.slot_state[DEVICE.write_slot] == SLOT_OVERFLOW;
     KMDWORD list;
     int i;
 
-    if (status & INT_VBLANK_IN) {
+    if (vblank) {
         vblank_in();
     }
     if (status & INT_HBLANK_IN) {
@@ -845,7 +865,7 @@ static KMINT32 handle_interrupt(void)
      * frame. no flip then leaves its slot finished and waiting, so that
      * vblank comes within one flip */
     if (sixty && sixty_asked) {
-        release_flip();
+        release_flip(vblank && overflowed);
     }
     for (i = 0; i < CALLBACKS; i++) {
         if (DEVICE.callback_pending & RUN(i)) {

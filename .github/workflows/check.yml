@@ -22,9 +22,9 @@ jobs:
       # check and lint build shckit; without the disc, nothing builds these
       - run: make build/gdi build/prskit
 
-  # make test with make dc's toolchain and SH4ZAM, which the check job
-  # lacks, so the tests that need them run here. Without the disc, it builds
-  # no image
+  # make test and make engine-test with make dc's toolchain and SH4ZAM, which
+  # the check job lacks, so the tests that need them run here. Without the
+  # disc, it builds no image
   gcc:
     runs-on: ubuntu-24.04
     steps:
@@ -73,3 +73,7 @@ jobs:
       # The tests take tools/sh-elf by default, and skip a test that needs a
       # tool it lacks. With SH_ELF set, that test fails instead
       - run: make test SH_ELF=tools/sh-elf
+      # The engine's tests need Clang and a C++17 compiler, and no disc. They
+      # run in this job for SH4ZAM and the SH-4 GCC, which the easy walk's
+      # sends and the capture's SH-4 layout take
+      - run: make -j"$(nproc)" engine-test SH_ELF=tools/sh-elf

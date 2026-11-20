@@ -46,6 +46,8 @@
 
 /* Ninja's built-in font, which the slice links from the disc's data */
 extern Uint8 _nj_debug_char_[];
+/* Ninja's own njDrawPolygon2D, which the slice's link wraps */
+void __real_njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr);
 
 struct sa1_figures sa1_figures;
 
@@ -96,13 +98,24 @@ static uint64_t at_most(uint64_t value, uint64_t most)
 }
 
 /* draw a see-through band from (x0, y0) to (x1, y1) in color, as the
- * Dreamcast's overlay does. 16:9 doesn't squeeze it */
+ * Dreamcast's overlay does. 16:9 doesn't squeeze it. the band skips ninja.c's
+ * wrap of njDrawPolygon2D and its present_record. the overlay draws as
+ * frame_wait begins, where present_record may keep a 2D draw for the next
+ * frame's first picture. that picture draws the overlay anew, so a kept band
+ * would show in it twice */
 static void overlay_band(Float x0, Float y0, Float x1, Float y1, Uint32 color)
 {
+    NJS_POINT2 points[4] = {{x0, y0}, {x1, y0}, {x1, y1}, {x0, y1}};
+    NJS_COLOR colors[4] = {{color}, {color}, {color}, {color}};
+    NJS_POINT2COL band = {points, colors, NULL, 4};
+
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
     njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
     port_wide_cover = TRUE;
-    port_band(x0, y0, x1, y1, color, -1.0F, NJD_FILL | NJD_TRANSPARENT);
+    /* the record follows the call, since it reads the header words the call
+     * leaves in Kamui's context */
+    __real_njDrawPolygon2D(&band, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
+    sa1_record_polygon_2d(&band, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
     port_wide_cover = FALSE;
 }
 
@@ -304,9 +317,11 @@ void sa1_chord(void *record)
 void sa1_wide_on(void)
 {
     port_toggles[TOGGLE_WIDE] = TRUE;
+    port_chosen[TOGGLE_WIDE] = TRUE;
 }
 
 void sa1_fast_on(void)
 {
     port_toggles[TOGGLE_FAST] = TRUE;
+    port_chosen[TOGGLE_FAST] = TRUE;
 }

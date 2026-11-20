@@ -501,9 +501,16 @@ bool show_due(sa_engine &engine, uint64_t until)
             }
             sleep_until(due);
         }
-        if (!show(engine, b.show_next++)) {
+        if (!show(engine, b.show_next)) {
+            /* the picture itself stays due until the device takes it, as
+             * collect retires nothing past a flight not ended. a picture
+             * between that the device refuses is passed over */
+            if (b.show_next + 1 < b.shown) {
+                b.show_next++;
+            }
             return false;
         }
+        b.show_next++;
     }
     return true;
 }
@@ -703,13 +710,16 @@ sa_result sa_clock_wait(sa_engine *engine, uint64_t time_ns)
     }
     /* a window shows each picture as its time comes, while the client waits */
     Backend &b = backend(*engine);
+    sa_result result = SA_OK;
 
     if (b.show_next < b.shown && b.picture == nullptr &&
         !show_due(*engine, time_ns)) {
-        return SA_ERR_UNSUPPORTED;
+        result = SA_ERR_UNSUPPORTED;
     }
+    /* the client keeps its time by the wait, so a picture the device refuses
+     * cuts it no shorter */
     sleep_until(time_ns);
-    return SA_OK;
+    return result;
 }
 
 sa_result sa_input_sample(sa_engine *engine, uint32_t port, sa_pad *pad)
@@ -1352,7 +1362,7 @@ sa_result sa_pc_read_shown(sa_engine *engine, uint32_t index, void *rgba,
         return sa_pc_read(engine, rgba, bytes);
     }
     if (rgba == nullptr || bytes < SA_PC_WIDTH * SA_PC_HEIGHT * 4 ||
-        b.picture != nullptr || index + 1 > b.shown ||
+        b.picture != nullptr || index >= b.shown ||
         b.shown - 1 - index > BETWEEN_ROOMS) {
         return SA_ERR_INVALID;
     }

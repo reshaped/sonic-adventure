@@ -42,9 +42,11 @@ struct Key {
 };
 
 /* a mesh as a draw took it. mesh views a resource's bytes as lent, or a
- * payload's in its picture's arena. name is the resource's handle. a mesh a
- * writer made is named by its shape, which posing leaves alone. so each pose
- * of one model is the same mesh from picture to picture */
+ * payload's in its picture's arena. name is the draw's mesh handle. a draw
+ * that names no thing and is no scene's part keys its instance by the name.
+ * a writer's mesh under such a draw is named by its shape, which posing
+ * leaves alone. so each pose of one model is the same mesh from picture to
+ * picture */
 struct KeptMesh {
     MeshView mesh;
     const sa_material *materials;
@@ -154,8 +156,9 @@ struct Snapshot {
 };
 
 /* an instance as the scene keeps it, drawn in the last picture or not. it
- * goes when its task ends or its mesh or materials are released. a
- * resource's bytes stay lent, and a writer's mesh is the scene's own copy */
+ * goes when its task ends or its materials are released. a writer's mesh is
+ * the scene's own copy, which outlives any release. any other mesh stays
+ * lent, and the instance goes with its release */
 enum : uint8_t {
     RESIDENT_SEEN = 0x1, /* the last picture took a draw of it */
     RESIDENT_SHAPE = 0x2, /* a mesh it can draw again, out of view too */
@@ -222,7 +225,8 @@ public:
     static uint64_t part_bytes(const MeshView &mesh, uint32_t flags);
     /* a part the game gives of the act's scene, which room_for_parts found
      * room for. undrawn, it stays only while it holds RESIDENT_SHAPE.
-     * scene_ended or a release of its mesh or materials removes it. it
+     * scene_ended or a release of its materials removes it. a release of its
+     * mesh removes it too, unless the mesh is a writer's, which it copies. it
      * stands where it was given until a picture's draw of it places it. one
      * given again under the same instance takes the first's place */
     void part(const sa_draw &d, const MeshView &mesh,

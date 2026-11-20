@@ -19,10 +19,10 @@ float ninja_intensity(const sa_shade &shade, float dot)
 
 uint32_t ninja_scaled(uint32_t argb, float intensity)
 {
-    int held = static_cast<int>(intensity * 255.0F);
-    uint32_t scale = static_cast<uint32_t>(held < 0     ? 0
-                                           : held > 255 ? 255
-                                                        : held);
+    /* an intensity that is no number scales by 0 */
+    float held =
+        intensity > 0.0F ? (intensity < 1.0F ? intensity : 1.0F) : 0.0F;
+    uint32_t scale = static_cast<uint32_t>(held * 255.0F);
     uint32_t out = argb & 0xff000000;
 
     for (uint32_t shift = 0; shift < 24; shift += 8) {

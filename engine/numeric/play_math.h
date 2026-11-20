@@ -1,9 +1,11 @@
 /* play math: the SH-4's operations that play reads (ENGINE.md#numbers). each
- * runs under the game's FPSCR, H'40001: single precision, rounding toward
- * zero. each gives the same bits on every host whatever its FPU's mode, and
- * none fails. a program links one build of math.c: the default build, or the
- * console's with SA_NUMERIC_CONSOLE. fast.c, linked in math.c's place, gives
- * either build's bits faster.
+ * gives the same bits on every host whatever its FPU's mode, and none fails.
+ * a program links one build of math.c: the default build, or the console's
+ * with SA_NUMERIC_CONSOLE. the console's build gives the SH-4's bits under
+ * the game's FPSCR, H'40001: single precision, rounding toward zero. the
+ * default build parts from it in five rules: a denormal operand, a NaN's
+ * form, FIPR with FTRV, FSCA and FSRRA. fast.c, linked in math.c's place,
+ * gives either build's bits faster.
  *
  * a source outside the library includes this header and no other file of it.
  * the library knows nothing of the engine or of a game. it includes only its
@@ -30,7 +32,9 @@ float sa_fipr(const float a[4], const float b[4]);
 /* m holds XMTRX's XF0 to XF15, and out[i] sums m[i + 4j] * v[j] */
 void sa_ftrv(const float m[16], const float v[4], float out[4]);
 /* out[0] takes the sine and out[1] the cosine of angle's low 16 bits, 65536
- * to a turn */
+ * to a turn. the default build rounds each to nearest, where the console's
+ * truncates: its sine of H'4000 is 1.0, and the console's 0.99999994. its
+ * sine of H'8000 and cosine of H'4000 are -0, and the console's +0 */
 void sa_fsca(uint32_t angle, float out[2]);
 float sa_fsrra(float a);
 

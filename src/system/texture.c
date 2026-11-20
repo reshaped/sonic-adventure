@@ -1030,6 +1030,31 @@ void texture_release_stage(void)
 }
 
 #ifdef NONMATCHING
+void texture_release_stage_within(const Uint8 *start, const Uint8 *end)
+{
+    int from;
+    int to = 0;
+
+    for (from = 0; stage_texlists[from] != NULL; from++) {
+        NJS_TEXLIST *list = stage_texlists[from];
+        const Uint8 *record = (const Uint8 *)list;
+        const Uint8 *names = (const Uint8 *)list->textures;
+        Uint32 names_size = list->nbTexture * sizeof(NJS_TEXNAME);
+
+        /* njReleaseTexture reads the record and then its names, which GCC
+         * needn't place beside it */
+        if ((record < end && record + sizeof(*list) > start) ||
+            (names < end && names + names_size > start)) {
+            njReleaseTexture(list);
+        } else {
+            stage_texlists[to++] = list;
+        }
+    }
+    stage_texlists[to] = NULL;
+}
+#endif
+
+#ifdef NONMATCHING
 /* whether textures are stage_act's. stage_act must be the current stage's
  * act, so that B_CHAOS7 is loaded when it is Chaos 7's. Chaos 7's textures
  * lie in B_CHAOS7, and while another module holds MODULE_AREA, their

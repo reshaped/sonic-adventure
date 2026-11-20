@@ -212,10 +212,10 @@ BINARY = {'ADD': '+=', 'SUB': '-=', 'AND': '&=', 'OR': '|=', 'XOR': '^='}
 SHIFTS = {'SHLL2': '<<= 2', 'SHLL8': '<<= 8', 'SHLL16': '<<= 16',
           'SHLR2': '>>= 2', 'SHLR8': '>>= 8', 'SHLR16': '>>= 16'}
 FLOAT2 = {'FADD': '+=', 'FSUB': '-=', 'FMUL': '*=', 'FDIV': '/='}
-# the instructions the C leaves out. an LDC or an STC that comes to these is
-# of a control register the C doesn't keep. LDC.L and STC.L aren't among
-# them: each steps the register it loads from or stores through
-NO_OP = {'NOP', 'PREF', 'OCBI', 'OCBP', 'OCBWB', 'LDC', 'STC'}
+# the instructions the C leaves out. no LDC or STC is among them: STC writes
+# its Rn. LDC can load SR, which holds T. instruction() writes the two that
+# move GBR to or from a register, and any other form ends the build
+NO_OP = {'NOP', 'PREF', 'OCBI', 'OCBP', 'OCBWB'}
 
 
 def move(unit, program, op, args):

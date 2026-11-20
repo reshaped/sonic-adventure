@@ -242,10 +242,10 @@ sprite_send_facing_at(const NJS_SPRITE *sp, Int n, Uint32 attr, Float y_scale,
  * vertex past the last, or NULL when the frame isn't sent.
  *
  * the frame isn't sent when all four corners lie past the far clip, or all
- * four nearer than the near clip. it isn't sent either when all four lie
- * past one edge of the 2D clip. when only some lie nearer than the near
- * clip, it goes as two triangles cut at the near clip. sa1/sprite.c, which
- * Ninja's entries' object includes, defines it */
+ * four nearer than the near clip. when only some lie nearer than the near
+ * clip, it is always sent, as two triangles cut at the near clip. otherwise
+ * it isn't sent when all four lie past one edge of the 2D clip. sa1/sprite.c,
+ * which Ninja's entries' object includes, defines it */
 __attribute__((noinline)) struct sprite_vertex *
 sprite_send_plane(const NJS_SPRITE *sp, Int n, Uint32 attr,
                   struct sprite_vertex *sq);

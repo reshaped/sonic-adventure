@@ -720,10 +720,10 @@ tools/sh-elf/bin/sh-elf-gcc:
 # route, a synchronized copy: the whole library, pulled from upstream by a
 # build mechanism that records the commit, with local changes kept to a
 # minimum and sent upstream. The tree makes none of its own: SH4ZAM_AT
-# names reshaped/sh4zam's main, upstream's master and one commit of the
-# changes the tree offers upstream, until upstream takes them. GitHub's archive of a
-# commit holds the same files, but the archive's compressed bytes can change
-SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/d4f9a18b1b61ddb41c5a8d04cca1a8c09dd552bc
+# names a commit of upstream's master, which holds the changes the tree
+# offered upstream. GitHub's archive of a commit holds the same files, but
+# the archive's compressed bytes can change
+SH4ZAM_AT := https://raw.githubusercontent.com/gyrovorbis/sh4zam/d5af8cb4a51c50d1988da62b6bdac7ab9d9b6de2
 $(SH4ZAM): $(if $(UNFETCHED),FORCE)
 	@$(call status,fetch,$@)
 	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)

@@ -117,8 +117,7 @@ cache_ram_restore                    function     *        returns at once on th
 fmMngRead                            function     *        asks for a packet of the flash's partition, for the internet settings mail.c reads (src/save/mail.c). The shim's fmMngInit opens no partition, so the read ends before it (engine/native/card.c)
 fmMngExecServer                      function     *        runs that read, which the same holds off
 fmMngFinish                          function     *        closes the partition, which the same holds off
-kbCfgIni                             function     *        a call into the boot ROM that readies the console's own record. The mail's and the download's readers call it (src/save/mail.c, src/object/download.c)
-kbCfgGetId                           unsupported  *        the boot ROM's address of that record, which holds the console's id and its area. The same two read through it, and 0 is no record
+kbCfgIni                             function     *        a call into the boot ROM that readies the console's own record. The mail's and the download's readers call it (src/save/mail.c, src/object/download.c). The record the shim's kbCfgGetId gives is ready from the start (engine/native/shim.c)
 ufInitSystem                         function     *        starts the library that keeps a title's play history in the flash, as the game starts and before each read (src/system/history.c)
 ufAutoSynch                          function     *        has that library write the history by itself
 ufPlayTime                           function     *        counts play in the history

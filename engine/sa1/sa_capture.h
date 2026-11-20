@@ -139,9 +139,11 @@ typedef struct sa_cap_materials {
 } sa_cap_materials;
 
 /* the palettes a draw shades its points from, as sa_palettes says. a
- * version lasts from its record to the next palettes record. a picture names
- * the last one ahead of it, and no record names an older one. so a reader
- * that takes the records in order holds one version at a time */
+ * version lasts from its record to the next palettes record, and the draws
+ * between shade from it. a picture names the last one ahead of it. another
+ * may come among its draws, where the game changed them between two draws.
+ * no record names an older one. so a reader that takes the records in order
+ * holds one version at a time */
 #define SA_CAP_PALETTES_COUNT SA_PALETTES
 #define SA_CAP_PALETTE_ENTRIES SA_PALETTE_ENTRIES
 #define SA_CAP_UNLIT_OFFSETS SA_UNLIT_OFFSETS
