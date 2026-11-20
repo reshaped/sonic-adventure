@@ -1,18 +1,25 @@
 """Stubs for the native slice's missing names, each by its row of stubs.txt.
 
 stubs.py OUT OBJECT... [--aliases FILE] [--base DOMAIN] [--libraries LIBRARY...]
-[--explore] writes OUT, C that defines each name the objects use and none of
-them defines, but for those the host's C library gives, glibc's or the
-LIBRARIES', and FILE's, which the link names "NAME SYMBOL" a line. The
-objects' and libraries' names come from the environment's NM, or else nm,
-and a COFF object's calls from coff.py.
+[--host psp --placed FILE] [--explore] writes OUT, C that defines each name
+the objects use and none of them defines, but for those the host's C library
+gives, glibc's or the LIBRARIES', and FILE's, which the link names
+"NAME SYMBOL" a line. The objects' and libraries' names come from the
+environment's NM, or else nm, and a COFF object's calls from coff.py.
+
+--host psp speaks for the PSP's objects, MIPS's ELF, whose calls the
+environment's READELF gives. The PSP has no memory at the console's
+addresses, so OUT defines no name of kind address there: --placed's FILE
+lists each, "NAME ADDRESS ROOM" a line for a place and "NAME = VALUE" for
+the word that holds an image's end, each address the console's, and the
+PSP's link places them (engine/tools/psplink.py).
 
 engine/native/stubs.txt allows each such name. A row is
 
     NAME  KIND  HOST  REASON
 
-HOST is linux or windows, the host whose objects need the name, or * for
-both. REASON says what the name is on the console, what of the game needs
+HOST is linux, windows or psp, the host whose objects need the name, or *
+for all. REASON says what the name is on the console, what of the game needs
 it, and what the game makes of the stub. KIND is what stubs.py writes, and
 whether the PC needs more:
 
@@ -22,7 +29,10 @@ whether the PC needs more:
   the adapter or the engine does the work at another place, or nothing
   reaches the call;
 - zeros, 64 KB of zeros, where the PC needs no more: the game keeps its own
-  state there, or nothing reads what the console's holds;
+  state there, or nothing reads what the console's holds. The PSP has no
+  memory to spare, so a name's zeros there run as far as 1ST_READ.BIN's
+  tables leave it, to the next name they place, and 64 KB for a name they
+  place none of;
 - address, a place in the domain at DOMAIN that the matching side's tables
   give the name, which no source of the slice's holds. heap_arena lies in
   the view the image's code uses, with twice the room the tables give it,
@@ -79,7 +89,7 @@ TABLE = Path(__file__).parents[1] / 'native/stubs.txt'
 FUNCTION, ZEROS, ADDRESS, ENGINE, UNSUPPORTED = KINDS = ('function', 'zeros', 'address', 'engine', 'unsupported')
 # the uses of a name that each kind stands for
 FITS = {FUNCTION: {FUNCTION}, ZEROS: {ZEROS}, ADDRESS: {ADDRESS}, ENGINE: {FUNCTION}, UNSUPPORTED: {FUNCTION, ZEROS}}
-HOSTS = ('linux', 'windows')
+HOSTS = ('linux', 'windows', 'psp')
 EVERY = '*'
 # a row's kind and host, and its path:line
 Row = namedtuple('Row', 'kind host where')
@@ -87,6 +97,10 @@ Row = namedtuple('Row', 'kind host where')
 LIBC = '/lib/x86_64-linux-gnu/libc.so.6'
 LIBM = '/lib/x86_64-linux-gnu/libm.so.6'
 DATA_BYTES = 0x10000
+ZEROS_ALIGNMENT = 64
+# the zeros of a name the tables place none of, where the PSP has no memory
+# for 64 KB: the 32 Floats njInitGlobal fills by the name
+PSP_ZEROS = {'_nj_cnk_easy_multilight_buffer_dst_': 128}
 HEAP = 'heap_arena'
 # the alignment src/system/task.c gives heap_arena
 HEAP_ALIGNMENT = 32
@@ -94,6 +108,10 @@ HEAP_ALIGNMENT = 32
 # native.mk's link places
 LINKER = {'__executable_start', 'etext', 'edata', 'end', '__data_start', '_end',
           '_GLOBAL_OFFSET_TABLE_', 'syCacheICI_P2_'}
+# the names the PSP's link script and its start files define, and the
+# console's RAM, which psplink.py's assembly does
+PSP_LINKER = {'_gp', '__lib_ent_top', '__lib_ent_bottom', '__lib_stub_top', '__lib_stub_bottom', '__dso_handle',
+              'console_ram', 'console_registers', 'console_queues'}
 
 
 def rows(path, host):
@@ -127,6 +145,19 @@ def heap_place():
     at = places[HEAP]
     room = 2 * (min(address for address in places.values() if address > at) - at)
     return at - physical(at) + ((macros(LOADER_H)['MODULE_AREA'] - room) & ~(HEAP_ALIGNMENT - 1)), room
+
+
+def rooms(names):
+    """the bytes 1ST_READ.BIN's tables leave each of names they place: to
+    the next name's address, a whole number of ZEROS_ALIGNMENT"""
+    places = {name: address for address, name in named(FIRST / 'symbols.txt')}
+    starts = sorted(set(places.values()))
+    found = {}
+    for name in names:
+        later = [address for address in starts if name in places and address > places[name]]
+        if later:
+            found[name] = -(-(later[0] - places[name]) // ZEROS_ALIGNMENT) * ZEROS_ALIGNMENT
+    return found
 
 
 def places(missing):
@@ -167,6 +198,17 @@ def main(out, *args):
         at = args.index('--base')
         base = int(args[at + 1], 0)
         args = args[:at] + args[at + 2:]
+    psp, placed_out = False, None
+    if '--host' in args:
+        at = args.index('--host')
+        if args[at + 1] != 'psp':
+            fail(f'--host {args[at + 1]}: the objects say their host, but the PSP\'s, which --host psp names')
+        psp = True
+        args = args[:at] + args[at + 2:]
+    if '--placed' in args:
+        at = args.index('--placed')
+        placed_out = Path(args[at + 1])
+        args = args[:at] + args[at + 2:]
     objects = args
     for line in symbols(['-A', *objects]):
         parts = line.split()
@@ -194,20 +236,25 @@ def main(out, *args):
             called |= calls(obj)
     else:
         for obj in objects:
-            run = subprocess.run(['readelf', '-rW', obj], capture_output=True, text=True, check=True)
-            called.update(m[1] for m in re.finditer(r'R_(?:X86_64_PLT32|386_PLT32|386_PC32)\s+\S+\s+(\w+)',
-                                                    run.stdout))
+            run = subprocess.run([os.environ.get('READELF', 'readelf'), '-rW', obj], capture_output=True, text=True,
+                                 check=True)
+            called.update(m[1] for m in re.finditer(
+                r'R_(?:X86_64_PLT32|386_PLT32|386_PC32|MIPS_26)\s+\S+\s+(\w+)', run.stdout))
     ends = {WORK[image][0]: Config(image).span()[1] for image in WORK}
     # a name the slice reads where COFF's library gives code is the game's
     # own, as SHC's _errno is a word and the UCRT's a function
     if coff:
         host -= host_code - called
+    if psp:
+        # an anchor of the memory contract, which the PSP's link binds in the
+        # program that reads it (psplink.py)
+        defined |= PSP_LINKER | {name for names in contract(images()).anchored.values() for name in names}
     missing = sorted(n for n in used - defined - host - LINKER if not n.startswith('__real_'))
     placed = places([name for name in missing if name not in called])
     use = {name: ADDRESS if name in ends or name in placed else FUNCTION if name in called else ZEROS
            for name in missing}
     # the slice's objects are COFF for Windows alone
-    target = HOSTS[coff]
+    target = 'psp' if psp else HOSTS[coff]
     allowed = rows(TABLE, target)
     said = {FUNCTION: 'an object calls it', ZEROS: 'no object calls it and the tables place none of it',
             ADDRESS: 'the tables place it'}
@@ -221,17 +268,25 @@ def main(out, *args):
                  for name, row in allowed.items() if name not in use]
     if problems and not explore:
         fail(*problems)
+    zero_float = ('__asm__ volatile("mtc1 $0, $f0" ::: "$f0")' if psp else
+                  '__asm__ volatile("xorps %%xmm0, %%xmm0" ::: "xmm0")')
     lines = ['/* the native slice\'s stubs, as engine/tools/stubs.py writes them */',
              'void native_stub(const char *name);',
-             '#define ZERO_FLOAT __asm__ volatile("xorps %%xmm0, %%xmm0" ::: "xmm0")', '']
+             f'#define ZERO_FLOAT {zero_float}', '']
     written = dict.fromkeys(KINDS, 0)
+    placing = []
+    left = dict(PSP_ZEROS, **rooms(missing)) if psp else {}
     for name in missing:
         # a row whose kind doesn't fit its name's use is one of problems, and the use decides what --explore writes
         kind = allowed[name].kind if name in allowed and use[name] in FITS[allowed[name].kind] else use[name]
         written[kind] += 1
         if kind == ENGINE:
             continue
-        if name in ends:
+        if psp and name in ends:
+            placing.append(f'{name} = {ends[name]:#x}')
+        elif psp and name in placed:
+            placing.append(f'{name} {placed[name][0]:#x} {placed[name][1]:#x}')
+        elif name in ends:
             lines.append(f'void *{name} = (void *){base + ends[name]:#x}ULL;')
         elif name in placed:
             at, room = placed[name]
@@ -241,8 +296,11 @@ def main(out, *args):
         elif use[name] == FUNCTION:
             lines.append(f'long {name}(void) {{ native_stub("{name}"); ZERO_FLOAT; return 0; }}')
         else:
-            lines.append(f'char {name}[{DATA_BYTES}] __attribute__((aligned(64)));')
+            lines.append(f'char {name}[{min(left.get(name, DATA_BYTES), DATA_BYTES)}] '
+                         f'__attribute__((aligned({ZEROS_ALIGNMENT})));')
     Path(out).write_text('\n'.join(lines) + '\n')
+    if placed_out:
+        placed_out.write_text(''.join(f'{line}\n' for line in placing))
     for problem in problems:
         print(f'stubs: {problem}')
     print(f'{out}: {written[FUNCTION]} functions, {written[ZEROS]} of zeros, {written[ADDRESS]} placed, '

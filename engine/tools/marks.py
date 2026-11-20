@@ -55,7 +55,18 @@ host's link can make. The pass gives each such word a mark of its own, which
 a constructor puts the address in over as the program starts.
 
 A constant the float pass leaves unsuffixed is a double, which -double=float
-makes a float, so the pass names it one"""
+makes a float, so the pass names it one.
+
+A host whose pointers hold 4 bytes, as the PSP's do, needs no mark: marks.py
+tree --narrow DIR writes the copy with NARROW_SITES' rewrites in place of
+WIDE_SITES', and marks.py
+narrow FILE.i gives a unit's preprocessed C the hooks, the float spellings
+and the assertion of LAYOUTS alone. Such a host has no memory at the
+console's addresses, so the narrow copy names each address of console RAM
+the game's C holds through NATIVE_RAM, by RAM's counts: the same byte of the
+block the host's runner holds (engine/psp/psp.h). A narrow unit reaches the
+console's registers and its store queues, by REGISTER and QUEUES, in the
+zeros that header declares for them"""
 import re
 import sys
 from pathlib import Path
@@ -109,11 +120,8 @@ SITES = {
          '    while (frame_countdown > left) {\n        native_vsync();\n    }\n'),
     ],
     # a hook stands at each task's flags, parent, alloc and destroy, and at
-    # each free, which a thread's record hears of too. the heap lies where
-    # stubs.py places heap_arena, make dc's address in the domain
+    # each free, which a thread's record hears of too
     'src/system/task.c': [
-        ('Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]\n    __attribute__((aligned(HEAP_BOUNDARY)));\n',
-         ''),
         ('void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n',
          'void task_destroy(struct task *task)\n{\n    struct task *next;\n    struct task *prev;\n\n'
          '    native_hook_task_destroy(task);\n    native_task_destroy(task);\n'),
@@ -139,9 +147,6 @@ SITES = {
          '    native_hook_task_parent(parent);\n    child = task_create(flags, TASK_UNLINKED, step);\n'),
         ('if ((child = task_create(create, TASK_UNLINKED, step), child != NULL)) {',
          'if ((native_hook_task_parent(parent), child = task_create(create, TASK_UNLINKED, step), child != NULL)) {'),
-        # the host's tasks and block headers take twice the SH-4's bytes, and the
-        # heap twice its room, which stubs.py's heap_arena holds
-        ('#define HEAP_SIZE 0x90000', '#define HEAP_SIZE 0x120000'),
     ],
     # the adapter keys a flake's first draw to the flake, though the player's
     # step makes it
@@ -226,6 +231,68 @@ SITES = {
                               'static struct event_module EVENT_HEAD __attribute__((used)) = {EVENT_ENTRY')],
 }
 
+# what only a host with wider pointers needs of the tree's copy
+WIDE_SITES = {
+    # the heap lies where stubs.py places heap_arena, make dc's address in
+    # the domain. the host's tasks and block headers take twice the SH-4's
+    # bytes, and the heap twice its room, which that heap_arena holds
+    'src/system/task.c': [
+        ('Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]\n    __attribute__((aligned(HEAP_BOUNDARY)));\n',
+         ''),
+        ('#define HEAP_SIZE 0x90000', '#define HEAP_SIZE 0x120000'),
+    ],
+}
+# what only a host of 4-byte pointers needs of the copy. shinobi.h's
+# syCacheICI calls its function through the SH-4's P2 address for it, where
+# such a host has no memory, and a wider host's link places a return. the
+# host's loads empty its caches themselves (engine/psp/loads.c)
+NARROW_SITES = {
+    'src/system/loader.c': [('    syCacheICI();\n    return result;\n', '    return result;\n')],
+    'src/progress/movie.c': [('    syCacheICI();\n    result = movie_entry(list);\n',
+                              '    result = movie_entry(list);\n')],
+}
+# what a narrow host's units take in place of the console's store queues,
+# by the source that holds each text and the times a unit that reads the
+# source holds it. a wider host's domain maps the queues' 64 MB as zeros
+# that take writes, and a list's pointer keeps its 26 bits there. the narrow
+# host holds 64 KB of them, console_queues, so an address keeps the bits
+# below that, to a queue's 32 bytes: what the game's C sends there is read
+# by nothing, and a list's pointer is the count of what it sent
+QUEUE = '& 0xffe0UL) | (Uint32)console_queues)'
+QUEUES = {
+    'sdk/ninja/njkm.c': [('& 0x03ffffff) | 0xe0000000)', QUEUE, 15),
+                         ('(Uint32)vertex & 0x03ffffff)', '(Uint32)vertex & 0xffe0UL)')],
+    'sdk/ninja/njModelE.c': [('& 0x03ffffff) | 0xe0000000)', QUEUE)],
+    'src/draw/text.c': [('(0xe0000000 | (text_list_ptr & 0x03ffffff))',
+                         '((Uint32)console_queues | (text_list_ptr & 0xffe0UL))', 7),
+                        ('(Uint32)text_sq & 0x03ffffff)', '(Uint32)text_sq & 0xffe0UL)', 7)],
+}
+# a register of the console's that the game's C or the SDK's reads or writes
+# by address, as a macro spells one: the SH-4's own, at 0xff000000, and the
+# system bus's, the PVR's and the AICA's, at 0xa0000000. a narrow host holds
+# 64 KB of zeros that take writes for them, console_registers, where a
+# register lies by its address's low 16 bits
+REGISTER = re.compile(r'(\(\*\((?:volatile )?[\w ]+\*\))(0x(?:[aA]0|[fF][fF])[0-9a-fA-F]{6})(?:[uU]?[lL]?)\)')
+# a pointer a generated table holds as an address of console RAM, by the
+# table's file and how many it holds: each act's camera area. the tree's copy
+# holds no generated file, so a narrow unit that reads one names each through
+# console_ram, as NATIVE_RAM would
+RAM_CASTS = {'build/gen/src/camera/layouts/camera_layouts.inc': 109}
+RAM_CAST = re.compile(r'(\(\s*(?:const\s+)?(?:struct\s+)?\w+\s*\*+\s*\))\s*(0x[08aA][cC][9a-fA-F][0-9a-fA-F]{5})\b')
+# how many addresses of console RAM each source's code holds, past the
+# image: the loader's areas and the buffers the game fixes there. a narrow
+# host's copy names each through NATIVE_RAM
+RAM = {
+    'src/system/loader.h': 18, 'src/system/loader.c': 3, 'src/progress/recorder.h': 1, 'src/progress/recorder.c': 2,
+    'src/object/download.c': 2, 'src/stage/stage.c': 1, 'src/sound/stream.c': 1, 'src/event/play.c': 1,
+    'src/debug/host.c': 1, 'modules/movie/movie.c': 1, 'modules/shooting/shooting.c': 1,
+    'events/ev0045/script.c': 1,
+}
+# a number of that spelling that is no address: the id the events give
+# their sounds
+NOT_RAM = {'events/shared/sound.h': {'0x0cb80001'}}
+# an address of console RAM past 1ST_READ.BIN, in any of its three views
+ADDRESS = re.compile(r'\b0x[08aA][cC][9a-fA-F][0-9a-fA-F]{5}\b')
 
 # what only a host with wider pointers needs in a unit's preprocessed C, by
 # the source that holds each text. a text two sources hold has one name here
@@ -510,7 +577,27 @@ def nested(names, sources):
     return names
 
 
-def tree(dest):
+def ram(path, text):
+    """text, path's, with each address of console RAM its code holds named
+    through NATIVE_RAM, as many as RAM gives the source"""
+    kept = NOT_RAM.get(path, ())
+    found = 0
+
+    def named(m):
+        nonlocal found
+        if m[0] in kept:
+            return m[0]
+        found += 1
+        return f'NATIVE_RAM({m[0]})'
+
+    text = in_code(text, lambda code: ADDRESS.sub(named, code))
+    if found != RAM.get(path, 0):
+        sys.exit(f"{path}: its code holds {found} addresses of console RAM, where marks.py's RAM gives it "
+                 f'{RAM.get(path, 0)}')
+    return text
+
+
+def tree(dest, narrow=False):
     files = sorted(p for root in ROOTS for p in Path(root).rglob('*.[ch]'))
     sources = {p: p.read_text(errors='surrogateescape') for p in files}
     # a source that has moved, or a struct that has taken another name, would
@@ -518,6 +605,9 @@ def tree(dest):
     for path in (*SITES, *CONSOLE):
         if Path(path) not in sources:
             sys.exit(f'{path}: SITES or CONSOLE rewrites it, and the tree holds no such source')
+    for path in (*WIDE_SITES, *NARROW_SITES, *RAM, *NOT_RAM):
+        if Path(path) not in sources:
+            sys.exit(f'{path}: WIDE_SITES, NARROW_SITES, RAM or NOT_RAM names it, and the tree holds no such source')
     for path in (*MARKED_SITES, *HOOKS, *LAYOUTS):
         if not Path(path).is_file():
             sys.exit(f'{path}: MARKED_SITES, HOOKS or LAYOUTS names it, and the tree holds no such source')
@@ -528,8 +618,11 @@ def tree(dest):
                                       for m in (*OVERLAY.finditer(text), *CAST.finditer(text))}, sources)
     written = 0
     for path, text in sources.items():
-        for old, replacement, *count in SITES.get(path.as_posix(), ()):
+        for old, replacement, *count in (*SITES.get(path.as_posix(), ()),
+                                         *(NARROW_SITES if narrow else WIDE_SITES).get(path.as_posix(), ())):
             text = replaced(path, text, old, replacement, *count)
+        if narrow:
+            text = ram(path.as_posix(), text)
         text = console(path.as_posix(), text)
         for pattern, replacement in BACKEND:
             text = pattern.sub(replacement, text)
@@ -611,10 +704,29 @@ def preprocessed(dest, path):
     path.write_text(laid(text), errors='surrogateescape')
 
 
+def narrowed(path):
+    """a unit's preprocessed C as a host of 4-byte pointers takes it"""
+    text = path.read_text(errors='surrogateescape')
+    text = rewritten(path, text, HOOKS)
+    text = rewritten(path, text, QUEUES)
+    text = in_code(text, lambda code: REGISTER.sub(r'\1(console_registers + (\2UL & 0xffffUL)))', code))
+    here = reads(text)
+    wanted = sum(count for source, count in RAM_CASTS.items() if here(source))
+    text, found = RAM_CAST.subn(r'\1(console_ram + ((\2UL & 0x00ffffffUL) - 0x00900000UL))', text)
+    if found != wanted:
+        sys.exit(f"{path}: holds {found} pointers that are addresses of console RAM, where marks.py's RAM_CASTS "
+                 f'gives the tables it reads {wanted}')
+    text = in_code(text, lambda code: UNSUFFIXED.sub(r'\1F', LONG_FLOAT.sub('double', code)))
+    path.write_text(laid(text), errors='surrogateescape')
+
+
 def main():
     args = sys.argv[1:]
     if args[0] == 'tree':
-        tree(Path(args[1]))
+        narrow = '--narrow' in args
+        tree(Path([a for a in args[1:] if a != '--narrow'][0]), narrow)
+    elif args[0] == 'narrow':
+        narrowed(Path(args[1]))
     elif args[0] == 'ninja':
         path = Path(args[1])
         text = path.read_text(errors='surrogateescape')

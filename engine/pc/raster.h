@@ -20,7 +20,8 @@ constexpr uint32_t WIDTH = 640;
 constexpr uint32_t HEIGHT = 480;
 
 /* a corner. at is in world space, or under BATCH_SCREEN in pixels with its
- * view z. the colors are RGBA in memory */
+ * view z, or under a State's place in the space that place carries to the
+ * world's. the colors are RGBA in memory */
 struct Vertex {
     float at[3];
     float uv[2];
@@ -79,7 +80,10 @@ struct State {
     uint8_t depth_write = 1;
     /* 1 drops a triangle that turns clockwise on the screen */
     uint8_t cull = 0;
-    uint16_t reserved = 0; /* no padding, so a state compares by its bytes */
+    /* the picture's place the raster carries the batch's corners to the
+     * world by, from 1, or 0 for corners that lie there. it leaves no
+     * padding, so a state compares by its bytes */
+    uint16_t place = 0;
 };
 
 struct Batch {
@@ -131,18 +135,32 @@ public:
     /* make a texture of image for the batches. it returns its index, from 1,
      * or 0 where the device refuses. texture 0 is white */
     uint32_t add_texture(const Image &image, std::string &why);
+#ifdef __PSP__
+    /* make a texture straight from a PVR's bytes, a GBIX chunk before its
+     * PVRT or not: the PSP has no memory for the PVR's texels as an image
+     * between. tried is false for a format it reads none of, which a caller
+     * decodes as an image */
+    uint32_t add_pvr(const void *data, uint32_t bytes, bool &tried,
+                     std::string &why);
+#endif
     /* end texture once no frame in flight reads it. a broken raster keeps
      * its textures until it ends */
     void free_texture(uint32_t texture);
+    /* how far past the picture's frame a batch the raster places itself
+     * may reach, in halves of the frame's width and height from its
+     * middle. 0 for a raster that places none, whose batches all lie in
+     * world space */
+    float reach() const;
     /* draw the batches over clear, an ARGB color, on frame, and show the
      * picture in any window. it waits first for frame's last picture to
      * retire. where sorted, a blending batch's fragments compose per pixel
      * from the farthest, as the PowerVR's autosort does. else they blend in
-     * the batches' order */
+     * the batches' order. places holds the 3 rows of 4 of each place a
+     * batch's state names, for a raster of some reach */
     bool submit(uint32_t frame, const PictureUniform &picture, uint32_t clear,
                 const std::vector<Vertex> &vertices,
                 const std::vector<Batch> &batches, bool sorted,
-                std::string &why);
+                std::string &why, const std::vector<float> *places = nullptr);
     /* show the pictures from the next submit at 16:9 where on, else at 4:3.
      * a window shows them in its largest centered rectangle of that aspect.
      * the picture keeps its WIDTH by HEIGHT coordinates */

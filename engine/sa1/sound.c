@@ -18,6 +18,9 @@
 #include "native.h"
 #include "sa1.h"
 #include "sa_engine.h"
+#ifdef __PSP__
+#include "sa_pc.h"
+#endif
 
 struct sa_engine *native_sound_engine;
 
@@ -345,6 +348,13 @@ SDE_ERR sdBankDownload(SDMEMBLK handle, const SDE_DATA_TYPE bank_type,
     bank.address = (uint32_t)place[(int)bank_num].address;
     bank.bytes = (uint32_t)block->size;
     bank.data = block->data;
+#ifdef __PSP__
+    if (native_trace) {
+        fprintf(stderr, "sa1: bank %u of kind %u, %u bytes to %u\n",
+                (unsigned)bank.number, (unsigned)bank.kind,
+                (unsigned)bank.bytes, (unsigned)bank.address);
+    }
+#endif
     if (native_sound_engine) {
         game = native_fpu_host();
         sa_audio_load(native_sound_engine, &bank);
@@ -453,6 +463,61 @@ static uint32_t little32(const uint8_t *at)
            (uint32_t)at[1] << 8 | at[0];
 }
 
+#ifdef __PSP__
+/* the PSP has no memory for a stream's file whole. read_bytes reads a
+ * stream's head there, STREAM_HEAD bytes at most, and leaves its file open
+ * in stream_file with where the stream lies in it, which start() hands to
+ * the engine (sa_pc.h's sa_pc_audio_stream_file). the file's buffer is the
+ * head's size, where the disc's files take one of 64 KB */
+#define STREAM_HEAD 4096
+static FILE *stream_file;
+static uint32_t stream_base, stream_size;
+
+static void stream_file_drop(void)
+{
+    if (stream_file) {
+        fclose(stream_file);
+        stream_file = NULL;
+    }
+}
+
+static size_t read_bytes(const char *name, long offset, size_t size)
+{
+    FILE *file;
+    size_t got = 0;
+    size_t head;
+
+    stream_file_drop();
+    if (!(file = native_disc_file(name))) {
+        return 0;
+    }
+    setvbuf(file, NULL, _IOFBF, STREAM_HEAD);
+    if (size == 0 && fseek(file, 0, SEEK_END) == 0) {
+        size = (size_t)ftell(file);
+    }
+    head = native_sound_engine ? STREAM_HEAD : ADX_LOOP_HEAD;
+    head = size < head ? size : head;
+    if (head > bytes_room) {
+        uint8_t *more = realloc(bytes, STREAM_HEAD);
+
+        if (more) {
+            bytes = more;
+            bytes_room = STREAM_HEAD;
+        }
+    }
+    if (head <= bytes_room && fseek(file, offset, SEEK_SET) == 0) {
+        got = fread(bytes, 1, head, file);
+    }
+    if (native_sound_engine && got > 0) {
+        stream_file = file;
+        stream_base = (uint32_t)offset;
+        stream_size = (uint32_t)size;
+    } else {
+        fclose(file);
+    }
+    return got;
+}
+#else
 /* read size bytes from offset in the disc's file name into bytes. a size of
  * 0 reads the whole file. it returns the count read */
 static size_t read_bytes(const char *name, long offset, size_t size)
@@ -465,6 +530,11 @@ static size_t read_bytes(const char *name, long offset, size_t size)
     }
     if (size == 0 && fseek(file, 0, SEEK_END) == 0) {
         size = (size_t)ftell(file);
+    }
+    /* with no engine to play it, a stream is its header alone, which says
+     * how long the game hears it */
+    if (!native_sound_engine && size > ADX_LOOP_HEAD) {
+        size = ADX_LOOP_HEAD;
     }
     if (size > bytes_room) {
         uint8_t *more = realloc(bytes, size);
@@ -480,6 +550,7 @@ static size_t read_bytes(const char *name, long offset, size_t size)
     fclose(file);
     return got;
 }
+#endif
 
 /* it returns 1 where the size bytes read hold a loop, as sa_audio_stream says
  * a file does, and else 0. the engine loops its stream by the same words, so
@@ -507,6 +578,9 @@ static void start(struct talk *talk, size_t size, int32_t wait_ms)
     uint32_t game;
 
     if (size < ADX_HEAD || (bytes[0] << 8 | bytes[1]) != ADX_MARK) {
+#ifdef __PSP__
+        stream_file_drop();
+#endif
         ADXT_Stop((ADXT)talk);
         return;
     }
@@ -524,8 +598,20 @@ static void start(struct talk *talk, size_t size, int32_t wait_ms)
                     0);
         }
         game = native_fpu_host();
+#ifdef __PSP__
+        /* a file's stream plays from the file, and its head is all of it
+         * that lies in bytes. a stream in memory, as a movie's is, goes
+         * unheard */
+        if (stream_file) {
+            sa_pc_audio_stream_file(native_sound_engine, (uint32_t)talk->stream,
+                                    stream_file, stream_base, stream_size,
+                                    bytes, (uint32_t)size);
+            stream_file = NULL;
+        }
+#else
         sa_audio_stream(native_sound_engine, (uint32_t)talk->stream, bytes,
                         (uint32_t)size);
+#endif
         native_fpu_game(game);
     }
 }
@@ -628,6 +714,11 @@ void ADXT_StartMem(ADXT adxt, void *adxdat)
         ADXT_Stop(adxt);
         return;
     }
+#ifdef __PSP__
+    /* its head says how long the game hears it, and start() needs no more */
+    stream_file_drop();
+    size = size < STREAM_HEAD ? size : STREAM_HEAD;
+#endif
     if (size > bytes_room) {
         uint8_t *more = realloc(bytes, size);
 

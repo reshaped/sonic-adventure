@@ -22,6 +22,10 @@ play_math_reference         = $1/math.o
 play_math_fast              = $1/fast.o
 play_math_reference_console = $1/console/math.o
 play_math_fast_console      = $1/console/fast.o
+# fpu.c's build, the fast path with four operations by the host's own FPU,
+# for a host too slow for the fast path's integers. It gives that FPU's
+# bits, and no other build's
+play_math_fpu               = $1/fpu.o
 
 # The fast path's tables of sines, one for each of the two answers, where
 # the rules at this file's end write them. A compile of the fast path
@@ -50,6 +54,12 @@ $(call play_math_reference_console,$1) $(call play_math_fast_console,$1): $1/con
 	$(if $4,@$$(call status,$4,$$<))
 	$$(Q)mkdir -p $$(@D)
 	$$(Q)$2 -DSA_NUMERIC_CONSOLE $$(PLAY_MATH_TABLES) -c -o $$@ $$<
+$(call play_math_fpu,$1): $1/%.o: engine/numeric/%.c engine/numeric/fast.c engine/numeric/math.c \
+		engine/numeric/sh4_fpu_approx.h $$(PLAY_MATH_DEPS) $$(PLAY_MATH_SINE) $3
+	$(if $4,@$$(call status,$4,$$<))
+	$$(Q)mkdir -p $$(@D)
+	$$(Q)$2 $$(PLAY_MATH_TABLES) -c -o $$@ $$<
+$(call play_math_fpu,$1): private PLAY_MATH_TABLES := -I$$(patsubst %/,%,$$(dir $$(PLAY_MATH_SINE)))
 $(call play_math_fast,$1): private PLAY_MATH_TABLES := -I$$(patsubst %/,%,$$(dir $$(PLAY_MATH_SINE)))
 $(call play_math_fast_console,$1): private PLAY_MATH_TABLES := -I$$(patsubst %/,%,$$(dir $$(PLAY_MATH_SINE_CONSOLE)))
 $(call play_math_fast,$1): engine/numeric/math.c $$(PLAY_MATH_SINE)

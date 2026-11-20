@@ -11,9 +11,14 @@ namespace pc {
 
 class Dsp {
 public:
-    /* the ring's least words, 8K, and its most, 64K */
+    /* the ring's least words, 8K, and its most, 64K. the PSP's render runs
+     * no DSP (mixer.h), so its ring is the least */
     static constexpr uint32_t RING_LEAST = 1U << 13;
+#ifdef __PSP__
+    static constexpr uint32_t RING = RING_LEAST;
+#else
     static constexpr uint32_t RING = 1U << 16;
+#endif
     /* the bytes of an SFPB program's image of the registers */
     static constexpr uint32_t IMAGE = 0xc00;
 

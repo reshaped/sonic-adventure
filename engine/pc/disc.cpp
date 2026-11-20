@@ -166,6 +166,11 @@ bool Disc::read(const std::string &path, std::vector<uint8_t> &bytes) const
     if (file == nullptr) {
         return false;
     }
+#ifdef __PSP__
+    /* the PSP's C library reads 1 KB at a call otherwise, and a call
+     * there costs far more than its bytes */
+    setvbuf(file, nullptr, _IOFBF, 1 << 16);
+#endif
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
 
@@ -178,6 +183,38 @@ bool Disc::read(const std::string &path, std::vector<uint8_t> &bytes) const
     size_t got = bytes.empty() ? 0 : fread(bytes.data(), 1, bytes.size(), file);
     fclose(file);
     return got == bytes.size();
+}
+
+FILE *Disc::open(const std::string &path) const
+{
+    for (const std::string &root : roots_) {
+        FILE *file = fopen((root + "/" + path).c_str(), "rb");
+
+        if (file != nullptr) {
+            return file;
+        }
+    }
+    return nullptr;
+}
+
+bool Disc::read_part(const std::string &path, uint32_t at, uint32_t length,
+                     std::vector<uint8_t> &bytes) const
+{
+    for (const std::string &root : roots_) {
+        FILE *file = fopen((root + "/" + path).c_str(), "rb");
+
+        if (file == nullptr) {
+            continue;
+        }
+        bytes.resize(length);
+        bool got =
+            fseek(file, static_cast<long>(at), SEEK_SET) == 0 &&
+            (length == 0 || fread(bytes.data(), 1, length, file) == length);
+
+        fclose(file);
+        return got;
+    }
+    return false;
 }
 
 std::vector<std::string> Disc::list(const std::string &dir,

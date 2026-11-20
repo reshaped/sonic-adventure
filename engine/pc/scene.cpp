@@ -13,9 +13,24 @@ namespace pc {
 
 namespace {
 
-/* the most a picture holds, past which a draw is refused */
+/* the most a picture holds, past which a draw is refused. a corner's index
+ * is 16 bits, which bounds a mesh's points. BATCHES and BLENDS are the room
+ * a picture's batches and its blending triangles start with. the PSP's
+ * scene holds a picture's sprites and runs of triangles alone
+ * (engine/psp/direct.cpp), and no model */
+#ifdef __PSP__
+constexpr uint32_t MOST_TRIANGLES = 1U << 11;
+constexpr uint32_t MOST_POINTS = 1U << 11;
+constexpr uint32_t BATCHES = 1U << 10;
+constexpr uint32_t BLENDS = 1U << 10;
+constexpr uint32_t PLACES = 1U << 9;
+#else
 constexpr uint32_t MOST_TRIANGLES = 1U << 19;
-constexpr uint32_t MOST_POINTS = 65536; /* a corner's index is 16 bits */
+constexpr uint32_t MOST_POINTS = 65536;
+constexpr uint32_t BATCHES = 1U << 16;
+constexpr uint32_t BLENDS = MOST_TRIANGLES;
+constexpr uint32_t PLACES = 1U << 12;
+#endif
 constexpr uint32_t WORDS =
     SA_PALETTES * SA_PALETTE_ENTRIES * 2 + SA_UNLIT_OFFSETS;
 
@@ -141,6 +156,30 @@ bool mesh_view(const void *bytes, uint32_t size, MeshView &view)
     }
     view = MeshView{};
     view.points = reinterpret_cast<const float *>(b + sizeof head);
+    if (head.points != 0) {
+        float low[3], high[3];
+
+        memcpy(low, view.points, sizeof low);
+        memcpy(high, view.points, sizeof high);
+        for (uint32_t i = 1; i < head.points; i++) {
+            for (int j = 0; j < 3; j++) {
+                float p = view.points[i * 3 + j];
+
+                low[j] = p < low[j] ? p : low[j];
+                high[j] = p > high[j] ? p : high[j];
+            }
+        }
+        float far = 0.0F;
+
+        for (int j = 0; j < 3; j++) {
+            float half = (high[j] - low[j]) * 0.5F;
+
+            view.center[j] = low[j] + half;
+            far += half * half;
+        }
+        /* the box's corner lies as far as any point can */
+        view.radius = sqrtf(far);
+    }
     view.normals =
         head.normals != 0 ? reinterpret_cast<const float *>(b + at) : nullptr;
     view.sets = b + sets;
@@ -179,15 +218,23 @@ bool mesh_view(const void *bytes, uint32_t size, MeshView &view)
     return head.materials >= view.materials;
 }
 
-void Scene::open(uint32_t blend)
+void Scene::open(uint32_t blend, float reach)
 {
     blend_ = blend;
+    reach_ = reach;
+    if (reach > 0.0F) {
+        places_.reserve(PLACES * 12);
+    }
     vertices_.reserve(MOST_TRIANGLES * 3);
-    batches_.reserve(1U << 16);
+    batches_.reserve(BATCHES);
     /* a picture takes at most its own view, a home, and one for each of
      * World's lenses_ */
     lenses_.reserve(2 + LENSES);
-    blend_list_.reserve(MOST_TRIANGLES);
+    blend_list_.reserve(BLENDS);
+#ifdef __PSP__
+    /* the PSP's scene draws no model, so it places and lights no points */
+    return;
+#endif
     world_.resize(MOST_POINTS * 3);
     base_.resize(MOST_POINTS);
     offset_.resize(MOST_POINTS);
@@ -209,6 +256,7 @@ void Scene::begin(const sa_picture &picture)
     vertices_.clear();
     batches_.clear();
     blend_list_.clear();
+    places_.clear();
     if (picture.back[0] != picture.back[1] ||
         picture.back[0] != picture.back[2]) {
         back_plane(picture.back);
@@ -366,6 +414,47 @@ void Scene::draw(const sa_draw &d, const MeshView &mesh,
            lights != nullptr ? &turned : nullptr);
 }
 
+/* the place the raster carries mesh's corners to the world by, from 1, for
+ * a draw that places it by w. 0 where the raster places none, or the mesh's
+ * ball there reaches past the raster's reach of the frame: beside the view's
+ * middle by more than reach times as far as the frame's edge lies at its
+ * depth, or behind the view. a place's number is 16 bits of a state */
+uint32_t Scene::place_of(const float *w, const MeshView &mesh)
+{
+    const float *v = look();
+    float world[3], eye[3], longest = 0.0F;
+
+    if (!(reach_ > 0.0F) || places_.size() >= 12 * 0xffffU) {
+        return 0;
+    }
+    for (int j = 0; j < 3; j++) {
+        world[j] = w[j * 4] * mesh.center[0] + w[j * 4 + 1] * mesh.center[1] +
+                   w[j * 4 + 2] * mesh.center[2] + w[j * 4 + 3];
+    }
+    for (int j = 0; j < 3; j++) {
+        eye[j] = v[j * 4] * world[0] + v[j * 4 + 1] * world[1] +
+                 v[j * 4 + 2] * world[2] + v[j * 4 + 3];
+    }
+    /* the ball grows as w's longest column does */
+    for (int k = 0; k < 3; k++) {
+        float length = w[k] * w[k] + w[4 + k] * w[4 + k] + w[8 + k] * w[8 + k];
+
+        longest = length > longest ? length : longest;
+    }
+    float radius = mesh.radius * sqrtf(longest);
+    float across = reach_ * (WIDTH / 2) / picture_.view.focal[0];
+    float down = reach_ * (HEIGHT / 2) / picture_.view.focal[1];
+
+    if (!(across * eye[2] - fabsf(eye[0]) >=
+          radius * sqrtf(1.0F + across * across)) ||
+        !(down * eye[2] - fabsf(eye[1]) >=
+          radius * sqrtf(1.0F + down * down))) {
+        return 0;
+    }
+    places_.insert(places_.end(), w, w + 12);
+    return static_cast<uint32_t>(places_.size() / 12);
+}
+
 void Scene::placed(const sa_draw &d, const MeshView &mesh,
                    const sa_material *materials, const uint32_t *textures,
                    const sa_shade &shade, const sa_lights *lights)
@@ -386,14 +475,26 @@ void Scene::placed(const sa_draw &d, const MeshView &mesh,
     float origin[3] = {w[3], w[7], w[11]};
     float draw_z = view_z(origin);
     uint32_t offsets = (pal + (specular ? 1 : 0)) * SA_PALETTE_ENTRIES * 2 + 1;
+    /* a draw whose lights read each point's place in the world keeps the
+     * world's space */
+    uint32_t place = shade.mode != SA_SHADE_LIGHTS ? place_of(w, mesh) : 0;
+    bool in_world = false;
+    auto to_world = [&]() {
+        for (uint32_t i = 0; i < points; i++) {
+            const float *p = &mesh.points[i * 3];
 
-    for (uint32_t i = 0; i < points; i++) {
-        const float *p = &mesh.points[i * 3];
-
-        for (int j = 0; j < 3; j++) {
-            world_[i * 3 + j] = w[j * 4] * p[0] + w[j * 4 + 1] * p[1] +
-                                w[j * 4 + 2] * p[2] + w[j * 4 + 3];
+            for (int j = 0; j < 3; j++) {
+                world_[i * 3 + j] = w[j * 4] * p[0] + w[j * 4 + 1] * p[1] +
+                                    w[j * 4 + 2] * p[2] + w[j * 4 + 3];
+            }
         }
+        in_world = true;
+    };
+
+    if (place == 0) {
+        to_world();
+    }
+    for (uint32_t i = 0; i < points; i++) {
         lit_[i] = 0;
         if (mesh.normals == nullptr) {
             base_[i] = 0xffffffff;
@@ -469,6 +570,14 @@ void Scene::placed(const sa_draw &d, const MeshView &mesh,
         state.depth = shade.depth;
         state.depth_write = shade.flags & SA_SHADE_NO_DEPTH_WRITE ? 0 : 1;
         state.cull = mat.flags & SA_MAT_CULL ? 1 : 0;
+        /* the blend list sorts its triangles by where they lie in the
+         * world */
+        if (!blended) {
+            state.place = static_cast<uint16_t>(place);
+        } else if (!in_world) {
+            to_world();
+        }
+        const float *at_points = state.place != 0 ? mesh.points : world_.data();
         uint32_t alpha = static_cast<uint32_t>(mat.alpha) << 24;
         Vertex tri[3];
 
@@ -479,7 +588,7 @@ void Scene::placed(const sa_draw &d, const MeshView &mesh,
                 uint32_t b = base_[i];
                 uint32_t o = offset_[i];
 
-                memcpy(out.at, &world_[i * 3], sizeof out.at);
+                memcpy(out.at, &at_points[i * 3], sizeof out.at);
                 if (shade.mode == SA_SHADE_LIGHTS) {
                     /* a point is lit once for each material, as
                      * njModel.c's lit_key keeps it. a draw with no lights

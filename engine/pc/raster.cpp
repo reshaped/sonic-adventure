@@ -2219,10 +2219,16 @@ void Raster::free_texture(uint32_t texture)
     r.free_textures.push_back(texture);
 }
 
+/* the device takes each batch's corners in world space */
+float Raster::reach() const
+{
+    return 0.0F;
+}
+
 bool Raster::submit(uint32_t frame, const PictureUniform &picture,
                     uint32_t clear, const std::vector<Vertex> &vertices,
                     const std::vector<Batch> &batches, bool sorted,
-                    std::string &why)
+                    std::string &why, const std::vector<float> *)
 {
     Impl &r = *impl_;
     Calls &vk = r.vk;

@@ -14,6 +14,9 @@
 #define SA_PC_H
 
 #include "sa_engine.h"
+#ifdef __PSP__
+#include <stdio.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,9 +36,19 @@ sa_result sa_present_live(sa_engine *engine, const sa_draw_live *draw);
  * picture's palettes, lights and payloads. SA_PC_EVENTS holds an event for
  * each resource's release, which the resource's making promises. it holds
  * 64 more, for the pictures shown, the storage requests ended and a quit
- * that wait for sa_event_poll */
+ * that wait for sa_event_poll. SA_PC_PICTURES is the pictures in flight,
+ * two of which a rate needs. the PSP's adapter draws as the game calls
+ * (engine/psp/draw.h), so no picture, resource or payload comes to its
+ * engine, which keeps the least of each */
+#ifdef __PSP__
+#define SA_PC_ARENA (4U << 10)
+#define SA_PC_RESOURCES 16U
+#define SA_PC_PICTURES 1U
+#else
 #define SA_PC_ARENA (16U << 20)
 #define SA_PC_RESOURCES 16384U
+#define SA_PC_PICTURES 2U
+#endif
 #define SA_PC_EVENTS (SA_PC_RESOURCES + 64U)
 
 enum {
@@ -230,8 +243,22 @@ typedef struct sa_pc_sound_stats {
     uint32_t most_voices; /* of 64 */
     uint32_t unplayed; /* notes with no program, and sequences, unheard */
 } sa_pc_sound_stats;
+#ifdef __PSP__
+#define SA_PC_SOUND_QUEUE 512U
+#else
 #define SA_PC_SOUND_QUEUE 4096U
+#endif
 sa_result sa_pc_sound_stats_read(sa_engine *engine, sa_pc_sound_stats *stats);
+#ifdef __PSP__
+/* the PSP has no memory for a stream's file whole, as sa_audio_stream takes
+ * one. this plays stream from the size bytes at base in file, whose first
+ * bytes are head's, its header's fields among them: the sound reads the
+ * rest a window at a time as the stream plays. it closes file once another
+ * stream takes this one's place, or at once where it refuses the stream */
+sa_result sa_pc_audio_stream_file(sa_engine *engine, uint32_t stream,
+                                  FILE *file, uint32_t base, uint32_t size,
+                                  const void *head, uint32_t bytes);
+#endif
 
 #ifdef __cplusplus
 }

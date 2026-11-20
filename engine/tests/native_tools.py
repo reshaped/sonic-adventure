@@ -677,11 +677,14 @@ class Asm2c(unittest.TestCase):
         # with every function written, none is the host's
         self.assertNotIn('native_jsr((uint32_t)(uintptr_t)&e_', self.written(source.format(trap='')))
 
-    def test_a_jsr_to_the_game_s_c_is_called_by_x86_64_s_system_v_convention_alone(self):
-        # the call passes integers and floats in registers of their own, as those calls do: Windows' and another
-        # processor's pass them another way, and there the JSR ends the run by name
+    def test_a_jsr_to_the_game_s_c_is_called_by_x86_64_s_system_v_convention_and_the_psp_s_alone(self):
+        # the call passes integers and floats in registers of their own, as those two conventions do: Windows' and
+        # another processor's pass them another way, and there the JSR ends the run by name. each convention reads
+        # the float result where its own calls leave it
         text = self.written(SOURCE)
-        self.assertIn('\n#if defined(__x86_64__) && !defined(_WIN32)\n', text)
+        self.assertIn('\n#if (defined(__x86_64__) && !defined(_WIN32)) || defined(__PSP__)\n', text)
+        self.assertIn('#ifdef __PSP__\n    __asm__ volatile("swc1 $f0, %0" : "=m"(F.f[0]));\n#else\n'
+                      '    __asm__ volatile("movss %%xmm0, %0" : "=m"(F.f[0]));\n#endif\n', text)
         self.assertNotIn('__i386__', text)
 
     def test_a_register_an_instruction_may_have_written_names_no_function(self):
@@ -759,10 +762,10 @@ def inside(folder):
         os.chdir(was)
 
 
-def tree(dest):
+def tree(dest, narrow=False):
     """marks.tree() of the working directory's sources, saying nothing"""
     with contextlib.redirect_stdout(io.StringIO()):
-        marks.tree(Path(dest))
+        marks.tree(Path(dest), narrow)
 
 
 def unit(folder, source, text):
@@ -777,8 +780,8 @@ def unit(folder, source, text):
 @contextlib.contextmanager
 def tables(**given):
     """marks.py's tables as given, and each of the rest empty, for a tree of a test's own sources"""
-    empty = {'REACHED': (), 'SITES': {}, 'CONSOLE': {}, 'MARKED_SITES': {}, 'HOOKS': {},
-             'LAYOUTS': {}, 'RECORDS': set(), 'FILES': set()}
+    empty = {'REACHED': (), 'SITES': {}, 'WIDE_SITES': {}, 'NARROW_SITES': {}, 'RAM': {}, 'NOT_RAM': {},
+             'CONSOLE': {}, 'MARKED_SITES': {}, 'HOOKS': {}, 'LAYOUTS': {}, 'RECORDS': set(), 'FILES': set()}
     with contextlib.ExitStack() as stack:
         for name, value in {**empty, **given}.items():
             stack.enter_context(mock.patch.object(marks, name, value))
@@ -800,6 +803,70 @@ class Marks(unittest.TestCase):
             self.assertEqual({path.relative_to(d).as_posix() for root in marks.ROOTS
                               for path in Path(d, root).rglob('*.[ch]')},
                              {path.as_posix() for root in marks.ROOTS for path in Path(root).rglob('*.[ch]')})
+
+    def test_the_narrow_tree_keeps_the_games_heap_and_names_console_ram_as_the_sources_stand(self):
+        # a host of 4-byte pointers takes the hooks and none of what a wider host's records need, and each address
+        # of console RAM by RAM's counts, which the pass holds the tree to
+        with tempfile.TemporaryDirectory() as d, inside(ROOT):
+            tree(d, narrow=True)
+            task = Path(d, 'src/system/task.c').read_text(errors='surrogateescape')
+            self.assertIn('#define HEAP_SIZE 0x90000\n', task)
+            self.assertIn('Uint8 heap_arena[HEAP_SIZE + sizeof(struct heap_block)]', task)
+            self.assertIn('    native_hook_task_destroy(task);\n', task)
+            loader = Path(d, 'src/system/loader.h').read_text(errors='surrogateescape')
+            self.assertIn('#define MODULE_AREA ((Uint8 *)NATIVE_RAM(0x0c900000))\n', loader)
+            self.assertNotIn('syCacheICI();', Path(d, 'src/system/loader.c').read_text(errors='surrogateescape'))
+            # an id of an address's spelling stays a number
+            self.assertIn('#define EVENT_SOUND_ID 0x0cb80001\n',
+                          Path(d, 'events/shared/sound.h').read_text(errors='surrogateescape'))
+
+    def test_the_narrow_tree_names_an_address_in_code_alone_and_ends_at_another_count(self):
+        source = 'char *a = (char *)0x0c900000; /* at 0x0cb00000 */\nchar *s = "0x8cb00000";\nint id = 0x0cb80001;\n'
+        for ram, kept, passes in (({'src/a.c': 1}, {'src/a.c': {'0x0cb80001'}}, True), ({}, {}, False),
+                                  ({'src/a.c': 1}, {}, False), ({'src/a.c': 2}, {'src/a.c': {'0x0cb80001'}}, False)):
+            with self.subTest(ram=ram, kept=kept), tempfile.TemporaryDirectory() as d, inside(d), \
+                    tables(RAM=ram, NOT_RAM=kept):
+                Path('src').mkdir()
+                Path('src/a.c').write_text(source)
+                if passes:
+                    tree('out', narrow=True)
+                    self.assertEqual(Path('out/src/a.c').read_text(),
+                                     source.replace('(char *)0x0c900000', '(char *)NATIVE_RAM(0x0c900000)'))
+                    # a wider host maps the console's addresses, and its copy keeps them
+                    tree('wide')
+                    self.assertEqual(Path('wide/src/a.c').read_text(), source)
+                else:
+                    with self.assertRaises(SystemExit) as failed:
+                        tree('out', narrow=True)
+                    self.assertIn('src/a.c: its code holds', str(failed.exception))
+
+    def test_a_tree_takes_the_sites_of_its_own_width_alone(self):
+        with tempfile.TemporaryDirectory() as d, inside(d), \
+                tables(WIDE_SITES={'src/a.c': [('a();', 'wide();')]}, NARROW_SITES={'src/a.c': [('b();', '')]}):
+            Path('src').mkdir()
+            Path('src/a.c').write_text('a();\nb();\n')
+            tree('wide')
+            tree('narrow', narrow=True)
+            self.assertEqual(Path('wide/src/a.c').read_text(), 'wide();\nb();\n')
+            self.assertEqual(Path('narrow/src/a.c').read_text(), 'a();\n\n')
+        # a table of either width that names a source the tree lacks ends the pass
+        for name in ('WIDE_SITES', 'NARROW_SITES', 'RAM', 'NOT_RAM'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as d, inside(d), \
+                    tables(**{name: {'src/moved.c': []}}), self.assertRaises(SystemExit) as failed:
+                tree('out')
+            self.assertIn('src/moved.c: WIDE_SITES, NARROW_SITES, RAM or NOT_RAM', str(failed.exception))
+
+    def test_a_narrow_unit_takes_the_hooks_the_float_spellings_and_the_layouts_and_no_mark(self):
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(marks, 'HOOKS', {'sdk/a.c': [('void drawer(void)', 'void hooked(void)')]}), \
+                mock.patch.object(marks, 'LAYOUTS', {'sdk/a.c': {'struct a': 8}}):
+            path = Path(d, 'unit.i')
+            path.write_text('# 1 "sdk/a.c"\nstruct a { char *p, *q; };\nlong float wide = 0x1p0;\n'
+                            'void drawer(void) {}\n')
+            marks.narrowed(path)
+            self.assertEqual(path.read_text(), '# 1 "sdk/a.c"\nstruct a { char *p, *q; };\ndouble wide = 0x1p0F;\n'
+                             'void hooked(void) {}\n_Static_assert(sizeof(struct a) == 8, "struct a isn\'t the '
+                             'SH-4\'s 8 bytes, which marks.py\'s LAYOUTS gives it");\n')
 
     def test_a_site_ends_the_pass_where_its_source_holds_its_text_another_count_of_times(self):
         # a text the source spells another way, and one it repeats, where one hook would become two

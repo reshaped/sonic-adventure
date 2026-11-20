@@ -91,9 +91,15 @@ void Raster::free_texture(uint32_t texture)
     fake.freed.push_back(texture);
 }
 
+float Raster::reach() const
+{
+    return 0.0F;
+}
+
 bool Raster::submit(uint32_t frame, const PictureUniform &picture, uint32_t,
                     const std::vector<Vertex> &vertices,
-                    const std::vector<Batch> &batches, bool, std::string &why)
+                    const std::vector<Batch> &batches, bool, std::string &why,
+                    const std::vector<float> *)
 {
     if (fake.broken != nullptr) {
         why = fake.broken;

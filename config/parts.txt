@@ -75,6 +75,9 @@ engine/native/                 backend    play
 engine/native/mesh.c           game       play
 engine/numeric/                play-math  play
 engine/pc/                     backend    picture
+engine/psp/                    backend    play
+engine/psp/raster.cpp          backend    picture
+engine/psp/window.cpp          backend    picture
 engine/runtime/                backend    picture
 engine/sa1/                    recorder   play
 engine/sa1/basic.cpp           recorder   picture

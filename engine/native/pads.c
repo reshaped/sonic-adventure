@@ -70,6 +70,13 @@ void __wrap_pad_scan(void)
         next_keys();
         sa1_chord(pad_record);
     }
+#ifdef __PSP__
+    /* the trace's word of each press: what the player last did */
+    if (native_trace && pad_record && pad_record->press) {
+        fprintf(stderr, "sa1: buttons %08x pressed, at vsync %lu\n",
+                (unsigned)pad_record->press, native_vsyncs);
+    }
+#endif
     native_hook_pad_scan(pad_record);
     __real_pad_scan();
     native_hook_pad_scanned();

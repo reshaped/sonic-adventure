@@ -93,7 +93,9 @@ FILE *native_disc_file(const char *name)
 {
     char path[1024];
 
-    return find_nocase(name, path, sizeof path) ? fopen(path, "rb") : NULL;
+    return find_nocase(name, path, sizeof path)
+               ? native_buffered(fopen(path, "rb"))
+               : NULL;
 }
 
 uint32_t native_disc_file_id(const char *name)
@@ -375,7 +377,13 @@ struct gdfs *gdFsOpen(const char *name, void *dirrec)
 
     (void)dirrec;
     snprintf(native_last_opened, sizeof native_last_opened, "%s", name);
-    if (!find_nocase(name, path, sizeof path) || !(file = fopen(path, "rb"))) {
+#ifdef __PSP__
+    if (native_trace) {
+        fprintf(stderr, "sa1: open %s, at vsync %lu\n", name, native_vsyncs);
+    }
+#endif
+    if (!find_nocase(name, path, sizeof path) ||
+        !(file = native_buffered(fopen(path, "rb")))) {
         fprintf(stderr, "sa1: no file %s on the disc\n", name);
         return NULL;
     }
@@ -447,6 +455,14 @@ int32_t gdFsRead(struct gdfs *gdfs, int32_t sectors, void *buffer)
     size_t from, bytes, held;
     const char *why = NULL;
 
+#ifdef __PSP__
+    native_work_taken(buffer);
+    if (native_trace) {
+        fprintf(stderr, "sa1: read %ld sectors of %s\n", (long)sectors,
+                native_last_opened);
+    }
+#endif
+
     if (!gdfs || !gdfs->file) {
         return GDD_ERR_ILLHNDL;
     }
@@ -493,6 +509,15 @@ int32_t gdFsRead(struct gdfs *gdfs, int32_t sectors, void *buffer)
     }
     /* the drive writes whole sectors: a short last one ends in zeros here */
     memset((char *)buffer + held, 0, bytes - held);
+#ifdef __PSP__
+    /* a file read whole by one call lies where the game wants it, but a
+     * packed one, whose bytes prs_decompress has yet to decode */
+    if (from == 0 && held == (size_t)gdfs->size &&
+        !(strlen(gdfs->name) > 4 &&
+          !strcasecmp(gdfs->name + strlen(gdfs->name) - 4, ".prs"))) {
+        native_file_placed(gdfs->name, buffer, (uint32_t)held);
+    }
+#endif
     gdfs->next += sectors;
     gdfs->stat = GDD_STAT_COMPLETE;
     return GDD_ERR_OK;

@@ -14,7 +14,12 @@ void names_symbol_add(uint32_t address, uint32_t size, int code,
                       const char *name)
 {
     if (symbol_count == symbol_room) {
-        symbol_room = symbol_room ? symbol_room * 2 : 1 << 16;
+        /* the PSP's names are the few objects found by name */
+#ifdef __PSP__
+        symbol_room = symbol_room ? symbol_room * 2 : 1 << 6;
+#else
+        symbol_room = symbol_room ? symbol_room * 2 : 1 << 12;
+#endif
         symbols = native_memory(realloc(symbols, symbol_room * sizeof *symbols),
                                 "the program's symbols");
     }

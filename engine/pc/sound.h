@@ -9,6 +9,9 @@
 #ifndef PC_SOUND_H
 #define PC_SOUND_H
 #include <stdint.h>
+#ifdef __PSP__
+#include <stdio.h>
+#endif
 
 #include <atomic>
 
@@ -33,11 +36,19 @@ constexpr uint32_t FX_OUTPUTS = 16;
  * that would pass the ring's end starts at its start, which can leave as
  * many bytes unused. so the ring holds all the game gives between renders
  * no more than two vsyncs apart. it holds a lone stream of STREAM_BYTES
- * wherever the last one ended */
+ * wherever the last one ended.
+ * STREAM_BYTES is the most a stream's file holds: over eight minutes of
+ * stereo ADX at 44.1 kHz. the PSP has memory for neither. a bank's bytes go
+ * straight to sound memory there, and a stream plays from its file through
+ * a window of STREAM_BYTES, a third of a second of stereo ADX: the ring
+ * carries a stream's head alone */
+#ifdef __PSP__
+constexpr uint32_t SOUND_BYTES = 64U << 10;
+constexpr uint32_t STREAM_BYTES = 16U << 10;
+#else
 constexpr uint32_t SOUND_BYTES = 64U << 20;
-/* the most a stream's file holds: over eight minutes of stereo ADX at
- * 44.1 kHz */
 constexpr uint32_t STREAM_BYTES = 24U << 20;
+#endif
 /* a stream's channels at the most, and the samples an ADX block gives each */
 constexpr uint32_t STREAM_CHANNELS = 2;
 constexpr uint32_t ADX_CODES = 32;
@@ -45,6 +56,14 @@ constexpr uint32_t ADX_CODES = 32;
 constexpr uint32_t HELD = 32;
 /* a filter's levels, FLV0 to FLV4 */
 constexpr uint32_t FILTER_LEVELS = 5;
+
+/* a number the render reads for each frame of a voice: a double, but a
+ * float on the PSP, whose processor has no double */
+#ifdef __PSP__
+using Real = float;
+#else
+using Real = double;
+#endif
 
 /* one layer of a note, played as the AICA plays a channel */
 struct Voice {
@@ -57,7 +76,14 @@ struct Voice {
     uint32_t start, format, loop_start, loop_end;
     bool loops;
     double position; /* in samples, from the start */
-    double step; /* samples a frame */
+#ifdef __PSP__
+    /* the PSP's render keeps the position as a sample and a 65536th of one,
+     * and the gains its last block ended at, each side */
+    uint32_t at, part;
+    int32_t gain_left, gain_right;
+    bool ramped;
+#endif
+    Real step; /* samples a frame */
     int base, fine; /* the split's own note and its cents */
     int bend_range;
     /* the ADPCM decoder: how many samples it has decoded, the last two, and
@@ -70,9 +96,9 @@ struct Voice {
     /* the envelope. its level is an attenuation from 0, the loudest, to
      * 1023, in steps of 3/32 dB. its rates are levels a frame */
     int phase;
-    double level;
-    double attack, decay1, decay2, release;
-    double decay_level;
+    Real level;
+    Real attack, decay1, decay2, release;
+    Real decay_level;
     /* the split's levels: total level and direct send, and its send to
      * one of the DSP's inputs */
     int total_level, direct, send_level;
@@ -82,23 +108,23 @@ struct Voice {
     float direct_left, direct_right, send;
     /* the LFO: its place in its period, its move a frame, and its waves and
      * depths. its pitch depth is in cents, and its level depth in dB */
-    double lfo, lfo_step;
+    Real lfo, lfo_step;
     int pitch_wave, level_wave;
-    double pitch_depth, level_depth;
+    Real pitch_depth, level_depth;
     uint32_t noise;
-    double noise_value;
+    Real noise_value;
     uint32_t noise_step; /* the period's 256th that drew noise_value, or ~0 */
     /* the filter: its levels FLV0 to FLV4, and its envelope's level, phase
      * and rates a frame. each rate is for the move to one level past FLV0 */
     bool filtered;
-    double cutoffs[FILTER_LEVELS];
-    double cutoff;
+    Real cutoffs[FILTER_LEVELS];
+    Real cutoff;
     int filter_phase;
-    double filter_rates[FILTER_LEVELS - 1];
-    double damping;
+    Real filter_rates[FILTER_LEVELS - 1];
+    Real damping;
     int filter_at; /* the cutoff the coefficients are for, or -1 */
-    double filter_gain, filter_b1, filter_b2;
-    double filter_y1, filter_y2;
+    Real filter_gain, filter_b1, filter_b2;
+    Real filter_y1, filter_y2;
 };
 
 /* a midi channel. its pan and its bend start centred */
@@ -125,6 +151,15 @@ struct Sequence {
 struct Stream {
     uint8_t *data;
     uint32_t bytes;
+#ifdef __PSP__
+    /* the stream's file, where it plays from one: data holds window_bytes
+     * of it from window_at, the file's bytes from base on, and whole is the
+     * stream's length, which bytes takes as the stream starts. part is the
+     * position's 65536ths */
+    FILE *file;
+    uint32_t base, whole, window_at, window_bytes;
+    uint32_t part;
+#endif
     bool playing;
     bool ending; /* the file has run out: following repeats current */
     uint32_t channels, rate, samples, offset;
@@ -160,6 +195,11 @@ struct Entry {
     sa_audio_bank bank; /* its bytes lie in the byte ring, not at data */
     uint32_t stream;
     uint64_t at, end; /* its bytes in the ring, unwrapped. end is 0 for none */
+#ifdef __PSP__
+    /* a stream's file, where its bytes lie in it and how many they are */
+    FILE *file;
+    uint32_t base, size;
+#endif
 };
 
 class Sound {
@@ -170,6 +210,14 @@ public:
     sa_result submit(const sa_audio_command *commands, uint32_t count);
     sa_result load(const sa_audio_bank &bank);
     sa_result stream(uint32_t index, const void *data, uint32_t bytes);
+#ifdef __PSP__
+    /* a stream of the size bytes at base in file, which the render reads a
+     * window at a time and closes once another takes its place. head is
+     * the stream's first bytes, its header's fields among them. a refusal
+     * closes the file */
+    sa_result stream_file(uint32_t index, FILE *file, uint32_t base,
+                          uint32_t size, const void *head, uint32_t bytes);
+#endif
     /* the render's thread: carry out the queue, then render frames of two
      * int16_t */
     void render(int16_t *out, uint32_t frames);
@@ -205,6 +253,13 @@ private:
     void fx_program(uint32_t program, uint32_t output_set);
     void fx_output_gains(uint32_t output);
     void qsound_place(uint32_t channel, uint32_t place);
+#ifdef __PSP__
+    /* the PSP's render (mixer.h), a block of frames at a time */
+    void sequence_block(uint32_t port, uint32_t frames);
+    uint32_t reach_ = 0; /* the most a bank's end lay into sound memory */
+    void voice_block(Voice &voice, int32_t *mix, uint32_t frames);
+    void stream_block(Stream &stream, int32_t *mix, uint32_t frames);
+#endif
 
     uint8_t *memory_ = nullptr;
     uint8_t *bytes_ = nullptr;

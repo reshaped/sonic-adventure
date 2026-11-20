@@ -48,6 +48,9 @@
  * rumble, as engine/pc/input.h names them.
  *
  * a run ends with its figures, as native_play_close reports them */
+#ifdef __PSP__
+#include <malloc.h>
+#endif
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,8 +84,13 @@ int pc_png_write(const char *path, uint32_t width, uint32_t height,
 /* the frames of sound one render takes, two samples each */
 #define RENDER_FRAMES 1024U
 /* the pictures whose times the run's report keeps, an hour's at 30 a second.
- * its other figures, the readout and --times take every picture */
+ * its other figures, the readout and --times take every picture. the PSP has
+ * no memory to spare for them, and keeps twenty seconds' */
+#ifdef __PSP__
+#define MOST_TIMED 600U
+#else
 #define MOST_TIMED 108000U
+#endif
 
 /* the head of Shinobi's PDS_PERIPHERAL, the game's pad record */
 struct peripheral {
@@ -422,7 +430,9 @@ void native_play_close(void)
     if (native_sound_engine) {
         print_sound();
     }
+#ifndef __PSP__
     sa_pc_client_report(client);
+#endif
     sa1_names_report();
     fflush(stdout);
 }
@@ -545,7 +555,12 @@ static void give_picture(const uint8_t *records, size_t bytes)
         meshes += head.kind == SA_CAP_MESH;
         mesh_bytes += head.kind == SA_CAP_MESH ? head.size : 0;
         textures += head.kind == SA_CAP_TEXTURE;
+        /* the PSP's adapter gives no record, and its build links no client */
+#ifdef __PSP__
+        result = SA_OK;
+#else
         result = sa_pc_client_record(client, records + at);
+#endif
         if (head.kind == SA_CAP_END) {
             end_ns += now_ns() - before;
         }
@@ -657,12 +672,11 @@ static int rumble(uint32_t strength, uint32_t ms, uint32_t fade_ms)
 
 void native_play_open(const char *disc, int recorded)
 {
-    /* two pictures in flight, which a rate needs */
     sa_engine_desc desc = {.abi = SA_ENGINE_ABI_VERSION,
                            .size = sizeof desc,
                            .game = SA_GAME_SA1,
                            .arena = SA_PC_ARENA,
-                           .pictures = 2,
+                           .pictures = SA_PC_PICTURES,
                            .resources = SA_PC_RESOURCES,
                            .events = SA_PC_EVENTS,
                            .platform = &options};
@@ -672,20 +686,25 @@ void native_play_open(const char *disc, int recorded)
     sa_result result = sa_engine_memory(&desc, &bytes);
     static char why[SA_PC_WHY];
     char words[512];
+#ifndef __PSP__
     FILE *label =
         options.flags & SA_PC_WINDOW ? native_disc_file("0GDTEX.PVR") : NULL;
     static uint8_t icon[1 << 20];
 
-    /* the window's icon, the disc's label as the console's menu shows it */
+    /* the window's icon, the disc's label as the console's menu shows it.
+     * the PSP's screen is no window, and shows none */
     if (label) {
         options.icon = icon;
         options.icon_bytes = (uint32_t)fread(icon, 1, sizeof icon, label);
         fclose(label);
     }
+#endif
     options.why = why;
     if (result == SA_OK) {
 #ifdef _WIN32
         memory = _aligned_malloc(bytes, 32);
+#elif defined(__PSP__)
+        memory = memalign(32, bytes);
 #else
         if (posix_memalign(&memory, 32, bytes) != 0) {
             memory = NULL;
@@ -705,7 +724,23 @@ void native_play_open(const char *disc, int recorded)
         native_play_alert(words);
         exit(2);
     }
+#ifdef __PSP__
+    fprintf(stderr,
+            "sa1: the engine's block is %u bytes, and %u of the heap are in "
+            "use with it\n",
+            (unsigned)bytes, (unsigned)mallinfo().uordblks);
+#endif
+    /* the PSP's adapter draws as the game calls (engine/psp/draw.h): no
+     * record comes to give_picture, and no client reads one */
+#ifdef __PSP__
+    (void)roots;
+#else
     client = sa_pc_client_create(engine, roots);
+#endif
+#ifdef __PSP__
+    fprintf(stderr, "sa1: %u of the heap are in use with the client\n",
+            (unsigned)mallinfo().uordblks);
+#endif
     timed = calloc(MOST_TIMED, sizeof *timed);
     if (options.flags & SA_PC_READBACK) {
         for (uint32_t k = 0; k < MOST_SHOWN; k++) {

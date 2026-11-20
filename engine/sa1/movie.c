@@ -146,6 +146,15 @@ static int movie_open(struct player *p, const char *name)
     plm_demux_t *demux;
     plm_packet_t *packet;
 
+#ifdef __PSP__
+    /* the PSP plays no movie yet: a PSP-1000 has no memory for one's file,
+     * and the PSP's raster makes no texture of a movie's picture, whose
+     * sides are no powers of two */
+    if (file) {
+        fclose(file);
+    }
+    return 0;
+#endif
     if (!file || fseek(file, 0, SEEK_END) != 0 || (size = ftell(file)) <= 0 ||
         fseek(file, 0, SEEK_SET) != 0 || !(bytes = malloc((size_t)size))) {
         if (file) {

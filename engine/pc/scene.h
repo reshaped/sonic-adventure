@@ -29,6 +29,9 @@ struct MeshView {
     uint32_t meshsets = 0;
     uint32_t materials = 0; /* a draw's list must be this long */
     uint32_t triangles = 0;
+    /* a ball that holds every point */
+    float center[3] = {0.0F, 0.0F, 0.0F};
+    float radius = 0.0F;
 };
 /* read bytes as a mesh. it returns false where they hold no whole one, or a
  * count or corner is invalid */
@@ -74,8 +77,11 @@ struct BlendTriangle {
 
 class Scene {
 public:
-    /* take blend, an SA_PC_BLEND_*, and room for the most a picture holds */
-    void open(uint32_t blend);
+    /* take blend, an SA_PC_BLEND_*, and room for the most a picture holds.
+     * reach is the raster's (raster.h): past 0, a draw's opaque triangles
+     * keep their mesh's space, under a place of places(), where the mesh
+     * as the draw places it lies within that reach of the frame */
+    void open(uint32_t blend, float reach = 0.0F);
     /* a picture opens under its own view, view 0, which is its home */
     void begin(const sa_picture &picture);
     /* add a further view of the picture's, of which the scene reads the
@@ -108,6 +114,7 @@ public:
 
     const std::vector<Vertex> &vertices() const { return vertices_; }
     const std::vector<Batch> &batches() const { return batches_; }
+    const std::vector<float> &places() const { return places_; }
     bool sorted() const { return blend_ == SA_PC_BLEND_PIXEL; }
     uint32_t clear_color() const { return picture_.back[0]; }
     uint32_t triangle_count() const { return triangle_count_; }
@@ -141,6 +148,7 @@ private:
                 uint32_t texture);
     void lines(const sa_triangles &t, const sa_point *points,
                const State &state);
+    uint32_t place_of(const float *w, const MeshView &mesh);
 
     uint32_t blend_ = SA_PC_BLEND_PIXEL;
     sa_picture picture_{};
@@ -152,6 +160,8 @@ private:
     std::vector<Vertex> vertices_;
     std::vector<Batch> batches_;
     std::vector<BlendTriangle> blend_list_;
+    float reach_ = 0.0F;
+    std::vector<float> places_; /* 3 rows of 4 each */
     /* a draw's points as placed() places and lights them. these keep their
      * room from draw to draw */
     std::vector<float> world_;

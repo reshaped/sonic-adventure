@@ -8,14 +8,19 @@
  * Linux switches by ucontext. Windows' fibers take stacks where the system
  * places them, so there a context is a stack pointer. native_switch keeps
  * the registers on that stack, with the stack's bounds from the TEB. Windows'
- * exceptions and Wine's fault handler test a frame against those bounds */
+ * exceptions and Wine's fault handler test a frame against those bounds.
+ *
+ * the PSP's context is a stack pointer too, and its native_switch keeps
+ * what MIPS's EABI keeps across a call. the PSP maps no memory, so its
+ * stacks are the program's own bytes, and a guard there is a word each
+ * switch holds to its value */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
 #include <windows.h>
-#else
+#elif !defined(__PSP__)
 #include <sys/mman.h>
 #include <ucontext.h>
 #endif
@@ -27,11 +32,29 @@
  * access, with a stack over it. a thread that runs off its stack's end
  * faults in the guard, and the stack below stays whole. a frame of
  * GUARD_SIZE or more can pass over the guard without touching it */
+#ifdef __PSP__
+#define CONTEXTS 8
+#define STACK_SIZE 0x4000UL
+#define GUARD_SIZE 0x10UL
+#define SLOT_SIZE (GUARD_SIZE + STACK_SIZE)
+#define STACKS_BYTES ((CONTEXTS + 1) * SLOT_SIZE)
+_Static_assert(STACKS_BYTES == NATIVE_THREADS_BYTES,
+               "native.h's NATIVE_THREADS_BYTES isn't the stacks' size");
+/* where native_threads_place put them */
+static char *stacks;
+#define STACKS ((uintptr_t)stacks)
+
+void native_threads_place(void *at)
+{
+    stacks = at;
+}
+#else
+#define CONTEXTS 64
 #define STACKS (NATIVE_DOMAIN + 0x42000000UL)
 #define STACK_SIZE 0x40000UL
 #define GUARD_SIZE 0x10000UL
 #define SLOT_SIZE (GUARD_SIZE + STACK_SIZE)
-#define CONTEXTS 64
+#endif
 
 extern void *thread_current;
 void thread_next(void);
@@ -160,6 +183,145 @@ static int guard(void *at, size_t size)
 {
     return VirtualFree(at, size, MEM_DECOMMIT) != 0;
 }
+#elif defined(__PSP__)
+/* native_switch(from, to) saves what the EABI keeps across a call on the
+ * running stack: s0 to s7, fp and ra, f20 to f31, and the FPU's FCR31. it
+ * writes that stack's pointer to *from, and loads the same from the stack at
+ * to. a frame is SWITCH_WORDS words: the general registers from its first
+ * word, then the FPU's, then FCR31, which loads without its cause bits
+ * (native.h). the return's delay slot gives the frame
+ * back, so the assembler fills no slot of its own: left to, it puts the
+ * last load there, and the stack's pointer stays a frame low */
+void native_switch(void **from, void *to);
+__asm__(".text\n"
+        ".set push\n"
+        ".set noreorder\n"
+        ".globl native_switch\n"
+        ".ent native_switch\n"
+        "native_switch:\n"
+        "    addiu $sp, $sp, -96\n"
+        "    sw $s0, 0($sp)\n"
+        "    sw $s1, 4($sp)\n"
+        "    sw $s2, 8($sp)\n"
+        "    sw $s3, 12($sp)\n"
+        "    sw $s4, 16($sp)\n"
+        "    sw $s5, 20($sp)\n"
+        "    sw $s6, 24($sp)\n"
+        "    sw $s7, 28($sp)\n"
+        "    sw $fp, 32($sp)\n"
+        "    sw $ra, 36($sp)\n"
+        "    swc1 $f20, 40($sp)\n"
+        "    swc1 $f21, 44($sp)\n"
+        "    swc1 $f22, 48($sp)\n"
+        "    swc1 $f23, 52($sp)\n"
+        "    swc1 $f24, 56($sp)\n"
+        "    swc1 $f25, 60($sp)\n"
+        "    swc1 $f26, 64($sp)\n"
+        "    swc1 $f27, 68($sp)\n"
+        "    swc1 $f28, 72($sp)\n"
+        "    swc1 $f29, 76($sp)\n"
+        "    swc1 $f30, 80($sp)\n"
+        "    swc1 $f31, 84($sp)\n"
+        "    cfc1 $t0, $31\n"
+        "    nop\n"
+        "    sw $t0, 88($sp)\n"
+        "    sw $sp, 0($a0)\n"
+        "    move $sp, $a1\n"
+        "    lw $t0, 88($sp)\n"
+        "    lui $t1, 0xfffc\n"
+        "    ori $t1, $t1, 0x0fff\n"
+        "    and $t0, $t0, $t1\n"
+        "    ctc1 $t0, $31\n"
+        "    nop\n"
+        "    lw $s0, 0($sp)\n"
+        "    lw $s1, 4($sp)\n"
+        "    lw $s2, 8($sp)\n"
+        "    lw $s3, 12($sp)\n"
+        "    lw $s4, 16($sp)\n"
+        "    lw $s5, 20($sp)\n"
+        "    lw $s6, 24($sp)\n"
+        "    lw $s7, 28($sp)\n"
+        "    lw $fp, 32($sp)\n"
+        "    lw $ra, 36($sp)\n"
+        "    lwc1 $f20, 40($sp)\n"
+        "    lwc1 $f21, 44($sp)\n"
+        "    lwc1 $f22, 48($sp)\n"
+        "    lwc1 $f23, 52($sp)\n"
+        "    lwc1 $f24, 56($sp)\n"
+        "    lwc1 $f25, 60($sp)\n"
+        "    lwc1 $f26, 64($sp)\n"
+        "    lwc1 $f27, 68($sp)\n"
+        "    lwc1 $f28, 72($sp)\n"
+        "    lwc1 $f29, 76($sp)\n"
+        "    lwc1 $f30, 80($sp)\n"
+        "    lwc1 $f31, 84($sp)\n"
+        "    jr $ra\n"
+        "    addiu $sp, $sp, 96\n"
+        ".end native_switch\n"
+        ".set pop\n");
+
+typedef void *saved;
+
+#define SWITCH_WORDS 24
+#define SWITCH_RA 9
+#define SWITCH_FCR31 22
+/* the word a stack's guard holds while no frame has run into it */
+#define GUARD_WORD 0x5a1a57acU
+
+/* a stack whose switch returns into entry as into a call of it, under the
+ * FPU's mode as the caller has it. its frame is zeros but those two words,
+ * and 16 bytes stay spare above it */
+static void make(saved *self, char *stack, size_t size, void (*entry)(void))
+{
+    uint32_t *sp = (uint32_t *)(stack + size - 16) - SWITCH_WORDS;
+    uint32_t mode;
+
+    __asm__ volatile("cfc1 %0, $31" : "=r"(mode));
+    memset(sp, 0, SWITCH_WORDS * sizeof *sp);
+    sp[SWITCH_RA] = (uint32_t)entry;
+    sp[SWITCH_FCR31] = mode & ~NATIVE_FCR31_CAUSE;
+    *self = sp;
+}
+
+/* whether the stack that holds the frames at sp has its guard whole. a
+ * stack outside the threads' place, as the runner's own is, has none */
+static void hold_guard(void *sp)
+{
+    uintptr_t at = (uintptr_t)sp - STACKS;
+
+    if (at < STACKS_BYTES &&
+        *(uint32_t *)(STACKS + at / SLOT_SIZE * SLOT_SIZE) != GUARD_WORD) {
+        stop("keep a thread on its stack: its frames ran past the end");
+    }
+}
+
+static void swap(saved *from, saved *to)
+{
+    native_switch(from, *to);
+    hold_guard(*to);
+}
+
+static void jump(saved *to)
+{
+    void *left;
+
+    native_switch(&left, *to);
+}
+
+/* fresh zeros at a stack, 1 where it holds */
+static int place(void *stack, size_t size)
+{
+    memset(stack, 0, size);
+    return 1;
+}
+
+/* the guard's word in the size bytes at at, 1 where it holds */
+static int guard(void *at, size_t size)
+{
+    (void)size;
+    *(uint32_t *)at = GUARD_WORD;
+    return 1;
+}
 #else
 typedef ucontext_t saved;
 
@@ -232,8 +394,10 @@ static int stands_on(size_t slot)
 
 void native_threads_reserve(void)
 {
+#ifndef __PSP__
     native_map((void *)STACKS, (CONTEXTS + 1) * SLOT_SIZE,
                "the threads' stacks");
+#endif
     for (size_t slot = 0; slot <= CONTEXTS; slot++) {
         if (!guard(stack_at(slot) - GUARD_SIZE, GUARD_SIZE)) {
             stop("guard a thread's stack");
@@ -350,6 +514,9 @@ static saved host, game;
 
 static void game_main(void)
 {
+#ifdef __PSP__
+    fprintf(stderr, "sa1: on the game's stack\n");
+#endif
     sa1_main();
     jump(&host);
 }

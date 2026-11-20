@@ -18,6 +18,10 @@
 #include "ninja/njkamui.h"
 #include "play_math.h"
 #include "sa1.h"
+#ifdef __PSP__
+/* the PSP keeps no records: it draws as the game calls (engine/psp/draw.h) */
+#include "draw.h"
+#endif
 
 /* what the records read of the game's task, in the host's layout */
 struct task {
@@ -38,11 +42,12 @@ extern float _nj_far_clip_;
 #define FLIP_U 0x00040000U
 #define FLIP_V 0x00020000U
 
-/* the PVR registers a picture's fog reads, which Ninja's setters write */
-#define FOG_COLOR 0xa05f80b0UL
-#define FOG_DENSITY 0xa05f80b8UL
-#define FOG_TABLE 0xa05f8200UL
-#define REGISTER(address) (*(volatile uint32_t *)(NATIVE_DOMAIN + (address)))
+/* the PVR registers a picture's fog reads, which Ninja's setters write, by
+ * their places among the PVR's */
+#define FOG_COLOR 0xb0UL
+#define FOG_DENSITY 0xb8UL
+#define FOG_TABLE 0x200UL
+#define REGISTER(address) (*(volatile uint32_t *)(NATIVE_PVR + (address)))
 
 /* the records of a picture and of what its draws first name, in order.
  * records_refused counts the records left out as larger than a record may be.
@@ -57,6 +62,13 @@ static int recording;
 /* the bytes that follow an sa_cap_mesh in its record: a model as
  * SA_MESH_NINJA_INLINE lays it out. MESH_SETS is the most meshsets they hold,
  * past the model's 40 bytes at 24 each */
+/* the most points one of Ninja's draws of triangles gives a record. the PSP
+ * has memory for a quarter of a host's */
+#ifdef __PSP__
+#define RECORD_POINTS (1 << 10)
+#else
+#define RECORD_POINTS (1 << 12)
+#endif
 #define MESH_ROOM (SA_CAP_RECORD_MOST - sizeof(sa_cap_mesh))
 #define MESH_SETS ((MESH_ROOM - 40) / 24)
 static uint8_t mesh_bytes[MESH_ROOM];
@@ -129,6 +141,54 @@ const char *sa1_statics_find(void)
  * the size of both. a record past SA_CAP_RECORD_MOST is left out and counted.
  * its head would say less, and a reader would lose its place in every record
  * after it. each writer holds its record to that before it names anything */
+#ifdef __PSP__
+static const sa_view *picture_view_own(void);
+
+/* the PSP has no memory for a picture's records, nor for the client and the
+ * scene a host makes of them. what a host records, the PSP draws: a picture's
+ * start and end, its views, and its sprites and runs of triangles go to the
+ * PSP's scene as they come (engine/psp/draw.h), and a model goes by its walk
+ * (engine/psp/sa1/walk.h) before it would be recorded at all. a texture's
+ * id, as a record would name it, is the raster's own there. every other
+ * record names something the walk reads from the game instead, and goes
+ * nowhere */
+static void emit(uint16_t kind, void *record, uint32_t bytes, const void *tail,
+                 uint32_t tail_bytes)
+{
+    (void)bytes;
+    (void)tail_bytes;
+    (void)records_room;
+    (void)records_most;
+    switch (kind) {
+    case SA_CAP_PICTURE: {
+        const sa_cap_picture *picture = record;
+        const uint32_t back[3] = {sa1_back[0] | 0xff000000U,
+                                  sa1_back[1] | 0xff000000U,
+                                  sa1_back[2] | 0xff000000U};
+
+        psp_scene_begin(&picture->view, back);
+        break;
+    }
+    case SA_REC_VIEW: {
+        const sa_picture_view *given = record;
+
+        psp_scene_view(given->view, &given->value);
+        break;
+    }
+    case SA_CAP_SPRITE:
+        psp_scene_sprite(record);
+        break;
+    case SA_CAP_TRIANGLES:
+        psp_scene_triangles(record, tail);
+        break;
+    case SA_CAP_END:
+        psp_scene_end(sa1_back[0] | 0xff000000U, picture_view_own());
+        break;
+    default:
+        break;
+    }
+}
+#else
 static void emit(uint16_t kind, void *record, uint32_t bytes, const void *tail,
                  uint32_t tail_bytes)
 {
@@ -140,7 +200,12 @@ static void emit(uint16_t kind, void *record, uint32_t bytes, const void *tail,
         return;
     }
     if (need > records_room) {
+        /* the PSP has no memory for twice a picture's records */
+#ifdef __PSP__
+        records_room = need + need / 4;
+#else
         records_room = need * 2;
+#endif
         records = realloc(records, records_room);
     }
     records_most = need > records_most ? need : records_most;
@@ -151,6 +216,7 @@ static void emit(uint16_t kind, void *record, uint32_t bytes, const void *tail,
     }
     records_used = need;
 }
+#endif
 
 void native_capture_open(const char *path)
 {
@@ -170,8 +236,14 @@ void native_capture_open(const char *path)
  * gives: SA_KIND_MESH, _TEXTURE or _MATERIAL, SA_CAP_MATERIAL or SA_REC_SHADE.
  * taken counts the slots named or GONE, which table_name keeps under
  * TABLE_SLOTS / 2. live counts the names held now, and most the most held at
- * once. named is the key last named, as the table holds it */
+ * once. named is the key last named, as the table holds it. the PSP's
+ * walk leaves the adapter few names, and its memory has room for a
+ * thirty-second of a host's slots, in each of the adapter's tables */
+#ifdef __PSP__
+#define TABLE_SLOTS (1U << 6)
+#else
 #define TABLE_SLOTS (1U << 16)
+#endif
 #define TABLE_GONE UINT64_MAX
 struct table {
     uint64_t keys[TABLE_SLOTS];
@@ -617,6 +689,16 @@ static void texture_texels(uint32_t id, const NJS_TEXINFO *info)
                 info->texsurface.nHeight, (const uint8_t *)info->texaddr);
 }
 
+#ifdef __PSP__
+/* the PSP's walk (engine/psp/sa1/walk.h), which draws a model at its call,
+ * and makes the raster's texture of each the game draws from */
+static int walk_open;
+static uint32_t walk_texture(const NJS_TEXLIST *list, uint32_t index);
+static uint32_t walk_texture_at(uint32_t texaddr, uint32_t attr,
+                                const void *named);
+static void walk_released(const NJS_TEXLIST *list);
+#endif
+
 /* name is the texture's, or null for the name its list holds. a texture the
  * game made in memory has none: its list holds its NJS_TEXINFO there.
  * native_texture_file finds its record's file by its texture memory, whichever
@@ -628,6 +710,11 @@ static uint32_t texture_named(const NJS_TEXLIST *list, uint32_t index,
     uint32_t attr;
     uint32_t id;
 
+#ifdef __PSP__
+    if (list) {
+        return walk_texture(list, index);
+    }
+#endif
     if (key == 0) {
         return SA_CAP_NONE;
     }
@@ -670,6 +757,20 @@ void sa1_textures_loaded(const void *texlist, uint32_t count,
     if (!recording) {
         return;
     }
+#ifdef __PSP__
+    /* a texture of the disc's is made at its first draw: the PSP has no
+     * memory for one no draw takes. the game's own texels are read now,
+     * while the NJS_TEXINFO its name points to still stands: the game
+     * builds one on its stack for a line of text (src/system/util.c) */
+    for (uint32_t i = 0; i < count && i < list->nbTexture; i++) {
+        if (list->textures[i].attr & NJD_TEXATTR_TYPE_MEMORY) {
+            (void)walk_texture(list, i);
+        }
+    }
+    if (list) {
+        return;
+    }
+#endif
     for (uint32_t i = 0; i < count && i < list->nbTexture; i++) {
         uint32_t id = texture_named(list, i, names ? names[i] : NULL);
 
@@ -683,10 +784,14 @@ void sa1_textures_loaded(const void *texlist, uint32_t count,
 
 /* the game released texlist. a later draw of the same record names it
  * again */
+
 void sa1_textures_released(const void *texlist)
 {
     const NJS_TEXLIST *list = texlist;
 
+#ifdef __PSP__
+    walk_released(list);
+#endif
     for (uint32_t i = 0; i < list->nbTexture; i++) {
         uint64_t key = texture_key(list, i);
         uint32_t slot = table_find(&textures, key);
@@ -1042,6 +1147,20 @@ static uint8_t view_id(int placed)
  * is the view most of the picture's placed draws were made under. the first
  * met wins a tie. where no draw is placed, it is the first view. a picture
  * with no view keeps the one it opened under */
+#ifdef __PSP__
+/* the open picture's own view, as picture_view_settle finds it, or null for
+ * a picture with none */
+static const sa_view *picture_view_own(void)
+{
+    uint32_t own = 0;
+
+    for (uint32_t i = 1; i < view_count; i++) {
+        own = views_placed[i] > views_placed[own] ? i : own;
+    }
+    return view_count ? &views[own] : NULL;
+}
+#endif
+
 static void picture_view_settle(void)
 {
     uint32_t own = 0;
@@ -1102,10 +1221,17 @@ static void begin_picture(void)
     picture_names++;
     names_held = 0;
     view_count = 0;
+#ifdef __PSP__
+    walk_open = psp_picture_open();
+#endif
 }
 
 /* a task's serial: from 1, in the order the records first meet it */
+#ifdef __PSP__
+#define TASK_SLOTS (1U << 12)
+#else
 #define TASK_SLOTS (1U << 14)
+#endif
 static struct {
     const struct task *task;
     uint32_t serial;
@@ -1193,12 +1319,21 @@ void native_task_destroy(struct task *task)
 void present_run(struct task *task, void (*step)(struct task *task));
 void present_draw(struct task *task, void (*draw)(struct task *task));
 
+void *volatile sa1_running;
+volatile int sa1_running_draw;
+
 void native_task_step(struct task *task, void (*step)(struct task *task))
 {
     struct task *outer = sa1_step_task;
+    void *running = sa1_running;
+    int draws = sa1_running_draw;
 
     sa1_step_task = task;
+    sa1_running_draw = 0;
+    sa1_running = (void *)step;
     present_run(task, step);
+    sa1_running = running;
+    sa1_running_draw = draws;
     sa1_step_task = outer;
 }
 
@@ -1207,12 +1342,18 @@ void native_task_step(struct task *task, void (*step)(struct task *task))
 void native_task_draw(struct task *task, void (*draw)(struct task *task))
 {
     struct task *outer = sa1_step_task;
+    void *running = sa1_running;
+    int draws = sa1_running_draw;
 
     if (recording) {
         (void)serial_of(task);
     }
     sa1_step_task = task;
+    sa1_running_draw = 1;
+    sa1_running = (void *)draw;
     present_draw(task, draw);
+    sa1_running = running;
+    sa1_running_draw = draws;
     sa1_step_task = outer;
 }
 
@@ -1261,7 +1402,11 @@ static uint32_t shape_of(const NJS_MODEL *model)
  * one's nth. a slot is the open picture's where its picture equals
  * picture_names. begin_picture steps picture_names, so no slot is cleared.
  * every draw no task owns counts as one drawer's */
+#ifdef __PSP__
+#define NAME_SLOTS (1U << 6)
+#else
 #define NAME_SLOTS (1U << 17)
+#endif
 static struct {
     uint64_t name; /* the drawer's instance, then the thing */
     uint32_t picture, count;
@@ -1529,7 +1674,12 @@ struct reads {
 
 /* the most materials a list holds: as many ids as follow an
  * sa_cap_materials in its record */
+#ifdef __PSP__
+/* the PSP has no memory for the room a record's most would take */
+#define LIST_MOST 256
+#else
 #define LIST_MOST ((SA_CAP_RECORD_MOST - sizeof(sa_cap_materials)) / 4)
+#endif
 
 /* give draw what a draw of model under state names: its mesh, materials, tint
  * and shade. reads takes the keys of its mesh and list. it returns 1, or 0
@@ -1609,7 +1759,11 @@ static int model_draw(const NJS_MODEL *model, uint8_t mode,
  * never reaches a reader, and moves no hold. a reader copies shades and
  * materials as parts and lists are given. so they go as any name does. a
  * material named again finds its list by materials_of's key */
+#ifdef __PSP__
+#define SCENE_PARTS 8
+#else
 #define SCENE_PARTS 8192
+#endif
 _Static_assert(SCENE_PARTS < TABLE_SLOTS / 4 && SCENE_PARTS <= UINT16_MAX,
                "the scene's parts outgrow what a table holds for them");
 struct part {
@@ -1691,6 +1845,11 @@ static void parts_settle(int kept)
     parts_drawn_count = 0;
 }
 
+#ifdef __PSP__
+static uint32_t walk_lost;
+#include "sa1/walk.h"
+#endif
+
 void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
                       enum sa1_header header, const struct sa1_attrs *attrs,
                       uint16_t flags)
@@ -1705,6 +1864,14 @@ void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
     if (!recording) {
         return;
     }
+#ifdef __PSP__
+    /* a draw the game's view test left out shows in no picture. a backend
+     * that keeps a scene still places its instance by the record, and the
+     * PSP's keeps none */
+    if (flags & SA_DRAW_OUT) {
+        return;
+    }
+#endif
     if (!picture_open) {
         begin_picture();
     }
@@ -1713,6 +1880,19 @@ void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
     if (mode == SA_SHADE_PALETTE) {
         palettes_drawn(state.palette, model->nbPoint);
     }
+#ifdef __PSP__
+    /* the walk draws it now, or the picture goes without it */
+    (void)part;
+    (void)reads;
+    (void)draw;
+    psp_walk_begin();
+    if (!walk_model(model, mode, &state)) {
+        picture_lost++;
+        walk_lost++;
+    }
+    psp_walk_end();
+    return;
+#endif
     to_world(draw.object_to_world);
     part = part_drawn(model, draw.object_to_world);
     if (!model_draw(model, mode, &state, &draw, &reads)) {
@@ -2031,6 +2211,13 @@ void native_land_loaded(const struct land_table *land, unsigned int name,
     if (scene_stays || !recorded()) {
         return;
     }
+#ifdef __PSP__
+    /* the scene is for a backend that keeps one, and the PSP's keeps none:
+     * its walk draws the land as the task does */
+    if (land) {
+        return;
+    }
+#endif
     attrs = sa1_attrs_now();
     state = state_now(SA1_CONTEXT, &attrs);
     emit(SA_CAP_SCENE, &scene, sizeof scene, NULL, 0);
@@ -2190,6 +2377,17 @@ static uint32_t texture_global(uint32_t global_index)
             return texture_of(list, i);
         }
     }
+#ifdef __PSP__
+    {
+        /* texture memory's own record of the index, where it holds one */
+        uint32_t texaddr = native_texture_held(global_index);
+
+        if (texaddr) {
+            return walk_texture_at(texaddr, 0, NULL);
+        }
+    }
+    return SA_CAP_NONE;
+#else
     /* the shim's search, as njSetkmTextureNumG calls it, gives record 0 for
      * an index no record holds. record 0 is no texture's */
     record = njSearchTexList(_nj_texmemlist, _nj_texmemsize, global_index);
@@ -2204,6 +2402,7 @@ static uint32_t texture_global(uint32_t global_index)
     }
     textures.used[slot] = picture_number;
     return textures.ids[slot];
+#endif
 }
 
 /* the current texture, which Ninja's triangles take by global index */
@@ -2274,7 +2473,7 @@ static void triangles_emit(sa_triangles *out, sa_point *points)
 
 void sa1_record_triangles(const NJS_POINT3COL *p, int count, uint32_t attr)
 {
-    static sa_point points[1 << 12];
+    static sa_point points[RECORD_POINTS];
     int form = attr & NJD_DRAW_CONNECTED ? SA_TRIANGLES_STRIP
                : attr & NJD_DRAW_FAN     ? SA_TRIANGLES_FAN
                                          : SA_TRIANGLES_LIST;
@@ -2324,7 +2523,7 @@ void sa1_record_triangles(const NJS_POINT3COL *p, int count, uint32_t attr)
  * in the object's space. the backend projects and widens them as Ninja does */
 void sa1_record_lines(const NJS_POINT3COL *p, int n, uint32_t attr)
 {
-    static sa_point points[1 << 12];
+    static sa_point points[RECORD_POINTS];
     int textured = (attr & NJD_USE_TEXTURE) != 0;
     int step = attr & NJD_DRAW_MASK ? 1 : 2;
     sa_triangles out = {0};
@@ -2438,6 +2637,12 @@ static uint32_t texture_by_index(uint32_t global_index)
     if (id != SA_CAP_NONE) {
         return id;
     }
+#ifdef __PSP__
+    /* an index texture memory holds no record of has no texture to draw */
+    if (global_index != SA_CAP_NONE) {
+        return PSP_TEXTURE_FAILED;
+    }
+#endif
     if (table_name(&textures, (uint64_t)INDEX_ALONE << 32 | global_index,
                    &id)) {
         sa_cap_texture texture = {.texture = id, .global_index = global_index};
@@ -2455,7 +2660,7 @@ static uint32_t texture_by_index(uint32_t global_index)
 void sa1_record_screen_strip(const void *vertices, int count, int textured,
                              uint32_t global_index, int blend)
 {
-    static sa_point points[1 << 12];
+    static sa_point points[RECORD_POINTS];
     const NJS_POLYGON_VTX *first = vertices;
     int squeeze;
     sa_triangles out = {0};
@@ -2541,6 +2746,19 @@ void sa1_record_text(const char *text, float x, float y, float side,
         picture_lost++;
         count = CHARACTERS;
     }
+#ifdef __PSP__
+    {
+        /* the raster's texture of the font, made at its first text */
+        static uint32_t made;
+
+        (void)font_key;
+        if (made == 0) {
+            made = psp_texture_texels(ARGB1555, TWIDDLED, FONT_SIDE, FONT_SIDE,
+                                      font, FONT_SIDE * FONT_SIDE * 2);
+        }
+        id = made ? made : PSP_TEXTURE_FAILED;
+    }
+#else
     if (table_name(&textures, font_key, &id)) {
         sa_cap_texture texture = {.texture = id,
                                   .global_index = (uint32_t)font_key};
@@ -2548,6 +2766,7 @@ void sa1_record_text(const char *text, float x, float y, float side,
         emit(SA_CAP_TEXTURE, &texture, sizeof texture, NULL, 0);
         texels_emit(id, ARGB1555, TWIDDLED, FONT_SIDE, FONT_SIDE, font);
     }
+#endif
     for (int i = 0; i < count; i++) {
         uint8_t glyph = (uint8_t)text[i];
 
@@ -2586,6 +2805,9 @@ static void sa1_picture_drop(void)
     if (!picture_open) {
         return;
     }
+#ifdef __PSP__
+    psp_picture_drop();
+#endif
     int in_scene = 0;
 
     for (size_t at = 0; at + sizeof(sa_record_head) <= records_used;) {
@@ -2654,8 +2876,11 @@ void sa1_picture_end(void)
                           .draws = picture_draws,
                           .lost = picture_lost};
 
+        /* the PSP keeps no record to settle, and its end takes both */
+#ifndef __PSP__
         picture_view_settle();
         picture_back_settle();
+#endif
         emit(SA_CAP_END, &end, sizeof end, NULL, 0);
         picture_number++;
         picture_open = 0;
@@ -2681,6 +2906,26 @@ void sa1_picture_end(void)
 /* report the most names each table held in the run, against a quarter of its
  * slots. past that, a tidy forgets all but the names the act's scene reads. it
  * also reports how many versions of the palettes it gave */
+/* where the first player stands as a run ends, which says whether the run's
+ * player stood on the land or fell from it. the work's place lies past its
+ * eight bytes of modes and counts, its twelve bytes of variables and its
+ * three angles (src/system/task.h's task_work), on every host */
+static void player_report(void)
+{
+    enum { PLACE = 8 + 12 + 12 };
+    /* the game's, which a test of the adapter alone links without */
+    struct task *player_get_task(Uint8 player) __attribute__((weak));
+    const struct task *task = player_get_task ? player_get_task(0) : NULL;
+
+    if (task && task->work) {
+        float at[3];
+
+        memcpy(at, (const char *)task->work + PLACE, sizeof at);
+        fprintf(stderr, "sa1: the player stands at %d %d %d\n", (int)at[0],
+                (int)at[1], (int)at[2]);
+    }
+}
+
 void sa1_names_report(void)
 {
     static const struct {
@@ -2692,6 +2937,15 @@ void sa1_names_report(void)
                   {"shades", &shades},
                   {"textures", &textures}};
 
+    player_report();
+
+#ifdef __PSP__
+    /* the PSP names nothing: its walk draws the models, and says here how
+     * many it left out */
+    (void)tables;
+    fprintf(stderr, "sa1: the walk left out %u models\n", (unsigned)walk_lost);
+    return;
+#endif
     for (size_t i = 0; i < sizeof tables / sizeof tables[0]; i++) {
         fprintf(stderr,
                 "sa1: the adapter's %s: at most %u named of %u, %u at the "

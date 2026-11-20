@@ -25,6 +25,7 @@ _builtin_set_imask                   function     *        sets the SH-4's inter
 _BSG_END                             zeros        *        the word the start code keeps the end of bss in. sbInitSystem takes main memory's view from it, for the megabyte it hands syMallocInit, a stub too (src/system/sbinit.c)
 _ctype                               unsupported  *        SHC's table of character classes, whose source engine/mk/native.mk leaves out of the slice's runtime. Only sscanf's scanner reads it, for the events' path editor (events/shared/sdk/_fmtin.c, events/shared/path_editor.c), and takes no character for a space or a digit
 _errno                               zeros        linux    SHC's error word, which its float math and its scanner set (sdk/runtime/, events/shared/sdk/). The slice compiles no source that defines it, so it lies here
+_errno                               zeros        psp      SHC's error word, which its float math and its scanner set (sdk/runtime/, events/shared/sdk/). The slice compiles no source that defines it, so it lies here
 sa1_errno                            zeros        windows  _errno, by the name engine/mk/native.mk gives the game's on Windows, where the UCRT's _errno is a function
 # What starts and ends the console, as sbInitSystem and sbExitSystem call it (src/system/sbinit.c)
 syHwInit                             function     *        starts the console's hardware. A host has none of it to start
@@ -49,7 +50,8 @@ njInitTexture                        function     *        gives Ninja its list 
 loader_buffer                        address      *        the loader's first byte, where main reads LOADER.BIN (config/1st_read/imports.txt). The slice links no loader, and the file lands in the domain's RAM where the console reads it
 loader_entry                         function     *        the loader's entry, which main calls once it has read the file. The PC has no Dream Passport to start: the call returns, and main after it
 # The heap, and the words that hold an image's end
-heap_arena                           address      *        the game's heap. marks.py takes its definition out of src/system/task.c, and it lies below MODULE_AREA with twice its room, as a host's tasks and block headers take twice the SH-4's bytes
+heap_arena                           address      linux    the game's heap. marks.py takes its definition out of src/system/task.c, and it lies below MODULE_AREA with twice its room, as a host's tasks and block headers take twice the SH-4's bytes
+heap_arena                           address      windows  the game's heap. marks.py takes its definition out of src/system/task.c, and it lies below MODULE_AREA with twice its room, as a host's tasks and block headers take twice the SH-4's bytes
 advertise_module_end                 address      *        the menus' end, past which card_init places the backup library's work (modules/advertise/card.c). modules/advertise/bounds.src defines it, in the SH-4's assembly
 eggmanrobo_bss_end                   address      *        the end of Zero's image, past which it reads its sound banks (modules/b_robo/banks.c)
 e101_r_bss_end                       address      *        the end of E-101 mkII's image, past which it reads its files (modules/b_e101_r/files.c)
@@ -141,4 +143,33 @@ sa_present_window                    engine       *        the picture's window,
 sa_present_mode                      engine       *        the picture's aspect and rate, which it asks for next
 sa_audio_submit                      engine       *        the sound commands the adapter hands the engine (engine/sa1/sound.c)
 sa_audio_load                        engine       *        a sound bank, as the adapter loads one
-sa_audio_stream                      engine       *        a voice's bytes, as the adapter streams them
+sa_audio_stream                      engine       linux    a voice's bytes, as the adapter streams them
+sa_audio_stream                      engine       windows  a voice's bytes, as the adapter streams them
+sa_pc_audio_stream_file              engine       psp      a stream's file, which the PSP's sound plays a window at a time, as the PSP has no memory for the file whole (engine/include/sa_pc.h)
+psp_picture_open                     engine       psp      the PSP raster's opening of a picture's commands, which the adapter's walk draws into at the game's calls (engine/psp/draw.h, engine/psp/sa1/walk.h)
+psp_draw_screen                      engine       psp      the screen the walk's strips project onto, as the raster takes it
+psp_draw_place                       engine       psp      the matrix that carries the walk's strips to the view, as the raster takes it
+psp_draw_state                       engine       psp      the state the walk's strips draw under
+psp_draw_room                        engine       psp      room in the picture's commands for a strip's corners
+psp_draw_strip                       engine       psp      a strip's draw
+psp_draw_later                       engine       psp      a strip kept for the picture's end, where the strips that blend draw the farthest first
+psp_draw_reach                       engine       psp      how far past the frame the raster takes a strip's corner
+psp_draw_cut                         engine       psp      a strip of a model that may reach past the raster's reach of the frame, which goes a triangle at a time, each cut to what lies within
+psp_picture_drop                     engine       psp      a picture the game dropped, whose commands the raster ends unshown
+psp_texture_texels                   engine       psp      the raster's texture of texels the game made in memory
+psp_scene_begin                      engine       psp      the start of a picture in the PSP's scene, which takes the adapter's sprites and runs of triangles as a host's records would (engine/psp/direct.cpp)
+psp_scene_view                       engine       psp      a further view of that picture's
+psp_scene_sprite                     engine       psp      a sprite of that picture's
+psp_scene_triangles                  engine       psp      a run of triangles of that picture's
+psp_scene_end                        engine       psp      that picture's end, where the raster draws the scene's corners after the models and shows the picture
+psp_scene_report                     engine       psp      what the scene took at most and left out, for the run's last words
+psp_walk_begin                       engine       psp      the start of the walk's time on a model, for the run's word of its speed
+psp_walk_end                         engine       psp      its end
+psp_frame_report                     engine       psp      how long the PSP's pictures took since the last report, and how much of that waited for the display or went to the walk
+psp_ninja_lit                        engine       psp      Ninja's full drawer's light of a point, which the walk asks of the engine's (engine/pc/ninja.h)
+psp_draw_yield                       engine       psp      the raster's word that a load is about to write the loader's work area, where it keeps a picture's commands between loads (engine/native/shim.c)
+psp_draw_report                      engine       psp      the most a picture's commands and the textures took, for the run's last words (engine/psp/main.c)
+psp_sound_report                     engine       psp      how long the sound's render took, for the run's last words
+psp_texture_load                     engine       psp      the raster's texture of one of the disc's, read by the index of the disc's textures (engine/psp/textures.cpp)
+psp_texture_free                     engine       psp      that texture's end, as the game releases its record of texture memory
+psp_texture_cuts                     engine       psp      whether that texture's texels are each clear or solid, which a material that blends it needs no order for

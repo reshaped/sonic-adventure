@@ -57,6 +57,14 @@ public:
     bool load(const Disc &disc, uint32_t global_index, const std::string &name,
               uint32_t file, Image &image, std::string &why) const;
     uint32_t count() const { return static_cast<uint32_t>(places_.size()); }
+#ifdef __PSP__
+    /* the PVRT chunk of the texture load() would decode, alone, as its file
+     * holds it: the PSP has no memory for a texture's pixels in more than
+     * one place, so its backend takes the chunk (SA_FORMAT_PVR) */
+    bool chunk(const Disc &disc, uint32_t global_index, const std::string &name,
+               uint32_t file, std::vector<uint8_t> &chunk,
+               std::string &why) const;
+#endif
 
 private:
     std::vector<PvrPlace> places_;

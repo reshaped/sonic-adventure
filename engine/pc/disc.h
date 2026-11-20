@@ -4,6 +4,7 @@
 #define ENGINE_PC_DISC_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include <string>
 #include <vector>
@@ -17,6 +18,13 @@ public:
      * holds it as spelled, or else the first that holds it in another case.
      * it returns false where none does or the read fails */
     bool read(const std::string &path, std::vector<uint8_t> &bytes) const;
+    /* path, open to read, from the first root that holds it, or null. the
+     * caller closes it */
+    FILE *open(const std::string &path) const;
+    /* that file's length bytes from at alone. it returns false where the
+     * file holds fewer */
+    bool read_part(const std::string &path, uint32_t at, uint32_t length,
+                   std::vector<uint8_t> &bytes) const;
     /* each dir/NAME under the roots whose name ends in suffix, without case,
      * once. NAME is in upper case, as the disc spells it. the first root's
      * come first, and each root's are sorted by name */

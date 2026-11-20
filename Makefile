@@ -149,7 +149,7 @@ ifneq ($(wildcard $(CLANG_TOOLS) $(INSTALLED)) $(strip $(file <$(INSTALLED))),$(
 UNINSTALLED := $(CLANG_TOOLS)
 endif
 # The goals that build, each of which needs the C compiler and sha256sum
-BUILDING   := $(filter all check progress relink shift offsets dc dc-disc dc-check dc-order pc,$(or $(MAKECMDGOALS),all))
+BUILDING   := $(filter all check progress relink shift offsets dc dc-disc dc-check dc-order pc psp,$(or $(MAKECMDGOALS),all))
 # The goals that build with GCC
 DC_GOALS   := $(filter dc dc-disc dc-check dc-order build/dc/%,$(MAKECMDGOALS))
 # The goals for which make reads dc.mk, make dc's rules: DC_GOALS, and a
@@ -171,7 +171,7 @@ COMPILING  := $(filter-out accept clean format help lint review test $(ENGINE_GO
 # alone make refreshes the stamps of wibo and SHC's releases. For those of
 # them in BUILDING, the host check asks for timeout, and for what downloads
 # wibo and SHC's releases where one isn't in place
-SHC_GOALS  := $(if $(RUNS_SHC),$(filter-out dc dc-disc dc-check dc-order pc build/dc/%,$(COMPILING)))
+SHC_GOALS  := $(if $(RUNS_SHC),$(filter-out dc dc-disc dc-check dc-order pc psp build/dc/%,$(COMPILING)))
 DOWNLOADS  := $(filter-out $(wildcard $(PINNED)),$(if $(filter $(BUILDING),$(SHC_GOALS)),$(PINNED)) \
 	$(if $(filter lint format,$(MAKECMDGOALS)),$(UNINSTALLED)))
 # The downloads that unpack with tar, as patterns: SHC's releases, which
@@ -588,6 +588,9 @@ native:
 ## build the PC game from orig/'s disc, in build/engine/
 pc:
 
+## build the PSP game from orig/'s disc, in build/engine/psp/game/
+psp:
+
 ## play the native game from Emerald Coast's start, in a window
 play:
 
@@ -778,7 +781,7 @@ MEMORY_TOOLS := tools/memory.py tools/csource.py tools/layout.py $(CONFIG_TOOLS)
 ifneq ($(DC_MK_GOALS),)
 include dc.mk
 endif
-ifneq ($(ENGINE_GOALS)$(filter pc,$(MAKECMDGOALS)),)
+ifneq ($(ENGINE_GOALS)$(filter pc psp,$(MAKECMDGOALS)),)
 include engine/engine.mk
 endif
 
@@ -1121,7 +1124,7 @@ $(MISSING):
 # Building the images or GCC's objects, say what orig/ lacks before any
 # compile, not after the images whose files it holds, and before dc.mk
 # builds the toolchain or fetches a file of SH4ZAM's, where it does either
-ifneq ($(filter all relink shift dc dc-disc dc-order pc,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter all relink shift dc dc-disc dc-order pc psp,$(or $(MAKECMDGOALS),all)),)
 $(C_OBJ) $(ASM_OBJ) $(DC_OBJ) $(PINNED_GCC) $(SH4ZAM): | $(MISSING)
 endif
 else ifneq ($(FOUND),1)
@@ -1135,7 +1138,7 @@ else
 # wrong .gdi fails first. Building GCC's objects, it does the same, and
 # extracts before dc.mk builds the toolchain or fetches a file of SH4ZAM's
 $(MISSING): unpack
-ifneq ($(filter all relink shift dc dc-disc dc-order pc,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter all relink shift dc dc-disc dc-order pc psp,$(or $(MAKECMDGOALS),all)),)
 $(C_OBJ) $(ASM_OBJ) $(DC_OBJ) $(PINNED_GCC) $(SH4ZAM): | unpack
 endif
 unpack: build/gdi
@@ -1294,7 +1297,7 @@ build/lint/guards.ok: $(C_FILES) $(ENGINE_FILES) tools/guards.py tools/csource.p
 # A cached check depends too on the recipe and options this file gives it
 build/lint/format.ok build/lint/asm.ok build/lint/tags.ok build/lint/guards.ok $(TIDIED): Makefile
 
-.PHONY: all relink shift check offsets dc dc-disc dc-check dc-order native pc play engine-test accept test \
+.PHONY: all relink shift check offsets dc dc-disc dc-check dc-order native pc psp play engine-test accept test \
 	 progress lint review format clean help unpack stub-bodies stub-includes \
 	FORCE
 .DELETE_ON_ERROR:

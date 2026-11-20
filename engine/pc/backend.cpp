@@ -438,7 +438,7 @@ bool show(sa_engine &engine, uint32_t index)
         b.scene.uniform(uniform);
         if (!b.raster.submit(b.show_slot, uniform, b.scene.clear_color(),
                              b.scene.vertices(), b.scene.batches(),
-                             b.scene.sorted(), why)) {
+                             b.scene.sorted(), why, &b.scene.places())) {
             fprintf(stderr, "engine: %s\n", why.c_str());
             return false;
         }
@@ -466,7 +466,8 @@ bool show(sa_engine &engine, uint32_t index)
     }
     scene->uniform(made);
     if (!b.raster.submit(room, made, scene->clear_color(), scene->vertices(),
-                         scene->batches(), scene->sorted(), why)) {
+                         scene->batches(), scene->sorted(), why,
+                         &scene->places())) {
         fprintf(stderr, "engine: %s\n", why.c_str());
         return false;
     }
@@ -475,16 +476,28 @@ bool show(sa_engine &engine, uint32_t index)
     return true;
 }
 
-/* sleep to time_ns on the monotonic clock */
+/* sleep to time_ns on the monotonic clock. the PSP's C library sleeps for
+ * a length of time alone, so there the sleep is for what is left */
 void sleep_until(uint64_t time_ns)
 {
     timespec t;
 
+#ifdef __PSP__
+    uint64_t now = now_ns();
+
+    if (now >= time_ns) {
+        return;
+    }
+    t.tv_sec = static_cast<time_t>((time_ns - now) / 1000000000U);
+    t.tv_nsec = static_cast<long>((time_ns - now) % 1000000000U);
+    nanosleep(&t, nullptr);
+#else
     t.tv_sec = static_cast<time_t>(time_ns / 1000000000U);
     t.tv_nsec = static_cast<long>(time_ns % 1000000000U);
     while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, nullptr) ==
            EINTR) {
     }
+#endif
 }
 
 /* show what is due by until, each at its time. UINT64_MAX shows all now */
@@ -653,7 +666,11 @@ sa_result backend_create(sa_engine &engine)
         pc::window_close(window);
         return SA_ERR_UNSUPPORTED;
     }
-    made->scene.open(options->blend);
+#ifndef __PSP__
+    /* the PSP's adapter draws as the game calls (engine/psp/draw.h), and
+     * the engine's scene stays shut: no picture comes by sa_present_begin */
+    made->scene.open(options->blend, made->raster.reach());
+#endif
     if (made->rate != 0) {
         made->between.open(options->blend);
         /* a release holds an event until it retires. one made while a
@@ -661,7 +678,16 @@ sa_result backend_create(sa_engine &engine)
          * picture's releases */
         made->world.open(engine.desc.events);
     }
+#ifdef __PSP__
+    /* the PSP has no memory to spare for a sound nothing hears */
+    made->sound_made =
+        (options->flags & SA_PC_SOUND) != 0 && made->sound.create();
+    if ((options->flags & SA_PC_SOUND) != 0 && !made->sound_made) {
+        fprintf(stderr, "engine: no sound: no memory for it\n");
+    }
+#else
     made->sound_made = made->sound.create();
+#endif
     if (made->sound_made && (options->flags & SA_PC_SOUND) &&
         made->window != nullptr) {
         made->sound_device = pc::window_sound_open(made->window, render_sound,
@@ -783,6 +809,22 @@ sa_result sa_audio_stream(sa_engine *engine, uint32_t stream, const void *data,
                         : SA_ERR_UNSUPPORTED;
 }
 
+#ifdef __PSP__
+sa_result sa_pc_audio_stream_file(sa_engine *engine, uint32_t stream,
+                                  FILE *file, uint32_t base, uint32_t size,
+                                  const void *head, uint32_t bytes)
+{
+    if (engine == nullptr || !backend(*engine).sound_made) {
+        if (file != nullptr) {
+            fclose(file);
+        }
+        return engine == nullptr ? SA_ERR_INVALID : SA_ERR_UNSUPPORTED;
+    }
+    return backend(*engine).sound.stream_file(stream, file, base, size, head,
+                                              bytes);
+}
+#endif
+
 sa_result sa_pc_audio_render(sa_engine *engine, int16_t *out, uint32_t frames)
 {
     if (engine == nullptr || (out == nullptr && frames != 0)) {
@@ -850,10 +892,17 @@ sa_result sa_resource_create(sa_engine *engine, const sa_resource_desc *desc,
         break;
     }
     case SA_FORMAT_PVR:
+#ifdef __PSP__
+        /* the PSP's raster makes the texture of the PVR's bytes, below */
+        if (desc->kind != SA_KIND_TEXTURE) {
+            return SA_ERR_INVALID;
+        }
+#else
         if (desc->kind != SA_KIND_TEXTURE ||
             !pvr_file(desc->data, desc->bytes, image)) {
             return SA_ERR_INVALID;
         }
+#endif
         break;
     case SA_FORMAT_MATERIALS: {
         if (desc->kind != SA_KIND_MATERIAL ||
@@ -885,7 +934,20 @@ sa_result sa_resource_create(sa_engine *engine, const sa_resource_desc *desc,
     if (desc->kind == SA_KIND_TEXTURE) {
         std::string why;
 
+#ifdef __PSP__
+        bool tried = true;
+
+        if (desc->format == SA_FORMAT_PVR) {
+            made.texture =
+                b.raster.add_pvr(desc->data, desc->bytes, tried, why);
+        }
+        if (desc->format != SA_FORMAT_PVR ||
+            (!tried && pvr_file(desc->data, desc->bytes, image))) {
+            made.texture = b.raster.add_texture(image, why);
+        }
+#else
         made.texture = b.raster.add_texture(image, why);
+#endif
         if (made.texture == 0) {
             fprintf(stderr, "engine: %s\n", why.c_str());
             engine->resources.give(handle);

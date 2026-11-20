@@ -12,6 +12,10 @@
 #include <time.h>
 
 #include "native.h"
+#ifdef __PSP__
+#include "draw.h"
+#include "psp.h"
+#endif
 #include "play_math.h"
 
 #define NJD_TEXATTR_TYPE_MEMORY 0x40000000
@@ -65,14 +69,13 @@ int32_t kmResetPointer(void)
     return 0;
 }
 
-/* the domain is the host's 4 GB that hold the game's addresses. the PVR's
- * registers lie at their console address in it, where records.c reads a
- * picture's fog */
-#define PVR_REGISTERS (NATIVE_DOMAIN + 0xa05f8000UL)
-
+/* the PVR's registers, where native.h places them: records.c reads a
+ * picture's fog there. a write past them changes nothing */
 int32_t kmiWriteRegister(uint32_t reg, uint32_t value)
 {
-    *(volatile uint32_t *)(PVR_REGISTERS + reg) = value;
+    if (reg <= NATIVE_PVR_SIZE - 4) {
+        *(volatile uint32_t *)(NATIVE_PVR + reg) = value;
+    }
     return 0;
 }
 
@@ -297,9 +300,14 @@ const struct peripheral *njGetPeripheral(uint32_t port)
  * is free. a search gives it for an index no record holds. the game so
  * reads zeros there, never another texture's record */
 #define PVM_NAME_SIZE 28
+/* the PSP has memory for an eighth of these, the console's own count */
+#ifndef __PSP__
 #define TEXTURE_RECORDS 16384
+#else
+#define TEXTURE_RECORDS 2048
+#endif
 /* a chain averages four records where every record is held */
-#define TEXTURE_CHAINS 4096
+#define TEXTURE_CHAINS (TEXTURE_RECORDS / 4)
 
 struct texname {
     void *filename;
@@ -496,6 +504,18 @@ static void texture_release(uint32_t slot, int all)
 uint32_t native_texture_file(uint32_t texaddr)
 {
     return texmem_owners[texture_slot(texaddr)].file;
+}
+
+uint32_t native_texture_slot(uint32_t texaddr)
+{
+    return texture_slot(texaddr);
+}
+
+uint32_t native_texture_held(uint32_t index)
+{
+    uint32_t slot = texture_find(index);
+
+    return slot ? (uint32_t)(uintptr_t)&texmem[slot] : 0;
 }
 
 /* the held record of index, or record 0 where none holds it. Ninja's own
@@ -819,25 +839,62 @@ static void write_event_head(void *dest, const char *file)
     }
 }
 
+/* whether dest is the console's RAM at address, by any of its views. the PSP
+ * has no memory there, and holds that RAM in console_ram */
+static int lies_at(const void *dest, uint32_t address)
+{
+#ifdef __PSP__
+    return (const char *)dest == NATIVE_RAM(address);
+#else
+    return ((uintptr_t)dest & MIRROR_MASK) == address;
+#endif
+}
+
+#ifdef __PSP__
+void native_work_taken(const void *at)
+{
+    const char *byte = at;
+
+    if (byte >= NATIVE_RAM(0x0cd00000UL) &&
+        byte < NATIVE_RAM(0x0cd00000UL) + 0x200000) {
+        psp_draw_yield();
+    }
+}
+#endif
+
 int32_t prs_decompress(void *source, void *dest)
 {
-    int32_t size = prs_decode(source, dest);
+    int32_t size;
+
+#ifdef __PSP__
+    native_work_taken(source);
+    native_work_taken(dest);
+#endif
+    size = prs_decode(source, dest);
+#ifdef __PSP__
+    if (size > 0) {
+        native_file_placed(native_last_opened, dest, (uint32_t)size);
+    }
+    if (native_trace) {
+        fprintf(stderr, "sa1: decoded %ld bytes of %s\n", (long)size,
+                native_last_opened);
+    }
+#endif
     const char *file = program_of(native_last_opened);
 
     decoded_at = dest;
     decoded_file = native_disc_file_id(native_last_opened);
     native_program_read(file);
-    if (((uintptr_t)dest & MIRROR_MASK) == MODULE_AREA &&
+    if (lies_at(dest, MODULE_AREA) &&
         !strcasecmp(native_last_opened, "ADVERTISE.PRS") &&
         &advertise_entries) {
         memcpy(dest, &advertise_entries, sizeof advertise_entries);
     }
-    if (((uintptr_t)dest & MIRROR_MASK) == MODULE_AREA &&
+    if (lies_at(dest, MODULE_AREA) &&
         !strcasecmp(native_last_opened, "SUMMARY.PRS") && &summary_entries) {
         memcpy(dest, &summary_entries, sizeof summary_entries);
     }
-    if (((uintptr_t)dest & MIRROR_MASK) == EVENT_MODULE &&
-        !strncasecmp(file, "EV", 2)) {
+    if (lies_at(dest, EVENT_MODULE) && !strncasecmp(file, "EV", 2)) {
         write_event_head(dest, file);
     }
     return size;

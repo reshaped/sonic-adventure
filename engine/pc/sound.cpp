@@ -12,6 +12,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __PSP__
+#include <unistd.h>
+#endif
 
 namespace pc {
 namespace {
@@ -352,6 +355,12 @@ void Sound::destroy()
     for (Stream &s : streams_) {
         free(s.data);
         s.data = nullptr;
+#ifdef __PSP__
+        if (s.file != nullptr) {
+            fclose(s.file);
+            s.file = nullptr;
+        }
+#endif
     }
 }
 
@@ -451,7 +460,22 @@ sa_result Sound::load(const sa_audio_bank &bank)
     entry.what = ENTRY_BANK;
     entry.bank = bank;
     entry.bank.data = nullptr;
+#ifdef __PSP__
+    /* the PSP's ring holds no bank: the bytes go to sound memory here, on
+     * the game's thread, and the entry tells the render of them. a voice
+     * that still plays what lay there hears the new bytes a moment early */
+    if (bank.bytes != 0) {
+        memcpy(memory_ + bank.address, bank.data, bank.bytes);
+        if (bank.address + bank.bytes > reach_) {
+            reach_ = bank.address + bank.bytes;
+            fprintf(stderr, "sa1: the banks reach %u bytes into sound memory\n",
+                    static_cast<unsigned>(reach_));
+        }
+    }
+    return push(entry, nullptr, 0) ? SA_OK : SA_ERR_FULL;
+#else
     return push(entry, bank.data, bank.bytes) ? SA_OK : SA_ERR_FULL;
+#endif
 }
 
 sa_result Sound::stream(uint32_t index, const void *data, uint32_t bytes)
@@ -465,6 +489,31 @@ sa_result Sound::stream(uint32_t index, const void *data, uint32_t bytes)
     entry.stream = index;
     return push(entry, data, bytes) ? SA_OK : SA_ERR_FULL;
 }
+
+#ifdef __PSP__
+sa_result Sound::stream_file(uint32_t index, FILE *file, uint32_t base,
+                             uint32_t size, const void *head, uint32_t bytes)
+{
+    Entry entry{};
+
+    entry.what = ENTRY_STREAM;
+    entry.stream = index;
+    entry.file = file;
+    entry.base = base;
+    entry.size = size;
+    if (index >= STREAMS || bytes > STREAM_BYTES || head == nullptr ||
+        file == nullptr || !push(entry, head, bytes)) {
+        if (file != nullptr) {
+            fclose(file);
+        }
+        return index >= STREAMS || head == nullptr || file == nullptr ||
+                       bytes > STREAM_BYTES
+                   ? SA_ERR_INVALID
+                   : SA_ERR_FULL;
+    }
+    return SA_OK;
+}
+#endif
 
 sa_pc_sound_stats Sound::stats() const
 {
@@ -491,6 +540,13 @@ void Sound::drain()
         const uint8_t *data = bytes_ + e.at % SOUND_BYTES;
         uint32_t bytes = e.end ? static_cast<uint32_t>(e.end - e.at) : 0;
 
+#ifdef __PSP__
+        /* load() put a bank's bytes in sound memory already */
+        if (e.what == ENTRY_BANK) {
+            data = memory_ + e.bank.address;
+            bytes = e.bank.bytes;
+        }
+#endif
         if (e.what == ENTRY_BANK) {
             if (e.end) {
                 memcpy(memory_ + e.bank.address, data, bytes);
@@ -516,7 +572,23 @@ void Sound::drain()
                 fx_outputs_ = Place{e.bank.address, bytes};
             }
         } else if (e.what == ENTRY_STREAM) {
+#ifdef __PSP__
+            /* the stream's last file ends here, and the entry's takes its
+             * place, where it has one */
+            Stream &s = streams_[e.stream];
+
+            if (s.file != nullptr) {
+                fclose(s.file);
+            }
+            s.file = e.file;
+            s.base = e.base;
+            s.whole = e.size;
+            s.window_at = 0;
+            s.window_bytes = bytes;
             start_stream(e.stream, e.end ? data : nullptr, e.end ? bytes : 0);
+#else
+            start_stream(e.stream, e.end ? data : nullptr, e.end ? bytes : 0);
+#endif
         } else {
             const sa_audio_command &c = e.command;
             uint32_t id = c.key.id;
@@ -983,6 +1055,7 @@ int32_t Sound::loop_first(Voice &v)
     return value;
 }
 
+#ifndef __PSP__
 /* the LFO's frame: pitch, a factor of the step, and gain. a wave is a saw,
  * square or triangle, or noise drawn anew each 256th of its period. pitch
  * swings both ways, and gain only falls, as far as its depth */
@@ -1146,6 +1219,8 @@ void Sound::voice_frame(Voice &v, float &left, float &right)
     v.position += v.step * pitch;
 }
 
+#endif
+
 /* an ADX file has a big-endian header, as adx_dcd.c reads one. its blocks
  * start 4 past the offset at 2. they take the channels in turn. the stream
  * loops where sa_audio_stream says its file holds a loop. the loop's words
@@ -1166,6 +1241,12 @@ void Sound::start_stream(uint32_t index, const uint8_t *data, uint32_t bytes)
     }
     memcpy(s.data, data, bytes);
     s.bytes = bytes;
+#ifdef __PSP__
+    /* the bytes given are a file's first, and the rest come by the window */
+    if (s.file != nullptr) {
+        s.bytes = s.whole;
+    }
+#endif
     s.offset = big16(data + 2) + 4;
     s.channels = data[7];
     s.rate = big32(data + 8);
@@ -1202,6 +1283,41 @@ void Sound::start_stream(uint32_t index, const uint8_t *data, uint32_t bytes)
     }
 }
 
+namespace {
+
+/* the ADX_BLOCK bytes at at of a stream's bytes, or null where they can't be
+ * read. the PSP holds a window of a stream's file, and reads the window from
+ * at on where at lies outside it */
+const uint8_t *stream_bytes(Stream &s, uint32_t at)
+{
+#ifdef __PSP__
+    if (s.file != nullptr) {
+        if (at < s.window_at || at + ADX_BLOCK > s.window_at + s.window_bytes) {
+            uint32_t left = s.bytes - at;
+
+            /* by the file's descriptor: the C library would read through
+             * a buffer of its own, which the PSP has no memory for */
+            int fd = fileno(s.file);
+            ssize_t got = -1;
+
+            if (lseek(fd, static_cast<off_t>(s.base + at), SEEK_SET) >= 0) {
+                got =
+                    read(fd, s.data, left < STREAM_BYTES ? left : STREAM_BYTES);
+            }
+            s.window_at = at;
+            s.window_bytes = got > 0 ? static_cast<uint32_t>(got) : 0;
+            if (s.window_bytes < ADX_BLOCK) {
+                return nullptr;
+            }
+        }
+        return s.data + (at - s.window_at);
+    }
+#endif
+    return s.data + at;
+}
+
+} // namespace
+
 bool Sound::stream_decode(Stream &s)
 {
     uint32_t block = s.next / ADX_CODES;
@@ -1221,13 +1337,16 @@ bool Sound::stream_decode(Stream &s)
 
         /* a scale with its top bit set ends the data, as adx_dcda.c's
          * SCALE_END does */
-        if (at + ADX_BLOCK > s.bytes || (s.data[at] & 0x80)) {
+        const uint8_t *from =
+            at + ADX_BLOCK > s.bytes ? nullptr : stream_bytes(s, at);
+
+        if (from == nullptr || (from[0] & 0x80)) {
             return false;
         }
-        int32_t gain = static_cast<int32_t>(big16(s.data + at) & 0x1fff) + 1;
+        int32_t gain = static_cast<int32_t>(big16(from) & 0x1fff) + 1;
 
         for (uint32_t i = 0; i < ADX_CODES; i++) {
-            int8_t byte = static_cast<int8_t>(s.data[at + 2 + i / 2]);
+            int8_t byte = static_cast<int8_t>(from[2 + i / 2]);
             int32_t code = i & 1 ? ADX_STEP[byte & 15] : byte >> 4;
             int32_t x =
                 clamp16(gain * code + ((s.k0 * newer + s.k1 * older) >> 12));
@@ -1266,6 +1385,7 @@ bool Sound::stream_take(Stream &s, int16_t *out)
     return true;
 }
 
+#ifndef __PSP__
 /* a frame between the two samples around the stream's position, once its
  * lead has passed. a file at the output's rate plays its own samples */
 void Sound::stream_frame(Stream &s, float &left, float &right)
@@ -1306,6 +1426,8 @@ void Sound::stream_frame(Stream &s, float &left, float &right)
         }
     }
 }
+
+#endif
 
 /* a sequence bank, SMSB, holds its count of sequences at 12 and each one's
  * offset from 16. a sequence, SMSD, holds its tempo at 8 and its events
@@ -1503,6 +1625,13 @@ void Sound::qsound_place(uint32_t channel, uint32_t place)
     }
 }
 
+#ifdef __PSP__
+} // namespace pc
+/* the PSP's render (mixer.h), a block of frames at a time: it reads this
+ * file's tables and helpers, so it is read here */
+#include "mixer.h"
+namespace pc {
+#else
 void Sound::render(int16_t *out, uint32_t frames)
 {
     drain();
@@ -1539,5 +1668,7 @@ void Sound::render(int16_t *out, uint32_t frames)
             clamp16(static_cast<int32_t>(right * MASTER * 32768.0F)));
     }
 }
+
+#endif
 
 } // namespace pc

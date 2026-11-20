@@ -121,6 +121,12 @@ class Client {
 public:
     Disc disc;
     Textures pvrs;
+#ifdef __PSP__
+    /* a texture's bytes as its file holds them, on their way to the
+     * backend. the room stays from one texture to the next: the PSP's heap,
+     * long in use, has no such stretch free though it has the bytes */
+    std::vector<uint8_t> chunk;
+#endif
     sa_engine *engine = nullptr;
     Names names;
     std::set<uint32_t> alive;

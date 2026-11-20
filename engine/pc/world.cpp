@@ -38,7 +38,7 @@ constexpr double NEAR_DOT = 0.9995;
 constexpr float FULL_TURN = 6.28318531F;
 
 /* a store's entries hold no padding */
-static_assert(sizeof(MeshView) == (3 * sizeof(void *)) + 16, "MeshView");
+static_assert(sizeof(MeshView) == (3 * sizeof(void *)) + 32, "MeshView");
 static_assert(sizeof(KeptMesh) == sizeof(MeshView) + sizeof(void *) + 8,
               "KeptMesh");
 static_assert(sizeof(KeptDraw) == 20, "KeptDraw");

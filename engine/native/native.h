@@ -30,9 +30,26 @@ extern int native_target_stage, native_target_act;
  * it on size bytes of stack at stack until it returns */
 void sa1_main(void);
 void native_run_main(void *stack, size_t size);
+#ifdef __PSP__
+/* a file of the disc now lies whole at at, bytes long, where the game read
+ * or decoded it. a file that holds addresses of its own bytes, as the
+ * console loads it, has them made the PSP's (engine/psp/loads.c) */
+void native_file_placed(const char *name, void *at, uint32_t bytes);
+/* set, the PSP's log names each file the game opens, reads and decodes,
+ * each program it loads and each bank of sound, as they come */
+extern int native_trace;
+#endif
 /* map the threads' stacks in the domain, whole, before the game's main
  * runs. a run that can't map them ends */
 void native_threads_reserve(void);
+#ifdef __PSP__
+/* the PSP's threads' stacks are NATIVE_THREADS_BYTES at the place
+ * native_threads_place gives, a multiple of 16, before
+ * native_threads_reserve. the system knows a thread by the stack it made
+ * for it, so the place lies inside that stack (engine/psp/main.c) */
+#define NATIVE_THREADS_BYTES (9UL * 0x4010UL)
+void native_threads_place(void *at);
+#endif
 /* map size bytes of zeros at at, where the host has placed nothing. a run
  * that can't map them ends, naming what */
 void native_map(void *at, size_t size, const char *what);
@@ -87,6 +104,18 @@ extern void (*native_pad_read)(void *pad);
  * call of 0 ms only answers. native_play_open sets it beside
  * native_pad_read */
 extern int (*native_rumble)(uint32_t strength, uint32_t ms, uint32_t fade_ms);
+/* give file, just opened, the buffer a read of the disc wants. the PSP's C
+ * library reads a file 1 KB at a call, and a call there costs far more than
+ * its bytes. a host's library buffers as it should, and takes none */
+static inline FILE *native_buffered(FILE *file)
+{
+#ifdef __PSP__
+    if (file) {
+        setvbuf(file, NULL, _IOFBF, 1 << 16);
+    }
+#endif
+    return file;
+}
 /* name, open to read, in the game's current directory on the disc, or null.
  * its case doesn't count, as for gdFsOpen */
 FILE *native_disc_file(const char *name);
@@ -115,7 +144,9 @@ extern struct sa_engine *native_sound_engine;
 /* SSE's MXCSR at reset: round to nearest, every exception masked. a call
  * into the engine runs under it. the game rounds toward zero and flushes, as
  * the SH-4 does. native_fpu_host loads it and returns the game's MXCSR, which
- * native_fpu_game loads back as the call returns */
+ * native_fpu_game loads back as the call returns. the PSP's word is its
+ * FPU's FCR31. NATIVE_FCR31_HOST there rounds to nearest, enables no
+ * exception, and flushes a result too small for a normal number to zero */
 #define DEFAULT_MXCSR 0x1f80U
 #ifdef __SSE__
 static inline uint32_t native_fpu_host(void)
@@ -130,6 +161,38 @@ static inline void native_fpu_game(uint32_t game)
 {
     __builtin_ia32_ldmxcsr(game);
 }
+#elif defined(__PSP__)
+#define NATIVE_FCR31_HOST (1U << 24)
+/* the word's record of what the last operation raised. a word read from the
+ * FPU holds it, and no word written back does: a cause written beside its
+ * enable, or the cause that has none, is taken as raised anew */
+#define NATIVE_FCR31_CAUSE 0x0003f000U
+static inline uint32_t native_fpu_host(void)
+{
+    uint32_t game;
+    uint32_t host = NATIVE_FCR31_HOST;
+
+    __asm__ volatile("cfc1 %0, $31" : "=r"(game));
+    __asm__ volatile("ctc1 %0, $31" : : "r"(host));
+    return game;
+}
+
+static inline void native_fpu_game(uint32_t game)
+{
+    game &= ~NATIVE_FCR31_CAUSE;
+    __asm__ volatile("ctc1 %0, $31" : : "r"(game));
+}
+#endif
+/* the PVR's registers, which the shim's kmiWriteRegister writes and the
+ * adapter reads a picture's fog from. a host with the domain holds them at
+ * their console address in it. the PSP has no memory there, and holds them
+ * among its zeros for the console's registers (engine/psp/psp.h) */
+#define NATIVE_PVR_SIZE 0x2000UL
+#ifdef __PSP__
+extern char console_registers[];
+#define NATIVE_PVR ((uintptr_t)console_registers + 0x8000UL)
+#else
+#define NATIVE_PVR (NATIVE_DOMAIN + 0xa05f8000UL)
 #endif
 /* a frame's lists are over, and njkm.c's write pointers start again */
 void native_lists_over(void);
@@ -137,6 +200,18 @@ void native_lists_over(void);
  * record at texaddr. it returns 0 for a texture made in memory, and where
  * texaddr addresses no record */
 uint32_t native_texture_file(uint32_t texaddr);
+#ifdef __PSP__
+/* the loader's work area holds the PSP's commands for a picture between
+ * loads (engine/psp/raster.cpp). a read or a decode that is about to write
+ * at at says so first, and the area is the game's where at lies in it */
+void native_work_taken(const void *at);
+#endif
+/* the number of the texture record at texaddr, from 1, or 0 where texaddr
+ * addresses no record */
+uint32_t native_texture_slot(uint32_t texaddr);
+/* the texaddr of the held record of this global index, or 0 where texture
+ * memory holds none */
+uint32_t native_texture_held(uint32_t index);
 /* the game loaded the first count textures of texlist, an NJS_TEXLIST.
  * names gives their names, or is null for the list's own. each texture of a
  * list given to sa1_textures_released has a record that ended */
@@ -145,6 +220,10 @@ void sa1_textures_loaded(const void *texlist, uint32_t count,
 void sa1_textures_released(const void *texlist);
 /* the most each of the adapter's tables held, to stderr */
 void sa1_names_report(void);
+/* the task callback the game runs now, and whether it is a draw's and no
+ * step's, or null between two: a run's word of where it stands */
+extern void *volatile sa1_running;
+extern volatile int sa1_running_draw;
 /* find each of the game's statics that the adapter reads by name. it
  * returns null where it finds them all, or the first name it lacks, and then
  * keeps none. the game's draws read them, so the game starts only after a

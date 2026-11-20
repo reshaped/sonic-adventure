@@ -12,7 +12,12 @@ namespace pc {
 namespace {
 
 /* the most files read_ holds */
+#ifdef __PSP__
+/* the PSP has memory for one */
+constexpr size_t MOST_READ = 1;
+#else
 constexpr size_t MOST_READ = 8;
+#endif
 
 /* the PVR header's pixel formats and data layouts */
 enum { ARGB1555 = 0, RGB565 = 1, ARGB4444 = 2, YUV422 = 3 };
@@ -383,11 +388,382 @@ void Textures::add(const std::string &path, bool compressed,
     }
 }
 
+#ifdef __PSP__
+namespace {
+
+/* the PSP reads the disc's files too slowly to index them at each start: a
+ * PRS file must be decoded whole to say whether it holds a PVM. and it has
+ * no memory for a place of each of the disc's textures. so the first start's
+ * index stays in this file beside the program: an IndexHead, an IndexFile
+ * for each file in the order the index met them, then an IndexPlace for each
+ * texture, a file's together. each later start reads the files, and a load
+ * reads the places of the file it names, or of every file where it names
+ * none */
+const char INDEX[] = "textures.bin";
+constexpr uint32_t INDEX_MAGIC = 0x58544153;
+
+struct IndexHead {
+    uint32_t magic, files, places;
+};
+struct IndexFile {
+    uint32_t id, first, count, compressed;
+    char path[48];
+};
+struct IndexPlace {
+    uint32_t global_index, at;
+    char name[28];
+};
+
+std::vector<IndexFile> index_files;
+FILE *index_file;
+
+bool read_index()
+{
+    IndexHead head;
+
+    /* a second index reads the first's */
+    if (index_file != nullptr) {
+        return true;
+    }
+    index_file = fopen(INDEX, "rb");
+    if (index_file == nullptr) {
+        return false;
+    }
+    if (fread(&head, sizeof head, 1, index_file) == 1 &&
+        head.magic == INDEX_MAGIC && head.files != 0) {
+        index_files.resize(head.files);
+        if (fread(index_files.data(), sizeof(IndexFile), head.files,
+                  index_file) == head.files) {
+            return true;
+        }
+    }
+    index_files.clear();
+    fclose(index_file);
+    index_file = nullptr;
+    return false;
+}
+
+/* a path or a name longer than the index holds keeps its texture out, and
+ * the run's log says so */
+void write_index(const std::vector<PvrPlace> &places)
+{
+    std::vector<IndexFile> files;
+    std::vector<IndexPlace> kept;
+    FILE *file;
+
+    for (const PvrPlace &place : places) {
+        IndexPlace to{};
+
+        if (place.path.size() >= sizeof IndexFile::path ||
+            place.name.size() >= sizeof to.name) {
+            fprintf(stderr,
+                    "sa1: the index of textures holds no name as "
+                    "long as %s's %s\n",
+                    place.path.c_str(), place.name.c_str());
+            continue;
+        }
+        if (files.empty() || place.path != files.back().path) {
+            IndexFile next{};
+
+            next.id = place.file;
+            next.first = static_cast<uint32_t>(kept.size());
+            next.compressed = place.compressed;
+            memcpy(next.path, place.path.c_str(), place.path.size());
+            files.push_back(next);
+        }
+        files.back().count++;
+        to.global_index = place.global_index;
+        to.at = place.at;
+        memcpy(to.name, place.name.c_str(), place.name.size());
+        kept.push_back(to);
+    }
+    IndexHead head = {INDEX_MAGIC, static_cast<uint32_t>(files.size()),
+                      static_cast<uint32_t>(kept.size())};
+
+    file = fopen(INDEX, "wb");
+    if (file == nullptr) {
+        return;
+    }
+    fwrite(&head, sizeof head, 1, file);
+    fwrite(files.data(), sizeof(IndexFile), files.size(), file);
+    fwrite(kept.data(), sizeof(IndexPlace), kept.size(), file);
+    fclose(file);
+}
+
+/* Textures::load's search, over the index's file: the place it would find
+ * among places_, or false. named gets the path of the first file of the
+ * name id, where the search found none */
+bool find_place(uint32_t global_index, const std::string &name, uint32_t file,
+                PvrPlace &found, std::string &named)
+{
+    static std::vector<IndexPlace> places;
+    bool by_rule = false, by_name = false, rule_named = false;
+    PvrPlace second;
+
+    for (const IndexFile &f : index_files) {
+        if (file != 0 && f.id != file) {
+            continue;
+        }
+        if (named.empty()) {
+            named = f.path;
+        }
+        places.resize(f.count);
+        if (index_file == nullptr ||
+            fseek(index_file,
+                  static_cast<long>(sizeof(IndexHead) +
+                                    index_files.size() * sizeof(IndexFile) +
+                                    f.first * sizeof(IndexPlace)),
+                  SEEK_SET) != 0 ||
+            fread(places.data(), sizeof(IndexPlace), f.count, index_file) !=
+                f.count) {
+            continue;
+        }
+        for (const IndexPlace &p : places) {
+            bool same = name == p.name;
+            bool rule =
+                global_index == 0 ? same : p.global_index == global_index;
+            PvrPlace *to = nullptr;
+
+            if (rule && (!by_rule || (same && !rule_named))) {
+                to = &found;
+                by_rule = true;
+                rule_named = same;
+            } else if (same && !by_name && !name.empty()) {
+                to = &second;
+                by_name = true;
+            }
+            if (to != nullptr) {
+                to->path = f.path;
+                to->compressed = f.compressed != 0;
+                to->name = p.name;
+                to->global_index = p.global_index;
+                to->at = p.at;
+                to->file = f.id;
+            }
+        }
+        /* a file's places hold no better than its first by both the index
+         * and the name */
+        if (by_rule && rule_named) {
+            break;
+        }
+    }
+    if (!by_rule && by_name) {
+        found = second;
+    }
+    return by_rule || by_name;
+}
+
+} // namespace
+#endif
+
+#ifdef __PSP__
+namespace {
+
+/* the PSP has no memory for an archive whole, decoded or not: the largest
+ * is over a megabyte before its decoding. Unpacked decodes one PRS file in
+ * order, a byte at a call, behind the 8 KB a copy can reach back, reading
+ * the file IN bytes at a time, and Textures::chunk takes from it the one
+ * chunk it wants. a list's textures come in the file's order, so the file
+ * is decoded once while they do, and from its start again for a chunk
+ * behind where the decoding stands */
+class Unpacked {
+public:
+    /* the bytes from at for length of path's decoding, in chunk, or after
+     * what chunk holds where more is set. false where path can't be read or
+     * its decoding ends first */
+    bool take(const Disc &disc, const std::string &path, uint32_t at,
+              uint32_t length, std::vector<uint8_t> &chunk, bool more)
+    {
+        if (path != path_ || at < out_ || file_ == nullptr) {
+            if (file_ != nullptr) {
+                fclose(file_);
+            }
+            file_ = disc.open(path);
+            if (file_ == nullptr) {
+                path_.clear();
+                return false;
+            }
+            path_ = path;
+            in_at_ = in_size_ = 0;
+            bits_ = 0;
+            out_ = 0;
+            left_ = 0;
+        }
+        if (!more) {
+            chunk.clear();
+        }
+        length += static_cast<uint32_t>(chunk.size());
+        chunk.reserve(length);
+        while (chunk.size() < length) {
+            uint8_t byte;
+
+            if (!next(byte)) {
+                return false;
+            }
+            if (out_ > at) {
+                chunk.push_back(byte);
+            }
+        }
+        return true;
+    }
+
+private:
+    static constexpr uint32_t WINDOW = 0x2000;
+
+    /* the file's next byte, or -1 at its end */
+    int input()
+    {
+        if (in_at_ >= in_size_) {
+            in_size_ = fread(in_, 1, sizeof in_, file_);
+            in_at_ = 0;
+            if (in_size_ == 0) {
+                return -1;
+            }
+        }
+        return in_[in_at_++];
+    }
+
+    int bit()
+    {
+        if (bits_ == 0) {
+            int byte = input();
+
+            if (byte < 0) {
+                return -1;
+            }
+            control_ = static_cast<uint32_t>(byte);
+            bits_ = 8;
+        }
+        int b = static_cast<int>(control_ & 1);
+
+        control_ >>= 1;
+        bits_--;
+        return b;
+    }
+
+    /* the decoding's next byte, as disc.cpp's prs_decode gives them */
+    bool next(uint8_t &byte)
+    {
+        while (left_ == 0) {
+            int b = bit();
+
+            if (b < 0) {
+                return false;
+            }
+            if (b == 1) {
+                int given = input();
+
+                if (given < 0) {
+                    return false;
+                }
+                byte = static_cast<uint8_t>(given);
+                window_[out_++ % WINDOW] = byte;
+                return true;
+            }
+            b = bit();
+            if (b < 0) {
+                return false;
+            }
+            if (b == 1) {
+                int low = input();
+                int high = input();
+
+                if (low < 0 || high < 0) {
+                    return false;
+                }
+                uint32_t word = static_cast<uint32_t>(low | high << 8);
+
+                if (word == 0) {
+                    return false;
+                }
+                back_ = WINDOW - (word >> 3);
+                left_ = word & 7;
+                if (left_ == 0) {
+                    int count = input();
+
+                    if (count < 0) {
+                        return false;
+                    }
+                    left_ = static_cast<uint32_t>(count) + 1U;
+                } else {
+                    left_ += 2;
+                }
+            } else {
+                int high = bit();
+                int low = bit();
+                int back = high < 0 || low < 0 ? -1 : input();
+
+                if (back < 0) {
+                    return false;
+                }
+                left_ = static_cast<uint32_t>(high << 1 | low) + 2;
+                back_ = 0x100U - static_cast<uint32_t>(back);
+            }
+            if (back_ > out_) {
+                return false;
+            }
+        }
+        byte = window_[(out_ - back_) % WINDOW];
+        window_[out_++ % WINDOW] = byte;
+        left_--;
+        return true;
+    }
+
+    static constexpr uint32_t IN = 0x1000;
+
+    std::string path_;
+    FILE *file_ = nullptr;
+    uint8_t in_[IN];
+    size_t in_at_ = 0, in_size_ = 0;
+    uint32_t control_ = 0;
+    int bits_ = 0;
+    uint32_t out_ = 0; /* the bytes decoded */
+    uint32_t back_ = 0, left_ = 0; /* the copy in hand */
+    uint8_t window_[WINDOW];
+};
+
+/* a PVRT chunk's name and length, ahead of the length's count */
+constexpr uint32_t CHUNK_HEAD = 8;
+
+/* the chunk at place, alone, from a file the PSP reads no more of than it
+ * must: by a seek in a plain file, and by Unpacked in a compressed one */
+bool read_chunk(const Disc &disc, const PvrPlace &place,
+                std::vector<uint8_t> &chunk)
+{
+    static Unpacked unpacked;
+    uint8_t head[CHUNK_HEAD];
+
+    /* the chunk goes into the caller's vector alone, whose room a caller
+     * keeps from one texture to the next */
+    if (!place.compressed) {
+        std::vector<uint8_t> first;
+
+        if (!disc.read_part(place.path, place.at, CHUNK_HEAD, first)) {
+            return false;
+        }
+        memcpy(head, first.data(), sizeof head);
+        return disc.read_part(place.path, place.at,
+                              CHUNK_HEAD + read32(head + 4), chunk);
+    }
+    return unpacked.take(disc, place.path, place.at, CHUNK_HEAD, chunk,
+                         false) &&
+           unpacked.take(disc, place.path, place.at + CHUNK_HEAD,
+                         read32(chunk.data() + 4), chunk, true);
+}
+
+} // namespace
+#endif
+
 void Textures::index(const Disc &disc, const std::string &dir)
 {
     std::vector<uint8_t> bytes;
     std::vector<uint8_t> plain;
 
+#ifdef __PSP__
+    if (read_index()) {
+        return;
+    }
+#endif
     for (const char *suffix : {".PVM", ".PVR", ".PRS"}) {
         for (const std::string &path : disc.list(dir, suffix)) {
             if (!disc.read(path, bytes)) {
@@ -401,12 +777,51 @@ void Textures::index(const Disc &disc, const std::string &dir)
             }
         }
     }
+#ifdef __PSP__
+    /* the places go to the file, and leave the memory they took */
+    write_index(places_);
+    std::vector<PvrPlace>().swap(places_);
+    read_index();
+#endif
 }
+
+#ifdef __PSP__
+bool Textures::chunk(const Disc &disc, uint32_t global_index,
+                     const std::string &name, uint32_t file,
+                     std::vector<uint8_t> &chunk, std::string &why) const
+{
+    PvrPlace place;
+    std::string named;
+
+    if (!find_place(global_index, name, file, place, named)) {
+        const std::string texture =
+            name + ", global index " + std::to_string(global_index);
+
+        why = file == 0 ? "no PVM holds " + texture
+              : !named.empty()
+                  ? named + " doesn't hold " + texture
+                  : "no indexed file has the name id " + std::to_string(file) +
+                        ", named for " + texture;
+        return false;
+    }
+    if (!read_chunk(disc, place, chunk)) {
+        why = "can't read " + place.path;
+        return false;
+    }
+    return true;
+}
+#endif
 
 bool Textures::load(const Disc &disc, uint32_t global_index,
                     const std::string &name, uint32_t file, Image &image,
                     std::string &why) const
 {
+#ifdef __PSP__
+    std::vector<uint8_t> held;
+
+    return chunk(disc, global_index, name, file, held, why) &&
+           pvr_decode(held, 0, image, why);
+#else
     const PvrPlace *found = nullptr;
 
     for (const PvrPlace &place : places_) {
@@ -466,6 +881,7 @@ bool Textures::load(const Disc &disc, uint32_t global_index,
     }
     std::rotate(read_.begin(), read, read + 1);
     return pvr_decode(read_.front().second, found->at, image, why);
+#endif
 }
 
 } // namespace pc

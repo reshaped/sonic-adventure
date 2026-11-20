@@ -25,6 +25,14 @@
 #undef sa_ftrv
 #undef sa_fsca
 #undef sa_fsrra
+/* fpu.c gives four of the operations itself, and holds this file's under
+ * fast_ names */
+#ifdef SA_NUMERIC_FPU
+#define sa_fmac fast_fmac
+#define sa_fipr fast_fipr
+#define sa_ftrv fast_ftrv
+#define sa_fsrra fast_fsrra
+#endif
 
 #include <math.h>
 

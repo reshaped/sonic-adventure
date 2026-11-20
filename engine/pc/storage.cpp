@@ -30,7 +30,12 @@
          ? 0                                                                   \
          : -1)
 #else
+/* the PSP runs no second program, so its files have no such flag */
+#ifdef O_CLOEXEC
 #define FLAGS O_CLOEXEC
+#else
+#define FLAGS 0
+#endif
 #define SLASHES "/"
 #define make_directory(path) mkdir(path, 0755)
 #define take_place(fresh, name) rename(fresh, name)

@@ -13,6 +13,12 @@ namespace pc {
 
 /* lend bytes to a new resource. it returns SA_NULL where the runtime
  * refuses it */
+#ifdef __PSP__
+/* the room chunk starts with, and the most it keeps: a texture of 256
+ * texels a side at 16 bits each */
+constexpr size_t CHUNK_KEPT = (256 * 256 * 2) + 4096;
+#endif
+
 sa_handle Client::make(uint32_t kind, uint32_t format,
                        std::vector<uint8_t> &&bytes)
 {
@@ -31,6 +37,27 @@ sa_handle Client::make(uint32_t kind, uint32_t format,
     totals.created++;
     held += desc.bytes;
     totals.held_most = std::max(totals.held_most, held);
+#ifdef __PSP__
+    /* the PSP's backend takes a texture's texels as the texture is made and
+     * reads the lent bytes no more, and the PSP has no memory to hold both.
+     * chunk keeps its room for the next texture */
+    if (kind == SA_KIND_TEXTURE && &bytes == &chunk) {
+        /* a larger texture's room goes back, and the room kept is taken
+         * again at once, from what that left free */
+        chunk.clear();
+        if (chunk.capacity() > CHUNK_KEPT) {
+            std::vector<uint8_t>().swap(chunk);
+            chunk.reserve(CHUNK_KEPT);
+        }
+        lent[handle] = std::vector<uint8_t>();
+        totals.lent_most =
+            std::max(totals.lent_most, static_cast<uint32_t>(lent.size()));
+        return handle;
+    }
+    if (kind == SA_KIND_TEXTURE) {
+        std::vector<uint8_t>().swap(bytes);
+    }
+#endif
     lent[handle] = std::move(bytes);
     totals.lent_most =
         std::max(totals.lent_most, static_cast<uint32_t>(lent.size()));
@@ -158,6 +185,8 @@ bool Client::mesh(uint32_t id, Mesh *&out)
     mesh_bytes(model, bytes);
     m.handle = make(SA_KIND_MESH, SA_FORMAT_MESH, std::move(bytes));
     m.ok = m.handle != SA_NULL;
+    /* the record's bytes are read this once */
+    std::vector<uint8_t>().swap(m.bytes);
     return m.ok;
 }
 
@@ -174,6 +203,21 @@ sa_handle Client::texture(uint32_t id)
         std::string why;
 
         t.tried = true;
+#ifdef __PSP__
+        /* the PSP has no memory for a texture's pixels here and again in
+         * the backend: the backend takes the PVR's own bytes, from the disc
+         * or as the game made them, and makes the texture of them */
+        if (!t.texels.empty()) {
+            t.handle =
+                make(SA_KIND_TEXTURE, SA_FORMAT_PVR, std::move(t.texels));
+        } else if (pvrs.chunk(disc, t.global_index, t.name, t.file, chunk,
+                              why)) {
+            t.handle = make(SA_KIND_TEXTURE, SA_FORMAT_PVR, std::move(chunk));
+        } else {
+            failures[why]++;
+        }
+        return t.handle;
+#endif
         if (!t.texels.empty()
                 ? pvr_decode(t.texels, 0, image, why)
                 : pvrs.load(disc, t.global_index, t.name, t.file, image, why)) {
@@ -851,6 +895,9 @@ sa_pc_client *sa_pc_client_create(sa_engine *engine, const char *const *roots)
         made->disc.add_root(*roots);
     }
     made->pvrs.index(made->disc, "SONICADV");
+#ifdef __PSP__
+    made->chunk.reserve(pc::CHUNK_KEPT);
+#endif
     return reinterpret_cast<sa_pc_client *>(made);
 }
 
