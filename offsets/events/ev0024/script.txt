@@ -1,0 +1,10 @@
+datum  ev0024_run_keys  C  0x00000000  123
+datum  ev0024_run  C  0x0000007c  8
+datum  ev0024_fade  D  0x00000000  4
+datum  ev0024_drop_0  D  0x00000004  4
+datum  ev0024_drop_1  D  0x00000008  4
+datum  ev0024_drop_2  D  0x0000000c  4
+datum  ev0024_textures  D  0x00000010  16
+text  TEXT_1  C  0x00000090  20
+text  TEXT_2  C  0x000000a4  35
+text  TEXT_3  C  0x000000c8  22

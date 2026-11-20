@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* subtract vs from vd */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c6296e0 follows the
  * body's own return at 0x8c6296da */

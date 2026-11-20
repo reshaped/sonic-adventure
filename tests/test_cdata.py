@@ -1,9 +1,9 @@
 import unittest
 
 from cdata import Bodies, EmitError, Items, Writer
-from image import Declared, Image, Item, Laid, window
+from items import Declared, Image, Item, Laid, window
 from layout import Types
-from test_image import BASE, END, NAMES, ROWS, TREE, run, tree, tree_items, words
+from test_items import BASE, END, NAMES, ROWS, TREE, run, tree, tree_items, words
 
 # TREE's C, as the emitter writes it for D
 TREE_C = '''/* tree */
@@ -66,7 +66,7 @@ class Sources(unittest.TestCase):
         # TREE's C, written in a directory that holds no table or source,
         # with none of config, csource, data and tags imported
         script = '\n'.join([
-            'import sys', 'from cdata import Items, Writer', 'from image import Image, defined, window',
+            'import sys', 'from cdata import Items, Writer', 'from items import Image, defined, window',
             f'image = Image("TEST.BIN", {TREE!r}, {BASE}, (), (window({BASE}),))',
             f'items = Items(image, [defined(image, {BASE} + at, kind, count) for at, kind, count in {ROWS}], '
             f'[({BASE}, {END})], {NAMES})',

@@ -11,7 +11,7 @@ import gcclink
 import ld
 import test_ld
 import verify
-from support import cwd
+from support import cwd, tree
 
 # the fixture's sources, by path, in groups by what they show
 SOURCES = {
@@ -382,21 +382,22 @@ float use_by_value(struct twin t, struct word w)
                 'int use_fixed(void)\n{\n    return fixed.count;\n}\n'),
     'matrix.c': ('typedef float matrix[16] __attribute__((aligned(8)));\nextern matrix plain;\n\n'
                  'float use_matrix(void)\n{\n    return plain[0];\n}\n'),
-    # declarations the strict rule judges. Each lies under gcc/ or on GCC's side of a guard, takes a type GCC's side
-    # defines or lays out, or lies in gone.c, which the fixture removes. The matched rule judges kind.c and pointee.c,
-    # twins of gcc/kind.c and gcc/pointee.c
-    'gcc/open.c': 'extern int rows[][4];\n\nint use_gcc_open(void)\n{\n    return rows[1][0];\n}\n',
-    'gcc/flat.c': 'extern int rows[8];\n\nint use_gcc_flat(void)\n{\n    return rows[4];\n}\n',
-    'typeguard.c': ('#ifdef GCC\nstruct twin {\n    short low;\n    short high;\n};\n#else\nstruct twin {\n'
+    # declarations the strict rule judges. Each lies under engine/ or on the non-matching side of a guard, takes a type
+    # that side defines or lays out, or lies in gone.c, which the fixture removes. The matched rule judges kind.c and
+    # pointee.c, twins of engine/kind.c and engine/pointee.c
+    'engine/open.c': 'extern int rows[][4];\n\nint use_gcc_open(void)\n{\n    return rows[1][0];\n}\n',
+    'engine/flat.c': 'extern int rows[8];\n\nint use_gcc_flat(void)\n{\n    return rows[4];\n}\n',
+    'typeguard.c': ('#ifdef NONMATCHING\nstruct twin {\n    short low;\n    short high;\n};\n#else\nstruct twin {\n'
                     '    int both;\n};\n#endif\nextern struct twin word;\n\nint use_typeguard(void)\n{\n'
                     '    return word.high;\n}\n'),
-    'memberguard.c': ('struct pieces {\n#ifdef GCC\n    short low;\n    short high;\n#else\n    int both;\n#endif\n};\n'
-                      'extern struct pieces word;\n\nint use_memberguard(void)\n{\n    return word.high;\n}\n'),
+    'memberguard.c': ('struct pieces {\n#ifdef NONMATCHING\n    short low;\n    short high;\n#else\n    int both;\n'
+                      '#endif\n};\nextern struct pieces word;\n\nint use_memberguard(void)\n{\n'
+                      '    return word.high;\n}\n'),
     'kind.c': 'extern float counter;\n\nfloat use_kind(void)\n{\n    return counter;\n}\n',
-    'gcc/kind.c': 'extern float counter;\n\nfloat use_gcc_kind(void)\n{\n    return counter;\n}\n',
+    'engine/kind.c': 'extern float counter;\n\nfloat use_gcc_kind(void)\n{\n    return counter;\n}\n',
     'pointee.c': 'extern volatile int **deep;\n\nint use_pointee(void)\n{\n    return **deep;\n}\n',
-    'gcc/pointee.c': 'extern volatile int **deep;\n\nint use_gcc_pointee(void)\n{\n    return **deep;\n}\n',
-    'guarded.c': ('struct pieces {\n    short low;\n    short high;\n};\n\n#ifdef GCC\nextern struct pieces word;\n'
+    'engine/pointee.c': 'extern volatile int **deep;\n\nint use_gcc_pointee(void)\n{\n    return **deep;\n}\n',
+    'guarded.c': ('struct pieces {\n    short low;\n    short high;\n};\n\n#ifdef NONMATCHING\nextern struct pieces word;\n'
                   '#endif\n\nint use_guarded(void)\n{\n    return word.high;\n}\n'),
     'gone.c': 'extern int rows[8];\n\nint use_gone(void)\n{\n    return rows[4];\n}\n',
     # types the check doesn't read
@@ -448,7 +449,7 @@ float use_by_value(struct twin t, struct word w)
     'word.c': 'int shared_word;\n',
     'labeled.c': ('extern volatile int private_name __asm__("_shared_word");\n\nint use_labeled(void)\n{\n'
                   '    return private_name;\n}\n'),
-    'gcc/dead.c': 'extern float counter;\n\nint use_dead(void)\n{\n    float x = counter;\n    return 1;\n}\n',
+    'engine/dead.c': 'extern float counter;\n\nint use_dead(void)\n{\n    float x = counter;\n    return 1;\n}\n',
     # a name libgcc.a defines, and a routine GCC declares at <built-in>
     'clz.c': 'extern int __clzsi2(unsigned x);\n\nint use_clz(unsigned x)\n{\n    return __clzsi2(x);\n}\n',
     'copy.c': 'void *memcpy(void *to, const void *from, unsigned long size)\n{\n    return to;\n}\n',
@@ -470,7 +471,7 @@ float use_by_value(struct twin t, struct word w)
     # a unit compiled outside GCC_ABI
     'loose.c': 'extern int counter;\n\nint use_loose(void)\n{\n    return counter;\n}\n',
 }
-# the flags a source takes past make gcc's
+# the flags a source takes past make dc's
 FLAGS = {
     # at -O0, GNU as writes the line table, of version 3
     'early.c': ['-O0'],
@@ -502,7 +503,7 @@ WEIGHT = at('def.c', 'float weight(')
 
 def unit(*entries):
     """A Unit of entries, each (tag, attributes, children), at offsets 1, 2 and on, as dwarf.py reads them."""
-    dies = {offset: dwarf.Die(tag, attrs, {}, list(children), None) for offset, (tag, attrs, children)
+    dies = {offset: dwarf.Die(int(tag), attrs, {}, list(children), None) for offset, (tag, attrs, children)
             in enumerate(entries, 1)}
     return decls.Unit(dies, 'unit.c', ['unit.c'])
 
@@ -665,21 +666,21 @@ class Spelling(unittest.TestCase):
 
 class Places(unittest.TestCase):
     def test_names_a_path_as_the_tree_does(self):
-        with tempfile.TemporaryDirectory() as root, cwd(Path(root)):
-            for path in ('gcc/x.c', './gcc/x.c', 'src/../gcc/x.c', str(Path(root, 'gcc/x.c'))):
+        with tree({}) as root:
+            for path in ('engine/x.c', './engine/x.c', 'src/../engine/x.c', str(root / 'engine/x.c')):
                 with self.subTest(path):
-                    self.assertEqual(decls.canonical(path), 'gcc/x.c')
+                    self.assertEqual(decls.canonical(path), 'engine/x.c')
             self.assertEqual(decls.canonical('/elsewhere/x.c'), '/elsewhere/x.c')
             self.assertEqual(decls.canonical('../x.c'), str(Path.cwd().parent / 'x.c'))
 
     def test_takes_the_matched_rule_only_at_a_known_line_of_a_file_in_the_tree(self):
         with tempfile.TemporaryDirectory() as root, cwd(Path(root)):
-            Path('x.c').write_text('int a;\n#ifdef GCC\nint b;\n#endif\n')
+            Path('x.c').write_text('int a;\n#ifdef NONMATCHING\nint b;\n#endif\n')
             Path('tools').mkdir()
             Path('tools/x.h').write_text('int c;\n')
             check = decls.Check({}, '.')
             self.assertTrue(check.matched_at('x.c', 1))
-            for file, line in (('x.c', 3), ('x.c', 99), ('x.c', None), (None, 1), ('gcc/x.c', 1), ('tools/x.h', 1),
+            for file, line in (('x.c', 3), ('x.c', 99), ('x.c', None), (None, 1), ('engine/x.c', 1), ('tools/x.h', 1),
                                (str(Path(root, 'x.c')), 1), ('gone.c', 1)):
                 with self.subTest(file=file, line=line):
                     self.assertFalse(check.matched_at(file, line))
@@ -707,9 +708,7 @@ int call_widen(int y) { return widen(y) + 1; }
 
 class Witness(unittest.TestCase):
     def test_gcc_passes_and_returns_values_as_the_model_takes_them(self):
-        missing = [tool for tool in test_ld.TOOLS if not (test_ld.TOOLCHAIN / tool).is_file()]
-        if missing and not test_ld.GIVEN:
-            raise unittest.SkipTest(f'{test_ld.TOOLCHAIN} lacks {", ".join(missing)}, which make gcc builds')
+        test_ld.toolchain()
         with tempfile.TemporaryDirectory() as root:
             Path(root, 'witness.c').write_text(WITNESS)
             test_ld.run('bin/sh-elf-gcc', *test_ld.flags(), '-fno-inline', '-S', '-o', 'witness.s', 'witness.c',
@@ -736,11 +735,7 @@ class Witness(unittest.TestCase):
 class Check(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        missing = [tool for tool in test_ld.TOOLS if not (test_ld.TOOLCHAIN / tool).is_file()]
-        if missing and not test_ld.GIVEN:
-            raise unittest.SkipTest(f'{test_ld.TOOLCHAIN} lacks {", ".join(missing)}, which make gcc builds')
-        if missing:
-            raise AssertionError(f'{test_ld.TOOLCHAIN}, which SH_ELF names, lacks {", ".join(missing)}')
+        test_ld.toolchain((*test_ld.TOOLS, 'bin/sh-elf-objcopy'))
         # ld.py links the fixture with the toolchain, and the check leaves its libgcc.a unread
         patched = mock.patch.object(gcclink, 'SH_ELF', test_ld.TOOLCHAIN)
         patched.start()
@@ -749,7 +744,7 @@ class Check(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.temporary.cleanup)
         cls.root = Path(cls.temporary.name)
-        # DWARF names each source by its path under the fixture's directory, as make gcc's prefix map names one by its
+        # DWARF names each source by its path under the fixture's directory, as make dc's prefix map names one by its
         # path under the tree. GCC takes the later of two maps that match, so this one holds even where the directory
         # lies in the tree
         compiled = [*test_ld.flags(), f'-fdebug-prefix-map={cls.root.resolve()}=.']
@@ -788,7 +783,7 @@ class Check(unittest.TestCase):
             (cls.root / name).write_bytes(raw[:at] + value + raw[at + len(value):])
 
     def linked(self, spec):
-        """The images spec gives, as gcclink.read() reads them, linked under the fixture's link/ as make gcc links them.
+        """The images spec gives, as gcclink.read() reads them, linked under the fixture's link/ as make dc links them.
         Each image takes libgcc.a after its inputs, as spec.py gives it."""
         images = [line.split()[1] for line in spec.splitlines() if line.startswith('image')]
         (self.root / 'spec.txt').write_text(spec + ''.join(f'input  {image}  {gcclink.libgcc()}\n' for image in images))
@@ -834,11 +829,11 @@ class Check(unittest.TestCase):
                 self.assertEqual(self.problems(SPEC.format(Path(source).with_suffix('.o'))), [])
 
     def test_holds_code_the_matching_build_doesnt_prove_to_its_elements(self):
-        # past the outer extent, def.c's rows holds int[4] elements, as gcc/open.c's does, where gcc/flat.c's and
+        # past the outer extent, def.c's rows holds int[4] elements, as engine/open.c's does, where engine/flat.c's and
         # gone.c's hold ints. guarded.c's word is a structure of two shorts, where def.c's is an unsigned int
-        self.assertEqual(self.problems(SPEC.format('gcc/open.o')), [])
+        self.assertEqual(self.problems(SPEC.format('engine/open.o')), [])
         rows = f'{at("def.c", "int rows[2][4]")} defines it int[2][4]: elements of other types'
-        for source, problem in (('gcc/flat.c', f'rows: gcc/flat.c:1 declares it int[8], and {rows}'),
+        for source, problem in (('engine/flat.c', f'rows: engine/flat.c:1 declares it int[8], and {rows}'),
                                 ('guarded.c', f'word: {at("guarded.c", "extern")} declares it struct pieces, and '
                                               f'{at("def.c", "int word")} defines it unsigned int: elements of other '
                                               'types'),
@@ -848,16 +843,16 @@ class Check(unittest.TestCase):
 
     def test_holds_code_the_matching_build_doesnt_prove_to_its_scalars_kinds_and_its_pointers_targets(self):
         # kind.c declares counter a float, where def.c defines it an int. pointee.c declares deep volatile int **,
-        # where def.c defines it int **. Each agrees byte for byte, but under gcc/ the strict rule tells their
+        # where def.c defines it int **. Each agrees byte for byte, but under engine/ the strict rule tells their
         # elements apart
         for source in ('kind.c', 'pointee.c'):
             with self.subTest(source):
                 self.assertEqual(self.problems(SPEC.format(Path(source).with_suffix('.o'))), [])
         for source, problem in (
-                ('gcc/kind.c', f'counter: gcc/kind.c:1 declares it float, and {at("def.c", "int counter")} defines it '
-                               'int: elements of other types'),
-                ('gcc/pointee.c', f'deep: gcc/pointee.c:1 declares it volatile int **, and {at("def.c", "int **deep")} '
-                                  'defines it int **: elements of other types')):
+                ('engine/kind.c', f'counter: engine/kind.c:1 declares it float, and {at("def.c", "int counter")} '
+                                  'defines it int: elements of other types'),
+                ('engine/pointee.c', f'deep: engine/pointee.c:1 declares it volatile int **, and '
+                                     f'{at("def.c", "int **deep")} defines it int **: elements of other types')):
             with self.subTest(source):
                 self.assertEqual(self.problems(SPEC.format(Path(source).with_suffix('.o'))), [problem])
 
@@ -887,9 +882,9 @@ class Check(unittest.TestCase):
             with self.subTest(source):
                 self.assertEqual(self.problems(SPEC.format(source)), [])
 
-    def test_holds_a_declaration_whose_type_gccs_side_defines_to_its_elements(self):
-        # typeguard.c declares word unguarded, of a structure that GCC's side of a guard defines, and memberguard.c of
-        # one whose members GCC's side declares
+    def test_holds_a_declaration_whose_type_the_non_matching_side_defines_to_its_elements(self):
+        # typeguard.c declares word unguarded, of a structure that the non-matching side of a guard defines, and
+        # memberguard.c of one whose members that side declares
         self.assertEqual(self.problems(SPEC.format('typeguard.o')), [
             f'word: {at("typeguard.c", "extern")} declares it struct twin, and {at("def.c", "int word")} defines it '
             'unsigned int: elements of other types'])
@@ -1018,7 +1013,7 @@ class Check(unittest.TestCase):
             with self.subTest(source), self.assertRaisesRegex(SystemExit, rf'\A[^\n]*: {failure}\Z'):
                 self.problems(SPEC.format(Path(source).with_suffix('.o')))
 
-    def test_reads_a_form_make_gccs_objects_dont_hold_and_an_extent_given_as_a_count(self):
+    def test_reads_a_form_make_dcs_objects_dont_hold_and_an_extent_given_as_a_count(self):
         # banner.o gives a value in DW_FORM_block2, as DW_AT_const_value, an attribute the check doesn't read
         with cwd(self.root):
             found = elf.read((self.root / 'banner.o').read_bytes(), 'banner.o')
@@ -1136,9 +1131,9 @@ class Check(unittest.TestCase):
         # check reads no declaration there to hold to copy.c's memcpy
         self.assertEqual(self.problems('image  main  0x8c010000  0x00010000\ninput  main  copier.o\n'
                                        'input  main  copy.o\n'), [])
-        # GCC drops gcc/dead.c's one load of counter and keeps its declaration, a float, where def.c defines an int.
-        # gcc/dead.o holds no symbol of counter for the declaration to bind
-        self.assertEqual(self.problems(SPEC.format('gcc/dead.o')), [])
+        # GCC drops engine/dead.c's one load of counter and keeps its declaration, a float, where def.c defines an int.
+        # engine/dead.o holds no symbol of counter for the declaration to bind
+        self.assertEqual(self.problems(SPEC.format('engine/dead.o')), [])
 
     def test_fails_on_c_without_dwarf_and_a_name_it_binds_to_libgcc(self):
         # bare.o is word.o without its DWARF. empty.c defines and takes nothing, so GCC gives it no DWARF to read
@@ -1201,7 +1196,7 @@ class Check(unittest.TestCase):
         self.assertIsNone(self.admitted(SPEC.format('agrees.o'), ''))
         self.assertRegex(self.admitted(SPEC.format('loose.o'), ''),
                          r"\A[^\n]*: loose\.o: holds loose\.c compiled with -mrenesas, outside the ABI "
-                         r"decls\.py reads, -ml -m4-single-only -fpack-struct=4\Z")
+                         rf"decls\.py reads, {re.escape(' '.join(self.abi))}\Z")
 
     def test_names_an_image_and_how_many_more_give_the_same_text(self):
         both = ('image  main  0x8c010000  0x00010000\ninput  main  def.o\ninput  main  qualifier.o\n'

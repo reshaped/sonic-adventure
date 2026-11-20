@@ -659,6 +659,16 @@ KMSTATUS kmFlipFrameBuffer(void)
     return KMSTATUS_SUCCESS;
 }
 
+/* engine/dc/owner.h's call, which engine/dc/wide.c's sa_present_mode
+ * makes once a frame. make dc's frame owner, owner.c, which the port leaves
+ * out, shows each picture when rendered at 60 fps. the port's flip waits for
+ * a blank where none has come since the last, at either rate, so a split
+ * frame's two pictures take a blank each, as at 60 */
+void owner_sixty(int on)
+{
+    (void)on;
+}
+
 KMSTATUS kmStopDisplayFrameBuffer(void)
 {
     return KMSTATUS_SUCCESS;

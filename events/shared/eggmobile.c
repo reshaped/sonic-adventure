@@ -403,8 +403,8 @@ static void event_eggmobile_step(struct task *task)
      * int (LDS R0,FPUL and FLOAT at 0x0cb829ea and 0x0cb829ee in EV0007),
      * though ground_below returns it in FR0. the craft's height under
      * EVENT_GROUND, and its shadow's less SHADOW_LIFT, are whatever R0 holds */
-#ifdef GCC
-    /* repairs the height the tag names: GCC reads the Float ground_below
+#ifdef NONMATCHING
+    /* repairs the height the tag names: this side reads the Float ground_below
      * returns */
     shadow.y = ground_below(x, y, z, &slope);
 #else

@@ -1,0 +1,5 @@
+datum  kirai_shape  D  0x00000000  52
+datum  dat_0c9561c4  D  0x00000034  4
+datum  stretches  D  0x00000038  400
+datum  hodai_shapes  D  0x000001c8  52
+datum  hodai_shell_shape  D  0x000001fc  52

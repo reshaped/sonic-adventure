@@ -1,7 +1,8 @@
 """Write the C that SHC compiles to the data the build takes from the disc.
 
     python3 tools/data.py IMAGE SOURCE OUT
-    python3 tools/data.py --bodies IMAGE SOURCE LISTING OUT CONFIG
+    python3 tools/data.py --bodies IMAGE SOURCE TABLE READS OUT CONFIG
+    python3 tools/data.py --offsets SOURCE LISTING READS OUT
     python3 tools/data.py --texts SOURCE OUT
     python3 tools/data.py --values SOURCE OUT
 
@@ -12,7 +13,7 @@ its suffix, as CONFIG.
 With no option, the tool writes OUT, the C of SOURCE's gen/ range of IMAGE,
 OUT's .syms, and its .c.d, make's rule for OUT from the sources and headers
 it reads types from. The C defines each definition config/CONFIG/data.txt
-gives the range: a kind as tools/image.py lays it out, and a C type as the
+gives the range: a kind as tools/items.py lays it out, and a C type as the
 image's declarations do, with the header that defines it. It defines them
 in D, in DHEAD under #pragma section HEAD, or const in C, by the section the
 range's row lies in. Where the data points at an address outside the range
@@ -20,8 +21,8 @@ that the tables don't name, the C makes up a name for it, and OUT's .syms
 gives each such name's address.
 
 --bodies writes these files in OUT, the .inc files from the bytes IMAGE
-holds where LISTING, the stub build's listing, places SOURCE's data in
-SOURCE's rows:
+holds where TABLE, SOURCE's table of offsets as tools/offsets.py reads one,
+places SOURCE's data in SOURCE's rows:
 
 - OUT/NAME.inc for each body SOURCE declares;
 - OUT/text.inc for SOURCE's texts;
@@ -34,7 +35,17 @@ A name outside SOURCE that a body points at takes its type from the extern
 declarations of SOURCE and its headers, which must agree. A function a body
 points at must be declared there. --bodies reads the types SOURCE and its
 headers declare without a preprocessor: it ignores conditionals, and reads
-every branch alike.
+every branch alike. It reads no listing, so it runs where no stub build
+does.
+
+--offsets writes OUT, SOURCE's table of offsets, as tools/offsets.py gives
+one, from LISTING, the stub build's listing, which locates each datum SOURCE
+names, the template of each of its automatic arrays that takes a body, and
+each of its texts. --offsets reads no image and no table of an image's.
+
+READS, which --bodies and --offsets take, is a dependency file the host
+compiler writes for SOURCE, searching the include directories its stub build
+searches, whose first rule names the headers SOURCE's types come from.
 
 --texts writes OUT, the stub build's text.inc: a distinct placeholder for
 each of SOURCE's texts. --values writes OUT, the stub build's values.inc: 0
@@ -55,13 +66,15 @@ import config
 from cdata import (BODY_KINDS, EXTENT, SCALARS, Bodies, EmitError, Items, Writer, counted, element_size, quote,
                    unqualified)
 from csource import INCLUDE_ROOTS, included, matches, parse, uncommented
-from image import MESHSET, Declared, Image, Item, Laid, ReadError, defined, window
 from images import ALONE, FIRST, FIRST_BASE, FIRST_END, FIRST_GAME_CODE, FIRST_SDK_CODE
+from items import MESHSET, Declared, Image, Item, Laid, ReadError, defined, window
 from layout import QUALIFIERS, Array, LayoutError, Pointer, Scalar, Types, spelled
+from offsets import Offsets, differing, read, write
+from shc_listing import listing, strings
 from tool import content, fail, publish
 
 
-# image.py reads the image's data, and cdata.py writes it as C. Neither
+# items.py reads the image's data, and cdata.py writes it as C. Neither
 # reads a file or the tree's config: the commands read the files and the
 # tables, and hand them the bytes, items and declarations they take.
 # A command fails through tool.py's fail, naming the file at fault, as main()
@@ -85,10 +98,6 @@ BODY_EXTERN = re.compile(r'^extern\s+(const\s+)?((?:struct\s+)?\w+)\s+(\w+)\s*(\
 # does. The scan reads no parameter's type, so void f(); declares f too. A
 # parameter can be a function pointer, whose parentheses nest one deep
 DECLARED_FUNCTION = re.compile(r'^(?:extern\s+)?[A-Za-z_][\w \t]*?[\s*](\w+)\((?:[^;{()]|\([^;{()]*\))*\);', re.M)
-# the bytes in a listing directive's .B, .W or .L unit
-UNITS = {'B': 1, 'W': 2, 'L': 4}
-# the banner asmsh's listing opens with, after a form feed
-ASSEMBLED = re.compile(r'\f?\*\*\* SuperH RISC engine ASSEMBLER')
 # a declaration's qualifiers
 QUALIFIED = r'((?:(?:const|volatile)\s+)*)'
 # a file's datum or a function's static whose initializer is a body, an
@@ -122,42 +131,17 @@ TEXT = re.compile(r'^#define (TEXT_([0-9]+))_LENGTH ([0-9]+)$', re.M)
 # member or element in an initializer the source writes, and the full build's
 # values.inc defines it as the number the disc holds there
 VALUE = re.compile(r'\bVALUE_([0-9]+)\b')
-# a definition whose initializer the source writes in braces, up to the
-# brace: its qualifiers, type, name and extents
-WRITTEN = re.compile(r'^[ \t]*(?:static\s+)?' + QUALIFIED + r'((?:struct\s+|union\s+)?\w+)\s+(\w+)\s*'
+# a file's datum or a function's static whose initializer the source writes
+# in braces, up to the brace: its qualifiers, type, name and extents. A
+# function's automatic is no such datum, and a value in its initializer lies
+# in none
+WRITTEN = re.compile(r'^(?:[ \t]+static\s+|(?:static\s+)?)' + QUALIFIED + r'((?:struct\s+|union\s+)?\w+)\s+(\w+)\s*'
                      r'((?:\[[^]\n]*\])*)\s*=\s*(?=\{)', re.M)
-# in a listing: a static's label, a datum's directive and its operands, the
-# function a row of code begins, the labels a row names, and a row of an L
-# label alone, as an unnamed datum or a string starts with. A .SDATA's
-# operand is its string in quotes, which can hold a ;. Any other directive's
-# operands run to the ; that starts a comment
-STATIC = re.compile(r'\w+: +; static: (\w+)')
-QUOTED = re.compile(r'"(?:[^"]|"")*"')
-DIRECTIVE = re.compile(r'(\.(?:DATA|DATAB|RES|SDATA)(?:\.[BWL])?) +(' + QUOTED.pattern + '|[^;]*)')
-# a .DATAB's or .RES's count, and a byte of .DATA.B or .DATAB.B, as SHC and
-# asmsh write them
-COUNT = re.compile(r'[0-9]+')
-BYTE = re.compile(r"H'([0-9A-F]{1,2})|([0-9]{1,3})")
-BEGINS = re.compile(r'; function: (\w+)')
-LABELS = re.compile(r'\bL[0-9]+\b')
-UNNAMED = re.compile(r'L[0-9]+: *')
-# in SHC's listing: a section's size, a row's section, offset and the rest,
-# a row that goes on with the operands above it, and the line marker
-# -optimize=0 writes ahead of a section's first code, which gives the
-# section with no offset
-SHC_SECTION = re.compile(r'\w+ +SECTION \((\w+)\): +([0-9A-F]+) Byte')
-SHC_ROW = re.compile(r'(...) ([0-9A-F]{8}) [0-9A-F<> ]{10} *(.*)$')
-SHC_MORE = re.compile(r' {13}[0-9A-F<> ]{10} *\+ +([^;]*)')
-SHC_MARKER = re.compile(r'(\w{1,3}) +; ')
-# in SHC's listing, the label of a global whose name has 31 characters or
-# more, and its comment. The label runs past the comment's column, so the
-# comment goes on the next line. compiled() joins the two, and leaves a blank
-# line in the comment's place, so that each line keeps its number
-SHC_WRAPPED = re.compile(r'^(.* _\w+:)\n +(; (?:static|function): \w+)$', re.M)
 
 # each command's command line, which -h and misuse print after "usage: "
 USAGE = '''%(prog)s IMAGE SOURCE OUT
-       %(prog)s --bodies IMAGE SOURCE LISTING OUT CONFIG
+       %(prog)s --bodies IMAGE SOURCE TABLE READS OUT CONFIG
+       %(prog)s --offsets SOURCE LISTING READS OUT
        %(prog)s --texts SOURCE OUT
        %(prog)s --values SOURCE OUT'''
 
@@ -242,7 +226,7 @@ class Declarations:
 def definitions(config, image, within=None):
     """The items of the definitions config's data.txt gives, read from
     image, and with within only those that start in it. An item is of one of
-    the kinds tools/image.py lays out, or else Laid, of a type the image's
+    the kinds tools/items.py lays out, or else Laid, of a type the image's
     declarations lay out. Its vouched is its row's path:line where the row
     vouches, and None otherwise. Fails, naming the row, where neither lays
     out its kind, where image holds no text at a text's row, or where a row
@@ -300,7 +284,7 @@ def generate(path, source, out):
     # the texts the rows of C types read their types from, and the headers
     # that define those types
     typed = any(isinstance(item, Laid) for item in items)
-    read = sorted(path.as_posix() for path in config.declarations.texts) if typed else []
+    prerequisites = sorted(path.as_posix() for path in config.declarations.texts) if typed else []
     headers = config.declarations.headers(items) if typed else ()
 
     pragma, constant = GEN_SECTIONS[section]
@@ -314,8 +298,8 @@ def generate(path, source, out):
     # the .syms and .c.d first, so that the C is no older than either only
     # once all three are written
     publish(out.with_suffix('.syms'), ''.join(f'0x{address:08x}  {name}\n' for address, name in placeholders))
-    publish(out.with_suffix('.c.d'), f'{out}:' + ''.join(f' {each}' for each in read) + '\n'
-            + ''.join(f'{each}:\n' for each in read))
+    publish(out.with_suffix('.c.d'), f'{out}:' + ''.join(f' {each}' for each in prerequisites) + '\n'
+            + ''.join(f'{each}:\n' for each in prerequisites))
     publish(out, emitted.text)
 
 
@@ -351,277 +335,6 @@ def agreed(declarations):
     if problems:
         fail(*problems)
     return {name: (ctype, extents[name]) for name, (ctype, _) in types.items()}
-
-
-def full_section(where, given, sizes, abbreviated=True):
-    """The one section of a listing that a row gives: the one whose name
-    starts with the row's three letters, or, where the row's name isn't
-    abbreviated, the one of that name. Fails, naming where, the row's path
-    and line, where no section or several do."""
-    full = [name for name in sizes if (name[:3] if abbreviated else name) == given]
-    if len(full) != 1:
-        fail(f'{where}: no one section {"starts" if abbreviated else "is named"} {given}')
-    return full[0]
-
-
-def sdata(operand, where):
-    """The bytes of a .SDATA's operand, as DIRECTIVE reads it: the string in
-    its quotes, each doubled quote one quote. listing() sizes a string by
-    them, and strings() takes them. Fails, naming where, the row's path and
-    line, on an operand that isn't one whole string."""
-    if not QUOTED.fullmatch(operand.strip()):
-        fail(f'{where}: .SDATA {operand.strip()}: no whole string')
-    return operand.strip()[1:-1].replace('""', '"').encode('latin-1')
-
-
-def directive_count(operands, where):
-    """The count a .DATAB's or .RES's operands start with. Fails, naming
-    where, the row's path and line, on one that isn't COUNT's."""
-    found = operands.split(',')[0].strip()
-    if not COUNT.fullmatch(found):
-        fail(f'{where}: {operands.strip()}: its count isn\'t a decimal number')
-    return int(found)
-
-
-def byte(value, where):
-    """The byte a .DATA.B's or .DATAB.B's value gives. Fails, naming
-    where, the row's path and line, on one that isn't BYTE's or is past
-    255."""
-    found = BYTE.fullmatch(value.strip())
-    if found and found.group(1):
-        return int(found.group(1), 16)
-    if not found or int(found.group(2)) > 255:
-        fail(f'{where}: {value.strip()}: no byte')
-    return int(found.group(2))
-
-
-def listing(path):
-    """From the stub's listing at path, SHC's or asmsh's for a patched source:
-
-    - each named datum's section, offset and size, by its name;
-    - the same for each unnamed datum outside the code, as an automatic
-      array's template is, by its L label;
-    - the L labels named in each function's code and pools, by the function;
-    - the names two statics share.
-
-    SHC rows abbreviate section names to three letters; its section table
-    gives the full names. asmsh's .SECTION directives give full names,
-    which are kept. A listing is read one byte to a character.
-    Both listings end each line in CRLF, which is read as LF, the line end
-    SHC_WRAPPED matches, and only LF ends a line. A .SDATA's string keeps
-    its semicolons and doubled quotes, and a comment starts only past it.
-
-    Fails, naming the row's path and line, where the row names no one
-    section, where a datum runs past its section, or where a .SDATA's
-    operand isn't one whole string or a .DATAB's or .RES's count isn't a
-    decimal number. A listing that gives no section's size fails, naming
-    it."""
-    text = content(path).decode('latin-1').replace('\r\n', '\n')
-    abbreviated = not ASSEMBLED.match(text)
-    data, unnamed, sizes, loads = (compiled if abbreviated else assembled)(text, path)
-    if not sizes:
-        fail(f'{path}: gives no section\'s size, as SHC\'s and asmsh\'s listings do')
-    named, templates = {}, {}
-    for found, held in ((data, named), (unnamed, templates)):
-        for section, name, start, end, line in found:
-            full = full_section(f'{path}:{line}', section, sizes, abbreviated)
-            if end > sizes[full]:
-                fail(f'{path}:{line}: {name} runs past its section, {full}, of {sizes[full]} bytes')
-            held[name] = full, start, end - start
-    # two functions' statics can share a name
-    twice = {name for name, count in Counter(datum[1] for datum in data).items() if count > 1}
-    return named, templates, loads, twice
-
-
-def compiled(text, path):
-    """listing()'s named data, unnamed data, section sizes and loads, from
-    SHC's listing at path. A datum is its section's letters, name, start,
-    end and line."""
-    data, sizes, section, datum, directive = [], {}, None, None, None
-    unnamed, loads, function = [], {}, None
-    text = SHC_WRAPPED.sub(r'\1 \2\n', text)
-
-    def close():
-        """Extend the datum over the last directive, its continuation lines
-        too."""
-        if datum is None or directive is None:
-            return
-        offset, op, operands, where = directive
-        if op.startswith('.RES.') and datum[3] > datum[2]:
-            # a .RES after the datum's values is SHC's padding before the next
-            # datum
-            return
-        if op.startswith('.SDATA'):
-            size = len(sdata(operands, where))
-        elif op.startswith(('.DATAB.', '.RES.')):
-            size = UNITS[op[-1]] * directive_count(operands, where)
-        else:
-            size = UNITS[op[-1]] * len([value for value in operands.split(',') if value.strip()])
-        datum[3] = max(datum[3], offset + size)
-
-    for number, line in enumerate(text.split('\n'), 1):
-        # the section, the offset, the code and the rest, in their columns
-        info = SHC_SECTION.match(line)
-        row = SHC_ROW.match(line)
-        more = SHC_MORE.match(line)
-        marker = SHC_MARKER.match(line)
-        if info:
-            sizes[info.group(1)] = int(info.group(2), 16)
-        elif more and directive is not None:
-            directive = (directive[0], directive[1], directive[2] + ',' + more.group(1), directive[3])
-        elif marker:
-            close()
-            directive, datum = None, None
-            section = marker.group(1)
-        elif row:
-            close()
-            directive = None
-            section = row.group(1).strip() or section
-            offset, rest = int(row.group(2), 16), row.group(3)
-            label = STATIC.match(rest)
-            op = DIRECTIVE.match(rest)
-            in_code = section is not None and section.startswith('P')
-            begins = BEGINS.search(rest)
-            if in_code:
-                function = begins.group(1) if begins else function
-                loads.setdefault(function, set()).update(LABELS.findall(rest))
-            if label:
-                datum = [section, label.group(1), offset, offset, number]
-                data.append(datum)
-            elif UNNAMED.fullmatch(rest) and not in_code:
-                datum = [section, rest.strip()[:-1], offset, offset, number]
-                unnamed.append(datum)
-            elif op and datum is not None:
-                directive = (offset, op.group(1), op.group(2), f'{path}:{number}')
-            else:
-                # code, alignment, or a label of no datum's: the datum has ended
-                datum = None
-    close()
-    return data, unnamed, sizes, loads
-
-
-def assembled(text, path):
-    """listing()'s named data, unnamed data, section sizes and loads, from
-    asmsh's listing at path, as compiled() gives them, but with each
-    section's full name.
-
-    A row is its line number, the offset, the code, and the source's line
-    number and text. A row of an offset and code alone goes on with the code
-    above it. The listing cuts the source's long lines short, so a datum's
-    values are measured by their code. .SECTION starts a section, and the
-    section list at the end gives the sizes."""
-    data, sizes, section, datum, values = [], {}, None, None, False
-    unnamed, loads, function = [], {}, None
-    for number, line in enumerate(text.split('\n'), 1):
-        size = re.match(r'(\w+) +REL-(?:CODE|DATA) +([0-9A-F]+)', line)
-        row = re.match(r' *\d+ ([0-9A-F]{8}) ([0-9A-F]*) +\d+ (.*)$', line)
-        more = re.match(r' {6}([0-9A-F]{8}) ([0-9A-F]+) *$', line)
-        if size:
-            sizes[size.group(1)] = int(size.group(2), 16)
-        elif more:
-            if datum is not None and values:
-                datum[3] = max(datum[3], int(more.group(1), 16) + len(more.group(2)) // 2)
-        elif row:
-            offset, code, rest = int(row.group(1), 16), row.group(2), row.group(3).strip()
-            values = False
-            begun = re.match(r'\.SECTION +(\w+)', rest)
-            if begun:
-                section, datum = begun.group(1), None
-                continue
-            label = STATIC.match(rest)
-            op = DIRECTIVE.match(rest)
-            in_code = section is not None and section.startswith('P')
-            begins = BEGINS.search(rest)
-            if in_code:
-                function = begins.group(1) if begins else function
-                loads.setdefault(function, set()).update(LABELS.findall(rest))
-            if label:
-                datum = [section, label.group(1), offset, offset, number]
-                data.append(datum)
-            elif UNNAMED.fullmatch(rest) and not in_code:
-                datum = [section, rest[:-1].strip(), offset, offset, number]
-                unnamed.append(datum)
-            elif op and datum is not None and op.group(1).startswith(('.DATAB.', '.RES.')):
-                # a .RES after the datum's values is SHC's padding before the
-                # next datum
-                if not (op.group(1).startswith('.RES.') and datum[3] > datum[2]):
-                    count = directive_count(op.group(2), f'{path}:{number}')
-                    datum[3] = max(datum[3], offset + UNITS[op.group(1)[-1]] * count)
-            elif op and datum is not None:
-                datum[3] = max(datum[3], offset + len(code) // 2)
-                values = True
-            else:
-                # code, alignment, or a label of no datum's: the datum has ended
-                datum = None
-    return data, unnamed, sizes, loads
-
-
-def strings(path):
-    """Each string SHC's listing at path holds, as its section, offset and
-    bytes. A string is a row of an L label alone outside the code, and the
-    characters the .SDATA, .DATA.B and .DATAB.B rows below it give, each
-    from where the one before it ends. The listing is read as listing()
-    reads it. asmsh's listing, a patched source's, gives no strings, so a
-    patched source can't take texts.
-
-    Fails, naming the row's path and line, where a row gives a string's
-    bytes in a form SHC doesn't write, or from an offset other than where
-    the string's bytes so far end, or where a string runs past its
-    section."""
-    found, sizes, section, directive, string = [], {}, None, None, None
-
-    def close():
-        if directive is None:
-            return
-        offset, op, operands, where = directive
-        if offset != string[1] + len(string[2]):
-            fail(f'{where}: {op} starts at {offset:08X}, and its string\'s bytes end at '
-                 f'{string[1] + len(string[2]):08X}')
-        if op == '.SDATA':
-            data = sdata(operands, where)
-        elif op == '.DATA.B':
-            data = bytes(byte(value, where) for value in operands.split(',') if value.strip())
-        else:
-            if operands.count(',') != 1:
-                fail(f'{where}: .DATAB.B {operands.strip()}: not a count and a byte')
-            data = bytes([byte(operands.split(',')[1], where)]) * directive_count(operands, where)
-        string[2].extend(data)
-
-    for number, line in enumerate(content(path).decode('latin-1').replace('\r\n', '\n').split('\n'), 1):
-        info = SHC_SECTION.match(line)
-        row = SHC_ROW.match(line)
-        more = SHC_MORE.match(line)
-        marker = SHC_MARKER.match(line)
-        if info:
-            sizes[info.group(1)] = int(info.group(2), 16)
-        elif more and directive is not None:
-            directive = (directive[0], directive[1], directive[2] + ',' + more.group(1), directive[3])
-        elif marker:
-            close()
-            directive, string = None, None
-            section = marker.group(1)
-        elif row:
-            close()
-            directive = None
-            section = row.group(1).strip() or section
-            offset = int(row.group(2), 16)
-            op = DIRECTIVE.match(row.group(3))
-            in_code = section is not None and section.startswith('P')
-            if UNNAMED.fullmatch(row.group(3)) and not in_code:
-                string = [section, offset, bytearray(), number]
-                found.append(string)
-            elif op and op.group(1) in ('.SDATA', '.DATA.B', '.DATAB.B') and string is not None:
-                directive = (offset, *op.groups(), f'{path}:{number}')
-            else:
-                string = None
-    close()
-    placed = []
-    for short, offset, data, number in found:
-        section = full_section(f'{path}:{number}', short, sizes)
-        if offset + len(data) > sizes[section]:
-            fail(f'{path}:{number}: its string runs past its section, {section}, of {sizes[section]} bytes')
-        placed.append((section, offset, bytes(data)))
-    return placed
 
 
 def texts(source):
@@ -774,21 +487,19 @@ def headers(depend):
     file the Makefile has the host compiler write for a stub build's
     source. Fails where that file is missing."""
     if not depend.exists():
-        fail(f'{depend}: missing, and the stub build writes it')
+        fail(f'{depend}: missing; make writes a body source\'s reads, so run make, not this tool alone')
     rule = depend.read_text().replace('\\\n', ' ').split('\n', 1)[0]
     return [Path(name) for name in rule.partition(':')[2].split() if name.endswith('.h')]
 
 
-class BodySource:
-    """A body source, and what --bodies reads with it: its stub build's
-    listing and dependencies, the headers they name, and the image and
-    tables its bodies come from. Its passes fail, naming the file at fault,
-    on what they can't take."""
+class Source:
+    """A body source as its stub build compiles it, which its offsets are
+    measured from and read with: its text, and the types and declarations
+    of it and of the headers its stub build reads. Its scans fail, naming
+    the source, on what they can't take."""
 
-    def __init__(self, path, source, lis, conf):
-        self.path, self.source, self.lis = path, Path(source), Path(lis)
-        self.config = Config(conf)
-        self.image = self.config.image(path)
+    def __init__(self, source, reads):
+        self.source = Path(source)
         # the source's text as uncommented() gives it, which every pass reads,
         # each scan of it through matches()
         written = content(self.source).decode(errors='replace')
@@ -796,35 +507,26 @@ class BodySource:
         # the directory the source's includes name its bodies in: its path
         # less its top directory and .c
         self.directory = Path(*self.source.parts[1:]).with_suffix('').as_posix()
-        self.places, self.templates, self.loads, self.twice = listing(self.lis)
-        # the source's text and each header's that its stub build's dependency
-        # file names. The Types read the headers, then the source as written,
-        # whose comments Types reads as C does. What a body can point at
-        # outside the source is a name they declare extern, or a function
-        # they declare
-        texts = [(self.source, written), *((header, content(header).decode(errors='replace'))
-                                           for header in headers(self.lis.with_suffix('.d')))]
-        self.types = Types([text for _, text in texts[1:]] + [written])
-        self.outside = agreed(externs(texts, BODY_EXTERN))
-        self.functions = {match.group(1) for _, text in texts
-                          for match in matches(DECLARED_FUNCTION, uncommented(text))}
-        # each section's rows, and its start: its first row's, where link.py
-        # places the object's section, and so where the listing's offsets in
-        # it start
-        self.rows, self.starts = {}, {}
-        for section, start, end in self.config.ranges(self.source.as_posix()):
-            self.rows.setdefault(section, []).append((start, end))
-            self.starts.setdefault(section, start)
+        # the source's text and each header's that its reads name. The Types
+        # read the headers, then the source as written, whose comments Types
+        # reads as C does
+        self.files = [(self.source, written), *((header, content(header).decode(errors='replace'))
+                                                for header in headers(Path(reads)))]
+        self.types = Types([text for _, text in self.files[1:]] + [written])
         # each datum's type as a pointer to it takes it, qualifiers kept, and
         # its extents. A union or a struct of no tag that the source defines
         # as it declares the datum is taken as union or struct, and as no
         # array. unions gives each such union's first member where that is an
         # array, and None otherwise
+        declared = self.scan(DECLARATION)
         self.declarations = {name: (qualify(qualifiers, ctype) + (' *' if pointer else ''), EXTENT.findall(dims))
-                             for qualifiers, ctype, pointer, name, dims in self.scan(DECLARATION)}
+                             for qualifiers, ctype, pointer, name, dims in declared}
         self.unions = {name: MEMBER.match(members) for members, name in self.scan(UNION)}
         self.declarations.update({name: ('union', []) for name in self.unions})
         self.declarations.update({name: ('struct', []) for name, in self.scan(UNTAGGED)})
+        # the names the source declares more than once, as two functions'
+        # statics of one name are, or a datum on each side of a guard
+        self.redeclared = {name for name, count in Counter(name for *_, name, _ in declared).items() if count > 1}
 
     def fail(self, problem):
         """Exit with status 1, naming the source and the problem."""
@@ -843,13 +545,149 @@ class BodySource:
         except LayoutError as error:
             self.fail(f'[{count}]: {error}')
 
+    def size(self, name):
+        """The size in bytes of the datum name as the source declares it:
+        its type's, times each of its extents. None where the source gives
+        no one size to hold an offset's to: a name it doesn't declare or
+        declares more than once, and a type or an extent the Types can't
+        read, as a union's or a struct's of no tag, and an extent left
+        empty."""
+        if name not in self.declarations or name in self.redeclared:
+            return None
+        ctype, extents = self.declarations[name]
+        try:
+            size = element_size(ctype, self.types)
+            for count in extents:
+                size *= counted(count, self.types)
+        except LayoutError:
+            return None
+        return size
+
+    def arrays(self):
+        """Each body the source gives a function's automatic array, in the
+        source's order, as (name, function, size, qualifiers, type,
+        extents). The array's function is the nearest function definition
+        above it in the source, found by text and not by C's scopes. Its
+        size is in bytes, and its qualifiers, type and extents are as
+        BodySource.static_bodies() gives a static's.
+
+        Fails on an array:
+
+        - whose include isn't its name's .inc;
+        - with no function definition above it;
+        - of a type tools/data.py writes no body for, or with an extent
+          extent() fails on."""
+        functions = [(match.start(), match.group(1)) for match in matches(FUNCTION, self.text)]
+        found = []
+        for match in matches(AUTO, self.text):
+            qualifiers, ctype, name, dims, include = match.groups()
+            within = [function for start, function in functions if start < match.start()]
+            if include != f'{self.directory}/{name}.inc':
+                self.fail(f'{name}\'s body is {self.directory}/{name}.inc, not {include}')
+            if not within:
+                self.fail(f'{name} needs a function')
+            try:
+                size = element_size(ctype, self.types)
+            except LayoutError as error:
+                self.fail(f'{name} is {ctype}, which tools/data.py writes no body for: {error}')
+            for count in EXTENT.findall(dims):
+                size *= self.extent(count)
+            found.append((name, within[-1], size, qualifiers, ctype, EXTENT.findall(dims)))
+        return found
+
+    def declared_texts(self):
+        """The source's texts, as texts() gives them. Fails where it does,
+        and where the source declares texts and doesn't include text.inc,
+        or the reverse."""
+        declared = texts(self.source)
+        if bool(declared) != (f'#include "{self.directory}/text.inc"' in self.text):
+            self.fail(f'declares texts, and includes {self.directory}/text.inc, or neither')
+        return declared
+
+
+def measured(source, lis):
+    """The Offsets of source, a Source, as lis, its stub build's listing,
+    gives them:
+
+    - each named datum the listing holds, in its order;
+    - each automatic array that takes a body, at its template: the one
+      unnamed datum of the array's size that its function loads;
+    - each text with its null, where its placeholder ends a string. asmsh's
+      listing gives no strings, so a patched source can't take texts.
+
+    Fails, naming the source, where:
+
+    - Source.arrays() or Source.declared_texts() does;
+    - an array's function loads no unnamed datum of its size, or several;
+    - an array's name is a named datum's, or an earlier array's;
+    - the stub build ends no string with a text's placeholder, or several;
+    - a named datum's size isn't the one Source.size() gives it."""
+    named, unnamed, loads = listing(lis)
+    templates, placed = {}, {}
+    for name, function, size, *_ in source.arrays():
+        found = [unnamed[label] for label in sorted(loads.get(function, ()))
+                 if label in unnamed and unnamed[label][2] == size]
+        if len(found) != 1:
+            source.fail(f'{function} loads {len(found)} templates of {name}\'s {size} bytes')
+        if name in templates or any(name == datum for datum, *_ in named):
+            source.fail(f'{name} names two bodies')
+        templates[name] = found[0]
+    declared_texts = source.declared_texts()
+    found_strings = strings(lis) if declared_texts else []
+    for name, _, length, placeholder in declared_texts:
+        # a text ends its string, before the null
+        mark = placeholder + b'\0'
+        found = [(section, offset + len(data) - len(mark)) for section, offset, data in found_strings
+                 if data.endswith(mark)]
+        if len(found) != 1:
+            source.fail(f'its stub build ends {len(found)} strings with {name}\'s placeholder')
+        placed[name] = (*found[0], length + 1)
+    for name, _, _, size in named:
+        declared = source.size(name)
+        if declared not in (None, size):
+            source.fail(f'{name} is {size} bytes in {lis}, and {declared} as it declares it')
+    return Offsets(named, templates, placed)
+
+
+class BodySource(Source):
+    """A body source, and what --bodies reads with it: its offsets, as its
+    table records them, and the image and tables its bodies come from. Its
+    passes fail, naming the file at fault, on what they can't take."""
+
+    def __init__(self, path, source, reads, table, conf):
+        super().__init__(source, reads)
+        self.path, self.table, self.offsets = path, Path(table), read(table, source)
+        self.config = Config(conf)
+        self.image = self.config.image(path)
+        # each named datum's section, offset and size, which
+        # automatic_bodies() adds each array's template to, and the names two
+        # statics share
+        self.places, self.twice = self.offsets.named(), self.offsets.shared()
+        # what a body can point at outside the source: a name the source or
+        # a header declares extern, or a function they declare
+        self.outside = agreed(externs(self.files, BODY_EXTERN))
+        self.functions = {match.group(1) for _, text in self.files
+                          for match in matches(DECLARED_FUNCTION, uncommented(text))}
+        # each section's rows, and its start: its first row's, where link.py
+        # places the object's section, and so where the offsets in it start
+        self.rows, self.starts = {}, {}
+        for section, start, end in self.config.ranges(self.source.as_posix()):
+            self.rows.setdefault(section, []).append((start, end))
+            self.starts.setdefault(section, start)
+
+    def stale(self, problem):
+        """Fail on problem, a difference between the source and its offsets,
+        naming the source, then its table and what writes one, as
+        offsets.differing() says."""
+        self.fail(f'{problem}. {differing(self.table)}')
+
     def check_place(self, name, section, offset, size):
-        """The address of the size bytes the stub listing places for name, at
+        """The address of the size bytes the offsets place for name, at
         offset in section. Fails where there are none, or where they lie in no
         section the image's tables place, outside that section's rows, outside
         the image, or in its code. Rows that meet hold bytes across them."""
         if size <= 0:
-            self.fail(f'{name} has no bytes in its stub listing')
+            self.fail(f'its offsets give {name} no bytes')
         if section not in self.starts:
             self.fail(f'{name} isn\'t in a section {self.config.splits} places')
         start = end = self.starts[section] + offset
@@ -865,10 +703,21 @@ class BodySource:
             self.fail(f'{name}, 0x{start:08x} to 0x{start + size:08x}, lies in {self.path}\'s code')
         return start
 
+    def check_sizes(self):
+        """Fail on a named datum to which the offsets give a size other than
+        the one size() gives it, as a table can once the source or a header
+        changes a type's size."""
+        for name, _, _, size in self.offsets.data:
+            declared = self.size(name)
+            if declared not in (None, size):
+                self.stale(f'{name} is {declared} bytes as it declares it, and its offsets give it {size}')
+
     def static_bodies(self):
         """Each body the source gives a datum of static storage, a file's or a
         function's, by name: its qualifiers, its type, with * for a pointer,
-        and its extents.
+        and its extents. Each branch of a conditional can give a datum its
+        body, where each declares it with the same qualifiers, type and
+        extents.
 
         Fails on a body:
 
@@ -877,9 +726,11 @@ class BodySource:
         - whose include isn't its name's .inc;
         - of a name two statics share;
         - of an array with no extent;
-        - of a datum the stub listing doesn't place, or one check_place()
-          fails on."""
-        filled = {}
+        - of a datum the offsets don't place, or one check_place() fails
+          on;
+        - of a datum an earlier declaration gives its body, with other
+          qualifiers, another type or other extents."""
+        filled, declared = {}, {}
         for qualifiers, ctype, pointer, name, dims, include in self.scan(BODY):
             ctype += ' *' if pointer else ''
             if name in ('text', 'values'):
@@ -892,8 +743,11 @@ class BodySource:
             if dims and not EXTENT.findall(dims)[0].strip():
                 self.fail(f'{name} needs an extent, and its stub build\'s zero body would give it one element')
             if name not in self.places:
-                self.fail(f'{name} isn\'t in a section {self.config.splits} places')
+                self.stale(f'its offsets give {name} no place')
             self.check_place(name, *self.places[name])
+            given = qualify(qualifiers, ctype) + dims
+            if declared.setdefault(name, given) != given:
+                self.fail(f'{name} takes its body as {declared[name]} and as {given}, and a body needs one type')
             filled[name] = qualifiers, ctype, EXTENT.findall(dims)
         return filled
 
@@ -902,46 +756,35 @@ class BodySource:
         its qualifiers, its type and its extents, as static_bodies() gives
         them.
 
-        An array's body is the template SHC copies it from: the one unnamed
-        datum of the array's size that its function loads. Its function is
-        the nearest function definition above it in the source, found by
-        text and not by C's scopes. The template's place goes into
-        self.places under the array's name.
+        An array's body is the template SHC copies it from, which the
+        offsets place under the array's name. The template's place goes into
+        self.places under that name.
 
-        Fails on an array:
+        Fails:
 
-        - whose include isn't its name's .inc;
-        - with no function definition above it;
-        - of a type tools/data.py writes no body for, or with an extent
-          extent() fails on;
-        - whose function loads no unnamed datum of its size, or several;
-        - whose name is in self.places or filled already: the listing's data,
-          an earlier automatic array, or a static body;
-        - whose template check_place() fails on."""
-        functions = [(match.start(), match.group(1)) for match in matches(FUNCTION, self.text)]
+        - where arrays() does;
+        - on an array the offsets give no template, or one of another size
+          than the array's;
+        - on an array whose name is in self.places or filled already: a
+          named datum, an earlier automatic array, or a static body;
+        - on an array whose template check_place() fails on;
+        - on a template the offsets give for a name that is no such
+          array's."""
         automatic = {}
-        for match in matches(AUTO, self.text):
-            qualifiers, ctype, name, dims, include = match.groups()
-            within = [function for start, function in functions if start < match.start()]
-            if include != f'{self.directory}/{name}.inc':
-                self.fail(f'{name}\'s body is {self.directory}/{name}.inc, not {include}')
-            if not within:
-                self.fail(f'{name} needs a function')
-            try:
-                size = element_size(ctype, self.types)
-            except LayoutError as error:
-                self.fail(f'{name} is {ctype}, which tools/data.py writes no body for: {error}')
-            for count in EXTENT.findall(dims):
-                size *= self.extent(count)
-            found = [self.templates[label] for label in sorted(self.loads.get(within[-1], ()))
-                     if label in self.templates and self.templates[label][2] == size]
-            if len(found) != 1:
-                self.fail(f'{within[-1]} loads {len(found)} templates of {name}\'s {size} bytes')
+        for name, _, size, qualifiers, ctype, extents in self.arrays():
+            if name not in self.offsets.templates:
+                self.stale(f'its offsets give {name} no template')
+            if self.offsets.templates[name][2] != size:
+                self.stale(f'{name} is {size} bytes as it declares it, and its offsets give its template '
+                           f'{self.offsets.templates[name][2]}')
             if name in self.places or name in filled:
                 self.fail(f'{name} names two bodies')
-            self.places[name] = found[0]
-            self.check_place(name, *found[0])
-            automatic[name] = qualifiers, ctype, EXTENT.findall(dims)
+            self.places[name] = self.offsets.templates[name]
+            self.check_place(name, *self.places[name])
+            automatic[name] = qualifiers, ctype, extents
+        for name in self.offsets.templates:
+            if name not in automatic:
+                self.stale(f'its offsets give {name} a template, and no automatic array of that name takes a body')
         return automatic
 
     def check_includes(self, filled):
@@ -963,8 +806,8 @@ class BodySource:
         member's scalar layout.
 
         The member lies in the datum whose initializer writes the value, at
-        the offset the datum's layout gives it. The stub listing places the
-        datum.
+        the offset the datum's layout gives it. The datum is of static
+        storage, a file's or a function's, and the offsets place it.
 
         Fails where:
 
@@ -975,21 +818,22 @@ class BodySource:
           no extent, or an extent extent() fails on;
         - the datum's initializer is one initialized() fails on, doesn't
           close, or goes on past its braces;
-        - two statics share the datum's name, or no section the tables place
-          holds the datum;
-        - a value lies past the datum's size in the listing, or check_place()
+        - two statics share the datum's name, the offsets don't place the
+          datum, or no section the tables place holds it;
+        - a value lies past the datum's size in the offsets, or check_place()
           fails on it;
-        - a value lies in no datum's initializer."""
+        - a value lies in no such datum's initializer, as one in the
+          initializer of a function's automatic does."""
         numbers = value_numbers(self.source)
         if bool(numbers) != (f'#include "{self.directory}/values.inc"' in self.text):
             self.fail(f'writes values, and includes {self.directory}/values.inc, or neither')
         held = {}
         tokens = [(token.start, token.text) for token in parse(self.text).tokens if token.kind != 'comment']
-        offsets = [start for start, _ in tokens]
+        positions = [start for start, _ in tokens]
         tokens = [token for _, token in tokens]
         for match in matches(WRITTEN, self.text if numbers else ''):
             qualifiers, ctype, name, dims = match.groups()
-            at = bisect_left(offsets, match.end())
+            at = bisect_left(positions, match.end())
             close, depth = at, 0
             while close < len(tokens):
                 depth += tokens[close] == '{'
@@ -1015,12 +859,14 @@ class BodySource:
                 self.fail(f'{name}\'s initializer doesn\'t close')
             if name in self.twice:
                 self.fail(f'{name} names two statics, and its values need one')
-            if name not in self.places or self.places[name][0] not in self.starts:
+            if name not in self.places:
+                self.stale(f'its offsets give {name} no place')
+            if self.places[name][0] not in self.starts:
                 self.fail(f'{name} holds {found[0][0]}, and isn\'t in a section {self.config.splits} places')
             section, offset, size = self.places[name]
             for value, into, scalar in found:
                 if into + scalar.size > size:
-                    self.fail(f'{value} lies past {name}\'s {size} bytes in its stub listing')
+                    self.fail(f'{value} lies past the {size} bytes its offsets give {name}')
                 held[value] = self.check_place(value, section, offset + into, scalar.size), scalar
         unheld = [f'VALUE_{number}' for number in numbers if f'VALUE_{number}' not in held]
         if unheld:
@@ -1029,7 +875,7 @@ class BodySource:
 
     def names(self):
         """The image's names by address, and the name of each datum of
-        nonzero size the stub listing places in a section the tables place. A
+        nonzero size the offsets place in a section the tables place. A
         datum's name replaces the tables' at its address, and of two data at
         one address the later in self.places wins."""
         names = dict(self.config.names)
@@ -1040,10 +886,10 @@ class BodySource:
 
     def items(self, filled):
         """The source's data as an Items, and the bodies among them as (name,
-        item, type). The data are every datum of nonzero size the stub
-        listing places in a section the tables place, each a range of its own
-        that its name starts. The bodies come in self.places' order: the
-        listing's data in its order, then the automatic arrays in the
+        item, type). The data are every datum of nonzero size the offsets
+        place in a section the tables place, each a range of its own that
+        its name starts. The bodies come in self.places' order: the named
+        data in the offsets' order, then the automatic arrays in the
         source's. A body's item is body()'s, as retype_uvs() retypes it, and
         every other datum's is datum()'s. Fails where body() does, and raises
         EmitError where Items does, as where two data overlap."""
@@ -1113,36 +959,32 @@ class BodySource:
 
     def placed_texts(self):
         """Each text the source declares, in number order, as its name,
-        address and bytes on the disc. A text lies where its placeholder ends
-        a string in the stub build.
+        address and bytes on the disc. The offsets place each text with its
+        null.
 
-        Fails where:
+        Fails:
 
-        - texts() does;
-        - the source declares texts and doesn't include text.inc, or the
-          reverse;
-        - the stub build ends no string with a text's placeholder, or
-          several;
-        - check_place() fails on a text with its null;
-        - the disc's text isn't the text's length."""
-        declared = texts(self.source)
-        if bool(declared) != (f'#include "{self.directory}/text.inc"' in self.text):
-            self.fail(f'declares texts, and includes {self.directory}/text.inc, or neither')
-        found_strings = strings(self.lis) if declared else []
+        - where declared_texts() does;
+        - on a text the offsets don't place, or place in other than its
+          length and its null;
+        - on a text check_place() fails on with its null;
+        - on a text whose bytes on the disc aren't of its length;
+        - on a text the offsets place and the source doesn't declare."""
         placed = []
-        for name, _, length, placeholder in declared:
-            # a text ends its string, before the null
-            mark = placeholder + b'\0'
-            found = [(section, offset + len(data) - len(mark)) for section, offset, data in found_strings
-                     if data.endswith(mark)]
-            if len(found) != 1:
-                self.fail(f'its stub build ends {len(found)} strings with {name}\'s placeholder')
-            (section, at), = found
-            start = self.check_place(f'{name} with its null', section, at, length + 1)
-            body = self.image.payload[start - self.image.base:start - self.image.base + length + 1]
+        for name, _, length, _ in self.declared_texts():
+            if name not in self.offsets.texts:
+                self.stale(f'its offsets give {name} no place')
+            section, at, size = self.offsets.texts[name]
+            if size != length + 1:
+                self.stale(f'{name} is {length} bytes long, and its offsets give it and its null {size}')
+            start = self.check_place(f'{name} with its null', section, at, size)
+            body = self.image.payload[start - self.image.base:start - self.image.base + size]
             if body.find(0) != length:
                 self.fail(f'{name} isn\'t {length} bytes long on the disc')
             placed.append((name, start, body[:length]))
+        for name in self.offsets.texts:
+            if all(name != text for text, _, _ in placed):
+                self.stale(f'its offsets place {name}, and it declares no such text')
         return placed
 
 
@@ -1176,16 +1018,25 @@ def publish_group(out, incs, listed):
     publish(out / 'bodies.txt', listed)
 
 
-def bodies(path, source, lis, out, conf):
-    """Write --bodies' group in OUT, from IMAGE where the stub listing places
-    SOURCE's data: each body's .inc, text.inc where SOURCE declares texts,
-    values.inc where it writes values, and bodies.txt.
+def bodies(path, source, table, reads, out, conf):
+    """Write --bodies' group in OUT, from IMAGE where TABLE places SOURCE's
+    data: each body's .inc, text.inc where SOURCE declares texts, values.inc
+    where it writes values, and bodies.txt. TABLE gives SOURCE's offsets as
+    offsets.read() reads them, READS names the headers SOURCE's types come
+    from, and extract() writes the group from them. Fails where read()
+    does, as on a table that is missing."""
+    extract(BodySource(path, source, reads, table, conf), out)
+
+
+def extract(body_source, out):
+    """Write in OUT the group of body_source, a BodySource, from its image
+    where its offsets place its data.
 
     The passes and the emitter run before anything is written, so a
     failure in one leaves the former group whole. An error the emitter
-    raises fails, naming SOURCE. publish_group() then replaces the group,
-    and says what a failure there leaves."""
-    body_source = BodySource(path, source, lis, conf)
+    raises fails, naming the source. publish_group() then replaces the
+    group, and says what a failure there leaves."""
+    body_source.check_sizes()
     filled = body_source.static_bodies()
     filled.update(body_source.automatic_bodies(filled))
     body_source.check_includes(filled)
@@ -1197,7 +1048,7 @@ def bodies(path, source, lis, out, conf):
         incs = {f'{name}.inc': writer.inc(name, item) for name, item, _ in written}
         numbers = [writer.initializer(scalar, start) for _, start, scalar in values]
     except EmitError as error:
-        fail(f'{source}: {error}')
+        fail(f'{body_source.source}: {error}')
     listed = [f'{name}  0x{item.start:08x}  {item.end - item.start}  {ctype}\n' for name, item, ctype in written]
     if placed:
         incs['text.inc'] = ''.join(f'#define {name} {quote(text)}\n' for name, _, text in placed)
@@ -1209,19 +1060,29 @@ def bodies(path, source, lis, out, conf):
     publish_group(Path(out), incs, ''.join(listed))
 
 
+def record(source, lis, reads, out):
+    """Write OUT, SOURCE's table of offsets, from LISTING, its stub build's
+    listing, and the headers READS names, as measured() reads them. Fails
+    where measured() does, and where offsets.write() does, and writes no
+    table then."""
+    write(Path(out), measured(Source(source, reads), Path(lis)))
+
+
 def main(argv):
     parser = argparse.ArgumentParser(prog='data', usage=USAGE, description=__doc__.split('\n\n')[0])
     parser.add_argument('generated', nargs='*', metavar='IMAGE SOURCE OUT',
                         help="write OUT, the C of SOURCE's gen/ range of IMAGE, and OUT's .syms")
     command = parser.add_mutually_exclusive_group()
-    command.add_argument('--bodies', nargs=5, metavar=('IMAGE', 'SOURCE', 'LISTING', 'OUT', 'CONFIG'),
-                         help="write SOURCE's bodies, texts and values in OUT, from IMAGE where LISTING places them")
+    command.add_argument('--bodies', nargs=6, metavar=('IMAGE', 'SOURCE', 'TABLE', 'READS', 'OUT', 'CONFIG'),
+                         help="write SOURCE's bodies, texts and values in OUT, from IMAGE where TABLE places them")
+    command.add_argument('--offsets', nargs=4, metavar=('SOURCE', 'LISTING', 'READS', 'OUT'),
+                         help="write OUT, SOURCE's table of offsets, from LISTING and the headers READS names")
     command.add_argument('--texts', nargs=2, metavar=('SOURCE', 'OUT'),
                          help="write OUT, the stub build's text.inc for SOURCE")
     command.add_argument('--values', nargs=2, metavar=('SOURCE', 'OUT'),
                          help="write OUT, the stub build's values.inc for SOURCE")
     args = parser.parse_args(argv)
-    options = {bodies: args.bodies, text_stubs: args.texts, value_stubs: args.values}
+    options = {bodies: args.bodies, record: args.offsets, text_stubs: args.texts, value_stubs: args.values}
     picked = [(function, operands) for function, operands in options.items() if operands]
     if picked and args.generated:
         parser.error(f'unrecognized arguments: {" ".join(args.generated)}')

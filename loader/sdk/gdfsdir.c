@@ -179,7 +179,7 @@ Sint32 gdFsGetDirEnt(Uint8 *buf, Sint32 fad, GDFS_DIRREC gf_dirrec, Sint32 size)
     num = 0;
     max_ent = gf_dirrec->max_ent;
     end = buf + GDD_FS_SCTSIZE;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that dr is set wherever it is read: the test below reads
      * it only where size is GDD_FS_SCTSIZE, and then the loop has run */
     dr = buf;

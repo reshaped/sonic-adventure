@@ -27,7 +27,7 @@ void njGenerateFogTable3(NJS_FOG_TABLE fog, Float n, Float f)
         density = FOG_DENSITY_65536;
     } else {
         /* the density -f, packed as njGenerateFogDensity packs it */
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps what the tag on exponent describes: exponent takes the low
          * byte of frexp's int, which SHC's MOV.B reads. GCC gives exponent
          * one byte, which frexp's store would run past */

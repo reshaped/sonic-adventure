@@ -1,0 +1,5 @@
+datum  beach_wind_cube  D  0x00000000  288
+datum  beach_wind_white  D  0x00000120  96
+datum  beach_wind_box  D  0x00000180  16
+datum  beach_wind_yellow  D  0x00000190  96
+datum  beach_wind_origin  D  0x000001f0  16

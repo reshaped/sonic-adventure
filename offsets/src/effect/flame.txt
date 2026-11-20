@@ -1,0 +1,5 @@
+datum  flame_texlist  D  0x00000000  8
+datum  flame_frames  D  0x00000008  200
+datum  flame_anim  D  0x000000d0  20
+datum  flame_pool  D  0x000000e4  16
+datum  flame_defaults  D  0x000000f4  60

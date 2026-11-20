@@ -1,0 +1,4 @@
+datum  twinkle_scenery_shapes  D  0x00000000  260
+datum  twinkle_scenery_kinds  D  0x00000104  128
+datum  twinkle_candle_flames  D  0x00000184  320
+datum  twinkle_candle_sprite  D  0x000002c4  32

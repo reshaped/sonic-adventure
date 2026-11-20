@@ -10,9 +10,8 @@
 # as the PC host's environment: HOST_PADS=..., HOST_CLOCK=frames,
 # HOST_QUIT=...
 #
-# run it from the checkout's root, after make pc's pc-link and pc-disc and
-# with build/disc extracted, as for the PC host. the folder holds
-# default.xbe, host.txt, textures.pak (xboxtex.c), sounds.pak (xboxsnd.c) and
+# run it from the checkout's root, with build/disc extracted, as for the PC
+# host. the folder holds default.xbe, host.txt, textures.pak (xboxtex.c), sounds.pak (xboxsnd.c) and
 # the packs (pack.py):
 # modules.pak, which every build changes, and disc.pak, music.pak and
 # movies.pak, which none does. PACK_STUBS=0 keeps the Dreamcast's textures
@@ -36,6 +35,16 @@ distro=${WSL_DISTRO_NAME:-Ubuntu}
 NXDK_DIR=${NXDK_DIR:-$HOME/refs/nxdk}
 PATH=$NXDK_DIR/bin:$PATH
 export NXDK_DIR PATH
+
+# the x86 images as the disc's files, build/pc/disc/, which modules.pak
+# packs, brought up to date with the linked images. the host loads
+# 1ST_READ.BIN's from its link, and the others from these files, whose
+# imports of 1ST_READ.BIN's names are bound at the link: files older than
+# a link that moved 1ST_READ.BIN's data read the wrong words, as a stage's
+# texture lists. make xbox and make xbox-disc have made them already
+if [ "$seconds" != stage ] && [ "$seconds" != iso ]; then
+    make --no-print-directory build/pc/disc/images.txt
+fi
 
 # the port's patch to nxdk's pbkit (pb_back_buffers: the host draws on its
 # own surfaces and needs two frame buffers, not pbkit's three), applied

@@ -1,0 +1,2 @@
+datum  collision_draw_colors  C  0x00000000  64
+datum  collision_draw_clear  C  0x00000040  16

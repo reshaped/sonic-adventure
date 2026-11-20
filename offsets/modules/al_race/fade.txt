@@ -1,0 +1,4 @@
+datum  race_fade_task  D  0x00000000  4
+datum  race_fade_points  D  0x00000004  32
+datum  race_fade_polygon  D  0x00000024  16
+datum  race_fade_colors  B  0x00000000  16

@@ -1,0 +1,12 @@
+datum  ev00f8_sprite_slots  D  0x00000000  40
+datum  ev00f8_sprite_splash_textures  D  0x00000028  96
+datum  ev00f8_sprite_texlists  D  0x00000088  176
+datum  ev00f8_sprite_frames  D  0x00000138  320
+text  TEXT_1  C  0x00000000  15
+text  TEXT_2  C  0x00000010  15
+text  TEXT_3  C  0x00000020  15
+text  TEXT_4  C  0x00000030  15
+text  TEXT_5  C  0x00000040  15
+text  TEXT_6  C  0x00000050  15
+text  TEXT_7  C  0x00000060  15
+text  TEXT_8  C  0x00000070  15

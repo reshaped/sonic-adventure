@@ -224,7 +224,7 @@ struct race_game *race_game_create(void)
             /* @hack implicit: where race_game_init fails, R0 still holds
              * its 0 (0x0cb8c0e6), which alife_race_start stores
              * (0x0cb998ba); returned explicitly, 1 of 29 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps the value the tag names: R0's 0 */
             return NULL;
 #else
@@ -406,8 +406,8 @@ static void race_hall_step(struct race_game *game)
         game->state = STATE_CHAO_WINDOW_INI;
         game->timer = 0;
         /* @hack spelling: the places reached again through game, which loads
-         * them for each store (0x0cb8c592, 0x0cb8c59a); through places, 97
-         * of 430 words and 47 pool words differ, and the code after moves */
+         * them for each store (0x0cb8c592, 0x0cb8c59a); through places, 93
+         * of 409 words and 47 pool words differ, and the code after moves */
         game->places->step = 0;
         game->places->timer = 0;
         break;
@@ -419,7 +419,7 @@ static void race_hall_step(struct race_game *game)
     }
     /* @hack spelling: i cleared before the places' timer counts, which keeps i
      * in R13, the zero the switch's stores use, and entrant_step's address
-     * in R10 (0x0cb8c5e8); counted first, 53 of 430 words and 1 pool word
+     * in R10 (0x0cb8c5e8); counted first, 53 of 409 words and 1 pool word
      * differ */
     i = 0;
     places->timer++;
@@ -688,7 +688,7 @@ static int race_board_fill(struct race_game *game)
     if (places == NULL) {
         return 0;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that node is set wherever it is read: the loop reads it
      * only where kind isn't ENTRY_CARD, and the garden window's choice leaves
      * any other kind a garden's, whose case sets it */
@@ -750,7 +750,7 @@ static int race_board_fill(struct race_game *game)
                  * of address 4. as the cards are chosen, garden_window_step
                  * leaves it game->places (0x0cb8ed12), so the record is the
                  * word at place 0's flags */
-#ifdef GCC
+#ifdef NONMATCHING
                 /* repairs the read the tag names, whose record varies with
                  * timing. the egg takes its look from its card's Chao,
                  * game->chao[place], whose type the test above reads */
@@ -1674,7 +1674,7 @@ static void race_window_step(struct race_game *game)
         }
         break;
     /* @hack redundant: a case for step 2 beside the default, whose CMP/EQ #2
-     * the switch makes (0x0cb8e99c); without it, 143 of 156 words and 73 pool
+     * the switch makes (0x0cb8e99c); without it, 129 of 142 words and 73 pool
      * words differ, and the code after moves */
     case 2:
     default:
@@ -2427,7 +2427,7 @@ static void race_cheer_step(struct race_cheer *cheer, struct race_game *game)
     if (cheer->state == CHEER_CHOSEN || cheer->state == CHEER_CHEERING) {
         /* @hack spelling: pos through its address, which forms each member's
          * stack address apart (0x0cb8fd10, 0x0cb8fd30, 0x0cb8fd50); as
-         * pos.x, pos.y and pos.z, 609 of 636 words and 229 pool words
+         * pos.x, pos.y and pos.z, 611 of 638 words and 229 pool words
          * differ */
         (&pos)->x = game->racers[cheer->lane].work->pos.x;
         (&pos)->y = game->racers[cheer->lane].work->pos.y;
@@ -2476,7 +2476,7 @@ static void race_cheer_step(struct race_cheer *cheer, struct race_game *game)
                         break;
                     /* @hack redundant: a case for lane 7 beside the default,
                      * whose CMP/EQ #7 the switch makes (0x0cb8fef2); without
-                     * it, 4 of 648 words differ */
+                     * it, 4 of 638 words differ */
                     case 7:
                     default:
                         se = SE_CHEER_7;

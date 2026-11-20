@@ -49,7 +49,7 @@ void _xtostr(va_list *arguments, char *text, int conversion,
     /* a float argument arrives as a double, and under make pc, whose double
      * is float, 0.0's type is the real one */
     value = va_arg(*arguments, __typeof__(0.0));
-#elif defined(GCC)
+#elif defined(NONMATCHING)
     /* a float argument arrives as a double, which is float under
      * -m4-single-only. GCC compiles va_arg of float to a trap */
     value = va_arg(*arguments, double);

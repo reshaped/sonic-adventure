@@ -55,13 +55,13 @@ static Float cart_time_draw_colon(Float x, Float y, Float depth)
 
 void cart_time_draw_label(void)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the label about the screen's left edge, as
      * cart_time_draw squeezes the clock */
     port_wide_anchor = WIDE_LEFT;
 #endif
     njDrawSprite2D(&cart_time_label, 0, -2.0F, NJD_SPRITE_ALPHA);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }
@@ -80,7 +80,7 @@ void cart_time_draw(int hundredths)
     time = cart_time_of(hundredths);
     x = CLOCK_X;
     y = CLOCK_Y;
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_LEFT;
 #endif
     /* @hack redundant: depths + 0, which SHC builds in R4 and saves from
@@ -91,7 +91,7 @@ void cart_time_draw(int hundredths)
     x += cart_time_draw_pair(x, y, depth = depths + 1, time.seconds);
     x += cart_time_draw_colon(x, y, *depth);
     cart_time_draw_pair(x, y, depths, time.hundredths);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }

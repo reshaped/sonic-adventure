@@ -1,0 +1,17 @@
+datum  ev002a_fade  D  0x00000000  4
+datum  ev002a_textures  D  0x00000004  16
+text  TEXT_1  C  0x00000024  34
+text  TEXT_2  C  0x000000a8  49
+text  TEXT_3  C  0x000000e0  23
+text  TEXT_4  C  0x00000100  57
+text  TEXT_5  C  0x00000140  32
+text  TEXT_6  C  0x00000000  19
+text  TEXT_7  C  0x00000014  3
+text  TEXT_8  C  0x00000018  4
+text  TEXT_9  C  0x0000001c  5
+text  TEXT_10  C  0x00000048  83
+text  TEXT_11  C  0x0000009c  9
+text  TEXT_12  C  0x000000dc  3
+text  TEXT_13  C  0x000000f8  7
+text  TEXT_14  C  0x0000013c  3
+text  TEXT_15  C  0x00000160  18

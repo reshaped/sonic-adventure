@@ -1,0 +1,4 @@
+datum  egm2_ring_name  C  0x00000000  8
+datum  egm2_ornament_name  C  0x00000008  9
+datum  egm2_object_kinds  D  0x00000000  40
+datum  egm2_object_list  DHEAD  0x00000000  8

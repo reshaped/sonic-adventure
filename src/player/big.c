@@ -3579,7 +3579,14 @@ static Bool big_look_create(Sint8 player, NJS_OBJECT **nodes)
      * it after the success path (0x8c0f02f6). as an early return, SHC puts
      * it ahead of that path, and 12 of 48 words differ */
     if ((task = task_create(TASK_WORK, 2, big_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }

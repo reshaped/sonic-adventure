@@ -380,8 +380,16 @@ static void tikal_light_draw_sprite(NJS_SPRITE *sprite, NJS_POINT3 *pos,
         njDrawSprite3D(sprite, texanim,
                        NJD_SPRITE_COLOR | NJD_SPRITE_SCALE | NJD_SPRITE_ALPHA);
         njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
+#ifdef NONMATCHING
+        /* BOTHSRCALPHA as the source sets the destination's blend too. SEGA's
+         * call for the destination writes the same header words again. its
+         * other stores, RenderState and DSTBlendingMode, go unread. each
+         * caller of kmProcessVertexRenderState sets RenderState first, and
+         * DSTBlendingMode is read only where RenderState marks it */
+#else
         njColorBlendingMode(NJD_DESTINATION_COLOR,
                             NJD_COLOR_BLENDING_BOTHSRCALPHA);
+#endif
         njSetConstantMaterial(&tikal_light_no_material);
     }
 }

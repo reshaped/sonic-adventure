@@ -1,0 +1,11 @@
+datum  ev0029_tornado_points  D  0x00000000  1536
+datum  ev0029_tornado_path  D  0x00000600  8
+datum  ev0029_tornado  D  0x00000608  4
+datum  ev0029_textures  D  0x0000060c  16
+text  TEXT_1  C  0x0000000c  20
+text  TEXT_2  C  0x00000020  38
+text  TEXT_3  C  0x00000048  16
+text  TEXT_4  C  0x00000058  12
+text  TEXT_5  C  0x00000064  12
+text  TEXT_6  C  0x00000070  28
+text  TEXT_7  C  0x0000008c  12

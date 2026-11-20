@@ -1,0 +1,7 @@
+datum  chaos2_hint_shown  D  0x00000000  12
+datum  chaos2_head_pages  C  0x00000000  16
+datum  chaos2_core_pages  C  0x00000010  16
+datum  chaos2_drops_pages  C  0x00000020  16
+text  TEXT_1  C  0x00000030  44
+text  TEXT_2  C  0x0000005c  62
+text  TEXT_3  C  0x0000009c  62

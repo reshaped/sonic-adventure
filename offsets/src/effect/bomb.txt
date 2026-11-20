@@ -1,0 +1,5 @@
+datum  bomb_texlist  D  0x00000000  8
+datum  bomb_frames  D  0x00000008  320
+datum  bomb_anim  D  0x00000148  20
+datum  bomb_pool  D  0x0000015c  16
+datum  bomb_defaults  D  0x0000016c  60

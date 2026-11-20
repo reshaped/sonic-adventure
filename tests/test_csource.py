@@ -10,7 +10,7 @@ TEXT = '''int a; /* one
 two */ int b; // three \\
 four
 char *c = "/* five */";
-#ifdef GCC
+#ifdef NONMATCHING
 int gcc;
 #else
 int shc;
@@ -33,12 +33,13 @@ class Code(unittest.TestCase):
     def test_empties_the_side_of_each_guard_the_compiler_skips(self):
         with tree({'a.c': TEXT}):
             self.assertEqual([csource.code('a.c', compiler).splitlines()[4:] for compiler in (None, 'SHC', 'GCC')],
-                             [['#ifdef GCC', 'int gcc;', '#else', 'int shc;', '#endif'],
-                              ['#ifdef GCC', '', '#else', 'int shc;', '#endif'],
-                              ['#ifdef GCC', 'int gcc;', '#else', '', '#endif']])
+                             [['#ifdef NONMATCHING', 'int gcc;', '#else', 'int shc;', '#endif'],
+                              ['#ifdef NONMATCHING', '', '#else', 'int shc;', '#endif'],
+                              ['#ifdef NONMATCHING', 'int gcc;', '#else', '', '#endif']])
 
     def test_takes_an_elifdef_or_an_elifndef_for_a_group_after_a_guard_s_first(self):
-        text = '#ifdef GCC\nint gcc;\n#elifdef X\nint x;\n#endif\n#ifndef GCC\nint shc;\n#elifndef Y\nint y;\n#endif\n'
+        text = ('#ifdef NONMATCHING\nint gcc;\n#elifdef X\nint x;\n#endif\n'
+                '#ifndef NONMATCHING\nint shc;\n#elifndef Y\nint y;\n#endif\n')
         with tree({'a.c': text}):
             self.assertEqual([[csource.code('a.c', compiler).splitlines()[at] for at in (1, 3, 6, 8)]
                               for compiler in ('SHC', 'GCC')],
@@ -70,14 +71,14 @@ class Uncommented(unittest.TestCase):
 
 
 class Compiled(unittest.TestCase):
-    def test_reads_the_groups_of_gcc_s_and_clang_s_tests_and_no_other(self):
-        # make gcc's compile defines GCC and not __clang__. It takes no #elif, #elifdef or #elifndef below a group it
-        # takes, and may take any other, an #if's group, another macro's, or an #else below one of those; a group it
-        # skips settles each inside it
-        text = ('#ifdef GCC\na\n#elif X\nb\n#else\nc\n#endif\n#ifndef __clang__\nd\n#else\ne\n#endif\n'
-                '#ifndef GCC\nf\n#elif X\ng\n#else\nh\n#endif\n#if 1\ni\n#else\nj\n#endif\n'
-                '#ifdef X\n#ifndef GCC\nk\n#else\nl\n#endif\n#endif\nm\n'
-                '#ifdef __clang__\nn\n#elifdef X\no\n#endif\n#ifndef __clang__\np\n#elifndef X\nq\n#endif')
+    def test_reads_the_groups_of_the_guards_tests_and_no_other(self):
+        # make dc's compile defines NONMATCHING and DREAMCAST. It takes no #elif, #elifdef or #elifndef
+        # below a group it takes, and may take any other, an #if's group, another macro's, or an #else below one of
+        # those; a group it skips settles each inside it
+        text = ('#ifdef NONMATCHING\na\n#elif X\nb\n#else\nc\n#endif\n#ifdef DREAMCAST\nd\n#else\ne\n#endif\n'
+                '#ifndef NONMATCHING\nf\n#elif X\ng\n#else\nh\n#endif\n#if 1\ni\n#else\nj\n#endif\n'
+                '#ifdef X\n#ifndef NONMATCHING\nk\n#else\nl\n#endif\n#endif\nm\n'
+                '#ifndef DREAMCAST\nn\n#elifdef X\no\n#endif\n#ifdef DREAMCAST\np\n#elifndef X\nq\n#endif')
         lines = text.split('\n')
         found = dict(zip(lines, csource.compiled(lines)))
         self.assertEqual({line: found[line] for line in 'abcdefghijklmnopq'},
@@ -143,8 +144,8 @@ class Spans(unittest.TestCase):
         self.assertEqual(list(csource.spans(text.split('\n'))), [('f', 3, 4)])
 
     def test_takes_the_braces_of_the_first_group_to_change_them(self):
-        # with the GCC side empty, as code() gives it for SHC, only the #else group opens the if's brace
-        text = 'int f(void)\n{\n#ifdef GCC\n\n#else\n    if (a) {\n#endif\n        b();\n    }\n}\n'
+        # with the non-matching side empty, as code() gives it for SHC, only the #else group opens the if's brace
+        text = 'int f(void)\n{\n#ifdef NONMATCHING\n\n#else\n    if (a) {\n#endif\n        b();\n    }\n}\n'
         self.assertEqual(list(csource.spans(text.split('\n'))), [('f', 1, 9)])
 
     def test_closes_an_inline_body_at_its_first_closing_brace(self):

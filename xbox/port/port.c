@@ -16,8 +16,12 @@ unsigned port_ninja_vertices; /* njModel.c's packets: the renderer moves them to
 volatile int port_profile;
 volatile int port_overlay;
 struct port_shown port_shown;
-/* bit 4: the kept models the host lights (gcc/src/draw/model.c's keep_lit) */
-volatile int port_gpu_models = 31;
+/* bit 4: the kept models the host lights (xbox/engine/sa1/model.c's
+ * keep_lit); bit 5: the meshsets the walk projects and clips itself, and
+ * bit 6 SA1's screen polygons, 2D polygons and lines, as runs of points
+ * already on the screen rather than the lists' vertices
+ * (xbox/engine/sa1/emit.h) */
+volatile int port_gpu_models = 127;
 /* src/collision/polygon.c's cap on a far sweep's steps: 0, none, as the
  * console has none (the sweep is logged); 1 widens them */
 volatile int port_sweep_cap = 0;
@@ -146,4 +150,48 @@ void port_unimplemented(const char *name)
     }
     *to = '\0';
     port_log(line);
+}
+
+/* engine/dc/dreamcast.h's stop at a failure the game can't go on from, which
+ * make dc's crash report (engine/dc/crash.c, which the port leaves out) shows
+ * on the screen: the port logs what, name and number, and ends the run */
+static char *put_text(char *to, char *end, const char *text)
+{
+    while (text != NULL && *text != '\0' && to < end) {
+        *to++ = *text++;
+    }
+    return to;
+}
+
+void port_stop(const char *what, const char *name, Uint32 number)
+{
+    static const char hex[] = "0123456789abcdef";
+    char line[160];
+    char *to = line;
+    char *end = line + sizeof line - 12;
+    int k;
+
+    to = put_text(to, end, "stop: ");
+    to = put_text(to, end, what);
+    if (name != NULL) {
+        to = put_text(to, end, " ");
+        to = put_text(to, end, name);
+    }
+    *to++ = ' ';
+    *to++ = '0';
+    *to++ = 'x';
+    for (k = 28; k >= 0; k -= 4) {
+        *to++ = hex[(number >> k) & 0xf];
+    }
+    *to = '\0';
+    port_log(line);
+    HOST->exit(1);
+    for (;;) {
+    }
+}
+
+/* the crash report's frame mark, which the readout makes each frame
+ * (engine/dc/overlay.c). the port's hang is the host's to see */
+void crash_frame(void)
+{
 }

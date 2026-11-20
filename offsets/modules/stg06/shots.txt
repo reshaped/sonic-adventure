@@ -1,0 +1,7 @@
+datum  shots_shapes  D  0x00000000  104
+datum  shots_textures  D  0x00000068  12
+datum  shots_texlist  D  0x00000074  8
+datum  shots_texanim  D  0x0000007c  20
+datum  shots_task  D  0x00000090  4
+datum  shots  D  0x00000094  4
+text  TEXT_1  C  0x00000000  12

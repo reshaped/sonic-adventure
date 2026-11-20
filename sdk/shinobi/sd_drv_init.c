@@ -50,10 +50,12 @@ SDE_ERR sdDrvInit(SDMEMBLK handle)
         sdMemBlkTransfer(driver_block, 0);
         sdARM7ResetRel();
         for (delay = DRIVER_START_DELAY; delay > 0; delay--) {
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
             /* GCC deletes an empty loop. the asm keeps each pass, so the wait
              * takes as long as the shipped loop */
             __asm__ volatile("");
+#endif
 #endif
         }
         sdgExistSndDrv = true;

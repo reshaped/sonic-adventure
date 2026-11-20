@@ -419,6 +419,11 @@ int gdi_open(struct gdi **disc, const char *image)
     memcpy((*disc)->image, image, length < PATH ? length : PATH - 1);
     struct stat st;
     int error = open_file(image, &(*disc)->file, &st);
+    // unbuffered, so a rebuild that rereads the .gdi reads the file: BSD
+    // stdio, macOS's among them, answers a seek inside its buffer from it
+    if (error == GDI_OK && setvbuf((*disc)->file, NULL, _IONBF, 0) != 0) {
+        error = GDI_READ;
+    }
     if (error == GDI_OK) {
         error = gdi_image(*disc, (*disc)->file, image);
     }
@@ -835,7 +840,13 @@ static int stamp(FILE *file, struct stamp *now)
     now->device = st.st_dev;
     now->inode = st.st_ino;
     now->size = st.st_size;
+#ifdef __APPLE__
+    // macOS names st_ctim's parts apart under _XOPEN_SOURCE
+    now->time.tv_sec = st.st_ctime;
+    now->time.tv_nsec = st.st_ctimensec;
+#else
     now->time = st.st_ctim;
+#endif
     return GDI_OK;
 }
 

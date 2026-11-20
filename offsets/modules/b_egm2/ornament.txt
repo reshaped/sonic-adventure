@@ -1,0 +1,8 @@
+datum  ornament_parts  D  0x00000000  12
+datum  scroll_0_groups  D  0x0000000c  8
+datum  scroll_0  D  0x00000014  16
+datum  scroll_1_groups  D  0x00000024  24
+datum  scroll_1  D  0x0000003c  16
+datum  scroll_2_groups  D  0x0000004c  8
+datum  scroll_2  D  0x00000054  16
+datum  lamps_lit  B  0x00000000  10

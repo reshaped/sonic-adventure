@@ -1,0 +1,13 @@
+datum  dat_0c909b28  C  0x00000000  12
+datum  reticle_target  D  0x00000000  4
+datum  lock_textures  D  0x00000004  36
+datum  lock_texlist  D  0x00000028  8
+datum  lock_frames  D  0x00000030  60
+datum  lock_sprite  D  0x0000006c  32
+datum  dat_0c955d9c  D  0x0000008c  60
+datum  reticle_speed  D  0x000000c8  4
+datum  lock_found  B  0x00000000  24
+datum  lock_targets  B  0x00000018  24
+text  TEXT_1  C  0x00000024  14
+text  TEXT_2  C  0x00000034  14
+text  TEXT_3  C  0x00000044  14

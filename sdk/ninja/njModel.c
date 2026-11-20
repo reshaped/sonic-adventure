@@ -5,9 +5,11 @@
 #include <machine.h>
 #include <ninja.h>
 #include <sg_xpt.h>
-#if defined(GCC) && !defined(XBOX)
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 #include <sh4zam/shz_mem.h>
 #include <sh4zam/shz_vector.h>
+#endif
 #endif
 
 /* a work vertex's clip bits. CLIP_NEAR and CLIP_FAR mark z below _nj_near_clip_
@@ -158,16 +160,16 @@ static NJS_POINT3COL axis_lines = {
 /* the store queue address the next packet goes to. every function of this
  * object keeps it in R8, so the public entries save the caller's R8 and
  * restore it after */
-#if defined(XBOX)
-/* the port's: a plain global, which tools/sh2c.py's bodies read as their R8
- * at entry and write back at their end */
-Uint32 *queue_cursor;
-#elif defined(GCC)
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* GCC's spelling of the #pragma global_register below. as under SHC, no
  * function of this object saves R8 in its prologue */
 register Uint32 *queue_cursor __asm__("r8");
 #else
 #pragma global_register(queue_cursor = R8)
+Uint32 *queue_cursor;
+#endif
+#else
 Uint32 *queue_cursor;
 #endif
 
@@ -204,16 +206,17 @@ void CalcModelMatrix(NJS_POINT3 *dst, const NJS_POINT3 *src);
 /* send vertex's packet, its first 16 bytes and its payload, at queue_cursor,
  * and advance queue_cursor 32 bytes. FPSCR.SZ must be 0: the body's FSCHGs set
  * it for the moves, which then move eight bytes each, and clear it after */
-#ifdef GCC
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 /* an asm runs the shipped body's pair moves and both its FSCHGs, so none of
  * GCC's own moves runs while SZ is 1. the pair moves need vertex on an 8-byte
  * boundary. a work vertex lies on a 32-byte one, as the point loops' store
  * queue writes need. the m inputs keep GCC's stores to the vertex ahead of
  * the asm. the asm writes only the store queue area, which no C reads, so it
  * declares no memory output. SH4ZAM's spelling is two shz_memcpy8 calls and
- * a PREF behind a memory clobber. in a function of its own, that spelling
- * runs 38 instructions where the asm runs 17. it also makes njModel.o's text
- * about 8 KB larger */
+ * a PREF behind a memory clobber. at njModel.o's -Os, GCC leaves
+ * shz_memcpy8's SH-4 body, shz_memcpy8_sh4, out of line, so that spelling
+ * makes two calls for each vertex */
 #ifdef XBOX
 /* the port's profile counts the packets (xbox/port/port.c) */
 extern unsigned port_ninja_vertices;
@@ -260,7 +263,6 @@ ALWAYS_INLINE void submit_work_vertex(const struct model_vertex *vertex)
 #endif
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @hack spelling: size=64, against the body's 28 bytes, SHC's estimate of each
  * expansion, by which it places the pools of the functions around it; with
  * size=28, 22845 of 33373 words differ in 47 functions */
@@ -284,19 +286,21 @@ static void submit_work_vertex(const struct model_vertex *vertex)
         PREF        @R8
         ADD         #32,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* send the 32 bytes at block as one packet at queue_cursor, and advance
  * queue_cursor 32 bytes. FPSCR.SZ must be 0, as for submit_work_vertex */
-#ifdef GCC
-/* the asm is shz_sq_memcpy32_1's, with its two FSCHGs moved inside, as in
- * submit_work_vertex. SH4ZAM runs each FSCHG in an asm of its own, and a move
- * GCC puts between them would move a pair. the pair moves need block on an
- * 8-byte boundary. each block is an element of vtx2 or vtx4, on a 32-byte one
- * in njModelGlobal.src's BSG32. as in submit_work_vertex, the m input keeps
- * GCC's stores to block ahead of the asm, which declares no memory output */
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
+/* the asm is the pinned SH4ZAM's shz_sq_memcpy32_1's, whose two FSCHGs lie
+ * inside it. at njModel.o's -Os, GCC leaves that routine's SH-4 body,
+ * shz_sq_memcpy32_1_sh4, out of line. through SH4ZAM, each clipper would call
+ * it for each packet. the pair moves need block on an 8-byte boundary. each
+ * block is an element of vtx2 or vtx4, on a 32-byte one in njModelGlobal.src's
+ * BSG32. as in submit_work_vertex, the m input keeps GCC's stores to block
+ * ahead of the asm, which declares no memory output */
 #ifdef XBOX
 ALWAYS_INLINE void submit_packet(void *block)
 {
@@ -334,7 +338,6 @@ ALWAYS_INLINE void submit_packet(void *block)
 #endif
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @hack spelling: size=64, against the body's 26 bytes, SHC's estimate of each
  * expansion, by which it places the pools of the functions around it; with
  * size=26, 3166 of 4556 words differ in 11 functions, and unsized, align-pool
@@ -358,8 +361,8 @@ static void submit_packet(void *block)
         PREF        @R8
         ADD         #32,R8
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* store queue_cursor, R8, in *slot */
@@ -374,7 +377,7 @@ static void save_queue_cursor(Uint32 *volatile *slot)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* load queue_cursor, R8, from *slot */
 /* assembly keeps the load, MOV.L @R4,R8 at 0x8c65373e in njDrawModel, ahead of
  * the pool load for the call after it */
@@ -406,7 +409,7 @@ static void restore_queue_cursor(Uint32 *volatile *slot)
  * queues, which they point at it by QACR0 and QACR1, and invalidate each
  * vertex's cache lines */
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c00a and 0x8c63c044, in
  * njCalcModel_Loop1, invalidates a vertex's two lines */
 #pragma inline_asm(loop1_body)
@@ -549,7 +552,7 @@ void njCalcModel_Loop1(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c120 and 0x8c63c154, in
  * njCalcModel_Loop2, invalidates a vertex's two lines */
 #pragma inline_asm(loop2_body)
@@ -685,7 +688,7 @@ void njCalcModel_Loop2(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c222 and 0x8c63c256, in
  * njCalcModel_Loop3, invalidates a vertex's two lines */
 #pragma inline_asm(loop3_body)
@@ -814,7 +817,7 @@ void njCalcModel_Loop3(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c320 and 0x8c63c348, in
  * njCalcModel_Loop4, invalidates a vertex's two lines */
 #pragma inline_asm(loop4_body)
@@ -936,7 +939,7 @@ void njCalcModel_Loop4(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c3f8 and 0x8c63c416, in
  * njCalcModel_Loop5, invalidates a vertex's two lines */
 #pragma inline_asm(loop5_body)
@@ -1040,7 +1043,7 @@ void njCalcModel_Loop5(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c50e and 0x8c63c548, in
  * njCalcModel_Loop6, invalidates a vertex's two lines */
 #pragma inline_asm(loop6_body)
@@ -1217,7 +1220,7 @@ void njCalcModel_Loop6(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c670 and 0x8c63c6a4, in
  * njCalcModel_Loop7, invalidates a vertex's two lines */
 #pragma inline_asm(loop7_body)
@@ -1388,7 +1391,7 @@ void njCalcModel_Loop7(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c7bc and 0x8c63c7f0, in
  * njCalcModel_Loop8, invalidates a vertex's two lines */
 #pragma inline_asm(loop8_body)
@@ -1551,7 +1554,7 @@ void njCalcModel_Loop8(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63c904 and 0x8c63c92c, in
  * njCalcModel_Loop9, invalidates a vertex's two lines */
 #pragma inline_asm(loop9_body)
@@ -1708,7 +1711,7 @@ void njCalcModel_Loop9(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm opcode: cache-line, OCBI @R5 at 0x8c63ca28 and 0x8c63ca46, in
  * njCalcModel_LoopA, invalidates a vertex's two lines */
 #pragma inline_asm(loopa_body)
@@ -1848,7 +1851,7 @@ void njCalcModel_LoopA(struct calc_work *work)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* transform the point src by XMTRX into dst. src is read whole before dst is
  * written, so the two may be one */
 /* @asm open: no inspect rule reads FV0 filled by three loads and FLDI1 FR3
@@ -1904,8 +1907,9 @@ Sint32 _njCalcModel(NJS_MODEL *model)
     Float bottom;
 
     model_clip_or = 0;
-#ifdef GCC
-    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+#ifdef NONMATCHING
+    /* the picture's aspect, which 16:9 sets in place of Ninja's
+     * (dreamcast.h) */
     projection_x = _nj_screen_.dist * port_draw_aspect;
 #else
     projection_x = _nj_screen_.dist * _nj_scr_aspect_x_;
@@ -2012,14 +2016,14 @@ Sint32 _njCalcModel(NJS_MODEL *model)
 }
 
 /* an empty function, which each strip drawer calls first through DRAW_NOOP */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC inlines each call */
 static inline void model_draw_noop(void)
 {
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(model_draw_noop)
 static void model_draw_noop(void)
@@ -2040,9 +2044,9 @@ static void model_draw_noop(void)
  * prefetches the vertex the next index names, and after a meshset's last
  * strip that index lies past the end of meshes: MOV.W @R14,R3 at 0x8c63e7e8
  * in model_draw_smooth_strips_cull reads it for the PREF at 0x8c63e7fa */
-#ifdef GCC
-/* repairs the read the tag names: GCC prefetches nothing, so no walk reads
- * past meshes for it. the prefetch only hints the cache */
+#ifdef NONMATCHING
+/* repairs the read the tag names. this side prefetches nothing, so no walk
+ * reads past meshes for a prefetch, which only hints the cache */
 #define PREFETCH_NEXT(vertices, mesh_cursor) ((void)0)
 #else
 #define PREFETCH_NEXT(vertices, mesh_cursor)                                   \
@@ -2683,45 +2687,43 @@ static void model_clip_unlit_triangle(struct model_vertex *v0,
 }
 
 /* write back the operand cache line holding address */
-#ifdef GCC
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 /* SH4ZAM has no call for OCBWB. the memory clobber keeps each earlier store
  * ahead of the asm, so the line it writes back holds them */
+#ifdef XBOX
+/* x86 keeps its caches coherent */
 ALWAYS_INLINE void writeback_line(void *address)
 {
-#ifdef XBOX
-    /* x86 keeps its caches coherent */
     (void)address;
-#else
-    __asm__ volatile("ocbwb @%0" : : "r"(address) : "memory");
-#endif
 }
 #else
+ALWAYS_INLINE void writeback_line(void *address)
+{
+    __asm__ volatile("ocbwb @%0" : : "r"(address) : "memory");
+}
+#endif
+#else
 /* clang-format off */
-#ifndef __clang__
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(writeback_line(size=2))
 static void writeback_line(void *address)
 {
         OCBWB       @R4
 }
-#endif
 /* clang-format on */
 #endif
+#endif
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* the shipped head leaves the address of vertex's second cache line, where
  * its payload starts, in FPUL for the tail. GCC's code takes FPUL for its own
  * conversions between integers and floats, so here the head prefetches both
  * lines, and the tail nothing */
 ALWAYS_INLINE void prefetch_vertex_head(struct model_vertex *vertex)
 {
-#ifdef XBOX
-    /* the prefetch only hints the cache, which the Xbox's fills itself */
-    (void)vertex;
-#else
     SHZ_PREFETCH(vertex);
     SHZ_PREFETCH(&vertex->payload);
-#endif
 }
 
 ALWAYS_INLINE void prefetch_vertex_tail(void)
@@ -2729,7 +2731,7 @@ ALWAYS_INLINE void prefetch_vertex_tail(void)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* prefetch vertex's first cache line, and leave the address of its second in
  * FPUL for prefetch_vertex_tail */
 /* LDS R4,FPUL at 0x8c63e5a8, in model_draw_smooth_strips_all, keeps the address
@@ -2746,7 +2748,7 @@ static void prefetch_vertex_head(struct model_vertex *vertex)
 /* clang-format on */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* prefetch the cache line at the address in FPUL */
 /* STS FPUL,R0 at 0x8c63e5c6, in model_draw_smooth_strips_all, takes the address
  * prefetch_vertex_head left in FPUL */
@@ -2761,25 +2763,28 @@ static void prefetch_vertex_tail(void)
 /* clang-format on */
 #endif
 
-#ifdef GCC
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 /* the dot product of point and normal. FIPR takes the normal, then point, as
- * the shipped FIPR FV4,FV0 does. GCC gives both a fourth lane of 0, so the
- * fourth term is 0. the shipped body's is NaN for an infinity or a NaN in
+ * the shipped FIPR FV4,FV0 does. this side gives both a fourth lane of 0, so
+ * the fourth term is 0. the shipped body's is NaN for an infinity or a NaN in
  * FR7 */
+#ifdef XBOX
+/* the port's FIPR (xbox/include/sh4.h) */
 ALWAYS_INLINE Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
 {
-#ifdef XBOX
-    /* the port's FIPR (xbox/include/sh4.h) */
     return sh4_fipr(normal->x, normal->y, normal->z, 0.0F, point->x, point->y,
                     point->z, 0.0F);
-#else
-    return zam_fipr(shz_vec4_init(normal->x, normal->y, normal->z, 0.0F),
-                    shz_vec4_init(point->x, point->y, point->z, 0.0F));
-#endif
 }
 #else
+ALWAYS_INLINE Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
+{
+    return zam_fipr(shz_vec4_init(normal->x, normal->y, normal->z, 0.0F),
+                    shz_vec4_init(point->x, point->y, point->z, 0.0F));
+}
+#endif
+#else
 /* clang-format off */
-#ifndef __clang__
 /* the dot product of point and normal. FIPR's fourth term is 0 times
  * whatever FR7 holds */
 /* @hack spelling: size=32, against the body's 18 bytes, SHC's estimate of each
@@ -2800,13 +2805,13 @@ static Float view_point_normal_dot(NJS_POINT3 *point, NJS_VECTOR *normal)
         FIPR        FV4,FV0
         FMOV.S      FR3,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* set uv[0] to normal->x * half + half and uv[1] to normal->y * half + half,
  * then write back uv[1]'s cache line */
-#ifdef GCC
+#ifdef NONMATCHING
 ALWAYS_INLINE void store_environment_uv(Float *uv, NJS_VECTOR *normal,
                                         Float half)
 {
@@ -2816,7 +2821,7 @@ ALWAYS_INLINE void store_environment_uv(Float *uv, NJS_VECTOR *normal,
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(store_environment_uv(size=20))
 static void store_environment_uv(Float *uv, NJS_VECTOR *normal, Float half)
@@ -2838,7 +2843,7 @@ static void store_environment_uv(Float *uv, NJS_VECTOR *normal, Float half)
 
 /* copy *color into vertex's floating color, then write back the cache line of
  * its last channel */
-#ifdef GCC
+#ifdef NONMATCHING
 ALWAYS_INLINE void store_vertex_color(struct model_vertex *vertex,
                                       NJS_ARGB *color)
 {
@@ -2847,7 +2852,7 @@ ALWAYS_INLINE void store_vertex_color(struct model_vertex *vertex,
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(store_vertex_color(size=26))
 static void store_vertex_color(struct model_vertex *vertex, NJS_ARGB *color)
@@ -2870,33 +2875,37 @@ static void store_vertex_color(struct model_vertex *vertex, NJS_ARGB *color)
 /* clang-format on */
 #endif
 
-#ifdef GCC
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 /* the triple product c . (a x b), whose sign gives the winding of triangle
  * a, b, c seen from the eye. FIPR takes c, then a x b, as the shipped FIPR
- * FV4,FV0 does. each holds its y, z and x in its first three lanes, where the
- * shipped loads and FSUBs leave them. GCC gives both a fourth lane of 0, as in
- * view_point_normal_dot */
+ * FV4,FV0 does. each holds y, z and x in its first three lanes. the shipped
+ * loads and FSUBs leave them there. this side gives both a fourth lane of 0,
+ * as in view_point_normal_dot */
+#ifdef XBOX
+/* the shipped body's products and FSUBs in its order, then its FIPR by the
+ * port's model (xbox/include/sh4.h) */
 ALWAYS_INLINE Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a,
                                          NJS_POINT3 *c)
 {
-#ifdef XBOX
-    /* the shipped body's products and FSUBs in its order, then its FIPR by
-     * the port's model (xbox/include/sh4.h) */
     Float cross_y = b->x * a->z - b->z * a->x;
     Float cross_z = b->y * a->x - b->x * a->y;
     Float cross_x = b->z * a->y - b->y * a->z;
 
     return sh4_fipr(c->y, c->z, c->x, 0.0F, cross_y, cross_z, cross_x, 0.0F);
+}
 #else
+ALWAYS_INLINE Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a,
+                                         NJS_POINT3 *c)
+{
     shz_vec3_t cross = shz_vec3_cross(shz_vec3_deref(a), shz_vec3_deref(b));
 
     return zam_fipr(shz_vec4_init(c->y, c->z, c->x, 0.0F),
                     shz_vec4_init(cross.y, cross.z, cross.x, 0.0F));
-#endif
 }
+#endif
 #else
 /* clang-format off */
-#ifndef __clang__
 /* the triple product c . (a x b), whose sign gives the winding of triangle
  * a, b, c seen from the eye. FIPR's fourth term is 0 times whatever FR7
  * holds */
@@ -2934,8 +2943,8 @@ static Float view_triangle_facing(NJS_POINT3 *b, NJS_POINT3 *a, NJS_POINT3 *c)
         FIPR        FV4,FV0
         FMOV.S      FR3,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* the strip drawers draw a trimesh meshset from the work vertices. a strip is
@@ -3089,7 +3098,7 @@ static void model_draw_smooth_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c63e57c; without it, 225 of 238 words differ, the function
      * runs 12 bytes short, and 398 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3224,7 +3233,7 @@ static void model_draw_smooth_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c63e78c; without it, 433 of 451 words differ, the function
      * runs 16 bytes short, and 2 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3359,7 +3368,7 @@ static void model_draw_smooth_tex_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c63eb40; without it, 271 of 292 words differ, the function
      * runs 28 bytes short, and 577 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3508,7 +3517,7 @@ static void model_draw_smooth_tex_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c63edd8; without it, 570 of 590 words differ, the function
      * runs 36 bytes short, and 9 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3682,7 +3691,7 @@ static void model_draw_smooth_env_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c63f2d0; without it, 264 of 286 words differ, the function
      * runs 44 bytes short, and 561 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3788,7 +3797,7 @@ static void model_draw_smooth_env_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c63f55c; without it, 539 of 566 words differ, the function
      * runs 34 bytes short, and 8 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3884,7 +3893,7 @@ static void model_draw_flat_path_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c63fa1c; without it, 210 of 230 words differ, the function
      * runs 42 bytes short, and 444 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -3963,7 +3972,7 @@ static void model_draw_flat_path_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c63fc28; without it, 435 of 451 words differ, the function
      * runs 16 bytes short, and 2 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4060,7 +4069,7 @@ static void model_draw_flat_path_tex_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c63ffd4; without it, 271 of 292 words differ, the function
      * runs 24 bytes short, and 569 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4137,7 +4146,7 @@ static void model_draw_flat_path_tex_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c64026c; without it, 570 of 590 words differ, the function
      * runs 36 bytes short, and 9 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4215,6 +4224,15 @@ static void model_draw_flat_path_tex_strips_cull(NJS_MESHSET *meshset,
     _nj_calc_polygon_ += input_vertices;
 }
 
+#ifdef NONMATCHING
+/* the packed diffuse color, which each unlit drawer packs once as
+ * diffuse_argb. nothing the drawers run writes the material, so each vertex
+ * gets the word it would pack */
+#define UNLIT_DIFFUSE diffuse_argb
+#else
+#define UNLIT_DIFFUSE PACK_ARGB(_nj_light_material_.diffuse)
+#endif
+
 /* send vertex in the material's diffuse color, packed, with corner_uv's
  * texture coordinates, read and stored through pointers of the storage
  * classes uv_in_class and uv_out_class, and advance corner_uv */
@@ -4233,7 +4251,7 @@ static void model_draw_flat_path_tex_strips_cull(NJS_MESHSET *meshset,
         vertex_command = (packet_command);                                     \
         (vertex)->control.cmd = vertex_command;                                \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         uv_out = (vertex)->payload.tex.uv;                                     \
         uv_in = &((corner_uv)++)->tex.u;                                       \
         uv_scale = 1.0F / 256.0F;                                              \
@@ -4254,6 +4272,9 @@ static void model_draw_unlit_tex_strips_all(NJS_MESHSET *meshset,
     register Uint16 *mesh_cursor;
     Uint32 strips_left;
     Uint32 mask;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     input_vertices = 0;
@@ -4266,7 +4287,7 @@ static void model_draw_unlit_tex_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c640760; without it, 166 of 184 words differ, the function
      * runs 50 bytes short, and 429 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4310,7 +4331,7 @@ static void model_draw_unlit_tex_strips_all(NJS_MESHSET *meshset,
         Float uv_scale;                                                        \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         uv_out = (vertex)->payload.tex.uv;                                     \
         uv_in = &((corner_uv)++)->tex.u;                                       \
         uv_scale = 1.0F / 256.0F;                                              \
@@ -4341,6 +4362,9 @@ static void model_draw_unlit_tex_strips_cull(NJS_MESHSET *meshset,
     Float y0;
     Float facing;
     void *v1_payload;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     corner_uv = meshset->vertuv;
@@ -4353,7 +4377,7 @@ static void model_draw_unlit_tex_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c640914; without it, 396 of 430 words differ, the function
      * runs 12 bytes short */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4470,7 +4494,7 @@ static void model_draw_unlit_tex_strips_cull(NJS_MESHSET *meshset,
         vertex_command = (packet_command);                                     \
         (vertex)->control.cmd = vertex_command;                                \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         uv_out = (vertex)->payload.tex.uv;                                     \
         normal_xy = ((union vector_floats *)&(vertex)->vector)->f;             \
         half = 0.5F;                                                           \
@@ -4509,7 +4533,7 @@ static void model_draw_flat_path_env_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c640cb8; without it, 260 of 278 words differ, the function
      * runs 42 bytes short, and 567 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4587,7 +4611,7 @@ static void model_draw_flat_path_env_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c640f38; without it, 541 of 569 words differ, the function
      * runs 28 bytes short, and 8 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4673,6 +4697,9 @@ static void model_draw_unlit_env_strips_all(NJS_MESHSET *meshset,
     Float *uv_out;
     Float *normal_xy;
     Float half;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     mesh_cursor = (Uint16 *)source_meshset->meshes;
@@ -4684,7 +4711,7 @@ static void model_draw_unlit_env_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c6413e4; without it, 155 of 169 words differ, the function
      * runs 32 bytes short, and 400 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4725,7 +4752,7 @@ static void model_draw_unlit_env_strips_all(NJS_MESHSET *meshset,
         writeback_vertex = (vertex);                                           \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(writeback_vertex);                                      \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         uv_out = (vertex)->payload.tex.uv;                                     \
         normal_xy = ((union vector_floats *)&(vertex)->vector)->f;             \
         half = 0.5F;                                                           \
@@ -4755,6 +4782,9 @@ static void model_draw_unlit_env_strips_cull(NJS_MESHSET *meshset,
     Float x1;
     Float y1;
     Float facing;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     mesh_cursor = (Uint16 *)source_meshset->meshes;
@@ -4766,7 +4796,7 @@ static void model_draw_unlit_env_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c641584; without it, 389 of 411 words differ, the function
      * runs 12 bytes short */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4891,7 +4921,7 @@ static void model_draw_unlit_strips_all(NJS_MESHSET *meshset,
      * loop at 0x8c6418ec; without it, 124 of 141 words differ, the function
      * runs 6 bytes short, and 317 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -4946,7 +4976,7 @@ static void model_draw_unlit_strips_cull(NJS_MESHSET *meshset,
      * loop at 0x8c641a34; without it, 307 of 325 words differ, the function
      * runs 32 bytes short, and 7 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5074,7 +5104,7 @@ static void model_draw_smooth_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c641d1c; without it, 517 of 537 words differ, the function
      * runs 4 bytes short, and 8 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5224,7 +5254,7 @@ static void model_draw_smooth_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c6421a8; without it, 443 of 464 words differ, the function
      * runs 4 bytes short, and 15 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5421,7 +5451,7 @@ static void model_draw_smooth_tex_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c642590; without it, 348 of 645 words differ, and 18 differ
      * beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5622,7 +5652,7 @@ static void model_draw_smooth_tex_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c642b04; without it, 585 of 605 words differ, the function
      * runs 4 bytes short, and 23 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5821,7 +5851,7 @@ static void model_draw_smooth_env_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c643034; without it, 643 of 662 words differ, the function
      * runs 8 bytes short, and 24 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -5994,7 +6024,7 @@ static void model_draw_smooth_env_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c6435cc; without it, 546 of 583 words differ, the function
      * runs 12 bytes short */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6138,7 +6168,7 @@ static void model_draw_flat_path_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c643abc; without it, 505 of 534 words differ, the function
      * runs 8 bytes short, and 17 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6287,7 +6317,7 @@ static void model_draw_flat_path_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c643f3c; without it, 438 of 466 words differ, the function
      * runs 8 bytes short, and 9 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6401,7 +6431,7 @@ static void model_draw_flat_path_tex_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c644320; without it, 348 of 645 words differ, and 10 differ
      * beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6549,7 +6579,7 @@ static void model_draw_flat_path_tex_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c644894; without it, 585 of 605 words differ, the function
      * runs 4 bytes short, and 23 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6638,7 +6668,7 @@ static void model_draw_flat_path_tex_strips_checked(NJS_MESHSET *meshset,
 
 /* copy *src into *dst, then write back the cache line of dst's last
  * channel */
-#ifdef GCC
+#ifdef NONMATCHING
 ALWAYS_INLINE void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
 {
     *dst = *src;
@@ -6646,7 +6676,7 @@ ALWAYS_INLINE void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: its OCBWB lies only in the C functions it expands into */
 #pragma inline_asm(copy_color_writeback(size=26))
 static void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
@@ -6713,7 +6743,7 @@ static void copy_color_writeback(NJS_ARGB *dst, NJS_ARGB *src)
         writeback_vertex = (vertex);                                           \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(writeback_vertex);                                      \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         writeback_line(payload_address);                                       \
         submit_work_vertex(vertex);                                            \
     }
@@ -6743,6 +6773,9 @@ static void model_draw_unlit_tex_strips_near(NJS_MESHSET *meshset,
     register Float x0;
     register Float y0;
     register Float facing;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     if (material_flags & NJD_FLAG_DOUBLE_SIDE) {
@@ -6760,7 +6793,7 @@ static void model_draw_unlit_tex_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c644dbc; without it, 423 of 443 words differ, the function
      * runs 4 bytes short, and 24 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -6873,6 +6906,9 @@ static void model_draw_unlit_tex_strips_checked(NJS_MESHSET *meshset,
     register Float facing;
     Uint32 clip_all;
     void *v1_payload;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     if (material_flags & NJD_FLAG_DOUBLE_SIDE) {
@@ -6890,7 +6926,7 @@ static void model_draw_unlit_tex_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c645184; without it, 424 of 442 words differ, the function
      * runs 4 bytes short, and 24 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7022,7 +7058,7 @@ static void model_draw_flat_path_env_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c64555c; without it, 643 of 662 words differ, the function
      * runs 8 bytes short, and 26 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7160,7 +7196,7 @@ static void model_draw_flat_path_env_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c645af4; without it, 546 of 583 words differ, the function
      * runs 12 bytes short */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7247,7 +7283,7 @@ static void model_draw_flat_path_env_strips_checked(NJS_MESHSET *meshset,
         Float half;                                                            \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         uv_out = (vertex)->payload.tex.uv;                                     \
         normal_xy = ((union vector_floats *)&(vertex)->vector)->f;             \
         half = 0.5F;                                                           \
@@ -7280,6 +7316,9 @@ static void model_draw_unlit_env_strips_near(NJS_MESHSET *meshset,
     register Float x1;
     register Float y1;
     register Float facing;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
     DRAW_NOOP();
     if (material_flags & NJD_FLAG_DOUBLE_SIDE) {
         back_side = BACK_FACE;
@@ -7295,7 +7334,7 @@ static void model_draw_unlit_env_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c645fdc; without it, 120 of 484 words differ, and 17 differ
      * beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7401,6 +7440,9 @@ static void model_draw_unlit_env_strips_checked(NJS_MESHSET *meshset,
     register Float x1;
     register Float y1;
     register Float facing;
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     DRAW_NOOP();
     if (material_flags & NJD_FLAG_DOUBLE_SIDE) {
@@ -7417,7 +7459,7 @@ static void model_draw_unlit_env_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c6463fc; without it, 133 of 424 words differ, and 12 differ
      * beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7539,7 +7581,7 @@ static void model_draw_unlit_strips_near(NJS_MESHSET *meshset,
      * loop at 0x8c646798; without it, 376 of 407 words differ, the function
      * runs 4 bytes short, and 14 differ beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7664,7 +7706,7 @@ static void model_draw_unlit_strips_checked(NJS_MESHSET *meshset,
      * loop at 0x8c646b04; without it, 307 of 345 words differ, and 9 differ
      * beside it */
     /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; strip loop;
 #pragma endasm
@@ -7735,7 +7777,7 @@ static void model_draw_unlit_strips_checked(NJS_MESHSET *meshset,
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: no inspect rule reads its MOVA of H'437F0000 */
 #pragma inline_asm(pack_argb_body)
 static Uint32 pack_argb_body(Float a, Float r, Float g, Float b)
@@ -7811,7 +7853,7 @@ static Uint32 model_pack_argb(Float a, Float r, Float g, Float b)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: no inspect rule reads its MOVA of H'3B808080 */
 #pragma inline_asm(unpack_argb_body)
 static void unpack_argb_body(Uint32 color, NJS_ARGB *dst)
@@ -10128,7 +10170,7 @@ static void model_draw_flat_tex_polygons_clip(NJS_MESHSET *meshset,
     {                                                                          \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         STORE_CORNER_UV(vertex, corner_uv);                                    \
         writeback_line(&(vertex)->payload);                                    \
         submit_work_vertex(vertex);                                            \
@@ -10149,6 +10191,9 @@ static void model_draw_unlit_tex_polygons(NJS_MESHSET *meshset,
     Sint32 corner_count;
     Float facing;
     void (*strip_drawer)(NJS_MESHSET *, Uint32);
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     material_id = meshset->type_matId & MATERIAL_ID;
     corner_uv = meshset->vertuv;
@@ -10250,6 +10295,9 @@ static void model_draw_unlit_tex_polygons_clip(NJS_MESHSET *meshset,
     Sint32 corner_count;
     Float facing;
     void (*strip_drawer)(NJS_MESHSET *, Uint32);
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     material_id = meshset->type_matId & MATERIAL_ID;
     corner_uv = meshset->vertuv;
@@ -10897,7 +10945,7 @@ static void model_draw_flat_env_polygons_clip(NJS_MESHSET *meshset,
         Float half;                                                            \
         (vertex)->control.cmd = (packet_command);                              \
         writeback_line(vertex);                                                \
-        PACKED_COLOR(vertex, 0) = PACK_ARGB(_nj_light_material_.diffuse);      \
+        PACKED_COLOR(vertex, 0) = UNLIT_DIFFUSE;                               \
         half = 0.5F;                                                           \
         uv_out = (vertex)->payload.tex.uv;                                     \
         normal_xy = ((union vector_floats *)&(vertex)->vector)->f;             \
@@ -10921,6 +10969,9 @@ static void model_draw_unlit_env_polygons(NJS_MESHSET *meshset,
     Sint32 corner_count;
     Float facing;
     void (*strip_drawer)(NJS_MESHSET *, Uint32);
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     material_id = meshset->type_matId & MATERIAL_ID;
     mesh_cursor = (Uint16 *)meshset->meshes;
@@ -11017,6 +11068,9 @@ static void model_draw_unlit_env_polygons_clip(NJS_MESHSET *meshset,
     Sint32 corner_count;
     Float facing;
     void (*strip_drawer)(NJS_MESHSET *, Uint32);
+#ifdef NONMATCHING
+    Uint32 diffuse_argb = PACK_ARGB(_nj_light_material_.diffuse);
+#endif
 
     material_id = meshset->type_matId & MATERIAL_ID;
     mesh_cursor = (Uint16 *)meshset->meshes;
@@ -11533,10 +11587,9 @@ void _njDrawModelSub(NJS_MODEL *model)
         return;
     }
     njGetLightDistance(&view_center);
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that these are set wherever they are read: the loop's
      * first pass, meshset_index 0, sets each before any read */
-    material = NULL;
     previous_material_id = 0;
     shader_flags = 0;
 #endif
@@ -11750,7 +11803,7 @@ void _njDrawModelSub(NJS_MODEL *model)
          * the clip test at 0x8c653220; without it, 212 of 650 words differ, the
          * function runs 6 bytes short, and 123 differ beside it */
         /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; meshset dispatch;
 #pragma endasm
@@ -11842,7 +11895,7 @@ void _njDrawModelSub(NJS_MODEL *model)
          * the call of njEndVertex at 0x8c653410; without it, 140 of 650 words
          * differ, the function runs 4 bytes short, and 124 differ beside it */
         /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 #pragma asm
 ; meshset dispatch;
 #pragma endasm

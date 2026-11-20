@@ -1,0 +1,7 @@
+datum  sai_bf_texlist  D  0x00000000  8
+datum  sai_bf_frames  D  0x00000008  60
+datum  sai_bf_points  D  0x00000044  36
+datum  sai_shapes  D  0x00000068  104
+datum  sai_debris_models  D  0x000000d0  52
+datum  sai_shape_count  C  0x00000000  1
+datum  sai_bf_sprite  B  0x00000000  32

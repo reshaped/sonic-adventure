@@ -5,7 +5,8 @@
  * popping nothing, when n equals the stack depth. it pops wherever the depth
  * less n, taken unsigned, is at least 1, so an n above the depth pops too:
  * the depth goes negative, and the pointer moves below the stack's base */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njPopMatrix
 Bool njPopMatrix(Uint32 n)
 {
@@ -13,7 +14,6 @@ Bool njPopMatrix(Uint32 n)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c628ac4 follows the
  * body's own return at 0x8c628abc */
 #pragma inline_asm(njPopMatrix)
@@ -51,6 +51,6 @@ Bool njPopMatrix(Uint32 n)
         RTS
         MOV         #1,R0
 }
-#endif
 /* clang-format on */
+#endif
 #endif

@@ -1,0 +1,9 @@
+datum  death_zone_materials  D  0x00000000  20
+datum  death_zone_meshes  D  0x00000014  10
+datum  death_zone_meshsets  D  0x00000020  24
+datum  death_zone_points  D  0x00000038  48
+datum  death_zone_normals  D  0x00000068  48
+datum  death_zone_model  D  0x00000098  40
+datum  death_zone_object  D  0x000000c0  52
+datum  death_zone_list  D  0x000000f4  16
+datum  egg_carrier_garden_death_zones  D  0x00000104  4

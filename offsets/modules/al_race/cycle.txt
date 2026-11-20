@@ -1,0 +1,3 @@
+datum  cycle_desc  C  0x00000000  24
+datum  cycle_textures  C  0x00000018  28
+datum  cycle_kinds  C  0x00000034  36

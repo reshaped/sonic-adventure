@@ -284,8 +284,8 @@ Sint32 njLoadTexturePvmFile(const char *filename, NJS_TEXLIST *texlist)
     struct pvmh_header pvmh;
     Uint32 *handle;
     Uint32 *other;
-#ifdef GCC
-    /* the word GCC's other points at, in case OTHER_BANK */
+#ifdef NONMATCHING
+    /* the word this side's other points at under case OTHER_BANK, below */
     Uint32 other_record;
 #endif
     NJS_TEXNAME *texname;
@@ -385,9 +385,9 @@ Sint32 njLoadTexturePvmFile(const char *filename, NJS_TEXLIST *texlist)
         }
         switch (listing) {
         case OTHER_BANK:
-#ifdef GCC
-            /* repairs the unset other the tag below names: GCC's points at
-             * other_record, which then holds the record's address */
+#ifdef NONMATCHING
+            /* repairs the unset other the tag below names. this side's points
+             * at other_record, which then holds the record's address */
             other = &other_record;
 #endif
             /* @bug uninitialized: nothing sets other, so this case stores the
@@ -775,9 +775,9 @@ void njSearchPvrChunkM(void)
              * value, reads count * 2 bytes into colors, and
              * njSetPaletteData, set to 32-bit colors, copies count * 4 from
              * it, at 0x8c65a44c and 0x8c65a4a0 */
-#ifdef GCC
-            /* repairs the test the tag names: GCC tests the chunk's mode, as
-             * njSearchPvrChunk does, so the read takes as many bytes as
+#ifdef NONMATCHING
+            /* repairs the test the tag names. this side tests the chunk's mode,
+             * as njSearchPvrChunk does. so the read takes as many bytes as
              * njSetPaletteData copies */
             if (pvpl.mode == NJD_TEXFMT_ARGB_8888) {
 #else

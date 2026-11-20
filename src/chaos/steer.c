@@ -65,6 +65,17 @@ void chaos_face_player(struct task_work *work, void *record)
     struct task_work *player = player_work[0];
     struct chaos *chaos = record;
 
+    /* @bug memory: reads player 0's record through null once the players'
+     * level is gone, as when a stage stops and Chaos 2's destructor runs his
+     * barrier a last time: the FMOV.Ss at 0x8c0fa464 and 0x8c0fa46a read the
+     * boot ROM at 0x20 and 0x28 */
+#ifdef NONMATCHING
+    /* repairs the read the tag names: with player 0 gone, this side keeps his
+     * facing */
+    if (player == NULL) {
+        return;
+    }
+#endif
     ang = (Angle)(atan2f(player->pos.z - work->pos.z,
                          player->pos.x - work->pos.x) *
                   ANGLE_PER_RADIAN);
@@ -74,6 +85,17 @@ void chaos_face_player(struct task_work *work, void *record)
 
 Angle chaos_angle_to_player(struct task_work *work, int player)
 {
+    /* @bug memory: reads the player's record through null once the players'
+     * level is gone, as when a stage stops and Chaos 2's destructor runs his
+     * bounce a last time: the FMOV.Ss at 0x8c0fa4b8 and 0x8c0fa4be read the
+     * boot ROM at 0x20 and 0x28 */
+#ifdef NONMATCHING
+    /* repairs the read the tag names: with the player gone, this side's
+     * heading is the one work faces */
+    if (player_work[player] == NULL) {
+        return work->ang.y;
+    }
+#endif
     return (Angle)(atan2f(player_work[player]->pos.z - work->pos.z,
                           player_work[player]->pos.x - work->pos.x) *
                    ANGLE_PER_RADIAN);

@@ -216,7 +216,7 @@ Bool script_pick_lines(int row, struct script_lines *lines)
     if (table != NULL) {
         script = table[row].script;
         runs = table[row].runs;
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset flag the tag below names: pick.flag starts at
          * -1, as in script_pick. -1 names no flag */
         pick.flag = -1;

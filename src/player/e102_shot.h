@@ -43,7 +43,7 @@ void e102_shoot(struct task *task, struct player *record, struct e102 *e102);
  * speed it has if speed is NULL. it ends once it's out of range or its 600
  * steps run out */
 void e102_release_shot(struct task *shot, NJS_VECTOR *speed);
-#ifdef GCC
+#ifdef NONMATCHING
 /* the work of the E-102 who fired task, or NULL where task isn't one of
  * his shots or hasn't taken its first step */
 struct task_work *e102_shot_shooter(struct task *task);

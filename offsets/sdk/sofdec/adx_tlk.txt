@@ -1,0 +1,9 @@
+datum  sfa_build  DSG  0x00000000  4
+datum  adxt_svrcnt  DSG  0x00000004  4
+datum  adxt_svrcnt_sjd  DSG  0x00000008  4
+datum  adxt_svrcnt_rna  DSG  0x0000000c  4
+datum  adxt_svrcnt_adxf  DSG  0x00000010  4
+datum  adxt_svrcnt_adxstm  DSG  0x00000014  4
+datum  adxt_svrcnt_hndl  DSG  0x00000018  4
+text  TEXT_1  CSG  0x00000000  43
+text  TEXT_2  CSG  0x0000002c  42

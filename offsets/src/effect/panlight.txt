@@ -1,0 +1,4 @@
+datum  panlight_texlist  D  0x00000000  8
+datum  panlight_frame  D  0x00000008  20
+datum  panlight_anim  D  0x0000001c  20
+datum  panlight_pool  D  0x00000030  16

@@ -1,0 +1,3 @@
+datum  snowfall_texlist  D  0x00000000  8
+datum  snowfall_texanim  D  0x00000008  20
+datum  snowfall_sprite  D  0x0000001c  32

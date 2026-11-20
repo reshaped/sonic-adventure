@@ -1,0 +1,12 @@
+datum  chaos6_freeze_pages  C  0x00000000  16
+datum  chaos6_satellites_pages  C  0x00000010  24
+datum  chaos6_lure_pages  C  0x00000028  16
+datum  chaos6_near_pages  C  0x00000038  24
+datum  chaos6_hint_shown  D  0x00000000  4
+datum  chaos6_hint_waiting  B  0x00000000  1
+text  TEXT_1  C  0x00000050  58
+text  TEXT_2  C  0x0000008c  52
+text  TEXT_3  C  0x000000c0  70
+text  TEXT_4  C  0x00000108  52
+text  TEXT_5  C  0x0000013c  33
+text  TEXT_6  C  0x00000160  50

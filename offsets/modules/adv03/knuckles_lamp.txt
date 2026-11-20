@@ -1,0 +1,5 @@
+datum  glow_texlist  D  0x00000000  8
+datum  glow_frames  D  0x00000008  20
+datum  glow_color  D  0x0000001c  16
+datum  glow_sprite  D  0x0000002c  32
+datum  glow_no_color  D  0x0000004c  16

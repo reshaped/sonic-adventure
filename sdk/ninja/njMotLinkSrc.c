@@ -4,8 +4,11 @@
 #include <sg_xpt.h>
 #ifdef XBOX
 #include "xbox/sdk/ninja/njmotion.h"
-#elif defined(GCC)
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #include "ninja/njmotion_zam.h"
+#endif
 #endif
 
 /* an Angle's full turn, and half of it */
@@ -159,9 +162,26 @@ static void weighted_sum_angles(Angle *a, Angle *b, Angle *c, Angle *d,
                                 Angle *out);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
-#ifndef GCC
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+#else
+/* njmotion_zam.h's weighted_sum_point for the native slice, whose
+ * weighted_sum asm2c.py writes: the sum goes through a local */
+static NJS_POINT3 weighted_sum_point(Float *a, Float *b, Float *c, Float *d,
+                                     Float wa, Float wb, Float wc, Float wd)
+{
+    NJS_POINT3 sum;
+
+    weighted_sum(a, b, c, d, wa, wb, wc, wd, &sum.x);
+    return sum;
+}
+#endif
+#endif
+
+#ifdef NONMATCHING
+#else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set out to wa * a + wb * b + wc * c + wd * d, where a to d are three Floats
  * each. the weights arrive in FV4. each component of out is one FIPR of them
  * with that component of a to d. SHC expands the body at each call. size=44
@@ -690,9 +710,10 @@ static Float link_sample_shape(NJS_MKEY_P *keys, Uint32 index, Uint32 count,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float w);
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* returns x * x + y * y + z * z + w * w, by one FIPR. SHC expands the body at
  * each call. size=4 is its length in bytes, for the reason weighted_sum
  * gives */
@@ -811,6 +832,9 @@ static void link_cubic_normal(Float *a, Float *b, Float *c, Float *d,
     Float y;
     Float z;
     Float length;
+#ifdef NONMATCHING
+    NJS_POINT3 blend;
+#endif
 
     square = t * t;
     cube = square * t;
@@ -818,6 +842,15 @@ static void link_cubic_normal(Float *a, Float *b, Float *c, Float *d,
     wb = (1.5F * cube) - (2.5F * square) + 1.0F;
     wc = (0.5F * t) - (1.5F * cube) + (2.0F * square);
     wd = (cube - square) * 0.5F;
+#ifdef NONMATCHING
+    /* the sum stays in registers: nothing reads out before the stores below,
+     * which step back down from past z */
+    blend = weighted_sum_point(a, b, c, d, wa, wb, wc, wd);
+    x = blend.x;
+    y = blend.y;
+    z = blend.z;
+    out += 3;
+#else
     weighted_sum(a, b, c, d, wa, wb, wc, wd, out);
     /* @hack spelling: a Float pointer walks the out point's x, y and z up, and
      * out steps back down from past z, which gives the FMOV.S @R14+ loads
@@ -827,6 +860,7 @@ static void link_cubic_normal(Float *a, Float *b, Float *c, Float *d,
     x = *out++;
     y = *out++;
     z = *out++;
+#endif
     length = squared_length(x, y, z, 0.0F);
     if (length > 0.00001F) {
         length = _builtin_fsrra(length);
@@ -879,12 +913,24 @@ static void link_bezier_normal(Float *a, Float *b, Float *c, Float *d,
     Float y;
     Float z;
     Float length;
+#ifdef NONMATCHING
+    NJS_POINT3 blend;
+#endif
 
     rest = 1.0F - t;
     w0 = rest * rest * rest;
     w2 = t * rest * rest * 3.0F;
     w3 = t * t * rest * 3.0F;
     w1 = t * t * t;
+#ifdef NONMATCHING
+    /* the sum stays in registers: nothing reads out before the stores below,
+     * which step back down from past z */
+    blend = weighted_sum_point(a, b, c, d, w0, w1, w2, w3);
+    x = blend.x;
+    y = blend.y;
+    z = blend.z;
+    out += 3;
+#else
     weighted_sum(a, b, c, d, w0, w1, w2, w3, out);
     /* @hack spelling: a Float pointer walks the out point's x, y and z up, and
      * out steps back down from past z, which gives the FMOV.S @R14+ loads
@@ -894,6 +940,7 @@ static void link_bezier_normal(Float *a, Float *b, Float *c, Float *d,
     x = *out++;
     y = *out++;
     z = *out++;
+#endif
     length = squared_length(x, y, z, 0.0F);
     if (length > 0.00001F) {
         length = _builtin_fsrra(length);

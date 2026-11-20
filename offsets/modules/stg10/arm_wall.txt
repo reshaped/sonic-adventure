@@ -1,0 +1,3 @@
+datum  arm_wall_shape  D  0x00000000  52
+datum  arm_wall_spark  D  0x00000034  32
+datum  arm_wall_blast_color  C  0x00000000  16

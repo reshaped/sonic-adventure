@@ -1,0 +1,4 @@
+datum  beach_act0_death_zones  D  0x00000000  16
+datum  beach_act1_death_zones  D  0x00000010  24
+datum  beach_act2_death_zones  D  0x00000028  16
+datum  beach_death_zones  D  0x00000038  12

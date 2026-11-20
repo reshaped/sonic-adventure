@@ -6,6 +6,7 @@
 #include "adv02/station_ladder.h"
 #include "camera/camera.h"
 #include "draw/model.h"
+#include "main.h"
 #include "path/path.h"
 #include "path/steps.h"
 #include "player/player.h"
@@ -192,12 +193,12 @@ static void station_ladder_fade(Float fade)
     points[0].y = 0.0F;
     colors[0].color = color;
     points[1].x = 0.0F;
-    points[1].y = 480.0F;
+    points[1].y = SCREEN_HEIGHT;
     colors[1].color = color;
-    points[2].x = 640.0F;
-    points[2].y = 480.0F;
+    points[2].x = SCREEN_WIDTH;
+    points[2].y = SCREEN_HEIGHT;
     colors[2].color = color;
-    points[3].x = 640.0F;
+    points[3].x = SCREEN_WIDTH;
     points[3].y = 0.0F;
     colors[3].color = color;
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);

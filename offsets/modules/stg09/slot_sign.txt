@@ -1,0 +1,2 @@
+datum  slot_sign_faces  D  0x00000000  180
+datum  slot_sign_shapes  D  0x000000b4  156

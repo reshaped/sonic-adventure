@@ -452,7 +452,7 @@ static void discharge_lamp_run(struct task *task)
         }
         if (TASK_TIMER(work) < BLAST_END && rand() * RAND_SCALE < 0.1F) {
             njPushMatrix(&_unit_matrix_);
-#ifdef GCC
+#ifdef NONMATCHING
             /* C leaves the arguments' order open, so z's rand() is drawn
              * before the call. SHC draws it first, then x's (JSR at
              * 0x0c9017b0 for z and 0x0c9017d8 for x) */

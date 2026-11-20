@@ -11,7 +11,7 @@ SOURCE = '''/* a source with inline assembly */
 static void step(void);
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(entry)
 void entry(int x)
@@ -41,7 +41,7 @@ void run(void)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: 8 bytes reserved */
 #pragma asm
         .RES.B      8
@@ -63,17 +63,17 @@ def line(text, marker):
     return text[:text.index(marker)].count('\n') + 1
 
 
-# a source with a piece on the shipped side of each of two GCC guards. entry's body is in the #else of an #ifdef GCC
-# whose first group defines entry in C. run's block of code is under #ifndef GCC. Unguarded, the split would refuse
-# entry's branch to an offset and run's block inside a function. step's body stands under no GCC guard
-GUARDED = '''#ifdef GCC
+# a source with a piece on the matching side of each of two guards. entry's body is in the #else of an #ifdef NONMATCHING
+# whose first group defines entry in C. run's block of code is in the #else of another. Unguarded, the split would
+# refuse entry's branch to an offset and run's block inside a function. step's body stands under no guard
+GUARDED = '''#ifdef NONMATCHING
 void entry(int x)
 {
     count = x;
 }
 #else
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(entry)
 void entry(int x)
@@ -88,7 +88,7 @@ _entry:
 #endif
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm open: every instruction is one SHC writes for C */
 #pragma inline_asm(step)
 static void step(void)
@@ -101,7 +101,8 @@ static void step(void)
 
 void run(void)
 {
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 #pragma asm
         NOP
 #pragma endasm
@@ -173,29 +174,27 @@ class Split(unittest.TestCase):
     def test_writes_no_asm_for_blocks_of_comments_alone(self):
         # SOURCE without its bodies or its reservation: run's block of comments alone
         source = SOURCE[:SOURCE.index('#pragma inline_asm(entry)')] + '#endif\n' + SOURCE[SOURCE.index('void run'):]
-        source = source[:source.index('/* clang-format off */\n#ifndef __clang__\n/* @asm open: 8 bytes')]
+        source = source[:source.index('/* clang-format off */\n#ifdef DREAMCAST\n/* @asm open: 8 bytes')]
         c, text = split(source)
         self.assertEqual(text, [''])
         self.assertFalse(any('__asm__' in line for line in c))
 
     def test_leaves_out_a_block_a_guard_keeps_from_gcc(self):
-        # SOURCE's reservation goes blank in the C, as any block does, and its guard's first line stays. make gcc's
-        # compile defines GCC and not __clang__, and the text takes the block where that compile does. A conditional
-        # closed above the block leaves the guard's side as it was
-        block = SOURCE[SOURCE.index('#ifndef __clang__\n/* @asm open: 8 bytes'):SOURCE.rindex('/* clang-format on */')]
+        # SOURCE's reservation goes blank in the C, as any block does, and its guard's first line stays. make dc's
+        # compile defines NONMATCHING and DREAMCAST, and the text takes the block where that compile does. A
+        # conditional closed above the block leaves the guard's side as it was
+        block = SOURCE[SOURCE.index('#ifdef DREAMCAST\n/* @asm open: 8 bytes'):SOURCE.rindex('/* clang-format on */')]
         cases = (
-            ("an #ifndef GCC's first group", f'#ifndef GCC\n{block}#endif\n', False),
-            ("an #ifdef GCC's #else", f'#ifdef GCC\n#else\n{block}#endif\n', False),
-            ("an #ifdef GCC's first group", f'#ifdef GCC\n{block}#else\n#endif\n', True),
-            ("an #ifdef GCC's #elif", f'#ifdef GCC\n#elif 1\n{block}#endif\n', False),
-            ("an #ifdef GCC's #else after an #elif", f'#ifdef GCC\n#elif 1\n#else\n{block}#endif\n', False),
-            ("an #ifndef GCC's #else", f'#ifndef GCC\n#else\n{block}#endif\n', True),
-            ('below a guard that ends above it', f'#ifndef GCC\n#endif\n{block}', True),
-            ("an #ifdef GCC's #else, below a conditional nested there",
-             f'#ifdef GCC\n#else\n#if 1\n#endif\n{block}#endif\n', False),
-            ("an #ifdef __clang__'s first group", f'#ifdef __clang__\n{block}#endif\n', False),
-            ("an #ifndef __clang__'s #else", f'#ifndef __clang__\n#else\n{block}#endif\n', False),
-            ("an #ifdef __clang__'s #else", f'#ifdef __clang__\n#else\n{block}#endif\n', True),
+            ("an #ifndef NONMATCHING's first group", f'#ifndef NONMATCHING\n{block}#endif\n', False),
+            ("an #ifdef NONMATCHING's #else", f'#ifdef NONMATCHING\n#else\n{block}#endif\n', False),
+            ("an #ifdef NONMATCHING's first group", f'#ifdef NONMATCHING\n{block}#else\n#endif\n', True),
+            ("an #ifdef NONMATCHING's #elif", f'#ifdef NONMATCHING\n#elif 1\n{block}#endif\n', False),
+            ("an #ifdef NONMATCHING's #else after an #elif", f'#ifdef NONMATCHING\n#elif 1\n#else\n{block}#endif\n', False),
+            ("an #ifndef NONMATCHING's #else", f'#ifndef NONMATCHING\n#else\n{block}#endif\n', True),
+            ('below a guard that ends above it', f'#ifdef NONMATCHING\n#endif\n{block}', True),
+            ("an #ifdef NONMATCHING's #else, below a conditional nested there",
+             f'#ifdef NONMATCHING\n#else\n#if 1\n#endif\n{block}#endif\n', False),
+            ("an #ifdef DREAMCAST's #else", f'#ifdef DREAMCAST\n#else\n{block}#endif\n', False),
         )
         for where, guard, kept in cases:
             with self.subTest(where):
@@ -306,20 +305,20 @@ class Split(unittest.TestCase):
                                                 'function, which the split would move out of it$'):
             split(source)
 
-    def test_leaves_each_piece_on_the_shipped_side_of_a_gcc_guard_to_shc(self):
+    def test_leaves_each_piece_on_the_matching_side_of_a_guard_to_shc(self):
         # OUT keeps GCC's entry and empties each piece's lines. TEXT and the asm hold step alone
         c, text = split(GUARDED)
-        self.assertEqual(c[1:6], ['#ifdef GCC', 'void entry(int x)', '{', '    count = x;', '}'])
+        self.assertEqual(c[1:6], ['#ifdef NONMATCHING', 'void entry(int x)', '{', '    count = x;', '}'])
         self.assertFalse(any(line.startswith(('#pragma', '_entry:', ' ' * 8)) for line in c[:-3]), c)
         self.assertEqual(text, [f'; a.c:{line(GUARDED, "#pragma inline_asm(step)")}: step', '_step:', '        RTS',
                                 '        NOP', '        .ALIGN      4', '        RTS', '        NOP', ''])
         self.assertEqual(c[-3:], ['__asm__(".include \\"a_inline.s\\""', '        : : ":"(step));', ''])
 
     def test_takes_a_body_in_each_group_gcc_compiles(self):
-        # TEXT takes entry's body in an #ifdef GCC's first group, in an #ifndef GCC's #else, and in the group of
-        # __clang__'s test GCC takes
-        guards = {'#ifdef GCC\n': '#endif\n', '#ifndef GCC\n#else\n': '#endif\n',
-                  '#ifdef __clang__\n#else\n': '#endif\n', '#ifndef __clang__\n': '#else\n#endif\n'}
+        # TEXT takes entry's body in an #ifdef NONMATCHING's first group, in an #ifndef NONMATCHING's #else, and in an
+        # #ifdef DREAMCAST's first group
+        guards = {'#ifdef NONMATCHING\n': '#endif\n', '#ifndef NONMATCHING\n#else\n': '#endif\n',
+                  '#ifdef DREAMCAST\n': '#else\n#endif\n'}
         for opening, closing in guards.items():
             with self.subTest(opening):
                 source = SOURCE.replace('#pragma inline_asm(entry)\n', f'{opening}#pragma inline_asm(entry)\n')
@@ -328,19 +327,20 @@ class Split(unittest.TestCase):
                 self.assertIn('_entry:', text)
 
     def test_takes_a_block_of_code_inside_a_function_a_guard_keeps_from_gcc(self):
-        # the block is on the shipped side, so TEXT moves nothing out of run
+        # the block is on the matching side, so TEXT moves nothing out of run
         source = SOURCE.replace('#pragma asm\n    ;\n#pragma endasm\n',
-                                f'#ifdef GCC\n#else\n{CODE_BLOCK_HEAD}#pragma endasm\n#endif\n')
+                                f'#ifdef NONMATCHING\n#else\n{CODE_BLOCK_HEAD}#pragma endasm\n#endif\n')
         c, text = split(source)
         self.assertNotIn('        NOP', c)
         self.assertEqual([piece for piece in text if piece.startswith('; ') and '#pragma asm' in piece],
                          [f'; a.c:{line(source, RESERVATION_HEAD)}: #pragma asm'])
 
     def test_refuses_a_piece_under_a_conditional_it_cant_read(self):
-        # make gcc's compile may or may not take a group of #if, of an #ifdef or #ifndef of another macro, or of an
-        # #elif below a group it may not take, or an #else below one; GCC's side of a guard inside such a group
-        # doesn't settle it
-        for opening in ('#if 0\n', '#ifdef SHC\n', '#ifndef GCC\n#elif 1\n', '#if 1\n#else\n', '#if 1\n#ifdef GCC\n'):
+        # make dc's compile may or may not take a group of #if, of an #ifdef or #ifndef of another macro, or of an
+        # #elif below a group it may not take, or an #else below one; the non-matching side of a guard inside such a
+        # group doesn't settle it
+        for opening in ('#if 0\n', '#ifdef SHC\n', '#ifndef NONMATCHING\n#elif 1\n', '#if 1\n#else\n',
+                        '#if 1\n#ifdef NONMATCHING\n'):
             closing = '#endif\n' * opening.count('#if')
             with self.subTest(opening):
                 source = SOURCE.replace('#pragma asm\n        .RES.B', f'{opening}#pragma asm\n        .RES.B')
@@ -349,7 +349,7 @@ class Split(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, rf"\A[^\n]*: a\.c:{line(source, RESERVATION_HEAD)}: #pragma asm: a "
                                                         r"block under a conditional the tool can't read\Z"):
                     split(source)
-                source = SOURCE.replace('#ifndef __clang__\n/* @asm open: every', f'{opening}/* @asm open: every', 1)
+                source = SOURCE.replace('#ifdef DREAMCAST\n/* @asm open: every', f'{opening}/* @asm open: every', 1)
                 source = source.replace('#endif\n', closing, 1)
                 with self.assertRaisesRegex(SystemExit, rf"a\.c:{line(source, '#pragma inline_asm(entry)')}: entry: a "
                                                         rf"body under a conditional the tool can't read\n[^\n]*: "
@@ -357,12 +357,13 @@ class Split(unittest.TestCase):
                     split(source)
 
     def test_takes_comments_alone_or_a_piece_gcc_skips_under_a_conditional_it_cant_read(self):
-        # run's block of comments writes nothing under #if 0, and GCC takes neither side of an #if under #ifndef GCC
+        # run's block of comments writes nothing under #if 0, and GCC takes neither side of an #if in an #ifdef
+        # NONMATCHING's #else
         comments = SOURCE.replace('#pragma asm\n    ;\n#pragma endasm\n',
                                   '#if 0\n#pragma asm\n    ;\n#pragma endasm\n#endif\n')
         _, text = split(comments)
         self.assertIn('        .RES.B      8', text)
-        shipped = SOURCE.replace(RESERVATION_HEAD, f'#ifndef GCC\n#if 0\n#else\n{RESERVATION_HEAD}')
+        shipped = SOURCE.replace(RESERVATION_HEAD, f'#ifdef NONMATCHING\n#else\n#if 0\n#else\n{RESERVATION_HEAD}')
         shipped = shipped.replace('#pragma endasm\n#endif\n/*', '#pragma endasm\n#endif\n#endif\n#endif\n/*')
         _, text = split(shipped)
         self.assertIn('_entry:', text)
@@ -374,10 +375,10 @@ class Split(unittest.TestCase):
         for piece, where, directive in (('entry', '        RTS\n', '#undef X\n'),
                                         ('entry', 'void entry', '#define X\n'),
                                         ('#pragma asm', '        .RES.B', '#line 9\n')):
-            for guard in ('__clang__', 'GCC'):
+            for guard in ('#ifdef DREAMCAST', '#ifndef NONMATCHING'):
                 with self.subTest(where=where, guard=guard):
                     source = SOURCE.replace(where, directive + where, 1)
-                    source = source.replace('#ifndef __clang__', f'#ifndef {guard}')
+                    source = source.replace('#ifdef DREAMCAST', guard)
                     with self.assertRaisesRegex(SystemExit, rf"\A[^\n]*: a\.c:{line(source, directive)}: {piece}: a "
                                                             r"directive inside the piece, which the split can't carry "
                                                             r"into TEXT\Z"):
@@ -386,7 +387,8 @@ class Split(unittest.TestCase):
     def test_refuses_a_pragma_inline_asm_with_no_function_after_it(self):
         # on either side of a guard. The failure names step's branch to an offset too
         late = '/* @asm open: every instruction is one SHC writes for C */\n#pragma inline_asm(late)\n'
-        for where, tail in (('unguarded', late), ('under #ifndef GCC', f'#ifndef GCC\n{late}#endif\n')):
+        for where, tail in (('unguarded', late), ("in an #ifdef NONMATCHING's #else",
+                                                  f'#ifdef NONMATCHING\n#else\n{late}#endif\n')):
             with self.subTest(where):
                 source = SOURCE.replace('        BRA         ?loop\n', '        BSR         _run+8\n') + tail
                 with self.assertRaises(SystemExit) as refused:
@@ -423,10 +425,10 @@ class Split(unittest.TestCase):
                 (inside, f'{line(inside, "#pragma asm")}: #pragma asm, inside the piece at line {line(inside, entry)}'),
                 (stray, f'{stray.count(chr(10))}: #pragma endasm, closing no #pragma asm'),
                 (unclosed, f'{line(unclosed, late)}: #pragma inline_asm(late), with no }} closing its function')):
-            for guard in ('__clang__', 'GCC'):
+            for guard in ('#ifdef DREAMCAST', '#ifndef NONMATCHING'):
                 with self.subTest(problem=problem, guard=guard):
                     with self.assertRaises(SystemExit) as refused:
-                        split(source.replace('#ifndef __clang__', f'#ifndef {guard}'))
+                        split(source.replace('#ifdef DREAMCAST', guard))
                     self.assertIn(f'a.c:{problem}', str(refused.exception))
 
     def test_refuses_a_path_the_c_would_have_to_escape_before_writing(self):

@@ -1,0 +1,1 @@
+datum  yura_yura_textures  D  0x00000000  60

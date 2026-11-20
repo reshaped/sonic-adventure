@@ -1,0 +1,8 @@
+datum  ev009f_textures  D  0x00000000  8
+datum  ev009f_sparkle_pos  B  0x00000000  12
+datum  ev009f_sparkle_speed  B  0x0000000c  12
+text  TEXT_1  C  0x0000002c  45
+text  TEXT_2  C  0x0000005c  38
+text  TEXT_3  C  0x00000084  53
+text  TEXT_4  C  0x000000bc  36
+text  TEXT_5  C  0x00000000  41

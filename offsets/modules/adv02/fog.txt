@@ -1,0 +1,5 @@
+datum  jungle_fog_density  D  0x00000000  4
+datum  jungle_fog_colors  D  0x00000004  12
+datum  jungle_fog_color  D  0x00000010  4
+datum  jungle_fog_table  B  0x00000000  512
+datum  jungle_fog_shown  B  0x00000200  4

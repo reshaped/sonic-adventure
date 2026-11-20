@@ -49,13 +49,31 @@ void event_white_start(int in_steps, int out_steps)
     struct task_work *work;
     struct white *white;
 
+#ifdef NONMATCHING
+    /* while event_skipping is TRUE, each wait lasts one step, and the previous
+     * white can still be running. this start kills it, since its last step
+     * would set event_white to NULL while this white runs. at EV009A's third
+     * start, that step falls in the wait below, and the start then reads
+     * through NULL */
+    if (event_skipping && event_white != NULL) {
+        task_kill(event_white);
+    }
+#endif
     event_white = task_create(TASK_WORK, 5, event_white_init);
     event_wait(1);
     white = VARS(event_white->work)->white;
     /* 255.0F / 0 is infinite, which the SH-4's conversion to int turns into
      * 0x7fffffff. its low byte makes the change 255 */
+#ifdef NONMATCHING
+    /* x86-64's conversion turns infinity into 0x80000000, whose low byte is
+     * 0. the white would then never climb or fall. this side gives 0 steps
+     * the SH-4's change */
+    white->in_step = in_steps != 0 ? 255.0F / in_steps : 255;
+    white->out_step = out_steps != 0 ? 255.0F / out_steps : 255;
+#else
     white->in_step = 255.0F / in_steps;
     white->out_step = 255.0F / out_steps;
+#endif
     white->hold = 0;
     white->timer = 0;
     if (event_white != NULL) {
@@ -69,11 +87,25 @@ void event_white_start_hold(int in_steps, int hold, int out_steps)
     struct task_work *work;
     struct white *white;
 
+#ifdef NONMATCHING
+    /* this start kills the previous white for the reason event_white_start
+     * gives. left running, EV00FE's first white would also outlast the event,
+     * out of event_white_kill's reach */
+    if (event_skipping && event_white != NULL) {
+        task_kill(event_white);
+    }
+#endif
     event_white = task_create(TASK_WORK, 5, event_white_init);
     event_wait(1);
     white = VARS(event_white->work)->white;
+#ifdef NONMATCHING
+    /* this side gives 0 steps the SH-4's change, as in event_white_start */
+    white->in_step = in_steps != 0 ? 255.0F / in_steps : 255;
+    white->out_step = out_steps != 0 ? 255.0F / out_steps : 255;
+#else
     white->in_step = 255.0F / in_steps;
     white->out_step = 255.0F / out_steps;
+#endif
     white->hold = hold;
     white->timer = 0;
     if (event_white != NULL) {

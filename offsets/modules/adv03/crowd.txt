@@ -1,0 +1,7 @@
+datum  walker_kinds  D  0x00000000  288
+datum  message_files  D  0x00000120  32
+datum  walker_shapes  D  0x00000140  104
+datum  walker_models  C  0x00000000  36
+datum  act0_walkers  C  0x00000024  80
+datum  walk_routes  C  0x00000074  48
+datum  walker_move_steps  C  0x000000e8  16

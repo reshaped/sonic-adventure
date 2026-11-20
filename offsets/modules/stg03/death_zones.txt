@@ -1,0 +1,4 @@
+datum  twinkle_act0_death_zones  D  0x00000000  40
+datum  twinkle_act1_death_zones  D  0x00000028  16
+datum  twinkle_act2_death_zones  D  0x00000038  16
+datum  twinkle_death_zones  D  0x00000048  12

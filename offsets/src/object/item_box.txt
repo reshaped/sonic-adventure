@@ -1,0 +1,11 @@
+datum  item_box_up  C  0x00000000  12
+datum  random_ring_counts  C  0x0000000c  12
+datum  item_box_shapes  D  0x00000000  104
+datum  item_box_open_shapes  D  0x00000068  104
+datum  dat_8c1d0510  D  0x000000d0  16
+datum  item_kinds  D  0x000000e0  72
+datum  item_1up_textures  D  0x00000128  32
+datum  dat_8c794ec8  B  0x00000000  12
+datum  dat_8c794ed4  B  0x0000000c  12
+datum  item_box_kind  B  0x00000018  4
+datum  dat_8c794ee4  B  0x0000001c  4

@@ -1,0 +1,11 @@
+datum  axis_points  DSG  0x00000000  48
+datum  axis_colors  DSG  0x00000030  16
+datum  axis_lines  DSG  0x00000040  16
+datum  material_flags  BSG  0x00000000  4
+datum  view_center  BSG  0x00000004  12
+datum  model_clip_or  BSG  0x00000010  4
+datum  near_reciprocal  BSG  0x00000014  4
+datum  projection_x  BSG  0x00000018  4
+datum  projection_y  BSG  0x0000001c  4
+datum  projection_x_reciprocal  BSG  0x00000020  4
+datum  projection_y_reciprocal  BSG  0x00000024  4

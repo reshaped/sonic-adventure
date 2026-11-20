@@ -212,7 +212,7 @@ static void land_fade_draw(struct task *task)
                 }
             }
         }
-#ifdef GCC
+#ifdef NONMATCHING
         /* the fade advances in this draw. the second picture's pass draws
          * again and leaves it, so it fades as at 30 fps */
         if (!frame_redrawing) {

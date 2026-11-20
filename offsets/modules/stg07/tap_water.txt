@@ -1,0 +1,8 @@
+datum  tap_water_object  D  0x00000000  52
+datum  tap_water_textures  D  0x00000034  48
+datum  tap_water_texlist  D  0x00000064  8
+datum  dat_0ca4dbf4  D  0x0000006c  20
+text  TEXT_1  C  0x00000000  9
+text  TEXT_2  C  0x0000000c  9
+text  TEXT_3  C  0x00000018  9
+text  TEXT_4  C  0x00000024  9

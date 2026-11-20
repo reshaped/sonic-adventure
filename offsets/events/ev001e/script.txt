@@ -1,0 +1,11 @@
+datum  ev001e_light  D  0x00000000  4
+datum  ev001e_textures  D  0x00000004  8
+text  TEXT_1  C  0x00000010  33
+text  TEXT_2  C  0x00000038  12
+text  TEXT_3  C  0x00000044  6
+text  TEXT_4  C  0x00000050  10
+text  TEXT_5  C  0x00000060  18
+text  TEXT_6  C  0x0000000c  4
+text  TEXT_7  C  0x00000034  2
+text  TEXT_8  C  0x0000004c  3
+text  TEXT_9  C  0x0000005c  3

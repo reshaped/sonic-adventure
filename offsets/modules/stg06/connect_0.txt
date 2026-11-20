@@ -1,0 +1,3 @@
+datum  connect_0_shapes  D  0x00000000  104
+datum  connect_0_pieces  D  0x00000068  36
+text  TEXT_1  C  0x00000000  22

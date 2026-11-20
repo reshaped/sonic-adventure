@@ -647,12 +647,12 @@ KMSTATUS kmRender(void)
         }
     } else if (kmiDeviceExtension.vertex_buffer_model & NOBUF) {
         /* clang-format off */
-#ifdef GCC
+#ifdef NONMATCHING
         /* GCC, like clang, rejects SHC's cast of control used as an
          * lvalue */
         for (i = 0, control = &header.control; i < LISTS; i++) {
 #else
-#ifndef __clang__
+#ifdef DREAMCAST
         /* @hack type: control set through a cast used as an lvalue, an SHC
          * extension. the cast's volatile keeps SHC from moving control's store
          * into the BRA's delay slot: the image stores i, then control, and
@@ -1002,7 +1002,7 @@ KMSTATUS kmRenderTexture(PKMSURFACEDESC pTextureSurface)
      * pointer, which the image stores (MOV.L R15,@R3 at 0x8ce10e74); set
      * explicitly, to &saved_tag, the function is 4 bytes longer and 50 of 451
      * words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* sets stack to the stack pointer, the value stack_pointer is declared
      * to hold and the image stores */
     stack = (KMDWORD)__builtin_stack_address();
@@ -1061,9 +1061,9 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &vertex_timeout, loaded for the
          * wait's compare (0x8ce10ede); returned explicitly, 7 of 224 words
          * differ, and 7 of the 451 of kmRenderTexture, whose pool it shares */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -1, kmRenderTexture's
-         * when its wait for the tile accelerator gives up */
+#ifdef NONMATCHING
+        /* repairs the return the tag names with the status kmRenderTexture
+         * returns for the same timeout */
         return (KMSTATUS)-1;
 #else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
@@ -1084,9 +1084,9 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8ce10f68); returned explicitly, the function is 4
          * bytes longer and 150 of 224 words differ */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -2, kmRenderTexture's
-         * when its wait for an earlier render gives up */
+#ifdef NONMATCHING
+        /* repairs the return the tag names with the status kmRenderTexture
+         * returns for the same timeout */
         return (KMSTATUS)-2;
 #else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */
@@ -1126,9 +1126,9 @@ KMSTATUS kmRenderTextureDirect(PKMSURFACEDESC surface)
         /* @hack implicit: R0 still holds &render_timeout, loaded for the
          * wait's compare (0x8ce10ffa); returned explicitly, the function is 4
          * bytes longer and 99 of 224 words differ */
-#ifdef GCC
-        /* repairs the return the tag names: GCC's is -3, kmRenderTexture's
-         * when its wait for its own render gives up */
+#ifdef NONMATCHING
+        /* repairs the return the tag names with the status kmRenderTexture
+         * returns for the same timeout */
         return (KMSTATUS)-3;
 #else
         return; /* NOLINT(clang-diagnostic-return-mismatch) */

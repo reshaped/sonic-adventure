@@ -1,0 +1,12 @@
+datum  key_kinds  D  0x00000000  160
+datum  dat_0cb209c0  D  0x000000a0  4
+datum  handy_key_shapes  D  0x000000a4  104
+datum  key_slots  D  0x0000010c  32
+datum  key_fits_lines  D  0x0000012c  8
+datum  key_wrong_lines  D  0x00000134  8
+text  TEXT_1  C  0x00000034  64
+text  TEXT_2  C  0x00000074  52
+text  TEXT_3  C  0x000000a8  31
+text  TEXT_4  C  0x000000c8  31
+text  TEXT_5  C  0x000000e8  29
+text  TEXT_6  C  0x00000108  39

@@ -1,0 +1,14 @@
+datum  egg_textures  D  0x00000000  12
+datum  egg_texlist  D  0x0000000c  8
+datum  egg_materials  D  0x00000014  20
+datum  egg_meshes0  D  0x00000028  232
+datum  egg_uvs0  D  0x00000110  416
+datum  egg_meshsets  D  0x000002b0  24
+datum  egg_points  D  0x000002c8  504
+datum  egg_normals  D  0x000004c0  504
+datum  egg_model  D  0x000006b8  40
+datum  egg_object  D  0x000006e0  52
+datum  egg_shapes  D  0x00000714  104
+datum  egg_task  D  0x0000077c  4
+datum  egg_in_stand  D  0x00000780  4
+text  TEXT_1  C  0x00000000  4

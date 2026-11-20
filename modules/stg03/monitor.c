@@ -63,6 +63,19 @@ static void monitor_destroy(struct task *task)
     task_kill(task);
 }
 
+#ifdef NONMATCHING
+/* move v by amount in each of the screen's uvs */
+static void monitor_scroll(struct task_work *work, int amount)
+{
+    NJS_COLOR *uv = VARS(work)->object->model->meshsets[SCREEN_MESHSET].vertuv;
+    int i;
+
+    for (i = 0; i < SCREEN_CORNERS; i++) {
+        uv[i].tex.v += amount;
+    }
+}
+#endif
+
 /* on a frame's first step, draw the monitor, then the speaker turned about x */
 static void monitor_draw(struct task *task)
 {
@@ -70,6 +83,13 @@ static void monitor_draw(struct task *task)
     NJS_OBJECT *object = VARS(work)->object;
     Angle ang;
 
+#ifdef NONMATCHING
+    /* the step scrolls the screen only around its own call of this. so the
+     * second picture's pass scrolls it here too */
+    if (frame_redrawing) {
+        monitor_scroll(work, -SCROLL(work));
+    }
+#endif
     if (frame_step == 0) {
         texture_set_stage();
         njPushMatrix(NULL);
@@ -85,6 +105,11 @@ static void monitor_draw(struct task *task)
         njPopMatrix(1);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing) {
+        monitor_scroll(work, SCROLL(work));
+    }
+#endif
 }
 
 /* rock the speaker, scroll the picture, and draw the monitor. every monitor

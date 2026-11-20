@@ -1,0 +1,8 @@
+datum  blight_materials  D  0x00000000  20
+datum  blight_meshes0  D  0x00000014  128
+datum  blight_uvs0  D  0x00000094  256
+datum  blight_meshsets  D  0x00000194  24
+datum  blight_points  D  0x000001ac  384
+datum  blight_normals  D  0x0000032c  384
+datum  blight_model  D  0x000004ac  40
+datum  blight_object  D  0x000004d4  52

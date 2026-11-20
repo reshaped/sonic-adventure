@@ -1,4 +1,4 @@
-# make pc's flags: Clang's for the tree's C, for 32-bit x86, under the flags
+# make xbox-pc-test's flags: Clang's for the tree's C, for 32-bit x86, under the flags
 # nxdk gives an Xbox build, so that the PC build and the Xbox build compile
 # the same C the same way (XBOX.md#how-the-port-was-made). pc.mk reads this
 # file for PC_GOALS alone
@@ -14,25 +14,33 @@ PC_RESOURCE := $(shell $(PC_CC) -print-resource-dir 2> /dev/null)/include
 # other values than the SH-4's single precision (XBOX.md#architecture)
 PC_TARGET := --target=i386-elf -march=pentium3 -msse -mfpmath=sse
 # the images are ELF, which ld.lld links at fixed addresses by linker
-# scripts, as make gcc links its own. the host that loads them on the Xbox
+# scripts, as make dc links its own. the host that loads them on the Xbox
 # is nxdk's PE, which calls them by cdecl and keeps its stack 4-byte
 # aligned, so their code assumes no more and realigns where it needs to
 PC_TARGET += -mstack-alignment=4 -mstackrealign
-# The C is C17 with GNU's extensions, as make gcc reads it
+# The C is C17 with GNU's extensions, as make dc reads it
 PC_TARGET += -std=gnu17
 # Clang reads no host header and takes no library function for a builtin, as
 # nxdk compiles: its C library comes from nxdk, and later from the port
 PC_TARGET += -ffreestanding -fno-builtin -nostdinc -isystem $(PC_RESOURCE)
-# Each object keeps DWARF, which tools can read as make gcc's read its
+# SH4ZAM's headers, as make dc's GCC_TARGET gives them, for the Dreamcast
+# engine's drawers, which run its software back end on x86 (sdk/include/zam.h)
+PC_TARGET += -isystem tools/sh4zam/include
+# its XMTRX is the port's, one for the game (xbox/port/xmtrx.c), so it keeps
+# none per thread, and takes no pthreads, which nxdk lacks
+PC_TARGET += -DSHZ_TLS_MODEL=SHZ_TLS_DISABLED
+# Each object keeps DWARF, which tools can read as make dc's read its
 PC_TARGET += -g -gdwarf-4 $(call quoted,-fdebug-prefix-map=$(CURDIR)=.)
-# GCC's guards hold the port's side of the C, so the PC build takes each of
-# them, and XBOX the port's own (XBOX.md#how-the-port-was-made). XBOX takes
-# the original's bodies, as native C, where GCC's run SH-4 code
+# NONMATCHING's guards hold the ports' side of the C, so the x86 build takes
+# each of them, and XBOX the port's own (XBOX.md#how-the-port-was-made). It
+# takes no DREAMCAST, whose guards hold the SH-4's instructions, so their
+# other side, the shipped C, or the port's under XBOX, is the port's
+# (PORTS.md#switches)
 # pc.mk's pc_double defines double as float where SHC's flags make it a
 # float. clang's stddef.h would define max_align_t with long double, which
 # then reads long float, and nothing takes it, so its guard is set
-PC_TARGET += -DGCC -DXBOX -DNDEBUG -D__CLANG_MAX_ALIGN_T_DEFINED
-# Clang reads the tree as make gcc's GCC does, the reading tools/csource.py
+PC_TARGET += -DNONMATCHING -DXBOX -DNDEBUG -D__CLANG_MAX_ALIGN_T_DEFINED
+# Clang reads the tree as make dc's GCC does, the reading tools/csource.py
 # and tools/inline.py model: __clang__ undefined, since the tree's #ifdef
 # __clang__ declarations serve clang-tidy's reading of the shipped side, and
 # a GNU C compiler
@@ -71,12 +79,12 @@ PCFLAGS = $(PC_TARGET) $(PC_OPTIMIZE) $(PC_ZEROS_IN_DATA) $(PC_AS_SHC) $(PC_LAYO
 
 # PC_ADDED is the sources in xbox/ that add to a source of the tree, where
 # replacing it would copy its C, as SOURCE:ADDED. each defines what the
-# source's assembly defines and make pc can't build, and links where the
-# source does, as config/gcc.mk's GCC_ADDED adds to an image
+# source's assembly defines and make xbox-pc-test can't build, and links where the
+# source does, as config/dreamcast.mk's DC_ADDED adds to an image
 PC_ADDED := sdk/ninja/njGlobal.c:xbox/sdk/ninja/njGlobal_data.c
 
 # PC_SH2C is the sources whose inline bodies tools/sh2c.py translates, which
-# make pc appends to the source's split C. SH2C_SOURCE gives a source's
+# make xbox-pc-test appends to the source's split C. SH2C_SOURCE gives a source's
 # arguments: the calls its bodies make, as register templates
 PC_SH2C := sdk/ninja/njLtSrcs.c sdk/ninja/njSetCamera.c sdk/ninja/njSetCameraAngle.c \
 	sdk/ninja/njPointCamereInterest.c sdk/ninja/njRollCameraInterest.c sdk/ninja/njModel.c sdk/ninja/njModelS.c \

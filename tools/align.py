@@ -53,13 +53,11 @@ def align(text, section, alignment, where):
     old = int(ALIGN.fullmatch(operands[given[0]])[1])
     if alignment <= old:
         fail(f'{where}:{first + 1}: {section} is on {old} already, and {alignment} is no larger')
-    operands[given[0]] = f'{operands[given[0]].split("=")[0]}={alignment}'
-    rewritten = {number: f'{other[1]}{",".join(operands)}{other[3]}' for number, other in declared}
-    changed = [number for number, line in enumerate(lines) if rewritten.get(number, line) != line]
-    if changed != [first]:
-        fail(f'{where}:{changed[1] + 1}: declares {section} again, and would change with line {first + 1}; '
+    if len(declared) > 1:
+        fail(f'{where}:{declared[1][0] + 1}: declares {section} again, and would change with line {first + 1}; '
              'the tool changes one line')
-    lines[first] = rewritten[first]
+    operands[given[0]] = f'{operands[given[0]].split("=")[0]}={alignment}'
+    lines[first] = f'{match[1]}{",".join(operands)}{match[3]}'
     return '\n'.join(lines)
 
 

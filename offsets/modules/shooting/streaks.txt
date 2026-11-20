@@ -1,0 +1,13 @@
+datum  streak_models  D  0x00000000  24
+datum  wisp_textures  D  0x00000018  108
+datum  wisp_texlist  D  0x00000084  8
+datum  wisp_frame  D  0x0000008c  20
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  11
+text  TEXT_3  C  0x00000018  11
+text  TEXT_4  C  0x00000024  13
+text  TEXT_5  C  0x00000034  13
+text  TEXT_6  C  0x00000044  13
+text  TEXT_7  C  0x00000054  11
+text  TEXT_8  C  0x00000060  10
+text  TEXT_9  C  0x0000006c  16

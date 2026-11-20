@@ -1,0 +1,14 @@
+datum  light_materials  D  0x00000000  20
+datum  light_meshes0  D  0x00000014  128
+datum  light_uvs0  D  0x00000094  256
+datum  light_meshsets  D  0x00000194  24
+datum  light_points  D  0x000001ac  384
+datum  light_normals  D  0x0000032c  384
+datum  light_model  D  0x000004ac  40
+datum  light_object  D  0x000004d4  52
+datum  light_ang  D  0x00000508  256
+datum  light_scl  D  0x00000608  256
+datum  light_mdata  D  0x00000708  24
+datum  light_motion  D  0x00000720  12
+datum  light_action  D  0x0000072c  8
+datum  light_color  D  0x00000734  16

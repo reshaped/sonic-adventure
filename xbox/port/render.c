@@ -1084,6 +1084,11 @@ void port_runs_reset(void)
     lit_count = 0;
 }
 
+/* the identity rows of a run of points already on the screen
+ * (xbox/engine/sa1/model.c's meshset_run). they lie in the port layer, which
+ * links after the game's own data, so that they move none of it */
+const float port_screen_rows[12] = {1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+
 /* a run for the game's drawer to fill: where its vertices and its
  * triangles' indices go, an index counting from the run's first vertex, and
  * the room for each. its number, for the list's PARA_MODEL, or -1 where the

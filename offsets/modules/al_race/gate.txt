@@ -1,0 +1,7 @@
+datum  gate_kinds  C  0x00000000  64
+datum  gate_desc  C  0x00000040  24
+datum  gate_spots  C  0x00000058  96
+datum  gate_list  C  0x000000b8  12
+datum  gate_collision  C  0x000000c4  2
+datum  gate_shapes  D  0x00000000  104
+datum  gates_passed  B  0x00000000  1

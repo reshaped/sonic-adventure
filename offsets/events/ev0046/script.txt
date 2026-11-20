@@ -1,0 +1,14 @@
+datum  ev0046_white  D  0x00000000  4
+datum  ev0046_emerald  D  0x00000004  4
+datum  ev0046_frog  D  0x00000008  4
+datum  ev0046_textures  D  0x0000000c  32
+text  TEXT_1  C  0x0000000c  16
+text  TEXT_2  C  0x00000020  10
+text  TEXT_3  C  0x0000002c  23
+text  TEXT_4  C  0x00000048  18
+text  TEXT_5  C  0x00000064  39
+text  TEXT_6  C  0x00000094  57
+text  TEXT_7  C  0x0000001c  2
+text  TEXT_8  C  0x00000044  2
+text  TEXT_9  C  0x0000005c  5
+text  TEXT_10  C  0x0000008c  7

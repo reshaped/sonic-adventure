@@ -1,0 +1,17 @@
+datum  ev006e_amy_motion_3  D  0x00000000  12
+datum  ev006e_amy_action_3  D  0x0000000c  8
+datum  ev006e_bird_textures  D  0x00000014  144
+datum  ev006e_bird_texlist  D  0x000000a4  8
+datum  dat_0cb8de4c  D  0x000000ac  20
+text  TEXT_1  C  0x00000000  10
+text  TEXT_2  C  0x0000000c  10
+text  TEXT_3  C  0x00000018  11
+text  TEXT_4  C  0x00000024  9
+text  TEXT_5  C  0x00000030  9
+text  TEXT_6  C  0x0000003c  10
+text  TEXT_7  C  0x00000048  10
+text  TEXT_8  C  0x00000054  12
+text  TEXT_9  C  0x00000060  8
+text  TEXT_10  C  0x00000068  8
+text  TEXT_11  C  0x00000070  8
+text  TEXT_12  C  0x00000078  10

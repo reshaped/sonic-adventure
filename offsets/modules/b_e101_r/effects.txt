@@ -1,0 +1,12 @@
+datum  jets_task  D  0x00000000  4
+datum  thrust_dust  D  0x00000004  60
+datum  burst_beam  D  0x00000040  32
+datum  beam_spark_frames  D  0x00000060  220
+datum  jet_glow_frames  D  0x0000013c  396
+datum  jet_frames  D  0x000002c8  32
+datum  jet_texture  D  0x000002e8  44
+datum  swat_spark_frames  D  0x00000314  220
+datum  swat_flash_frames  D  0x000003f0  440
+datum  beam_spark_pool  B  0x00000000  4
+datum  beam_spark_target  B  0x00000004  12
+datum  swat_spark_pool  B  0x00000010  4

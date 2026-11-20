@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set the view to camera c. _nj_camera_matrix_ becomes the matrix that moves
  * c's position to the origin, turns c's direction onto +z, about y and then x,
  * and turns by -c->roll about z. the matrix stack is reset to its base, which

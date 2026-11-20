@@ -1,0 +1,9 @@
+datum  arrow_materials  D  0x00000000  20
+datum  arrow_meshes  D  0x00000014  204
+datum  arrow_meshsets  D  0x000000e0  24
+datum  arrow_points  D  0x000000f8  228
+datum  arrow_normals  D  0x000001dc  228
+datum  arrow_model  D  0x000002c0  40
+datum  arrow_y  D  0x000002e8  52
+datum  arrow_z  D  0x0000031c  52
+datum  quad_order  D  0x00000350  16

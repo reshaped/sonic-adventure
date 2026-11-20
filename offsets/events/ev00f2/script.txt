@@ -1,0 +1,7 @@
+datum  ev00f2_puddle  D  0x00000000  4
+datum  ev00f2_fade  D  0x00000004  4
+datum  ev00f2_textures  D  0x00000008  32
+text  TEXT_1  C  0x0000000c  26
+text  TEXT_2  C  0x00000028  52
+text  TEXT_3  C  0x0000005c  36
+text  TEXT_4  C  0x00000080  10

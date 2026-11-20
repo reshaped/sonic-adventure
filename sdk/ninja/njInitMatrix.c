@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* make m the matrix stack, with room for n matrices, holding one: a scale of
  * -1 in x and y, the current matrix, in m[0] and in XMTRX. _nj_matrix_flag_
  * takes flag */

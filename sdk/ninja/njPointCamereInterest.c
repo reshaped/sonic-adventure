@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* aim c at the point x, y, z. c's view direction, vx to vz, becomes the
  * vector from its position toward the point, scaled to unit length by FSRRA's
  * approximate 1 / sqrt. _nj_camera_matrix_ becomes the unit matrix turned by

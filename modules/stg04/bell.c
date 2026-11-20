@@ -125,7 +125,7 @@ static void bell_clapper_step(struct task *task)
          * player 0 off the ground, and its FALSE goes unread. the test below
          * then reads speed's frame slot unwritten (FMOV.S @R15,FR2 at
          * 0x0c9040d4) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset speed the tag names: 0, a still player's ground
          * speed, leaves the bell still */
         speed = 0.0F;

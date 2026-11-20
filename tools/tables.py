@@ -31,7 +31,7 @@ PLACE = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)(?:\[(0|[1-9][0-9]{0,8})\])?')
 # nine digits, as ALIGNMENT does.
 DEFINITION = re.compile(r'([^[\]]+)(?:\[([1-9][0-9]{0,8})\])?')
 # vouched, ending a row of data.txt, says each word of the row's definition
-# whose value lies in RAM is an address. Only make gcc's content acts on it
+# whose value lies in RAM is an address. Only make dc's content acts on it
 # (TOOLCHAIN.md#generated-ranges).
 VOUCHED = 'vouched'
 # a placement's source, and a gen/ range's: gen/<image>/d_<address>.c

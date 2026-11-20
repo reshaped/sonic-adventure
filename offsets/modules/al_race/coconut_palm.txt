@@ -1,0 +1,12 @@
+datum  coconut_palm_places  C  0x00000000  96
+datum  coconut_palm_falloff  C  0x00000060  12
+datum  coconut_palm_desc  C  0x0000006c  24
+datum  coconut_palm_no_turn  C  0x00000084  12
+datum  coconut_palm_unit  C  0x00000090  12
+datum  coconut_palm_collision  C  0x0000009c  2
+datum  coconut_palm_coconut_motion  C  0x000000a0  12
+datum  coconut_palm_shapes  D  0x00000000  52
+datum  coconut_palm_kind  D  0x00000034  28
+datum  coconut_palm_coconut_pos  B  0x00000000  12
+datum  coconut_palm_coconut_ang  B  0x0000000c  12
+datum  coconut_palm_coconut_scl  B  0x00000018  12

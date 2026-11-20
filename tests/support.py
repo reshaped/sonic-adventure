@@ -1,14 +1,19 @@
 """Build temporary input trees for tools that read the working directory, and run make in one."""
 
+import atexit
 import contextlib
+import functools
 import hashlib
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 
+import offsets
 import vendor
 from images import EVENT_ALIASES, ROOTS
 
@@ -28,17 +33,20 @@ def cwd(path):
 
 @contextlib.contextmanager
 def tree(files):
-    """A temporary working directory holding files, a {path: text or bytes} map."""
+    """A temporary working directory holding files, a {path: text or bytes}
+    map. It yields the directory's path as the working directory names it,
+    through no symlink: macOS keeps its temporary directories behind one."""
     with tempfile.TemporaryDirectory() as root:
+        root = Path(root).resolve()
         for name, content in files.items():
-            path = Path(root, name)
+            path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(content, bytes):
                 path.write_bytes(content)
             else:
                 path.write_text(content)
         with cwd(root):
-            yield Path(root)
+            yield root
 
 
 # a module's tables and sources, and 1ST_READ.BIN's, whose symbols.txt every module reads
@@ -108,7 +116,7 @@ GAME_TREE = {
     'modules/movie/cast.c': ''.join(f'texture_load_prs_file("{name}", &texlist);\n' for name in
                                     ('KNUCKLES.PRS', 'EV_TR2_BIG.PRS', 'AMY.PRS', 'MILES.PRS')),
     'src/progress/recorder.h': '#define DEMO_RECORDING ((struct pad_sample *)0x0cbe0000)\n',
-    'src/system/texture.c': ('#ifdef GCC\n#define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)\n#else\n'
+    'src/system/texture.c': ('#ifdef NONMATCHING\n#define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)\n#else\n'
                              '#define FILE_ROOM(size) (((size) + 255) & ~255)\n#endif\n'),
     'src/progress/demo.c': ('static struct demo demos[DEMO_COUNT] = {\n'
                             '    {STAGE_A, 0, CHARACTER_SONIC, DEMO_NO_EVENT},\n};\n\nvoid demo_advance(void)\n{\n'
@@ -138,7 +146,7 @@ GAME_TREE = {
                          'int stage_a(void)\n{\n    return stage_flag + stage_bss;\n}\n'),
     'modules/stgb/b.c': 'int stage_flag = 2;\n\nint stage_b(void)\n{\n    return stage_flag;\n}\n',
     'events/ev0001/head.c': ('extern void ev0001_script(int phase);\n\nstruct head {\n    void (*entry)(int phase);\n'
-                             '    void *textures;\n};\n\n#ifdef GCC\n'
+                             '    void *textures;\n};\n\n#ifdef NONMATCHING\n'
                              'static struct head ev0001_head __attribute__((used));\n#endif\n'
                              'static struct head ev0001_head = {ev0001_script, 0};\n'),
     'events/ev0001/script.c': 'int ev0001_count;\n\nvoid ev0001_script(int phase)\n{\n    ev0001_count += phase;\n}\n',
@@ -170,36 +178,125 @@ def checkout(files=None):
 SETTINGS = re.search(r'(?m)^SETTINGS := (.*)$', (ROOT / 'Makefile').read_text())[1].split()
 
 
-def make(root, *args, path=None):
-    """make's status and output, stdout and stderr together, run in root
+# the make the tests run: the one MAKE names in the environment as the tests
+# start, which make test sets to the make that runs it, or else make. It is
+# bound by its path, so that a test's PATH changes no make
+MAKE = os.environ.get('MAKE', 'make')
+MAKE = shutil.which(MAKE) or MAKE
+
+
+@functools.lru_cache(maxsize=None)
+def stand_in(command, script):
+    """A directory that holds one file, command, an executable of script's
+    text. The first call for the two makes it, and it lasts until the tests
+    end."""
+    directory = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, directory)
+    Path(directory, command).write_text(script)
+    Path(directory, command).chmod(0o755)
+    return directory
+
+
+# what uname -sm prints on x86-64 Linux, the host a test's make reads unless
+# the test names another
+LINUX = 'Linux x86_64'
+# what uname -sm prints on a Mac of each processor: Apple silicon, then Intel
+MACS = ('Darwin arm64', 'Darwin x86_64')
+# UNAME(host) is a uname that prints host for -sm, as the Makefile asks its
+# host. It fails on any other arguments: the host's own uname would answer
+# them for the host that runs the tests
+UNAME = ('#!/bin/sh\n[ "$*" = -sm ] || {{\n'
+         '    echo "uname: the tests\' stand-in answers -sm alone, and this is uname $*" >&2\n    exit 2\n}}\n'
+         "echo '{}'\n").format
+# a timeout that sets no limit: it runs the command that follows its options
+# and its duration
+UNLIMITED = ('#!/bin/sh\nwhile :; do case $1 in -k|-s) shift 2;; -*) shift;; *) break;; esac; done\n'
+             'shift\nexec "$@"\n')
+# the host's timeout, or None where its PATH finds none, as on macOS
+TIMEOUT = shutil.which('timeout')
+# the PATH make searches unless a test gives another: the environment's as
+# the tests start, and after it, where that finds no timeout, a directory
+# that holds UNLIMITED as timeout. On a host that runs SHC, as LINUX does, the
+# host check of a goal that builds and may run SHC asks for timeout, whatever
+# the goal runs
+PATH = os.environ['PATH'] if TIMEOUT else os.pathsep.join((os.environ['PATH'], stand_in('timeout', UNLIMITED)))
+
+
+def make(root, *args, path=None, uname=LINUX):
+    """MAKE's status and output, stdout and stderr together, run in root
     with -j1 and then args. make runs in the C locale, so that a host tool's
-    messages read as the tests expect, and with path for PATH when given. It
-    takes no flags or makefiles from the environment, as a make running this
-    or the shell may give them, and none of SETTINGS, such as the SH_ELF
-    that names the tests' toolchain."""
+    messages read as the tests expect. Its PATH is path, or PATH where none
+    is given, after UNAME(uname): the Makefile asks uname for its host, and
+    the tests hold its rules for the host they name, x86-64 Linux unless a
+    test gives another, whichever host runs them. make takes no flags or
+    makefiles from the environment, as a make running this or the shell may
+    give them, and none of SETTINGS, such as the SH_ELF that names the
+    tests' toolchain."""
     env = {name: value for name, value in os.environ.items()
            if name not in ('MAKEFLAGS', 'MFLAGS', 'MAKELEVEL', 'GNUMAKEFLAGS', 'MAKEFILES', *SETTINGS)}
     env['LC_ALL'] = 'C'
-    if path is not None:
-        env['PATH'] = path
-    run = subprocess.run(['make', '-j1', *args], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    env['PATH'] = os.pathsep.join((stand_in('uname', UNAME(uname)), PATH if path is None else path))
+    run = subprocess.run([MAKE, '-j1', *args], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          text=True)
     return run.returncode, run.stdout
 
 
-# each command but the C compiler that the Makefile's and gcc.mk's host
+def path_with_bin(root):
+    """A PATH that searches root's bin/ first, where a test's stand-ins for
+    the host's commands lie."""
+    return f'{root / "bin"}{os.pathsep}{PATH}'
+
+
+# the matching build's goals, as the Makefile names them. The build runs no
+# SHC on a Mac, so there the Makefile refuses each
+MATCHING_GOALS = re.search(r'(?m)^MATCHING_GOALS := (.*)$', (ROOT / 'Makefile').read_text())[1].split()
+
+
+# a stand-in that makes the file "ran" in the directory it runs in, for a
+# command a test's make may not run
+RAN = '#!/bin/sh\ntouch ran\n'
+
+
+def stopped(*typed, said):
+    """A pattern for the line with which the Makefile stops a make that was
+    given the goals typed: MAKE's name and the goals, as the Makefile's
+    TYPED holds them, then said."""
+    return (rf'Makefile:\d+: \*\*\* {re.escape(" ".join((os.path.basename(MAKE), *typed)))}: {re.escape(said)}\.'
+            r'  Stop\.\n')
+
+
+def no_shc(*typed, reached=None):
+    """A pattern for the line with which make refuses the matching build on
+    a Mac. It names MAKE and each of typed, the goals make was given, and
+    then reached, the stamp or download a rule depends on, where a rule and
+    not a goal asked for SHC."""
+    return stopped(*typed, said=(f'{reached}: ' if reached else '') + 'the matching build needs Linux on x86, where '
+                   'wibo runs SHC, and this is macOS; see README.md#build')
+
+
+# each command but the C compiler that the Makefile's and dc.mk's host
 # checks can ask for
 COMMANDS = ('sha256sum', 'timeout', 'curl', 'tar', 'gzip', 'xz', 'c++', 'cmp')
+# what tar --version prints first. GNU tar names no library: it runs gzip and
+# xz to unpack what they compressed. libarchive's tar names, after BSDTAR,
+# each library it was built with, and unpacks through that one by itself:
+# ZLIB what gzip compressed, and LIBLZMA what xz did
+GNU_TAR = 'tar (GNU tar) 1.35'
+BSDTAR = 'bsdtar 3.5.3 - libarchive 3.7.4'
+ZLIB = 'zlib/1.2.12'
+LIBLZMA = 'liblzma/5.4.3'
 
 
 @contextlib.contextmanager
-def host(*lacking):
+def host(*lacking, tar=None):
     """A PATH of one directory, which holds each command PATH finds and each
     of COMMANDS, but none of lacking: a link to the command, or for one of
-    COMMANDS that PATH lacks, a script that does nothing."""
+    COMMANDS that PATH lacks, a script that does nothing. Where tar is a
+    text, the directory's tar is a script that prints it for --version and
+    fails on any other arguments."""
     with tempfile.TemporaryDirectory() as bin:
         # a directory early in PATH links over a later one's command
-        for directory in reversed(os.environ['PATH'].split(os.pathsep)):
+        for directory in reversed(PATH.split(os.pathsep)):
             for found in Path(directory).glob('*') if Path(directory).is_dir() else ():
                 if os.access(found, os.X_OK):
                     Path(bin, found.name).unlink(missing_ok=True)
@@ -208,6 +305,10 @@ def host(*lacking):
             if not Path(bin, command).exists():
                 Path(bin, command).write_text('#!/bin/sh\n')
                 Path(bin, command).chmod(0o755)
+        if tar is not None:
+            Path(bin, 'tar').unlink()
+            Path(bin, 'tar').write_text(f'#!/bin/sh\n[ "$*" = --version ] && echo {shlex.quote(tar)}\n')
+            Path(bin, 'tar').chmod(0o755)
         for command in lacking:
             Path(bin, command).unlink(missing_ok=True)
         yield bin
@@ -233,15 +334,34 @@ def depends(target, source, *headers):
     return f'{target}: {" ".join((source, *headers))}\n' + ''.join(f'{header}:\n' for header in headers)
 
 
+# the table of offsets of a body source that names no datum: no row
+NO_ROWS = ''
+
+
+def tabled(files):
+    """files, and a table of offsets with no row for each C source among
+    them that includes a .inc file, as a body source does."""
+    return {**files, **{str(offsets.table(path)): NO_ROWS for path, text in files.items()
+                        if path.endswith('.c') and '.inc"\n' in text}}
+
+
+# a host C compiler as the Makefile runs it to write a .d file: it writes the file -MF names, which holds what
+# depends() gives -MT's target and the source, the last word, with no header
+CC = ('#!/bin/sh\nwhile [ $# -gt 1 ]; do case $1 in -MF) d=$2;; -MT) t=$2;; esac; shift; done\n'
+      'echo "$t: $1" > "$d"\n')
+
+
+# the wibo the Makefile downloads on LINUX
+WIBO = 'tools/wibo-i686'
 # the tools make downloads on first use, in place
-PINNED = {'tools/wibo-i686': '', **{f'tools/shc-v5.0{release}/shc.exe': '' for release in ('r10', 'r26', 'r32')}}
+PINNED = {WIBO: '', **{f'tools/shc-v5.0{release}/shc.exe': '' for release in ('r10', 'r26', 'r32')}}
 # a file in each directory the Makefile searches for sources, so that none of its scans prints an error
-SEARCHED = {f'{root}/.gitkeep': '' for root in (*ROOTS, 'gcc')}
+SEARCHED = {f'{root}/.gitkeep': '' for root in ROOTS}
 # the originals orig/ takes, each holding its own name
 ORIGINALS = {f'orig/{name}': name.encode()
              for name in ('1ST_READ.BIN', 'SONICADV/MOD.PRS', *(f'SONICADV/{alias}.PRS' for alias in EVENT_ALIASES))}
 # the tables of X_MOT.PRS, a motion file: its one section, D, holds no code. D is a gen/ range of eight bytes.
-# make gcc's census check reads the file decoded, for addresses in 1ST_READ.BIN's image
+# make dc's census check reads the file decoded, for addresses in 1ST_READ.BIN's image
 MOTION = {'config/x_mot/splits.txt': ('D  0x0cc00000  0x0cc00008\n'
                                       'gen/x_mot/d_0cc00000.c  D  0x0cc00000  0x0cc00008\n'),
           'config/x_mot/symbols.txt': '', 'config/x_mot/data.txt': '0x0cc00000  words[2]\n'}
@@ -261,11 +381,18 @@ def listing(paths):
 
 # the data.txt of a gen/ range of MOD.PRS's D, from 0x0c900180 to 0x0c900200
 MOD_DATA = {'config/mod/data.txt': '0x0c900180  words[32]\n'}
-# a.c, a source that includes a header, a body, its texts and its values; a gen/ range in MOD.PRS's D; g.c, a
-# grafted source, whose donor includes a header; p.c, a patched source; s.c, whose object R10 alone builds;
-# MOD.PRS's original; and every file make writes in building them, their stubs and the other sources make check
-# builds, in splicing MOD.BIN from them, and in writing MOD.PRS's content
+# a.c, a source that includes a header, a body, its texts and its values, and its table of offsets; a gen/ range in
+# MOD.PRS's D; g.c, a grafted source, whose donor includes a header; p.c, a patched source; s.c, whose object R10
+# alone builds; MOD.PRS's original; and every file make writes in building them, their stubs and the other sources
+# make check builds, in checking a.c's table, in splicing MOD.BIN from them, and in writing MOD.PRS's content
 A_INCS = ('text.inc', 'values.inc', 'a.inc')
+A_C = ('#include "mod/a.h"\n#define TEXT_1_LENGTH 2\n#include "mod/a/text.inc"\n'
+       '#include "mod/a/values.inc"\nstatic int a[1] = {\n#include "mod/a/a.inc"\n};\n'
+       'static int b[1] = {VALUE_1};\n')
+# a.c's table, the table its stub build gives, the check that holds the first to the second, and a.c's reads
+A_TABLE, A_BUILT_TABLE, A_HELD = (
+    'offsets/modules/mod/a.txt', 'build/offsets/modules/mod/a.txt', 'build/offsets/modules/mod/a.ok')
+A_READS = 'build/reads/modules/mod/a.d'
 BUILT = {
     'config/compilers.mk': COMPILERS + ('GRAFTED_C := sdk/ninja/g.c\nDONOR_C := sdk/ninja/d.c\n'
                                         'PATCHED_C := sdk/ninja/p.c\nPATCHES := align-pool\n'),
@@ -274,10 +401,11 @@ BUILT = {
     'sdk/ninja/d.h': '',
     'sdk/ninja/p.c': '',
     'sdk/ninja/s.c': '',
-    'modules/mod/a.c': ('#include "mod/a.h"\n#define TEXT_1_LENGTH 2\n#include "mod/a/text.inc"\n'
-                        '#include "mod/a/values.inc"\nstatic int a[1] = {\n#include "mod/a/a.inc"\n};\n'
-                        'static int b[1] = {VALUE_1};\n'),
+    'modules/mod/a.c': A_C,
     'modules/mod/a.h': '',
+    A_TABLE: NO_ROWS,
+    A_BUILT_TABLE: NO_ROWS,
+    A_HELD: '',
     'config/mod/splits.txt': (MODULE['config/mod/splits.txt'] + 'sdk/ninja/g.c  P  0x0c900040  0x0c900050\n'
                               'sdk/ninja/p.c  P  0x0c900060  0x0c900070\n'
                               'sdk/ninja/s.c  P  0x0c900080  0x0c900090\n'
@@ -301,6 +429,8 @@ BUILT = {
     'build/src/main.d': depends('build/src/main.obj', 'src/main.c'),
     'build/stub/modules/mod/a.d': depends('build/stub/modules/mod/a.obj', 'modules/mod/a.c', 'modules/mod/a.h',
                                           *(f'build/stub/modules/mod/a/{inc}' for inc in A_INCS)),
+    A_READS: depends(A_READS, 'modules/mod/a.c', 'modules/mod/a.h',
+                     *(f'build/stub/modules/mod/a/{inc}' for inc in A_INCS)),
     'build/modules/mod/a.d': depends('build/modules/mod/a.obj', 'modules/mod/a.c', 'modules/mod/a.h',
                                      *(f'build/gen/modules/mod/a/{inc}' for inc in A_INCS)),
     'build/gen/mod/d_0c900180.d': depends('build/gen/mod/d_0c900180.obj', 'build/gen/mod/d_0c900180.c'),
@@ -310,16 +440,19 @@ BUILT = {
     'build/sdk/ninja/p.d': depends('build/sdk/ninja/p.obj', 'sdk/ninja/p.c'),
     'build/sdk/ninja/s.d': depends('build/sdk/ninja/s.obj', 'sdk/ninja/s.c'),
 }
-# two steps of BUILT's, by the text make -n prints for each: the compile of a.c's stub, and the step that writes
-# a.c's bodies
+# four steps of BUILT's, by the text make -n prints for each: the compile of a.c's stub, the step that writes
+# a.c's bodies, the step that writes the table a.c's stub build gives, and the check that holds a.c's table to it
 STUB_SHC = 'shc.exe modules/mod/a.c -sub=build/stub/modules/mod/a.obj.sub'
-BODIES = 'tools/data.py --bodies build/gen/img/MOD.BIN modules/mod/a.c'
+BODIES = f'tools/data.py --bodies build/gen/img/MOD.BIN modules/mod/a.c {A_TABLE} {A_READS} build/gen/modules/mod/a mod'
+MEASURE = f'tools/data.py --offsets modules/mod/a.c build/stub/modules/mod/a.lis {A_READS} {A_BUILT_TABLE}'
+HOLD = f'cmp -s {A_TABLE} {A_BUILT_TABLE} || '
 
 # a tree in which make and make check have only their hashes left to check: the originals; MODULE's objects and
 # links, and MOD.PRS's decoded and rebuilt files, built; SHA256SUMS's line for each original, link and decoded file,
 # in path order; and the pinned tools in place. make check's splice.py --check needs every image's code written,
 # so a stand-in that passes takes its place; and its progress.py --check needs every image and README.md's numbers,
-# so one that passes takes its place too
+# so one that passes takes its place too. Its imports.py --definitions runs as it is, and reads no object: the tree
+# imports nothing
 LISTED = {**ORIGINALS, 'build/1st_read/src/main.bin': bytes(16), 'build/mod/modules/mod/a.bin': bytes(32),
           'build/mod/modules/mod/b.bin': bytes(16), 'build/SONICADV/MOD.BIN': b'MOD'}
 HASHED = {

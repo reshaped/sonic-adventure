@@ -106,6 +106,10 @@ static void aica_apu_preload(const char *name)
 {
     (void)name;
 }
+static void aica_apu_probe(int on)
+{
+    (void)on;
+}
 static void xbox_sound_report(void)
 {
 }
@@ -2945,6 +2949,9 @@ int main(void)
      * reading 0, which hangs the game's ADX streams. the sound opens first:
      * video takes what memory is left for its textures */
     have_sound = setting("HOST_SILENT") == NULL && xbox_sound_open(sound_ram_kernel) == 0;
+    if (have_sound && setting("HOST_STREAM_PROBE") != NULL) {
+        aica_apu_probe(1);
+    }
     have_video = setting("HOST_HEADLESS") == NULL && video_open() == 0;
     if (have_video && video_hd()) {
         /* 720p's picture is 16:9: the port's own (port_toggles[TOGGLE_WIDE],

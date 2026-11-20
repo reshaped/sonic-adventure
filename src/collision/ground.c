@@ -42,9 +42,9 @@ Float ground_below(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 10.0F);
     best = -GROUND_FAR;
-#ifdef GCC
-    /* repairs the unset ang_x and ang_z the tag at the end names: with no
-     * floor, GCC writes a flat slope */
+#ifdef NONMATCHING
+    /* repairs the unset ang_x and ang_z the tag at the end names. with no
+     * floor, this side writes a flat slope */
     ang_x = 0;
     ang_z = 0;
 #endif
@@ -128,9 +128,9 @@ Float ground_nearest(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
-#ifdef GCC
-    /* repairs the unset ang_x and ang_z the tag at the end names: with no
-     * floor, GCC writes a flat slope */
+#ifdef NONMATCHING
+    /* repairs the unset ang_x and ang_z the tag at the end names. with no
+     * floor, this side writes a flat slope */
     ang_x = 0;
     ang_z = 0;
 #endif
@@ -206,9 +206,9 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
-#ifdef GCC
-    /* repairs the unset ang_x and ang_z the tag at the end names: with no
-     * floor, GCC writes a flat slope */
+#ifdef NONMATCHING
+    /* repairs the unset ang_x and ang_z the tag at the end names. with no
+     * floor, this side writes a flat slope */
     ang_x = 0;
     ang_z = 0;
 #endif
@@ -308,7 +308,7 @@ Float ground_find_first_floor(struct task_work *work, struct angles *slope)
     return query.floor.level;
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* hand port.h's present_shadow the shadow at x, y and z, turned about z, x
  * and y, of width scale, drawn as way says */
 static void shadow_cast(Float x, Float y, Float z, Angle ang_z, Angle ang_x,
@@ -344,7 +344,7 @@ void shadow_draw_at_height(struct task_work *work, Float height)
 {
     Float scale;
 
-#ifdef GCC
+#ifdef NONMATCHING
     scale = SHADOW_SCALE(1.0F, work->pos.y - height);
     shadow_cast(work->pos.x, height + GIVEN_LIFT, work->pos.z, work->ang.z,
                 work->ang.x, 0, scale, SHADOW_MODEL);
@@ -369,7 +369,7 @@ Float shadow_draw(struct task_work *work, Float scale)
     Float floor;
 
     floor = ground_below(work->pos.x, work->pos.y + 4.0F, work->pos.z, &slope);
-#ifdef GCC
+#ifdef NONMATCHING
     scale = SHADOW_SCALE(scale, work->pos.y - floor);
     shadow_cast(work->pos.x, floor + SHADOW_LIFT, work->pos.z, slope.z, slope.x,
                 -work->ang.y, scale, SHADOW_OBJECT);
@@ -392,7 +392,7 @@ Float shadow_draw(struct task_work *work, Float scale)
 
 void shadow_draw_at(struct angles *ang, NJS_POINT3 *pos, Float scale)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     shadow_cast(pos->x, pos->y, pos->z, ang->z, ang->x, 0, scale, SHADOW_TWICE);
 #else
     if (frame_step == 0) {
@@ -415,7 +415,7 @@ Float shadow_draw_slope(struct task_work *work, Float scale,
     Float floor;
 
     floor = ground_below(work->pos.x, work->pos.y, work->pos.z, slope);
-#ifdef GCC
+#ifdef NONMATCHING
     scale = SHADOW_SCALE(scale, work->pos.y - floor);
     shadow_cast(work->pos.x, floor + SHADOW_LIFT, work->pos.z, slope->z,
                 slope->x, work->ang.y, scale, SHADOW_OBJECT);
@@ -532,7 +532,7 @@ void shadow_update(struct task_work *work, struct shadow *shadow)
             }
         }
     }
-#ifdef GCC
+#ifdef NONMATCHING
     if (shadow->below > query.pos.y - 20000.0F) {
         scale = SHADOW_SCALE(shadow->scale, query.pos.y - shadow->below);
         shadow_cast(work->pos.x, shadow->below + SHADOW_LIFT, work->pos.z,

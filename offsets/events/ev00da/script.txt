@@ -1,0 +1,9 @@
+datum  ev00da_light_points  D  0x00000000  10592
+datum  ev00da_light_path  D  0x00002960  8
+datum  ev00da_frog  D  0x00002968  4
+datum  ev00da_light  D  0x0000296c  4
+datum  ev00da_textures  D  0x00002970  16
+text  TEXT_1  C  0x00000000  12
+text  TEXT_2  C  0x0000000c  48
+text  TEXT_3  C  0x0000003c  8
+text  TEXT_4  C  0x00000044  8

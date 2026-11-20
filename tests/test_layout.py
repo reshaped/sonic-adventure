@@ -114,7 +114,7 @@ class Layouts(unittest.TestCase):
             found.layout('struct a')
 
     def test_a_member_two_branches_declare_fails(self):
-        found = types('struct g2 {\n#ifdef GCC\n    volatile Uint32 device;\n#else\n    Uint32 device;\n#endif\n};')
+        found = types('struct g2 {\n#ifdef NONMATCHING\n    volatile Uint32 device;\n#else\n    Uint32 device;\n#endif\n};')
         with self.assertRaisesRegex(LayoutError, '^struct g2: two members named device$'):
             found.layout('struct g2')
 

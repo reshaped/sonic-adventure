@@ -1,0 +1,1 @@
+datum  highway_fog_table  D  0x00000000  512

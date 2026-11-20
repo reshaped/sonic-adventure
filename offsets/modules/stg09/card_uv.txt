@@ -1,0 +1,4 @@
+datum  card_uv_phase  D  0x00000000  2
+datum  card_uv_places  D  0x00000004  84
+datum  card_uv_scrolls  D  0x00000058  112
+datum  card_uv_models  D  0x000000c8  28

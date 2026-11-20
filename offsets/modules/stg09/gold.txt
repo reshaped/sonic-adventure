@@ -1,0 +1,6 @@
+datum  gold_heap_depth  D  0x00000000  4
+datum  gold_heap_slide  D  0x00000004  4
+datum  gold_heap_keeper  D  0x00000008  4
+datum  gold_heap_scrolls  D  0x0000000c  32
+datum  gold_heap_shape  D  0x0000002c  52
+datum  gold_wall_shape  D  0x00000060  52

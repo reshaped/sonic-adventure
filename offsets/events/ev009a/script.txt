@@ -1,0 +1,15 @@
+datum  ev009a_run_keys  C  0x00000000  261
+datum  ev009a_run  C  0x00000108  8
+datum  ev009a_light_diffuse  D  0x00000000  4
+datum  ev009a_light_ambient  D  0x00000004  4
+datum  ev009a_light_task  D  0x00000008  4
+datum  ev009a_shadow  D  0x0000000c  4
+datum  ev009a_textures  D  0x00000010  8
+datum  ev009a_light  B  0x00000000  344
+text  TEXT_1  C  0x00000124  71
+text  TEXT_2  C  0x00000170  32
+text  TEXT_3  C  0x00000194  10
+text  TEXT_4  C  0x000001a0  10
+text  TEXT_5  C  0x0000011c  7
+text  TEXT_6  C  0x0000016c  4
+text  TEXT_7  C  0x00000190  2

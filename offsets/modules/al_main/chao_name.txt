@@ -1,0 +1,3 @@
+datum  name_origin  C  0x00000060  12
+template  letter_points  C  0x00000000  48
+template  window_points  C  0x00000030  48

@@ -149,7 +149,7 @@
  * in: OBJ_REGULAR.PRS's read, of 155785 bytes, runs the whole 1792. the
  * rounding is the AND R0,R1 at 0x8c09f0a0, and at 0x8c09f180 in
  * texture_load_prs_file, whose room ends at WORK_AREA */
-#ifdef GCC
+#ifdef NONMATCHING
 /* repairs the room the tag names: it holds the file's whole sectors, so the
  * read ends at its area's end */
 #define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)
@@ -648,7 +648,7 @@ static struct act_textures twinkle_acts[] = {
 };
 
 /* act_list leaves highway's acts out, so texture_load_act refuses them */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC keeps the table nothing reads, as SHC does, so that highway's land
  * texlists' rows in config/1st_read/imports.txt bind in either build */
 static struct act_textures highway_acts[3] __attribute__((used));
@@ -893,6 +893,11 @@ void texture_load_regular(int set)
                 njLoadTexture(texlist);
             }
             *list = texlist;
+#ifdef NONMATCHING
+            /* repairs the record the tag names: this side keeps each list
+             * in an entry of its own, for texture_release_regular */
+            list++;
+#endif
             pvm++;
             texlist = pvm->texlist;
         }
@@ -1016,10 +1021,40 @@ void texture_release_stage(void)
     while (stage_texlists[i] != NULL) {
         njReleaseTexture(stage_texlists[i]);
         stage_texlists[i] = NULL;
+#ifdef NONMATCHING
+        /* repairs the release the tag names: this side goes on to each
+         * entry */
+        i++;
+#endif
     }
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
+void texture_release_stage_within(const Uint8 *start, const Uint8 *end)
+{
+    int from;
+    int to = 0;
+
+    for (from = 0; stage_texlists[from] != NULL; from++) {
+        NJS_TEXLIST *list = stage_texlists[from];
+        const Uint8 *record = (const Uint8 *)list;
+        const Uint8 *names = (const Uint8 *)list->textures;
+        Uint32 names_size = list->nbTexture * sizeof(NJS_TEXNAME);
+
+        /* njReleaseTexture reads the record and then its names, which GCC
+         * needn't place beside it */
+        if ((record < end && record + sizeof(*list) > start) ||
+            (names < end && names + names_size > start)) {
+            njReleaseTexture(list);
+        } else {
+            stage_texlists[to++] = list;
+        }
+    }
+    stage_texlists[to] = NULL;
+}
+#endif
+
+#ifdef NONMATCHING
 /* whether textures are stage_act's. stage_act must be the current stage's
  * act, so that B_CHAOS7 is loaded when it is Chaos 7's. Chaos 7's textures
  * lie in B_CHAOS7, and while another module holds MODULE_AREA, their
@@ -1043,7 +1078,7 @@ Bool texture_load_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
-#ifdef GCC
+#ifdef NONMATCHING
         if (act_textures_match(textures, stage_act)) {
 #else
         if (textures->stage_act == stage_act) {
@@ -1091,7 +1126,7 @@ Bool texture_release_act(Uint16 stage_act)
 
     for (act = act_list; *act != NULL; act++) {
         textures = *act;
-#ifdef GCC
+#ifdef NONMATCHING
         if (act_textures_match(textures, stage_act)) {
 #else
         if (textures->stage_act == stage_act) {
@@ -1144,6 +1179,9 @@ void texture_load_pvm(char *name, NJS_TEXLIST *texlist)
     int i;
 
     njSetPvmTextureList(&loaded, pvm_textures, names, PVM_TEXTURES);
+    /* @bug logic: load_prs's result goes unread (the BSR at 0x8c09efc2), so
+     * where the file didn't open the loop below copies what an earlier load
+     * left in pvm_textures into texlist, as this file's textures */
     load_prs(name, &loaded);
     count = texlist->nbTexture;
     textures = texlist->textures;
@@ -1172,7 +1210,7 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* GCC deletes an empty loop, so the asm keeps the wait between
              * tries */
             __asm__ volatile("");
@@ -1180,8 +1218,31 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
         }
     }
     if (gdfs == NULL) {
+#ifdef NONMATCHING
+        /* repairs the copy texture_load_pvm's tag names: without its file
+         * the list has no textures of its own, so this side doesn't go on
+         * from one that won't open */
+        loader_failed("OPEN", path, 0);
+#endif
         return -1;
     }
+    /* @bug logic: the file is decoded whether or not it was read. the size
+     * query's result goes unread (the JSR at 0x8c09f084). the loop ends
+     * after TRIES failed reads as it does at a read that worked (the BT at
+     * 0x8c09f0b4 falls through to 0x8c09f0b6), and prs_decompress decodes
+     * what the room held (the JSR at 0x8c09f0c0). a read that fails can
+     * leave its request running, which each later try and the decode then
+     * share the room with */
+#ifdef NONMATCHING
+    /* repairs the decode the tag names: this side goes on only from a size
+     * and a read that worked, each try made once the one before has ended */
+    if (!gdFsGetFileSize(gdfs, &size)) {
+        loader_failed("SIZE", path, 0);
+    }
+    sectors = SECTORS(size);
+    file = WORK_AREA_END - FILE_ROOM(size);
+    loader_must_read_tries(gdfs, path, sectors, file, TRIES);
+#else
     gdFsGetFileSize(gdfs, &size);
     sectors = SECTORS(size);
     file = WORK_AREA_END - FILE_ROOM(size);
@@ -1190,6 +1251,7 @@ static Sint32 load_prs(char *name, NJS_TEXLIST *texlist)
             break;
         }
     }
+#endif
     gdFsClose(gdfs);
     prs_decompress(file, WORK_AREA);
     return njLoadTexturePvmMemory(WORK_AREA, texlist);
@@ -1210,7 +1272,7 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
             break;
         }
         for (i = 0; i < OPEN_WAIT; i++) {
-#ifdef GCC
+#ifdef NONMATCHING
             /* GCC deletes an empty loop, so the asm keeps the wait between
              * tries */
             __asm__ volatile("");
@@ -1218,8 +1280,27 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
         }
     }
     if (gdfs == NULL) {
+#ifdef NONMATCHING
+        /* as in load_prs: this side doesn't go on from a file that won't
+         * open */
+        loader_failed("OPEN", name, 0);
+#endif
         return -1;
     }
+    /* @bug logic: the file is decoded whether or not it was read, as in
+     * load_prs: the size query's result goes unread (the JSR at
+     * 0x8c09f164), the loop ends after TRIES failed reads as at a read that
+     * worked (the BT at 0x8c09f194 falls through to 0x8c09f196), and
+     * prs_decompress decodes what the room held (the JSR at 0x8c09f1a0) */
+#ifdef NONMATCHING
+    /* repairs the decode the tag names, as load_prs's does */
+    if (!gdFsGetFileSize(gdfs, &size)) {
+        loader_failed("SIZE", name, 0);
+    }
+    sectors = SECTORS(size);
+    file = WORK_AREA - FILE_ROOM(size);
+    loader_must_read_tries(gdfs, name, sectors, file, TRIES);
+#else
     gdFsGetFileSize(gdfs, &size);
     sectors = SECTORS(size);
     file = WORK_AREA - FILE_ROOM(size);
@@ -1228,6 +1309,7 @@ Sint32 texture_load_prs_file(char *name, NJS_TEXLIST *texlist)
             break;
         }
     }
+#endif
     gdFsClose(gdfs);
     prs_decompress(file, MODULE_AREA);
     return njLoadTexturePvmMemory(MODULE_AREA, texlist);

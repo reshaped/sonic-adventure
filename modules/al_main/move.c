@@ -649,7 +649,7 @@ static void move_choose(struct task_work *work, struct alife_chao *chao)
          * njUnitVector read way's from sp+4 (0x0c916da2, 0x0c916dae), and
          * njInnerProduct reads it and facing's from sp+16 (0x0c916db8), as
          * earlier code left those words */
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset facing.y and way.y the tag names: at 0, both
          * lie level, and the test compares headings alone */
         facing.y = 0.0F;

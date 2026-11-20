@@ -1,0 +1,8 @@
+datum  chaos6_object_kinds  D  0x00000000  140
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  8
+text  TEXT_3  C  0x00000010  7
+text  TEXT_4  C  0x00000018  9
+text  TEXT_5  C  0x00000024  11
+text  TEXT_6  C  0x00000030  7
+text  TEXT_7  C  0x00000038  10

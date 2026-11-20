@@ -19,12 +19,15 @@
 #include "enemy/sai.h"
 #include "enemy/sai_textures.h"
 #include "object/placement.h"
-#ifdef GCC
+#ifdef NONMATCHING
 #include "object/simple.h"
 #endif
 #include "player/lockon.h"
 #include "player/player.h"
 #include "sound/sound.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#endif
 #include "system/task.h"
 #include "system/util.h"
 
@@ -261,12 +264,12 @@ static void sai_setup(struct task *task, struct task_work *work)
     sprite->p.x = 0.0F;
     sprite->p.y = 0.0F;
     sprite->p.z = 0.0F;
-#ifdef GCC
-    /* repairs the treads' short copies. the image's hold nbMesh * 3 uvs, 42,
-     * as if each tread's 14 meshes were triangles (SHLL2 R0 at 0x8c0fe07a,
-     * SHLL2 R4 at 0x8c0fe14c). its strips draw 56, so each draw of a tread
-     * reads 14 uvs past the copy, the next heap block's header among them.
-     * GCC's copies hold all 56 */
+#ifdef NONMATCHING
+    /* repairs the treads' short copies. the image's hold nbMesh * 3 uvs, 42
+     * (SHLL2 R0 at 0x8c0fe07a, SHLL2 R4 at 0x8c0fe14c). that count takes
+     * each tread's 14 meshes for triangles. a tread's strips draw 56. so
+     * each draw reads 14 uvs past the copy, the next heap block's header
+     * among them. this side's copies hold all 56 */
     if ((VARS(work)->tread_plus_z_uvs =
              heap_alloc(meshset_count_points(sai_tread_plus_z_model->meshsets) *
                         sizeof(NJS_TEX))) != NULL) {
@@ -609,7 +612,7 @@ static void sai_roll_treads(struct task_work *work,
     int i;
 
     uv = VARS(work)->tread_plus_z_uvs;
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the tread's scroll: it scrolls every uv sai_setup's copy holds,
      * the 56 its strips draw. the image scrolls nbMesh * 3, 42, and draws heap
      * words past them, which vary */
@@ -625,7 +628,7 @@ static void sai_roll_treads(struct task_work *work,
     }
     sai_tread_plus_z_model->meshsets->vertuv = VARS(work)->tread_plus_z_uvs;
     uv = VARS(work)->tread_minus_z_uvs;
-#ifdef GCC
+#ifdef NONMATCHING
     /* repairs the other tread's scroll, as the first's */
     count = meshset_count_points(sai_tread_minus_z_model->meshsets);
 #else
@@ -711,6 +714,28 @@ static void sai_spring_scale(struct task_work *work)
     work->scl.x = 2.0F - work->scl.y;
 }
 
+#ifdef NONMATCHING
+/* draw the sai as sai_draw does, for step 1. sai_animate holds no task to
+ * pass sai_draw */
+static void sai_draw_body(struct task_work *work, struct lockon_target *record)
+{
+    njSetTexture(&e_sai_texlist);
+    njPushMatrix(NULL);
+    njTranslateV(NULL, &work->pos);
+    TURN(njRotateZ, work->ang.z);
+    TURN(njRotateX, work->ang.x);
+    TURN(njRotateY, work->ang.y);
+    njScale(NULL, work->scl.x, work->scl.y, work->scl.x);
+    if (work->mode == SAI_REV) {
+        draw_action(&sai_rev_action, record->frame);
+    } else {
+        draw_action(sai_drive_action, record->frame);
+    }
+    draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
+    njPopMatrix(1);
+}
+#endif
+
 /* spring the sai's scale, and draw its jet. on a step draw_in_view passes,
  * also draw the sai, advance its action, and point the tread models back at
  * their own uvs. the frame wraps at the drive action's count of frames,
@@ -725,6 +750,19 @@ static void sai_animate(struct task_work *work, struct lockon_target *record)
     sai_animate_jet(work, record);
     sai_draw_jet(work, record);
     if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 10.0F)) {
+#ifdef NONMATCHING
+        /* step 1's draw of the jet keeps the second picture's pass from
+         * calling sai_draw. so step 1 draws the sai too, at the action's
+         * frame step 0 left */
+        if (frame_step != 0 && FRAME_DRAWS()) {
+            present_untimed(TRUE);
+            if (draw_in_view_any_step(work->pos.x, work->pos.y, work->pos.z,
+                                      10.0F)) {
+                sai_draw_body(work, record);
+            }
+            present_untimed(FALSE);
+        }
+#endif
         return;
     }
     njSetTexture(&e_sai_texlist);
@@ -754,7 +792,28 @@ static void sai_draw(struct task *task)
 {
     struct task_work *work = task->work;
     struct lockon_target *record = LOCKON_TARGET(task);
+#ifdef NONMATCHING
+    NJS_MATERIAL jet;
+#endif
 
+#ifdef NONMATCHING
+    /* the second picture's pass calls this where step 1 drew no model, as
+     * when frame_later_draws is FALSE. it then draws what sai_animate draws:
+     * the jet, and the sai where draw_in_view passes. the jet takes the
+     * material sai_animate_jet gives the tick before. the tick and the
+     * material go back after */
+    if (frame_redrawing) {
+        jet = *sai_jet_materials;
+        work->tick--;
+        sai_animate_jet(work, record);
+        work->tick++;
+        sai_draw_jet(work, record);
+        *sai_jet_materials = jet;
+        if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 10.0F)) {
+            return;
+        }
+    }
+#endif
     njSetTexture(&e_sai_texlist);
     njPushMatrix(NULL);
     njTranslateV(NULL, &work->pos);

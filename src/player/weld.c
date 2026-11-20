@@ -40,7 +40,7 @@ void player_weld(int player, NJS_OBJECT *object, NJS_MOTION *motion,
     weld = anim->welds;
     action.object = object;
     action.motion = motion;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that a weld whose kind reads the points and normals has
      * the object_b that sets them, as in player_update_welds */
     points_a = points_b = normals_a = normals_b = NULL;
@@ -54,13 +54,30 @@ void player_weld(int player, NJS_OBJECT *object, NJS_MOTION *motion,
                 if (weld->object_b != NULL) {
                     points_a = weld->object_a->model->points;
                     normals_a = weld->object_a->model->normals;
+#ifdef NONMATCHING
+                    /* only WELD_BOTH and WELD_TO_B read a's inverse, as in
+                     * player_update_welds */
+                    if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_B) {
+                        njSetMatrix(&weld_inverse_a, &weld_matrix_a);
+                        njInvertMatrix(&weld_inverse_a);
+                    }
+#else
                     njSetMatrix(&weld_inverse_a, &weld_matrix_a);
                     njInvertMatrix(&weld_inverse_a);
+#endif
                     pose_get_matrix(weld->node_b, &weld_matrix_b);
                     points_b = weld->object_b->model->points;
                     normals_b = weld->object_b->model->normals;
+#ifdef NONMATCHING
+                    /* and only WELD_BOTH and WELD_TO_A read b's */
+                    if (weld->kind == WELD_BOTH || weld->kind == WELD_TO_A) {
+                        njSetMatrix(&weld_inverse_b, &weld_matrix_b);
+                        njInvertMatrix(&weld_inverse_b);
+                    }
+#else
                     njSetMatrix(&weld_inverse_b, &weld_matrix_b);
                     njInvertMatrix(&weld_inverse_b);
+#endif
                 } else {
                     /* @hack spelling: point's and other's zeros in two chains,
                      * which put 0.0F in FR13 (FLDI0 FR13 at 0x8c04f026) and

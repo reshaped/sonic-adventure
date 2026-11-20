@@ -1,0 +1,4 @@
+datum  corner_light_shape  D  0x00000000  52
+datum  corner_light_texlist  D  0x00000034  8
+datum  corner_light_texanim  D  0x0000003c  20
+datum  corner_light_sprite  B  0x00000000  32

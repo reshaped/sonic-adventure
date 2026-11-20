@@ -11,7 +11,7 @@
  * (0x8c61bb5c), as syCacheOCBP and syCacheOCWB do. as volatile, syCache.c's
  * code runs 4 bytes longer and 62 of the 759 words of the seven functions
  * that use CCR differ, in each image */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC makes each access to CCR that the C writes, in the C's order, only
  * through a volatile lvalue */
 #define CCR (*(volatile Uint32 *)0xff00001cUL)
@@ -84,7 +84,7 @@ static void settle_pipeline(void);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* prefetch the 32-byte lines over size bytes from address. address must be
  * line-aligned, and size above 0: DT takes a count of 0 as 2^32 */
 /* expanded into syCachePREF at 0x8c61c154, after the BRA at 0x8c61c148 over
@@ -104,7 +104,8 @@ static void prefetch_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* go on at the next instruction through its uncached P2 alias */
 /* @asm open: no inspect rule reads its JMP to its own P2 alias */
 #pragma inline_asm(enter_p2)
@@ -140,7 +141,8 @@ static void invalidate_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* invalidate each line of entries 0 to 255 whose address lies from first to
  * last. a line's address is its tag with its entry's offset bits. with
  * keeps_ram set, entries 128 to 255 are RAM, and the walk stops after 127 */
@@ -310,7 +312,8 @@ static void purge_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* write back and invalidate each line of entries 0 to 255 whose address lies
  * from first to last, as invalidate_low_entries finds them */
 /* @asm opcode: cache-line, OCBP @R1 at 0x8c61bdee, in syCacheOCBP, writes back
@@ -479,7 +482,8 @@ static void write_back_lines(void *address, Uint32 size)
         ADD         #32,R4
 }
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* write back each line of entries 0 to 255 whose address lies from first to
  * last, as invalidate_low_entries finds them */
 /* @asm opcode: cache-line, OCBWB @R1 at 0x8c61c012, in syCacheOCWB, writes back
@@ -649,7 +653,7 @@ void syCachePREF_s(void *address, Uint32 size)
 void syCacheInit_P2_(Uint32 form)
 {
     syCachePurgeAll();
-#ifdef GCC
+#ifdef NONMATCHING
     /* one store of form with CCR_ICI set, which SHC makes of the #else
      * side's two */
     CCR = form | CCR_ICI;
@@ -670,7 +674,8 @@ void syCacheOCI_P2_(void)
     CCR |= CCR_OCI;
 }
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* code at its P2 address runs uncached */
 #define P2(address) ((Uint32)(address) | 0xa0000000UL)
 /* the bits of a line's address that its tag holds, 10 to 28 */
@@ -739,6 +744,7 @@ static __attribute__((noinline)) void walk_entries(Uint32 first, Uint32 last,
     settle_pipeline();
 }
 #endif
+#endif
 
 void syCacheOCBI(void *address, Sint32 size)
 {
@@ -764,7 +770,7 @@ void syCacheOCBI(void *address, Sint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
-#ifdef GCC
+#ifdef NONMATCHING
         last = ((Uint32)address + size - 1) & LINE_MASK;
         ((entry_walk *)P2(walk_entries))(first, last, INVALIDATE);
 #else
@@ -806,7 +812,7 @@ void syCacheOCBP(void *address, Sint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
-#ifdef GCC
+#ifdef NONMATCHING
         last = ((Uint32)address + size - 1) & LINE_MASK;
         ((entry_walk *)P2(walk_entries))(first, last, PURGE);
 #else
@@ -847,7 +853,7 @@ void syCacheOCWB(void *address, Uint32 size)
     } else {
         saved_mask = get_imask();
         set_imask(IMASK_ALL);
-#ifdef GCC
+#ifdef NONMATCHING
         last = ((Uint32)address + size - 1) & LINE_MASK;
         ((entry_walk *)P2(walk_entries))(first, last, WRITE_BACK);
 #else
@@ -873,7 +879,7 @@ void syCachePREF(void *address, Uint32 size)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c61c170 follows the
  * body's own return at 0x8c61c16c */
 #pragma inline_asm(syCacheMOVCAL)
@@ -885,7 +891,8 @@ void syCacheMOVCAL(void *address, Uint32 value)
         NOP
 }
 
-#ifndef GCC
+#ifdef NONMATCHING
+#else
 /* eight NOPs, for the pipeline after the purge */
 /* expanded into syCachePurgeAll at 0x8c61c238, after the BRA at 0x8c61c220 over
  * syCachePurgeAll's pool */
@@ -906,7 +913,8 @@ static void settle_pipeline(void)
 #endif
 /* clang-format on */
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* write back and invalidate each line the operand cache keeps, by a store
  * of 0 to its entry's tag, for syCachePurgeAll. it runs from P2, calls
  * nothing, ends on settle_pipeline and is noinline, for the reasons
@@ -925,6 +933,7 @@ static __attribute__((noinline)) void clear_tags(void)
     settle_pipeline();
 }
 #endif
+#endif
 
 void syCachePurgeAll(void)
 {
@@ -933,7 +942,7 @@ void syCachePurgeAll(void)
 
     saved_mask = get_imask();
     set_imask(IMASK_ALL);
-#ifdef GCC
+#ifdef NONMATCHING
     ((tag_clear *)P2(clear_tags))();
     set_imask(saved_mask);
 #else

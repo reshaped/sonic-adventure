@@ -25,7 +25,7 @@ int _log10(long_double value)
     int exp;
     long_double whole;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that the splits set both: _xti passes no NaN or infinity,
      * and exp's product is finite */
     exp = 0;

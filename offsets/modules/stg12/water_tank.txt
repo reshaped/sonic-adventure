@@ -1,0 +1,5 @@
+datum  water_tank_shape  D  0x00000000  52
+datum  water_tank_bubble_texlist  D  0x00000034  8
+datum  water_tank_bubble_texanim  D  0x0000003c  20
+datum  water_tank_bubble_sprite  D  0x00000050  32
+datum  water_tank_zero  C  0x00000000  12

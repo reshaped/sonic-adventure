@@ -2,7 +2,7 @@
 1ST_READ.BIN's imports that those stages don't hold.
 
 stages() reads the loader's source (TOOLCHAIN.md#stage-loading), and uses()
-config/1st_read/uses.txt (GCC.md#imports-and-the-census). The import check,
+config/1st_read/uses.txt (PORTS.md#imports-and-the-census). The import check,
 tools/imports.py, reads both, and tools/content.py reads stages() to name
 what 1ST_READ.BIN's path_lists point at.
 """
@@ -95,7 +95,7 @@ def stages():
     - a label the header doesn't number;
     - a case that reads a file and doesn't end before the next label or
       default;
-    - a directive in the body, such as a guard's #ifdef GCC, since stages()
+    - a directive in the body, such as a guard's #ifdef NONMATCHING, since stages()
       would read both of a guard's sides as one.
     """
     if not STAGE_LOADER.exists():

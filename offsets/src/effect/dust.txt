@@ -1,0 +1,7 @@
+datum  dust_texlist  D  0x00000000  8
+datum  dust_frames  D  0x00000008  200
+datum  dust_anim  D  0x000000d0  20
+datum  dust_glow_anim  D  0x000000e4  20
+datum  dust_pool  D  0x000000f8  16
+datum  dust_glow_pool  D  0x00000108  16
+datum  dust_defaults  D  0x00000118  60

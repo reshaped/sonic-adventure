@@ -144,8 +144,8 @@ static Uint32 blink_drop_phase = 0x1000;
  * 0x8c05ecb8). ISO C leaves the read past blink_alpha undefined, but SHC
  * lays the four out in a row. as one NJS_ARGB, 154 of blink_draw's 156
  * words differ */
-#ifdef GCC
-/* keeps the read the tag names: GCC's four are the members of one
+#ifdef NONMATCHING
+/* keeps the read the tag names: this side's four are the members of one
  * NJS_ARGB */
 static NJS_ARGB blink_color = {1.0F, 0.0F, 0.0F, 0.0F};
 #define blink_alpha blink_color.a
@@ -168,10 +168,10 @@ static void piece_glint_step(struct task *task)
 
     if ((GLINT(work)->frame += 16.0F / 15.0F) >= 4.0F) {
         task_kill(task);
-#ifdef GCC
-        /* repairs the read the tag below names: on the step that kills the
-         * glint, GCC draws nothing, as the image does with a texanim of
-         * size 0 */
+#ifdef NONMATCHING
+        /* repairs the read the tag below names: this side draws nothing on
+         * the glint's last step. the image draws nothing there either, with a
+         * texanim of size 0 */
         return;
 #endif
     }
@@ -196,7 +196,7 @@ static void piece_glint_step(struct task *task)
     placement_try_leave(task);
 }
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* draw a piece at pos, turned by ang, and its glow, as piece_draw does */
 static void piece_draw_still(NJS_POINT3 *pos, Angle ang)
 {
@@ -248,11 +248,11 @@ static void piece_draw(NJS_POINT3 *pos, Angle *ang)
     int i;
 
     if (frame_step != 0) {
-#ifdef GCC
-        /* no callback draws the piece for the second picture's pass, so step 1
-         * draws it for that picture where port.h's FRAME_DRAWS says, as step 0
-         * left its spin, and starts no glint. where it says not, the piece
-         * shows in the first picture alone */
+#ifdef NONMATCHING
+        /* no callback draws the piece for the second picture's pass. so
+         * step 1 draws it for that picture where port.h's FRAME_DRAWS is
+         * TRUE. it takes the spin step 0 left, and starts no glint. otherwise
+         * the piece shows in the first picture alone */
         if (FRAME_DRAWS()) {
             present_untimed(TRUE);
             piece_draw_still(pos, *ang);

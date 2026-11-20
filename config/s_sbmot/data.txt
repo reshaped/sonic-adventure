@@ -1,6 +1,6 @@
 # S_SBMOT.PRS: each definition of its gen/ ranges, by address.
 # A definition is a kind or a C type, with [COUNT] for an array. Only
-# make gcc writes each row, as the image's content
+# make dc writes each row, as the image's content
 # (TOOLCHAIN.md#generated-ranges).
 #
 # address   definition

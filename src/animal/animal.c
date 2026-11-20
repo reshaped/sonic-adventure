@@ -126,11 +126,8 @@ struct animal_vars {
 #define VARS(work) ((struct animal_vars *)&(work)->vars)
 #define FLAGS(work) TASK_TIMER(work)
 /* in a garden, the flags word counts the steps the animal has been held or
- * thrown instead. animal_draw still reads its ANIMAL_BARRIER bit, 0x40, so
- * the barrier shows at counts 64 to 127, 192 to 255 and so on.
- * animal_destroy still reads its ANIMAL_OWN_SPEC bit, 0x2000. at a count
- * with that bit set, it passes heap_free the kind's row of the static
- * animal_specs */
+ * thrown instead. animal_draw_barrier and animal_destroy read its
+ * ANIMAL_BARRIER and ANIMAL_OWN_SPEC bits as flags */
 #define COUNT(work) FLAGS(work)
 
 #define SE_APPEAR 24
@@ -479,6 +476,14 @@ static void animal_garden_step(struct task *task)
  * draw the animal themselves */
 static void animal_draw_none(struct task *task)
 {
+#ifdef NONMATCHING
+    /* a split frame is a frame of play shown as two pictures. the second
+     * picture calls a task's draw but not its step, so this side draws the
+     * animal there */
+    if (frame_redrawing) {
+        animal_draw(VARS(task->work)->animal, task->work);
+    }
+#endif
 }
 
 static void animal_destroy(struct task *task)
@@ -489,7 +494,20 @@ static void animal_destroy(struct task *task)
     work = task->work;
     animal = VARS(work)->animal;
     if (animal != NULL) {
+        /* @bug memory: frees the kind's row of the static animal_specs where a
+         * garden's COUNT has bit 0x2000 set, which the test reads as
+         * ANIMAL_OWN_SPEC (TST R3,R0 at 0x8c0165da, JSR at 0x8c0165e2). the
+         * bit is set in an animal held 8192 to 16383 steps, 24576 to 32767
+         * and so on, as animal_garden_held counts with no cap (0x8c0183a8) */
+#ifdef NONMATCHING
+        /* repairs the free the tag names. this side frees no row of
+         * animal_specs, whatever FLAGS' bit says */
+        if ((FLAGS(work) & ANIMAL_OWN_SPEC) &&
+            (Uint32)animal->spec - (Uint32)animal_specs >=
+                sizeof(animal_specs)) {
+#else
         if (FLAGS(work) & ANIMAL_OWN_SPEC) {
+#endif
             heap_free((void *)animal->spec);
         }
         if (animal->destructor != NULL) {
@@ -947,10 +965,11 @@ static void animal_hop(struct animal *animal, struct task_work *work)
         return;
     }
     animal->accel.y += GRAVITY;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that animal_init gives this move only to ANIMAL_USA and
-     * ANIMAL_WARA, whose cases set the leap */
-    up = across = leap.from = leap.to = 0.0F;
+     * ANIMAL_WARA, whose cases set the leap. both cases give leap.to 4.0F,
+     * so GCC warns of no unset read of it */
+    up = across = leap.from = 0.0F;
 #endif
     switch (animal->kind) {
     case ANIMAL_USA:
@@ -1354,6 +1373,12 @@ static void animal_draw_body(struct animal *animal, struct task_work *work,
 static void animal_draw_barrier(struct animal *animal, struct task_work *work,
                                 Angle ang)
 {
+    /* @bug logic: in a garden this tests COUNT's bit 0x40 as ANIMAL_BARRIER
+     * (TST #64,R0 at 0x8c018556). animal_start clears the flag there, but
+     * the count sets the bit again. a held animal shows its barrier at
+     * counts 64 to 127, 192 to 255 and so on, and a thrown one at 64 to 127
+     * and 192 to 201, as animal_garden_thrown counts to 201 (0x8c01837e,
+     * 0x8c018384) */
     if (FLAGS(work) & ANIMAL_BARRIER) {
         njSetTexture(&al_barria_texlist);
         njPushMatrix(NULL);

@@ -198,7 +198,7 @@ static void cloud_drift(struct task_work *work)
     NJS_COLOR *uv;
     int i;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that every path sets uv: shooting_act is only ever 0 or
      * 1 */
     uv = act1_cloud_object.model->meshsets->vertuv;

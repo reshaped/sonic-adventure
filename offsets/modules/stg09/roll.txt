@@ -1,0 +1,5 @@
+datum  roll_shape  D  0x00000000  52
+datum  pinball_ring_places  D  0x00000034  192
+datum  roll_left_symbols  D  0x000000f4  16
+datum  roll_middle_symbols  D  0x00000104  16
+datum  roll_right_symbols  D  0x00000114  16

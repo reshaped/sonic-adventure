@@ -2,12 +2,12 @@
 
 Usage: pcflags.py COMPILERS OUT
 
-config/compilers.mk gives each GCC object, under build/gcc/, the SHC flags
-make gcc's float pass reads, beside its SHC objects. OUT gets the same
+config/compilers.mk gives each GCC object, under build/dc/, the SHC flags
+make dc's float pass reads, beside its SHC objects. OUT gets the same
 flags for each object's make pc counterpart, under build/pc/, and for
 nothing else:
 
-- each rule whose targets include a build/gcc/ word, with only those
+- each rule whose targets include a build/dc/ word, with only those
   words, each moved to build/pc/;
 - the own macro, redefined for build/pc/ objects alone, and each call of
   it, as config/compilers.mk spells it.
@@ -20,10 +20,11 @@ SHC objects a second time.
 import re
 import sys
 
-OWN = 'own = $(foreach s,$1,$(eval build/$s.obj build/stub/$s.obj build/gcc/$s.o: private GAME += $2))'
+OWN = ('own = $(foreach s,$1,$(eval build/$s.obj build/stub/$s.obj build/dc/$s.o: private GAME += $2)'
+       '$(eval %/obj/$s.o: private GAME += $2))')
 PC_OWN = 'own = $(foreach s,$1,$(eval build/pc/$s.o: private GAME += $2))'
 # a rule's targets end at the first ': ', so a target may be a substitution
-# reference, as $(LOADER_C:%.c=build/gcc/%.o)
+# reference, as $(LOADER_C:%.c=build/dc/%.o)
 RULE = re.compile(r'(?P<targets>[^#\s][^#]*?): (?P<rest>.*)')
 
 
@@ -44,9 +45,9 @@ def convert(lines):
             calling = line.endswith('\\')
             continue
         match = RULE.fullmatch(line)
-        if not match or 'build/gcc/' not in match['targets']:
+        if not match or 'build/dc/' not in match['targets']:
             continue
-        targets = [t.replace('build/gcc/', 'build/pc/', 1) for t in match['targets'].split() if 'build/gcc/' in t]
+        targets = [t.replace('build/dc/', 'build/pc/', 1) for t in match['targets'].split() if 'build/dc/' in t]
         out.append(f'{" ".join(targets)}: {match["rest"]}')
     return out
 

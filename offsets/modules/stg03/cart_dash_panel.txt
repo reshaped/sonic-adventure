@@ -1,0 +1,3 @@
+datum  cart_dash_panel_shape  D  0x00000000  52
+datum  cart_dash_panel_v  D  0x00000034  8
+datum  cart_dash_panel_arrows  B  0x00000000  4

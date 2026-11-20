@@ -97,10 +97,10 @@ _njInitSprite:
 
 ; void njDrawSprite2D(NJS_SPRITE *sp, Int n, Float pri, Uint32 attr)
 ; draw frame n of sp's texture animation on the screen. the frame's center
-; lies at sp->p.x and sp->p.y, in pixels. its 1/z is -1/pri where pri is -1
-; or less, and 1 otherwise. NJD_SPRITE_ALPHA sends it to the translucent
-; list. NJD_SPRITE_COLOR colors the strip with _nj_constant_material_ in
-; place of white
+; lies at sp->p.x and sp->p.y, in pixels. its 1/z is 1 where pri is over -1,
+; and -1/pri otherwise. NJD_SPRITE_ALPHA sends it to the translucent list.
+; NJD_SPRITE_COLOR colors the strip with _nj_constant_material_ in place of
+; white
 ; @asm operand: small-constant, MOV.L at 0x8c6236e8, and at 0x8ce0d27c in
 ; LOADER.BIN, loads NJD_SPRITE_ALPHA, 32, from the pool
 _njDrawSprite2D:
@@ -1341,8 +1341,8 @@ _sprite_clip_near:
 
 ; R4 = the sprite, R5 = the frame's index, R6 = the flags, FR4 = the
 ; priority. send the frame on the screen, its center at the sprite's x and y,
-; with no clip test. all four corners take a 1/z of -1/priority where the
-; priority is -1 or less, and 1 otherwise. it always sends the frame, so it
+; with no clip test. all four corners take a 1/z of 1 where the priority is
+; over -1, and -1/priority otherwise. it always sends the frame, so it
 ; returns nothing in R0
 ;
 ; R8 steps through the corners' u and v, which lie on the stack from the top

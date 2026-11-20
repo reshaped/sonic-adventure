@@ -1,11 +1,11 @@
-"""Link make pc's images for x86, each at its area, by make gcc's spec.
+"""Link make pc's images for x86, each at its area, by make dc's spec.
 
 Usage: pclink.py SPEC OUT [--drop PATTERN]... [--add IMAGE=OBJECT]...
                   [--skip IMAGE]... [--stubs IMAGE]...
 
-SPEC is make gcc's spec, build/gcc/link/spec.txt, in tools/gcclink.py's
+SPEC is make dc's spec, build/dc/link/spec.txt, in tools/gcclink.py's
 rows. For each image, pclink.py links make pc's objects in its input rows,
-build/gcc/ moved to build/pc/, with ld.lld for i386, to OUT/IMAGE/final.elf
+build/dc/ moved to build/pc/, with ld.lld for i386, to OUT/IMAGE/final.elf
 and its bytes from the origin on to OUT/IMAGE/final.bin, which the port's
 host loads as the console's loader reads the image's file.
 
@@ -31,21 +31,25 @@ host loads as the console's loader reads the image's file.
   the second's layout.
 - An object the spec names that make pc doesn't build, as a .src file's
   or a source that still fails, stays out, and what it defines stays
-  unbound. make gcc's SH-4 libraries stay out: the port runs none of them.
+  unbound. make dc's SH-4 libraries stay out: the port runs none of them.
   XMTRX, the console's one register, is the port layer's, in 1st_read,
   which the other images bind to. config/pc.mk's PC_ADDED objects link
   where their sources do.
 
-- The port layer: --drop leaves out each make gcc input whose source
+- The port layer: --drop leaves out each make dc input whose source
   matches PATTERN, as fnmatch reads it, as sdk/shinobi/*, which the port
   layer replaces; --add links OBJECT into IMAGE after its inputs, as the
   port layer's objects into 1st_read; --skip leaves IMAGE out, as loader.
 - Stubs: for each --stubs IMAGE, each name IMAGE's inputs take and nothing
-  defines or binds takes a stub: a function, where make gcc's definition is
+  defines or binds takes a stub: a function, where make dc's definition is
   code, that has port_unimplemented(name) log it and returns 0, or else
   storage of the definition's size, 32-byte aligned. OUT/stubs/IMAGE.s
   holds them, which clang assembles. 1st_read's stubs take, too, each
   name another image leaves free.
+- SH ELF's names: a C name an __asm__ label spells as the SH-4's assembler
+  does, with its leading underscore, as "__nj_screen_" for _nj_screen_,
+  binds to the C name's definition, the image's or 1st_read's, and takes no
+  stub. upstream's Dreamcast engine reads Ninja's words by such labels.
 - Base: a name an image leaves unbound once the spec's rows are bound
   binds to 1st_read's definition, if it has one, as the port layer's and
   its stubs.
@@ -109,11 +113,11 @@ def objects(rows, added):
         if row[0] != 'input':
             continue
         path = row[2]
-        # make gcc's SH-4 libraries (libgcc.a and its math library) have no
+        # make dc's SH-4 libraries (libgcc.a and its math library) have no
         # make pc objects: the x86 runtime's helpers come with the port's host
-        if '/sh4zam/' in path or not path.startswith('build/gcc/'):
+        if '/sh4zam/' in path or not path.startswith('build/dc/'):
             continue
-        pc = Path(path.replace('build/gcc/', 'build/pc/', 1))
+        pc = Path(path.replace('build/dc/', 'build/pc/', 1))
         if pc.exists():
             found.append(pc)
             if pc in added:
@@ -130,7 +134,7 @@ def script(origin, code, rows, inputs, bindings):
     tails = [row for row in rows if row[0] == 'tail']
 
     def place(row):
-        path = row[3].replace('build/gcc/', 'build/pc/', 1)
+        path = row[3].replace('build/dc/', 'build/pc/', 1)
         section = row[4]
         if path not in pc or not section.startswith('.'):
             return None
@@ -183,9 +187,9 @@ def undefined(inputs):
 
 
 def gcc_kinds(rows):
-    """each name make gcc's inputs define, as (code, size), from sh-elf-nm"""
+    """each name make dc's inputs define, as (code, size), from sh-elf-nm"""
     paths = sorted({row[2] for image_rows in rows.values() for row in image_rows
-                    if row[0] == 'input' and row[2].startswith('build/gcc/') and Path(row[2]).exists()})
+                    if row[0] == 'input' and row[2].startswith('build/dc/') and Path(row[2]).exists()})
     found = {}
     for start in range(0, len(paths), 400):
         out = subprocess.run(['tools/sh-elf/bin/sh-elf-nm', '--defined-only', '-S', *paths[start:start + 400]],
@@ -236,7 +240,7 @@ def main():
         images.pop(image, None)
     for image in images:
         rows[image] = [row for row in rows[image] if not (
-            row[0] == 'input' and any(fnmatch.fnmatch(row[2].replace('build/gcc/', '', 1), pattern.replace('.c', '.o'))
+            row[0] == 'input' and any(fnmatch.fnmatch(row[2].replace('build/dc/', '', 1), pattern.replace('.c', '.o'))
                                       for pattern in args.drop))]
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -257,9 +261,16 @@ def main():
                 found.add(fields[2])
         return found
 
+    def sh_spelled(names, defined, base):
+        """those of names that are the SH-4's spelling of a defined C name"""
+        return {n for n in names if n.startswith('_') and (n[1:] in defined or n[1:] in base)}
+
+    base_defined = defined_by(BASE) if BASE in images else set()
+
     def free_names(image, defined):
         bound = {row[2] for row in rows[image] if row[0] in ('import', 'alias', 'constant')}
-        return undefined(inputs[image]) - defined - bound - {'port_unimplemented'}
+        free = undefined(inputs[image]) - defined - bound - {'port_unimplemented'}
+        return free - sh_spelled(free, defined, base_defined)
 
     if args.stubs:
         kinds = gcc_kinds(rows)
@@ -336,6 +347,17 @@ def main():
                 for name in job.result() - set(defined[image]) - set(bindings[image]):
                     if name in defined[BASE]:
                         bindings[image][name] = defined[BASE][name]
+    # an __asm__ label's SH ELF spelling of a C name binds to that name
+    with concurrent.futures.ThreadPoolExecutor(16) as pool:
+        jobs = {image: pool.submit(undefined, inputs[image]) for image in images}
+        for image, job in jobs.items():
+            for name in job.result() - set(defined[image]) - set(bindings[image]):
+                if not name.startswith('_'):
+                    continue
+                if name[1:] in defined[image]:
+                    bindings[image][name] = defined[image][name[1:]]
+                elif BASE in defined and name[1:] in defined[BASE]:
+                    bindings[image][name] = defined[BASE][name[1:]]
     final = run_all(bindings, codes)
     report, over, moved, total_unbound = [], [], [], 0
     for image, elf in final.items():

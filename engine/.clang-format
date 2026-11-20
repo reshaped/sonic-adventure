@@ -1,0 +1,9 @@
+# the tree's style, but only a function opens its brace on a line of its
+# own, an access label lines up with its class, and a member function
+# defined in its class may take one line
+BasedOnStyle: InheritParentConfig
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: InlineOnly

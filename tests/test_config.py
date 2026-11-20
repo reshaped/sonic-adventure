@@ -430,8 +430,8 @@ class GccObject(unittest.TestCase):
     def test_names_a_source_s_object_at_its_path_and_a_gen_range_s_content(self):
         self.assertEqual([gcc_object(source, 'mod') for source in ('modules/mod/a.c', 'modules/mod/b.src',
                                                                     'gen/mod/d_0c900140.c')],
-                         [Path('build/gcc/modules/mod/a.o'), Path('build/gcc/modules/mod/b.o'),
-                          Path('build/gcc/gen/mod/content.o')])
+                         [Path('build/dc/modules/mod/a.o'), Path('build/dc/modules/mod/b.o'),
+                          Path('build/dc/gen/mod/content.o')])
 
 
 # MODULE with a gen/ range of mod's D

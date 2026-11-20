@@ -26,8 +26,8 @@ SDE_ERR sdPstmStopAll(void)
      * record starts below 256 bytes from streams: past its end, or inside
      * another port's record. the loop reads ch_num there and writes stopped,
      * unk_14 and unk_24 for each channel it gives */
-#ifdef GCC
-    /* repairs the reads and writes past streams the tag names: GCC's loop
+#ifdef NONMATCHING
+    /* repairs the reads and writes past streams the tag names: this side's loop
      * stops at streams' last port. no path reaches the loop: sdPstmStopAll's
      * one caller, mwSndStopAll in mw_sdcs.c, has no caller */
     for (number = 0; number < SDD_PSTM_PORT_MAX; number++) {

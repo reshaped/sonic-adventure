@@ -1,0 +1,3 @@
+datum  e101_r_ring_name  C  0x00000000  8
+datum  e101_r_object_kinds  D  0x00000000  20
+datum  e101_r_object_list  DHEAD  0x00000000  8

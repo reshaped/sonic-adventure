@@ -185,7 +185,7 @@ class Progress(unittest.TestCase):
 BODY = ["        MOV.L       #H'00000001,R1", '        FADD        FR0,FR0']
 # a.c: inner, with no tag and no call, whose one line stands in each copy of twice's body, and so counts as twice's;
 # twice; and an open #pragma asm block
-A_C = ('/* clang-format off */\n#ifndef __clang__\n#pragma inline_asm(inner)\nstatic void inner(void)\n{\n' + BODY[1] +
+A_C = ('/* clang-format off */\n#ifdef DREAMCAST\n#pragma inline_asm(inner)\nstatic void inner(void)\n{\n' + BODY[1] +
        '\n}\n/* @asm operand: fipr-registers, FADD FR0,FR0 at 0x0c900004 */\n'
        '#pragma inline_asm(twice)\nstatic void twice(void)\n{\n' + ''.join(f'{line}\n' for line in BODY) +
        '}\n/* @asm open: every instruction is one SHC writes for C */\n#pragma asm\n        SETT\n#pragma endasm\n'
@@ -424,6 +424,14 @@ class Numbers(unittest.TestCase):
                                                        r'only in decimal digits'):
                 progress.MEASURED.clear()
                 progress.main(['--write', *NUMBERS])
+
+    def test_fails_on_a_repeat_that_names_no_unit(self):
+        # its row's code is the value once, so only its unit and its count give the size
+        source = B_SRC.replace('.DATAB.B    174,0', '.DATAB      174,0')
+        with self.built(files={'modules/mod/b.src': source, 'build/modules/mod/b.lis': b_listing(source)}), \
+                self.assertRaisesRegex(SystemExit, r"build/modules/mod/b\.lis:19: progress reads a \.DATAB's unit only "
+                                                   r'from a \.B, \.W or \.L suffix'):
+            progress.main(['--write', *NUMBERS])
 
     def test_fails_on_a_listing_cut_short(self):
         # a.c's listing, cut after its last row

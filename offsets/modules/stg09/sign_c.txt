@@ -1,0 +1,2 @@
+datum  sign_c_lamps  D  0x00000000  120
+datum  sign_c_posts  D  0x00000078  104

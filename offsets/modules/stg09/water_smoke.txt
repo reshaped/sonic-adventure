@@ -1,0 +1,4 @@
+datum  water_smoke_frames  D  0x00000000  160
+datum  water_smoke_anim  D  0x000000a0  20
+datum  water_smoke_defaults  D  0x000000b4  60
+datum  water_smoke_pool  D  0x000000f0  16

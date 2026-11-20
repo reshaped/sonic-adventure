@@ -1,0 +1,5 @@
+datum  ev0030_cloud_textures  D  0x00000000  36
+datum  event_clouds_texlist  D  0x00000024  8
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  11
+text  TEXT_3  C  0x00000018  11

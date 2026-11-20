@@ -13,6 +13,10 @@
 #include "system/loader.h"
 #include "system/prs.h"
 #include "system/sbinit.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#include "system/port.h"
+#endif
 
 /* where a stage's other programs load, beside its module in MODULE_AREA */
 #define FIELD_AREA ((Uint8 *)0x0c920000) /* ADV0100 or ADV0130 */
@@ -43,6 +47,81 @@ static char *loader_suffixes[CHARACTER_COUNT] = {"S",  "EG", "M", "K",
                                                  "TI", "A",  "E", "B"};
 static char *loader_last_story_suffix = "L";
 
+#ifdef NONMATCHING
+void loader_failed(const char *what, const char *name, Sint32 error)
+{
+    loader_note_error(NULL, error);
+    if (gdFsGetDrvStat() == GDD_DRVSTAT_OPEN) {
+        loader_error_flag = TRUE;
+    }
+    if (!loader_error_flag) {
+        port_stop(what, name, (Uint32)error);
+    }
+    /* the game is leaving. loader_poll_drive leaves once no card save holds
+     * it, here or at a vsync. until then these are the main loop's frames
+     * while a notice holds the game */
+    for (;;) {
+        loader_poll_drive();
+        card_frame_update();
+        frame_wait();
+    }
+}
+
+/* end the request a failed read of file left running, so that the read's
+ * destination and file are the caller's again. where gdFsStopRd can't end
+ * it, the game stops with both still the drive's. gdFsStopRd's own result
+ * doesn't say: a stop that ends the request can return an error too */
+static void settle(GDFS file, const char *name, Sint32 error)
+{
+    Sint32 stat = gdFsGetStat(file);
+
+    if (stat != GDD_STAT_READ && stat != GDD_STAT_BUSY) {
+        return;
+    }
+    gdFsStopRd(file);
+    stat = gdFsGetStat(file);
+    if (stat == GDD_STAT_READ || stat == GDD_STAT_BUSY) {
+        port_stop("READ RUNS ON", name, (Uint32)error);
+    }
+}
+
+void loader_must_read_tries(GDFS file, const char *name, Sint32 sectors,
+                            void *dest, int tries)
+{
+    Sint32 error = GDD_ERR_OK;
+
+    for (; tries > 0; tries--) {
+        error = gdFsRead(file, sectors, dest);
+        if (error == GDD_ERR_OK) {
+            return;
+        }
+        settle(file, name, error);
+    }
+    loader_failed("READ", name, error);
+}
+
+void loader_must_read(GDFS file, const char *name, Sint32 sectors, void *dest)
+{
+    loader_must_read_tries(file, name, sectors, dest, 1);
+}
+
+int loader_must_read_prs(char *name, void *dest)
+{
+    if (loader_read_prs(name, dest) == -1) {
+        loader_failed("OPEN", name, 0);
+    }
+    return 0;
+}
+
+int loader_must_read_file(char *name, void *dest)
+{
+    if (loader_read_file(name, dest) == -1) {
+        loader_failed("OPEN", name, 0);
+    }
+    return 0;
+}
+#endif
+
 /* read the file name into dest, rounded up to whole sectors. it returns -1
  * when the open fails, and 0 otherwise: the size query and the read go
  * unchecked */
@@ -55,14 +134,23 @@ static int loader_read(char *name, void *dest)
     if (loader_file == NULL) {
         return -1;
     }
+#ifdef NONMATCHING
+    /* checks the size query the comment names: this side returns -1 where it
+     * fails */
+    if (!gdFsGetFileSize(loader_file, &size)) {
+        gdFsClose(loader_file);
+        return -1;
+    }
+#else
     gdFsGetFileSize(loader_file, &size);
+#endif
     if (size % SECTOR_SIZE != 0) {
         part = 1;
     } else {
         part = 0;
     }
     size = (size / SECTOR_SIZE) + part;
-    gdFsRead(loader_file, size, dest);
+    LOADER_MUST_READ(loader_file, name, size, dest);
     gdFsClose(loader_file);
     return 0;
 }
@@ -157,6 +245,14 @@ void loader_note_error(void *obj, Sint32 err)
         loader_error_flag = TRUE;
     }
 }
+
+#ifdef NONMATCHING
+/* a stage's programs and a character's motions are what the game can't go
+ * on without, as must_load.h says of a source's loads. here it is these two
+ * functions' alone: a set or a camera file may be missing, as the disc holds
+ * none of Sonic's for some acts */
+#define loader_read_prs loader_must_read_prs
+#endif
 
 void loader_read_stage_files(void)
 {
@@ -572,6 +668,10 @@ void loader_read_character_motions(int character)
     }
 }
 
+#ifdef NONMATCHING
+#undef loader_read_prs
+#endif
+
 void *loader_read_alloc(char *name, int result)
 {
     int size;
@@ -581,7 +681,17 @@ void *loader_read_alloc(char *name, int result)
     if ((size = loader_file_size(name)) == -1) {
         return NULL;
     }
+    /* @bug memory: memory holds size bytes, rounded up to the heap's 32-byte
+     * unit, but loader_read reads whole sectors into it. where size isn't a
+     * multiple of SECTOR_SIZE, the read writes up to 2016 bytes past the
+     * block. the malloc is the JSR at 0x8c0a343e */
+#ifdef NONMATCHING
+    /* repairs the overrun the tag names: this side's block holds the whole
+     * sectors */
+    if ((memory = malloc(SECTORS(size) * SECTOR_SIZE)) == NULL) {
+#else
     if ((memory = malloc(size)) == NULL) {
+#endif
         return NULL;
     }
     /* @hack spelling: name passed through file, a copy, which SHC loads
@@ -616,7 +726,7 @@ int loader_read_prs(char *name, void *dest)
 
     result = loader_read(name, WORK_AREA);
     if (result >= 0) {
-#ifdef GCC
+#ifdef NONMATCHING
         /* the instruction cache fills from RAM, but the operand cache copies
          * back, holding the decoder's stores until their lines are written
          * back. so the decoded bytes go back to RAM before syCacheICI, and

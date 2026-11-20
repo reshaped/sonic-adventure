@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set the inner and outer angles of l's spotlight cone, attr.iang and
  * attr.oang, to iang and oang. ltcal.cosi and ltcal.cose take the squares of
  * their cosines. ltcal.reserve takes the two angles' low 16 bits, iang's in

@@ -1,9 +1,11 @@
 import contextlib
 import fnmatch
+import functools
 import hashlib
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -12,13 +14,38 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import offsets
+import parts
+import support
 import vendor
 from images import ROOTS
-from support import (BODIES, BUILT, COMMANDS, COMPILERS, CURL, FOUND, HASH, HASHED, LISTED, MOD_DATA, MODULE, MOTION,
-                     ORIGINALS, PINNED, SEARCHED, SETTINGS, STUB_SHC, checkout, host, listing, make, placing, settle,
-                     tree)
+from support import (A_BUILT_TABLE, A_HELD, A_INCS, A_READS, A_TABLE, BODIES, BSDTAR, BUILT, CC, COMMANDS, COMPILERS,
+                     CURL, FOUND, GNU_TAR, HASH, HASHED, HOLD, LIBLZMA, LINUX, LISTED, MACS, MAKE, MATCHING_GOALS,
+                     MEASURE, MOD_DATA, MODULE, MOTION, NO_ROWS, ORIGINALS, PATH, PINNED, RAN, SEARCHED, SETTINGS, STUB_SHC,
+                     TIMEOUT, UNLIMITED, WIBO, ZLIB, checkout, depends, host, listing, make, no_shc, path_with_bin,
+                     placing, settle, stopped, tabled, tree)
+from test_relink import definition, obj
+from test_shc_listing import SIZE, directive, label
 
 ROOT = Path(__file__).resolve().parents[1]
+# the repository's makefiles, by path: the Makefile, make dc's rules, config/'s fragments and the engine's
+MAKEFILES = ['Makefile', 'dc.mk',
+             *sorted(path.relative_to(ROOT).as_posix() for pattern in ('config/*.mk', 'engine/**/*.mk')
+                     for path in ROOT.glob(pattern))]
+
+
+def tracked(*patterns):
+    """The files git tracks that match patterns, so a cache or a scratch file left in the tree reads as nothing."""
+    listed = subprocess.run(['git', 'ls-files', '-z', '--', *patterns], stdout=subprocess.PIPE, check=True,
+                            cwd=ROOT).stdout
+    return [path for path in listed.decode().split('\0') if path]
+
+
+@functools.lru_cache(maxsize=None)
+def database():
+    """make's status and its database of the repository's own rules and variables, as make -pqn help prints them
+    for LINUX."""
+    return make(ROOT, '-pqn', 'help')
 
 
 class Images(unittest.TestCase):
@@ -66,7 +93,7 @@ class Stubs(unittest.TestCase):
         # a body, texts and values: the body's stub is 0, and tools/data.py writes the others from the source
         source = ('#define TEXT_1_LENGTH 2\n#include "mod/a/text.inc"\n#include "mod/a/values.inc"\n'
                   'static int a[1] = {\n#include "mod/a/a.inc"\n};\nstatic int b[1] = {VALUE_1};\n')
-        with checkout({'modules/mod/a.c': source}) as root:
+        with checkout(tabled({'modules/mod/a.c': source})) as root:
             status, output = make(root, '-n', 'check')
         self.assertEqual(status, 0, output)
         self.assertIn('echo 0 > build/stub/modules/mod/a/a.inc', output)
@@ -80,7 +107,7 @@ class Stubs(unittest.TestCase):
         # one copy of each list
         files = {**placing('modules/mod/c.c'), 'modules/mod/a.c': 'static int a[1] = {\n#include "mod/a/a.inc"\n};\n',
                  'modules/mod/c.c': 'static int c[1] = {\n#include "mod/c/c.inc"\n};\n'}
-        with checkout(files) as root:
+        with checkout(tabled(files)) as root:
             status, output = make(root, '-n', '-p', 'check')
         self.assertEqual(status, 0, output[-3000:])
         rules = dict(line.split(':', 1) for line in output.splitlines()
@@ -94,7 +121,7 @@ class Stubs(unittest.TestCase):
         # a flag config/compilers.mk gives build/X.obj alone reaches build/stub/X.obj only where make builds the
         # stub as the full object's prerequisite, so make check, which builds the stub alone, compiles it otherwise
         # and its link fails; make's database gives every object's flags, the patterns' with them
-        status, output = make(ROOT, '-pqn', 'help')
+        status, output = database()
         self.assertIn(status, (0, 1), output[-3000:])
         body = re.search(r'(?m)^BODY_C := (.*)$', output)[1].split()
         flags = {}
@@ -142,7 +169,7 @@ class Stubs(unittest.TestCase):
                  'sdk/ninja/q.c': '', 'sdk/ninja/i.c': '',
                  **{f'{stub}.c': f'static int a[1] = {{\n#include "{stub.split("/", 1)[1]}/a.inc"\n}};\n'
                     for stub in ('modules/mod/a', 'sdk/ninja/s', 'sdk/ninja/p')}}
-        with checkout(files) as root:
+        with checkout(tabled(files)) as root:
             status, output = make(root, '-n', 'check')
         self.assertEqual(status, 0, output)
         lines = output.splitlines()
@@ -151,6 +178,353 @@ class Stubs(unittest.TestCase):
             tool = max(index for index, line in enumerate(lines)
                        if ('shc.exe' in line or 'asmsh.exe' in line) and f'{stem}.' in line.replace('\\', '/'))
             self.assertEqual(lines[tool + 1], f'touch {stem}.obj', stem)
+
+
+# a tree of two sources with reads: a.c, a body source of mod's, which includes a header, its texts, its values and
+# a body, and main.c, which 1ST_READ.BIN places. bin/cc stands in for the host's C compiler
+READ = {**SEARCHED, 'bin/cc': CC, 'modules/mod/a.c': BUILT['modules/mod/a.c'], 'modules/mod/a.h': ''}
+# main.c's reads, and the step that writes a.c's and main.c's, by the text make -n prints for it
+MAIN_READS = 'build/reads/src/main.d'
+WRITE_A_READS = f' -MT {A_READS} -MF {A_READS}.tmp modules/mod/a.c && '
+WRITE_MAIN_READS = f' -MT {MAIN_READS} -MF {MAIN_READS}.tmp src/main.c && '
+# what a.c's reads hold once a compiler that reads a.c writes them: a.c, its header and its three stub includes,
+# each on a line of its own that a backslash continues, as a compiler wraps a long rule
+A_NAMES = depends(A_READS, 'modules/mod/a.c', 'modules/mod/a.h',
+                  *(f'build/stub/modules/mod/a/{inc}' for inc in A_INCS)).replace(' ', ' \\\n  ')
+
+
+class Reads(unittest.TestCase):
+    def test_names_reads_for_each_body_source_and_each_c_source_of_1st_read_bin_s_and_no_other(self):
+        # a.c and t.c take a body, and 1ST_READ.BIN places t.c, main.c, an assembly source and a gen/ range. mod
+        # places c.c, which takes no body. READS names a.c's, main.c's and t.c's, each once, and no rule writes
+        # another source's
+        files = {**SEARCHED, **MOD_DATA, **placing('modules/mod/c.c'), 'modules/mod/c.c': '', 'src/v.src': '',
+                 'config/1st_read/splits.txt': (MODULE['config/1st_read/splits.txt'] +
+                                                'src/t.c  P  0x8c0101b0  0x8c0101c0\n'
+                                                'src/v.src  P  0x8c0101c0  0x8c0101d0\n'
+                                                'gen/1st_read/d_8c180000.c  D  0x8c180000  0x8c180010\n'),
+                 'config/1st_read/data.txt': '0x8c180000  words[4]\n',
+                 **{f'{source}.c': f'static int a[1] = {{\n#include "{source.split("/", 1)[1]}/a.inc"\n}};\n'
+                    for source in ('modules/mod/a', 'src/t')}}
+        with checkout(files) as root:
+            status, output = make(root, '-pqn', 'help')
+            self.assertIn(status, (0, 1), output[-3000:])
+            self.assertEqual(re.search(r'(?m)^READS := (.*)$', output)[1].split(),
+                             [A_READS, MAIN_READS, 'build/reads/src/t.d'])
+            for unread in ('build/reads/modules/mod/c.d', 'build/reads/src/v.d',
+                           'build/reads/gen/1st_read/d_8c180000.d'):
+                with self.subTest(unread):
+                    status, output = make(root, '-n', unread)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertIn(f"No rule to make target '{unread}'", output)
+
+    def test_writes_a_source_s_reads_with_the_host_s_compiler_alone_on_any_host(self):
+        # the command is the one that writes an SHC object's .d file, with SHCFLAGS' macro: for main.c with its
+        # route's include directories, and for a.c with its stub's, once its zero body, its texts and its values are
+        # in place. The tree holds no wibo and no SHC, and no step runs or fetches either, on Linux as on a Mac
+        files = {**READ, 'config/compilers.mk': COMPILERS + 'SHCFLAGS := -cpu=sh4 -define=DREAMCAST\n'}
+        searched = '-Isdk/include -Isrc -Imodules -Ievents -Ibuild/{0}/src -Ibuild/{0}/modules -Ibuild/{0}/events ' \
+                   '-Ibuild/{0}/sdk'
+        for uname in (LINUX, *MACS):
+            with self.subTest(uname), scripted(files) as root:
+                status, output = make(root, '-n', A_READS, MAIN_READS, 'CC=bin/cc', uname=uname)
+                self.assertEqual(status, 0, output)
+                for source, reads, inc in (('modules/mod/a.c', A_READS, 'stub'), ('src/main.c', MAIN_READS, 'gen')):
+                    self.assertIn(f'bin/cc -MM -MP -nostdinc -DDREAMCAST {searched.format(inc)} -MT {reads} '
+                                  f'-MF {reads}.tmp {source} && mv {reads}.tmp {reads}\n', output)
+                for step in (ZERO, TEXTS, VALUES):
+                    self.assertLess(output.index(step), output.index(WRITE_A_READS), output)
+                for step in ('wibo', 'shc.exe', 'curl'):
+                    self.assertNotIn(step, output)
+                self.assertEqual(make(root, A_READS, MAIN_READS, 'CC=bin/cc', uname=uname), (0, ''))
+                self.assertEqual((root / A_READS).read_text(), depends(A_READS, 'modules/mod/a.c'))
+                self.assertEqual((root / MAIN_READS).read_text(), depends(MAIN_READS, 'src/main.c'))
+                self.assertEqual(sorted(path.name for path in (root / 'build/stub/modules/mod/a').iterdir()),
+                                 sorted(A_INCS))
+                for unmade in ('build/stub/modules/mod/a.obj', 'build/tools/wibo.id', 'build/tools/r32.id', WIBO,
+                               f'{A_READS}.tmp', f'{MAIN_READS}.tmp'):
+                    self.assertFalse((root / unmade).exists(), unmade)
+                status, output = make(root, A_READS, MAIN_READS, 'CC=bin/cc', uname=uname)
+                self.assertEqual(status, 0, output)
+                self.assertEqual(output.count('is up to date.\n'), 2, output)
+
+    def test_writes_a_source_s_reads_again_once_a_file_they_name_or_what_gives_their_command_changes(self):
+        # a.c's reads name a.c, its header and its three stub includes, and main.c's name main.c alone. Each is
+        # written again once a file it names changes, its texts and values among a.c's, which tools/data.py writes
+        # from a.c, or once the Makefile or config/compilers.mk does, which give the command. The other stays
+        changed = [('modules/mod/a.h', [WRITE_A_READS]), ('build/stub/modules/mod/a/a.inc', [WRITE_A_READS]),
+                   ('modules/mod/a.c', [TEXTS, VALUES, WRITE_A_READS]),
+                   ('tools/data.py', [TEXTS, VALUES, WRITE_A_READS]), ('src/main.c', [WRITE_MAIN_READS]),
+                   ('Makefile', [WRITE_A_READS, WRITE_MAIN_READS]),
+                   ('config/compilers.mk', [WRITE_A_READS, WRITE_MAIN_READS])]
+        with self.listed() as root:
+            for path, steps in changed:
+                with self.subTest(path):
+                    os.utime(root / path)
+                    try:
+                        self.assertEqual(self.written_again(root), steps)
+                    finally:
+                        settle(root)
+
+    def test_writes_reads_again_with_another_compiler_or_once_a_header_joins_or_leaves_roots_or_they_go(self):
+        # CC's stamp holds its command, and build/headers.txt the headers under ROOTS, any of which a search could
+        # find first. a.c's reads name the header that leaves, which stops no make
+        with self.listed() as root:
+            self.assertEqual(self.written_again(root, cc='bin/cc -DANOTHER'), [WRITE_A_READS, WRITE_MAIN_READS])
+            settle(root)
+            (root / 'modules/mod/n.h').write_text('')
+            self.assertEqual(self.written_again(root), [WRITE_A_READS, WRITE_MAIN_READS])
+            settle(root)
+            (root / A_READS).unlink()
+            self.assertEqual(self.written_again(root), [WRITE_A_READS])
+            (root / A_READS).write_text(A_NAMES)
+            settle(root)
+            (root / 'modules/mod/a.h').unlink()
+            self.assertEqual(self.written_again(root), [WRITE_A_READS, WRITE_MAIN_READS])
+
+    def test_writes_no_reads_for_a_goal_that_compiles_nothing_or_under_make_n(self):
+        # make reads each of the reads as rules, and includes none as a makefile: a makefile that a rule writes is
+        # brought up to date as make starts. So with a header changed that a.c's reads name, make help plans and
+        # writes no reads, and make -n plans a.c's and leaves them as they were
+        with self.listed() as root:
+            os.utime(root / 'modules/mod/a.h')
+            dated = (root / A_READS).stat().st_mtime_ns
+            for goals in (('help',), ('-n', 'help'), ('-n', 'clean')):
+                with self.subTest(goals=goals):
+                    status, output = make(root, *goals, 'CC=bin/cc')
+                    self.assertEqual(status, 0, output)
+                    self.assertNotIn('-MM', output)
+                    self.assertEqual((root / A_READS).stat().st_mtime_ns, dated)
+            self.assertEqual(self.written_again(root), [WRITE_A_READS])
+            self.assertEqual(((root / A_READS).read_text(), (root / A_READS).stat().st_mtime_ns), (A_NAMES, dated))
+
+    def test_each_source_s_reads_search_the_directories_its_shc_rule_gives_depend(self):
+        # in the repository's own rules, as make's database gives them. A source's reads follow its stub where it has
+        # one, and else its object: READS_INC is the include directories that rule's recipe hands depend
+        status, output = database()
+        self.assertIn(status, (0, 1), output[-3000:])
+        reads = re.search(r'(?m)^READS := (.*)$', output)[1].split()
+        searched = dict(re.findall(r'(?m)^(build/reads/\S+\.d): READS_INC = (.*)$', output))
+        handed, target = {}, None
+        for line in output.splitlines():
+            if line.startswith('build/') and line.split(':')[0].endswith('.obj'):
+                target = line.split(':')[0]
+            elif not line:
+                target = None
+            elif target and line.startswith('\t') and '$(call depend,' in line:
+                handed[target] = line.partition('$(call depend,')[2][:-1]
+        self.assertGreater(len(reads), 1000)
+        self.assertEqual(sorted(searched), sorted(reads))
+        differ = []
+        for path in reads:
+            stem = path[len('build/reads/'):-len('.d')]
+            followed = f'build/stub/{stem}.obj' if f'build/stub/{stem}.obj' in handed else f'build/{stem}.obj'
+            if searched[path] != handed.get(followed):
+                differ.append(path)
+        self.assertEqual(differ, [])
+
+    def written_again(self, root, cc='bin/cc'):
+        """Of the steps that write a.c's texts, its values and its reads, and main.c's reads, those make -n prints
+        for the two reads in root, with cc as the C compiler."""
+        status, output = make(root, '-n', A_READS, MAIN_READS, f'CC={cc}')
+        self.assertEqual(status, 0, output)
+        return [step for step in (TEXTS, VALUES, WRITE_A_READS, WRITE_MAIN_READS) if step in output]
+
+    @contextlib.contextmanager
+    def listed(self):
+        """READ's checkout once make has written the two reads, with a.c's as A_NAMES gives them, and settle() has
+        dated what it wrote: make -n writes neither again."""
+        with scripted(READ) as root:
+            self.assertEqual(make(root, A_READS, MAIN_READS, 'CC=bin/cc'), (0, ''))
+            (root / A_READS).write_text(A_NAMES)
+            settle(root)
+            self.assertEqual(self.written_again(root), [])
+            yield root
+
+
+# a.c as a source of two bodies, of types tools/data.py lays out by itself, and the rows its table of offsets takes
+# from the listing of its stub build, which places the two at 0 and 8 in D
+MEASURED_C = ('NJS_TEXLIST texlist = {\n#include "mod/a/texlist.inc"\n};\n'
+              'Uint32 table[2] = {\n#include "mod/a/table.inc"\n};\n')
+MEASURED_ROWS = 'datum  texlist  D  0x00000000  8\ndatum  table  D  0x00000008  8\n'
+A_STUB_INCS = [f'build/stub/modules/mod/a/{name}.inc' for name in ('texlist', 'table')]
+# a tree in which a.c's stub is built, with that listing, and a.c's reads are written, so that make has only a.c's
+# table to measure and to hold. The pinned tools are in place
+MEASURED = {
+    **PINNED, **SEARCHED, 'modules/mod/a.c': MEASURED_C, 'build/stub/modules/mod/a.obj': '',
+    'build/stub/modules/mod/a.d': depends('build/stub/modules/mod/a.obj', 'modules/mod/a.c', *A_STUB_INCS),
+    'build/stub/modules/mod/a.lis': '\n'.join([label(0, 'texlist'), directive(0, "H'00000000,H'00000000"),
+                                               label(8, 'table'), directive(8, "H'00000000,H'00000000"), SIZE]) + '\n',
+    **{inc: '0\n' for inc in A_STUB_INCS}, A_READS: depends(A_READS, 'modules/mod/a.c', *A_STUB_INCS),
+}
+# what make offsets prints for a table it copies in, and for one it removes
+COPIED, REMOVED = '  offset {}\n'.format, '  remove {}\n'.format
+
+
+class Offsets(unittest.TestCase):
+    def test_names_a_table_and_the_one_its_stub_build_gives_for_each_body_source_and_no_other(self):
+        # a.c and t.c take a body, and c.c and main.c take none. No rule writes a table for a source that takes none,
+        # and none writes a table under offsets/, which git tracks
+        files = {**SEARCHED, **placing('modules/mod/c.c'), 'modules/mod/c.c': '',
+                 'config/1st_read/splits.txt': (MODULE['config/1st_read/splits.txt'] +
+                                                'src/t.c  P  0x8c0101b0  0x8c0101c0\n'),
+                 **{f'{source}.c': f'static int a[1] = {{\n#include "{source.split("/", 1)[1]}/a.inc"\n}};\n'
+                    for source in ('modules/mod/a', 'src/t')}}
+        with checkout(tabled(files)) as root:
+            status, output = make(root, '-pqn', 'help')
+            self.assertIn(status, (0, 1), output[-3000:])
+            self.assertEqual(re.search(r'(?m)^OFFSETS := (.*)$', output)[1].split(), [A_TABLE, 'offsets/src/t.txt'])
+            self.assertEqual(re.search(r'(?m)^BUILT_OFFSETS := (.*)$', output)[1].split(),
+                             [A_BUILT_TABLE, 'build/offsets/src/t.txt'])
+            for unmade in ('build/offsets/modules/mod/c.txt', 'build/offsets/src/main.ok', A_TABLE,
+                           'offsets/src/main.txt'):
+                with self.subTest(unmade):
+                    (root / unmade).unlink(missing_ok=True)
+                    status, output = make(root, '-n', unmade)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertNotIn('tools/data.py --offsets', output)
+
+    def test_measures_a_table_from_the_stub_s_listing_and_the_source_s_reads(self):
+        # the table a stub build gives waits for the stub, whose object stands for its listing, and for the source's
+        # reads, which name the headers its types come from. tools/data.py --offsets then writes it, and reads
+        # no image: the tree holds no original
+        with checkout({**{path: text for path, text in UNBUILT.items() if not path.startswith('orig/')}, **PINNED}) \
+                as root:
+            status, output = make(root, '-n', A_BUILT_TABLE)
+            self.assertEqual(status, 0, output)
+            self.assertIn(f'\npython3 {MEASURE}\n', output)
+            for step in (STUB_SHC, WRITE_A_READS):
+                self.assertLess(output.index(step), output.index(MEASURE), output)
+            for step in (HOLD, 'orig/', 'build/gen/'):
+                self.assertNotIn(step, output)
+
+    def test_measures_a_table_again_once_tools_data_py_or_a_module_it_imports_changes_and_compiles_no_stub(self):
+        # a.c here has no texts and no values, which tools/data.py would write again for its stub. With the table
+        # measured, make measures it no more until a tool changes
+        with self.measured() as root:
+            self.assertEqual(make(root, A_BUILT_TABLE, 'CC=true'), (0, ''))
+            settle(root)
+            for tool in (None, 'tools/data.py', 'tools/offsets.py', 'tools/shc_listing.py', 'tools/csource.py'):
+                with self.subTest(tool):
+                    if tool:
+                        os.utime(root / tool)
+                    status, output = make(root, '-n', A_BUILT_TABLE, 'CC=true')
+                    self.assertEqual(status, 0, output)
+                    self.assertEqual([step for step in (STUB_SHC, WRITE_A_READS, MEASURE) if step in output],
+                                     [MEASURE] if tool else [], output)
+                    settle(root)
+
+    def test_holds_a_table_to_the_one_its_stub_build_gives_byte_for_byte(self):
+        # make measures a.c's table from its stub's listing for real, and the check passes where the tracked table is
+        # that one. It fails, naming the table and what writes it, on a table with another row, with no row, or with a
+        # comment, and the next run checks again
+        differs = (f'{A_TABLE}: differs from {A_BUILT_TABLE}, which modules/mod/a.c\'s stub build gives. make offsets '
+                   'writes it on x86 Linux; see TOOLCHAIN.md#stub-and-full-builds\n')
+        with self.measured({A_TABLE: MEASURED_ROWS}) as root:
+            self.assertEqual(make(root, A_HELD, 'CC=true'), (0, ''))
+            self.assertEqual((root / A_BUILT_TABLE).read_text(), MEASURED_ROWS)
+            status, output = make(root, A_HELD, 'CC=true')
+            self.assertEqual((status, output.count('is up to date.\n')), (0, 1), output)
+            for text in (MEASURED_ROWS.replace('0x00000008  8', '0x00000008  4'), NO_ROWS,
+                         MEASURED_ROWS + '# measured\n'):
+                with self.subTest(text=text):
+                    (root / A_TABLE).write_text(text)
+                    for _ in range(2):
+                        status, output = make(root, A_HELD, 'CC=true')
+                        self.assertEqual(status, 2, output)
+                        self.assertTrue(output.startswith(differs), output)
+            (root / A_TABLE).write_text(MEASURED_ROWS)
+            self.assertEqual(make(root, A_HELD, 'CC=true'), (0, ''))
+
+    def test_check_waits_for_the_check_of_each_table_and_a_link_named_alone_for_none(self):
+        with checkout({**UNBUILT, **PINNED}) as root:
+            status, output = make(root, '-n', 'check')
+            self.assertEqual(status, 0, output)
+            self.assertLess(output.index(MEASURE), output.index(HOLD), output)
+            status, output = make(root, '-n', 'build/stub/mod/modules/mod/a.bin')
+            self.assertEqual(status, 0, output)
+            self.assertIn(STUB_SHC, output)
+            for step in (MEASURE, HOLD):
+                self.assertNotIn(step, output)
+
+    def test_a_body_source_with_no_table_stops_make_where_a_rule_reads_the_table_as_tools_offsets_py_names_it(self):
+        # under make -n too. The Makefile's line is the one tools/offsets.py gives a missing table, so one text says
+        # what a missing table is and what writes one. make offsets reads no table, and plans a.c's
+        with tree({}):
+            missing = offsets.missing(Path(A_TABLE), 'modules/mod/a.c')
+        self.assertIn('missing; it records where modules/mod/a.c\'s data sits in the original. make offsets writes it '
+                      'on x86 Linux; a renamed source takes a git mv; see TOOLCHAIN.md#stub-and-full-builds', missing)
+        with self.measured() as root:
+            for flags, goal in ((('-n',), 'check'), (('-n',), A_HELD), ((), A_HELD)):
+                with self.subTest(flags=flags, goal=goal):
+                    status, output = make(root, *flags, goal, 'CC=true')
+                    self.assertEqual(status, 2, output)
+                    self.assertRegex(output, rf'Makefile:\d+: \*\*\* {re.escape(missing)}\.  Stop\.\n\Z')
+                    self.assertFalse((root / A_HELD).exists())
+            status, output = make(root, '-n', 'offsets', 'CC=true')
+            self.assertEqual(status, 0, output)
+            self.assertIn(MEASURE, output)
+
+    def test_check_stops_on_a_table_with_no_body_source_and_no_other_goal_does(self):
+        # main.c takes no body, and no source is gone.c. make check names the two tables, in their order, and what
+        # removes them. make progress, which builds what make check builds, goes on
+        orphans = {'offsets/src/main.txt': NO_ROWS, 'offsets/modules/mod/gone.txt': NO_ROWS}
+        with checkout({**UNBUILT, **PINNED, **orphans}) as root:
+            status, output = make(root, '-n', 'check')
+            self.assertEqual(status, 2, output)
+            self.assertRegex(output, r'\nMakefile:\d+: \*\*\* offsets/modules/mod/gone\.txt offsets/src/main\.txt: a '
+                                     r'table of offsets with no body source\. make offsets removes it on x86 Linux; a '
+                                     r'renamed source takes a git mv; see TOOLCHAIN\.md#stub-and-full-builds\.  Stop\.'
+                                     r'\n\Z')
+            status, output = make(root, '-n', 'progress')
+            self.assertEqual(status, 0, output)
+            for orphan in orphans:
+                (root / orphan).unlink()
+            status, output = make(root, '-n', 'check')
+            self.assertEqual(status, 0, output)
+
+    def test_make_offsets_copies_in_each_table_that_differs_and_removes_each_with_no_body_source(self):
+        # a.c has no table: make offsets measures one and copies it in, and names it. A second run copies nothing,
+        # and leaves the table as it was dated. With the table changed, and beside it a table of main.c's, which
+        # takes no body, it copies a.c's in again and removes the other, naming each
+        with self.measured() as root:
+            self.assertEqual(make(root, 'offsets', 'CC=true'), (0, COPIED(A_TABLE)))
+            self.assertEqual((root / A_TABLE).read_text(), MEASURED_ROWS)
+            dated = (root / A_TABLE).stat().st_mtime_ns
+            self.assertEqual(make(root, 'offsets', 'CC=true'), (0, ''))
+            self.assertEqual((root / A_TABLE).stat().st_mtime_ns, dated)
+            (root / A_TABLE).write_text(NO_ROWS)
+            (root / 'offsets/src').mkdir()
+            (root / 'offsets/src/main.txt').write_text(NO_ROWS)
+            self.assertEqual(make(root, 'offsets', 'CC=true'), (0, COPIED(A_TABLE) + REMOVED('offsets/src/main.txt')))
+            self.assertEqual((root / A_TABLE).read_text(), MEASURED_ROWS)
+            self.assertFalse((root / 'offsets/src/main.txt').exists())
+            self.assertEqual(make(root, A_HELD, 'CC=true'), (0, ''))
+
+    def test_the_bodies_wait_for_their_table_s_check_for_a_goal_of_the_matching_build_alone(self):
+        # make, which builds each image, holds a.c's table to its stub build's before it reads a.c's bodies from the
+        # disc. a.c's link named alone reads the bodies and holds no table
+        with checkout({**UNBUILT, **PINNED}) as root:
+            status, output = make(root, '-n')
+            self.assertEqual(status, 0, output)
+            self.assertLess(output.index(HOLD), output.index(BODIES), output)
+            status, output = make(root, '-n', 'build/mod/modules/mod/a.bin')
+            self.assertEqual(status, 0, output)
+            self.assertIn(BODIES, output)
+            for step in (MEASURE, HOLD):
+                self.assertNotIn(step, output)
+
+    @contextlib.contextmanager
+    def measured(self, files=None):
+        """MEASURED's checkout with files, settled once make -n check has stamped the tools: a.c's stub and its reads
+        are up to date."""
+        with checkout({**MEASURED, **(files or {})}) as root:
+            make(root, '-n', 'check', 'CC=true')
+            settle(root)
+            status, output = make(root, '-n', A_BUILT_TABLE, 'CC=true')
+            self.assertEqual(status, 0, output)
+            self.assertEqual([step for step in (STUB_SHC, WRITE_A_READS, MEASURE) if step in output], [MEASURE], output)
+            yield root
 
 
 class Patched(unittest.TestCase):
@@ -195,7 +569,7 @@ class Patched(unittest.TestCase):
             setting = f'{obj}: private ALIGN := P 32\n' if obj else ''
             files = {'config/compilers.mk': routes + setting, 'config/mod/splits.txt': splits, **MOD_DATA,
                      'sdk/ninja/s.c': '', 'sdk/ninja/g.c': '', 'sdk/ninja/d.c': '', **bodies, 'orig/SONICADV/MOD.PRS': ''}
-            with self.subTest(obj), checkout(files) as root:
+            with self.subTest(obj), checkout(tabled(files)) as root:
                 # make check builds no gen/ range's object
                 status, output = make(root, '-n', 'check', gen)
                 if obj is None:
@@ -248,21 +622,35 @@ class Inline(unittest.TestCase):
 
 # a wibo that ignores TERM, and makes the file "survived" if it runs two seconds
 OUTLIVES_TERM = "#!/bin/sh\ntrap '' TERM\nsleep 2\ntouch survived\n"
+# a wibo that writes each word it is given to a line of the file "ran"
+RECORDS = "#!/bin/sh\nprintf '%s\\n' \"$@\" > ran\n"
 
 
 class Hung(unittest.TestCase):
+    @unittest.skipUnless(TIMEOUT, "PATH finds no timeout, and the tests' stand-in for one sets no limit")
     def test_kills_a_tool_still_running_its_grace_after_term(self):
         # with the limits cut to half a second each, timeout sends the stand-in wibo TERM, then KILL, a second before
         # it would write survived
-        with checkout({**SEARCHED, 'tools/wibo-i686': OUTLIVES_TERM, 'tools/shc-v5.0r32/shc.exe': ''}) as root:
-            (root / 'tools/wibo-i686').chmod(0o755)
+        with checkout({**SEARCHED, WIBO: OUTLIVES_TERM, 'tools/shc-v5.0r32/shc.exe': ''}) as root:
+            (root / WIBO).chmod(0o755)
             status, output = make(root, 'build/modules/mod/b.obj', 'HUNG=0.5', 'GRACE=0.5')
             time.sleep(2)
             survived = (root / 'survived').exists()
         self.assertNotEqual(status, 0, output)
         for sent in ('TERM', 'KILL'):
-            self.assertIn(f"timeout: sending signal {sent} to command 'tools/wibo-i686'", output)
+            self.assertIn(f"timeout: sending signal {sent} to command '{WIBO}'", output)
         self.assertFalse(survived)
+
+    def test_the_stand_in_for_timeout_runs_the_tool_it_is_given(self):
+        # where PATH finds no timeout, UNLIMITED takes its place for every test's make. Here it takes it on any
+        # host: wibo runs with the words that follow the limits, asmsh first
+        with checkout({**SEARCHED, WIBO: RECORDS, 'tools/shc-v5.0r32/shc.exe': '', 'bin/timeout': UNLIMITED}) as root:
+            for script in (WIBO, 'bin/timeout'):
+                (root / script).chmod(0o755)
+            status, output = make(root, 'build/modules/mod/b.obj', path=f'{root / "bin"}{os.pathsep}{PATH}')
+            self.assertEqual(status, 0, output)
+            self.assertEqual((root / 'ran').read_text().splitlines()[:2],
+                             ['tools/shc-v5.0r32/asmsh.exe', r'modules\mod\b.src'])
 
 
 # BUILT's goals: make check, the links of a.c, the gen/ range and g.c, and MOD.BIN and its content
@@ -283,8 +671,8 @@ ASM = r"asmsh.exe 'modules\mod\b.src'"
 SDK_LINK = 'tools/link.py build/sdk/ninja/s.obj'
 SPLICE = 'tools/splice.py build/gen/img/MOD.BIN build/SONICADV/MOD.BIN'
 WRITE_CONTENT = 'tools/content.py build/gen/img/MOD.BIN build/gen/mod/content.c'
-STEPS = (STUB_SHC, ZERO, TEXTS, VALUES, VERIFY, DECODE, BODIES, SHC, GENERATE, GEN_SHC, GRAFT_SHC, PATCHED_SHC, ASM,
-         'tools/link.py', SPLICE, WRITE_CONTENT)
+STEPS = (STUB_SHC, ZERO, TEXTS, VALUES, MEASURE, HOLD, VERIFY, DECODE, BODIES, SHC, GENERATE, GEN_SHC, GRAFT_SHC,
+         PATCHED_SHC, ASM, 'tools/link.py', SPLICE, WRITE_CONTENT)
 
 
 class Freshness(unittest.TestCase):
@@ -293,7 +681,11 @@ class Freshness(unittest.TestCase):
     DELETED = [
         ('build/modules/mod/a.d', FULL, [SHC]),
         ('build/stub/modules/mod/a.d', CHECK, [STUB_SHC]),
-        ('build/stub/modules/mod/a.lis', CHECK, [STUB_SHC]),
+        ('build/stub/modules/mod/a.lis', CHECK, [STUB_SHC, MEASURE]),
+        (A_READS, CHECK, [WRITE_A_READS, MEASURE]),
+        (A_READS, FULL, [WRITE_A_READS, BODIES, SHC]),
+        (A_BUILT_TABLE, CHECK, [MEASURE, HOLD]),
+        (A_HELD, CHECK, [HOLD]),
         ('build/stub/modules/mod/a/a.inc', CHECK, [ZERO, STUB_SHC]),
         ('build/stub/modules/mod/a/text.inc', CHECK, [TEXTS, STUB_SHC]),
         ('build/stub/modules/mod/a/values.inc', CHECK, [VALUES, STUB_SHC]),
@@ -315,8 +707,10 @@ class Freshness(unittest.TestCase):
     ]
     # each file a step reads, a goal that needs it, and the steps a change to it reruns
     CHANGED = [
-        ('modules/mod/a.h', FULL, [STUB_SHC, BODIES, SHC]),
-        ('modules/mod/a.c', CHECK, [TEXTS, VALUES, STUB_SHC]),
+        ('modules/mod/a.h', FULL, [WRITE_A_READS, BODIES, SHC]),
+        ('modules/mod/a.c', CHECK, [TEXTS, VALUES, STUB_SHC, MEASURE, HOLD]),
+        (A_TABLE, CHECK, [HOLD]),
+        (A_TABLE, FULL, [BODIES, SHC]),
         ('orig/SONICADV/MOD.PRS', FULL, [VERIFY, DECODE, BODIES, SHC]),
         ('config/mod/splits.txt', GEN, [GENERATE, GEN_SHC]),
         ('config/mod/data.txt', GEN, [GENERATE, GEN_SHC]),
@@ -389,7 +783,7 @@ class Freshness(unittest.TestCase):
     def test_writes_a_content_again_for_another_image_s_data_txt_by_its_d_file_alone(self):
         # mod's content can take a name from two's gen/ range, whose type two's data.txt gives. A change to two's
         # data.txt rewrites mod's content only through the content's .d file, which names each data.txt the content
-        # read. make gcc isn't the only goal that reads the .d file: content.c asked for alone reruns when a file it
+        # read. make dc isn't the only goal that reads the .d file: content.c asked for alone reruns when a file it
         # names changes, and not otherwise
         two = {'config/two/splits.txt': 'D  0x0ca00000  0x0ca00100\ngen/two/d_0ca00000.c  D  0x0ca00000  0x0ca00100\n',
                'config/two/symbols.txt': '', 'config/two/data.txt': '', 'orig/SONICADV/TWO.PRS': ''}
@@ -450,7 +844,7 @@ class Freshness(unittest.TestCase):
                     finally:
                         settle(root)
 
-    def test_rebuilds_no_shc_object_once_make_gcc_s_configuration_changes(self):
+    def test_rebuilds_no_shc_object_once_make_dc_s_configuration_changes(self):
         # the matching build doesn't read config/gcc.mk. A change to it leaves every SHC object and stub up to date,
         # and no goal of the matching build runs a step
         with self.built() as root:
@@ -488,22 +882,34 @@ class Freshness(unittest.TestCase):
 
 # the tools lint and format install from WHEELS
 CLANG_TOOLS = {'tools/llvm/bin/clang-format': '', 'tools/llvm/bin/clang-tidy': ''}
-# the repository's tools/SHA256SUMS's lines for the wheels of clang-format and clang-tidy, in that order, and the wheels
-WHEEL_SUMS = ''.join(line for line in (ROOT / 'tools/SHA256SUMS').read_text().splitlines(True)
-                     if line.endswith('.whl\n'))
+# the platform tag of the wheels the Makefile pins for each host, by what uname -sm prints there: x86-64 Linux's, an
+# Apple-silicon Mac's and an Intel Mac's
+PLATFORMS = dict(zip((LINUX, *MACS), ('manylinux_2_27_x86_64.manylinux_2_28_x86_64', 'macosx_11_0_arm64',
+                                      'macosx_10_9_x86_64')))
+
+
+def wheel_sums(uname):
+    """The repository's tools/SHA256SUMS's lines for the wheels of clang-format and clang-tidy, in that order, that
+    the Makefile pins for the host uname names."""
+    return ''.join(line for line in (ROOT / 'tools/SHA256SUMS').read_text().splitlines(True)
+                   if line.endswith(f'-{PLATFORMS[uname]}.whl\n'))
+
+
+# the lines for LINUX's wheels, the host make() names unless a test names another, and the wheels
+WHEEL_SUMS = wheel_sums(LINUX)
 WHEELS = [line.split()[1] for line in WHEEL_SUMS.splitlines()]
 # an install make takes for the one WHEELS pin: both tools, and WHEEL_SUMS in tools/SHA256SUMS and in the file an
 # install writes them to last
 INSTALLED = {**CLANG_TOOLS, 'tools/SHA256SUMS': WHEEL_SUMS, 'tools/llvm/wheels.txt': WHEEL_SUMS}
 # lint's settings, among them modules/.clang-tidy, which clang-tidy reads for a.c and which inherits the root's; its
 # tools, which make takes for installed; a.c's lint target, whose .d file names the header a.c includes; and the tags
-# check's
+# and guards checks'
 LINT = {'.clang-format': '', '.clang-tidy': '', 'modules/.clang-tidy': 'InheritParentConfig: true\n',
         'compile_flags.txt': '-Imodules\n', **INSTALLED,
         'modules/mod/a.c': '#include "mod/a.h"\n', 'modules/mod/a.h': '', 'build/lint/modules/mod/a.c.tidy': '',
         'build/lint/modules/mod/a.c.d': ('build/lint/modules/mod/a.c.tidy: modules/mod/a.c modules/mod/a.h\n'
                                          'modules/mod/a.h:\n'),
-        'build/lint/tags.ok': ''}
+        'build/lint/tags.ok': '', 'build/lint/guards.ok': ''}
 # a.c's check, which writes its .d file as clang-tidy's compiler reads a.c
 TIDY = ('tools/llvm/bin/clang-tidy --quiet --extra-arg=-Xclang=-dependency-file '
         '--extra-arg=-Xclang=build/lint/modules/mod/a.c.d.tmp --extra-arg=-Xclang=-MT '
@@ -544,22 +950,26 @@ class Lint(unittest.TestCase):
         ('config/mod/splits.txt', TAGS),
     ]
 
-    def test_checks_the_format_and_tags_of_gcc_s_c_and_tidies_none_of_it(self):
-        # clang-tidy reads SHC's side of each guard, so it can't compile gcc/'s C. Once b.c changes, format.ok checks
-        # b.c alone, and tags.ok checks every file. Once .clang-format changes, format.ok checks every file
-        source, header = port = ('gcc/modules/mod/b.c', 'gcc/modules/mod/b.h')
+    def test_checks_the_format_tags_and_guards_of_the_engine_s_code_and_tidies_none_of_it(self):
+        # clang-tidy reads the matching side of each guard, so it can't compile engine/dc/'s C, and the engine's flags
+        # hold its own. Once b.c changes, format.ok checks b.c alone, and tags.ok and guards.ok check every file. Once
+        # .clang-format changes, format.ok checks every file, the engine's C++ among them
+        source, header = ('engine/dc/b.c', 'engine/dc/b.h')
+        port = (source, header, 'engine/runtime/a.cpp', 'engine/include/a.h')
         with self.linted({**LINT, **SEARCHED, 'build/lint/format.ok': '', **dict.fromkeys(port, '')}) as root:
             os.utime(root / source)
             status, output = make(root, '-n', 'lint')
             self.assertEqual(status, 0, output)
-            checks = ('tools/llvm/bin/clang-format --dry-run -Werror ', 'python3 tools/tags.py ')
-            formatted, tagged = (next((line for line in output.splitlines() if line.startswith(check)), '').split()
-                                 for check in checks)
+            checks = ('tools/llvm/bin/clang-format --dry-run -Werror ', 'python3 tools/tags.py ',
+                      'python3 tools/guards.py ')
+            formatted, tagged, guarded = (next((line for line in output.splitlines() if line.startswith(check)),
+                                               '').split() for check in checks)
             self.assertIn(source, formatted)
             self.assertNotIn(header, formatted)
             for path in port:
                 self.assertIn(path, tagged)
-            self.assertNotIn('build/lint/gcc/', output)
+                self.assertIn(path, guarded)
+            self.assertNotIn('build/lint/engine/', output)
             os.utime(root / '.clang-format')
             status, output = make(root, '-n', 'lint')
             self.assertEqual(status, 0, output)
@@ -635,16 +1045,27 @@ def python(setup):
 
 class Host(unittest.TestCase):
     def test_names_each_command_a_build_lacks_before_any_step(self):
-        # with no pinned tool in place, each goal that builds runs curl to download them, and tar and gzip to
-        # unpack the SHC releases
+        # with no pinned tool in place, each goal of the matching build that builds runs curl to download them, and
+        # tar and gzip to unpack the SHC releases. It asks for cmp, which holds a table of offsets to its stub build's
         with checkout() as root, host(*COMMANDS) as path:
-            for goals in ((), ('check',), ('progress',), ('relink',), ('shift',)):
+            for goals in ((), ('check',), ('progress',), ('relink',), ('shift',), ('offsets',)):
                 with self.subTest(goals=goals):
                     status, output = make(root, *goals, 'CC=no-such-cc', path=path)
                     self.assertFalse((root / 'build/deps.mk').exists())
                     self.assertNotEqual(status, 0, output)
-                    self.assertIn('*** no-such-cc sha256sum timeout curl tar gzip: not found; see README.md#build',
+                    self.assertIn('*** no-such-cc sha256sum timeout curl tar gzip cmp: not found; see README.md#build',
                                   output)
+
+    def test_pc_needs_no_timeout_and_no_download_of_shc_on_any_host(self):
+        # make pc runs no SHC: a body source's bodies come by its table of offsets. So it asks for no timeout, which
+        # runs wibo, and for no curl, tar or gzip to fetch and unpack wibo and SHC's releases, though none is in
+        # place, on Linux as on a Mac. The Makefile checks the host before it reads the engine's rules, of which
+        # the checkout holds none
+        for uname in (LINUX, *MACS):
+            with self.subTest(uname), checkout() as root, host(*COMMANDS) as path:
+                status, output = make(root, 'pc', 'CC=no-such-cc', path=path, uname=uname)
+                self.assertNotEqual(status, 0, output)
+                self.assertIn('*** no-such-cc sha256sum: not found; see README.md#build', output)
 
     def test_needs_no_download_command_once_the_tools_are_in_place(self):
         with checkout(PINNED) as root, host('curl', 'tar', 'gzip') as path:
@@ -652,12 +1073,34 @@ class Host(unittest.TestCase):
         self.assertNotEqual(status, 0, output)
         self.assertIn('*** no-such-cc: not found; see README.md#build', output)
 
+    def test_a_goal_of_the_matching_build_that_builds_needs_cmp(self):
+        # the pinned tools are in place and the host lacks cmp alone. make review builds nothing, and needs none
+        with checkout(PINNED) as root, host('cmp') as path:
+            for goals in ((), ('check',), ('progress',), ('relink',), ('shift',), ('offsets',)):
+                with self.subTest(goals=goals):
+                    status, output = make(root, *goals, 'CC=true', path=path)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertIn('*** cmp: not found; see README.md#build', output)
+            status, output = make(root, 'review', 'CC=true', path=path)
+            self.assertEqual(status, 0, output)
+            self.assertNotIn('README.md#build', output)
+
     def test_needs_tar_and_gzip_for_an_shc_release_alone(self):
         releases = {path: text for path, text in PINNED.items() if path.endswith('/shc.exe')}
         with checkout(releases) as root, host('curl', 'tar', 'gzip') as path:
             status, output = make(root, 'check', 'CC=no-such-cc', path=path)
         self.assertNotEqual(status, 0, output)
         self.assertIn('*** no-such-cc curl: not found; see README.md#build', output)
+
+    def test_needs_gzip_for_an_shc_release_only_where_tar_runs_it(self):
+        # no pinned tool is in place, and the host has no gzip. GNU tar runs gzip to unpack a release, and so does a
+        # libarchive tar that names no zlib. One that names zlib unpacks a release by itself
+        for tar, lacks in ((GNU_TAR, ' gzip'), (f'{BSDTAR} {LIBLZMA} bz2lib/1.0.8', ' gzip'),
+                           (f'{BSDTAR} {ZLIB} {LIBLZMA} bz2lib/1.0.8', '')):
+            with self.subTest(tar), checkout() as root, host('gzip', tar=tar) as path:
+                status, output = make(root, 'check', 'CC=no-such-cc', path=path)
+                self.assertNotEqual(status, 0, output)
+                self.assertIn(f'*** no-such-cc{lacks}: not found; see README.md#build', output)
 
     def test_lint_needs_the_c_compiler_alone_once_its_tools_are_in_place(self):
         with checkout(INSTALLED) as root, host(*COMMANDS) as path:
@@ -694,33 +1137,249 @@ class Host(unittest.TestCase):
             status, output = make(root, '-n', 'check', 'CC=no-such-cc', path=path)
         self.assertEqual(status, 0, output)
 
-    def test_names_a_make_without_grouped_targets(self):
-        # GNU make 4.3 added grouped targets, and grouped-target in .FEATURES with them
-        with checkout() as root:
-            status, output = make(root, '-n', 'check', '.FEATURES=target-specific order-only')
+    def test_checks_no_command_for_a_goal_that_names_a_file(self):
+        # a goal that names a file gets no host check. An SHC object compiles under timeout, and no pinned tool is in
+        # place, yet make names no command the host lacks: it goes on to fetch a tool
+        with checkout(SEARCHED) as root, host(*COMMANDS) as path:
+            status, output = make(root, 'build/modules/mod/a.obj', 'CC=no-such-cc', path=path)
         self.assertNotEqual(status, 0, output)
-        self.assertIn('the build needs GNU make 4.3 or later, and this is ', output)
+        self.assertNotIn('README.md#build', output)
+        self.assertIn('  fetch  tools/', output)
+
+    def test_names_a_make_without_grouped_targets_and_the_make_a_mac_can_install(self):
+        # GNU make 4.3 added grouped targets, and grouped-target in .FEATURES with them. macOS's own make is 3.81,
+        # so the stop names Homebrew's. It comes before make asks its host, so it reads the same on every host, and
+        # on a Mac it comes before the refusal of make check
+        with checkout() as root:
+            for uname in (LINUX, *MACS):
+                with self.subTest(uname):
+                    status, output = make(root, '-n', 'check', '.FEATURES=target-specific order-only', uname=uname)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertRegex(output, r'\AMakefile:\d+: \*\*\* the build needs GNU make 4\.3 or later, and this '
+                                             r'is [\d.]+; on macOS, brew install make and run gmake; see '
+                                             r'README\.md#build\.  Stop\.\n\Z')
 
     def test_names_a_python_before_3_8_and_takes_3_8(self):
         for version, needed in (((3, 7, 99, 'final', 0), True), ((3, 8, 0, 'final', 0), False)):
             versioned = {'bin/python3': python(f'sys.version_info = {version!r}')}
             with self.subTest(version=version), checkout(versioned) as root:
                 (root / 'bin/python3').chmod(0o755)
-                status, output = make(root, '-n', 'test', path=f'{root / "bin"}{os.pathsep}{os.environ["PATH"]}')
+                status, output = make(root, '-n', 'test', path=f'{root / "bin"}{os.pathsep}{PATH}')
                 self.assertEqual(status != 0, needed, output)
                 self.assertEqual('the build needs Python 3.8 or later, as python3' in output, needed, output)
 
+    def test_the_engine_s_goals_name_a_python_before_3_9_and_take_3_9(self):
+        # the engine's scripts use what 3.9 added, so a goal that reads the engine's rules stops on 3.8, which make
+        # test takes
+        for version, needed in (((3, 8, 99, 'final', 0), True), ((3, 9, 0, 'final', 0), False)):
+            versioned = {**PINNED, **SEARCHED, **SLICE, 'bin/python3': python(f'sys.version_info = {version!r}')}
+            with self.subTest(version=version), checkout(versioned) as root:
+                (root / 'bin/python3').chmod(0o755)
+                path = f'{root / "bin"}{os.pathsep}{PATH}'
+                _, output = make(root, '-n', 'engine-test', path=path)
+                self.assertEqual("the engine's goals need Python 3.9 or later, as python3" in output, needed, output)
+                self.assertNotIn("the engine's goals need", make(root, '-n', 'test', path=path)[1])
+
 
 # the goals a person types and the variables a person sets
-GOALS = {'all', 'relink', 'shift', 'check', 'gcc', 'gcc-disc', 'accept', 'test', 'lint', 'review', 'format',
-         'progress', 'clean', 'help', 'stub-includes'}
-VARIABLES = {'V', 'CC', 'WIBO', 'R10', 'R26', 'R32', 'SH_ELF'}
+GOALS = {'all', 'relink', 'shift', 'check', 'offsets', 'dc', 'dc-disc', 'dc-check', 'dc-order', 'native', 'pc', 'play',
+         'engine-test', 'accept', 'test', 'lint',
+         'review', 'format', 'progress', 'clean', 'help', 'stub-includes'}
+VARIABLES = {'V', 'SEARCH', 'PACK', 'CC', 'WIBO', 'R10', 'R26', 'R32', 'SH_ELF'}
 
 
 def written(root):
     """Each path make wrote under root's build/ but Python's bytecode. With the pinned tools in place, a goal
     that compiles writes build/deps.mk and stamps each tool."""
     return {path.relative_to(root) for path in (root / 'build').rglob('*') if 'pycache' not in path.parts}
+
+
+# BUILT's tables and sources without the files a build of them writes, and the originals: a tree in which x86-64 Linux
+# has a rule for each of MATCHING_SAMPLES
+UNBUILT = {**{path: text for path, text in BUILT.items() if not path.startswith('build/')}, **SEARCHED, **ORIGINALS}
+# a file of each kind the Makefile's MATCHING_FILES lists: an object on each route, a stub's, a gen/ range's and
+# asmsh's; a link, a stub's and a gen/ range's; an image, its .PRS file and the .BIN that decodes to; an image's
+# whole link, its shift's list and the list of them all; the table of offsets a stub build gives and its check; a
+# stamp of wibo's and of a release's; and wibo and a release
+MATCHING_SAMPLES = ('build/src/main.obj', 'build/sdk/ninja/s.obj', 'build/sdk/ninja/p.obj', 'build/sdk/ninja/g.obj',
+                    'build/modules/mod/a.obj', 'build/stub/modules/mod/a.obj', 'build/gen/mod/d_0c900180.obj',
+                    'build/modules/mod/b.obj', 'build/1st_read/src/main.bin', 'build/stub/mod/modules/mod/a.bin',
+                    'build/mod/gen/mod/d_0c900180.bin', 'build/1ST_READ.BIN', 'build/SONICADV/MOD.PRS',
+                    'build/SONICADV/MOD.BIN', 'build/relink/mod.bin', 'build/relink/mod/fixed.txt',
+                    'build/relink/fixed.txt', A_BUILT_TABLE, A_HELD, 'build/tools/wibo.id', 'build/tools/r10.id',
+                    WIBO, 'tools/shc-v5.0r26/shc.exe')
+
+
+@contextlib.contextmanager
+def scripted(files):
+    """A checkout() of files in which each file whose text opens with #! is executable: a stand-in for one of the
+    host's commands, in bin/, or for wibo."""
+    with checkout(files) as root:
+        for path, text in files.items():
+            if isinstance(text, str) and text.startswith('#!'):
+                (root / path).chmod(0o755)
+        yield root
+
+
+def held(root):
+    """Each file under root but Python's bytecode, which a make that reads the tables writes under build/."""
+    return sorted(path for path in root.rglob('*') if path.is_file() and 'pycache' not in path.parts)
+
+
+# the spellings of what runs SHC, asmsh, lnk or cnvs: wibo, by its path or as the Makefile's wibo or WIBO; the suffix
+# of the programs wibo runs; a release's directory; the Makefile's shc and asmsh, which run SHC and asmsh under wibo;
+# and tools/link.py and tools/relink.py, which run asmsh, lnk and cnvs under it
+RUNNERS = ('wibo', 'WIBO', '.exe', '(R10)', '(R26)', '(R32)', '$(call shc,', '$(call asmsh,', 'tools/link.py',
+           'tools/relink.py')
+
+
+class Mac(unittest.TestCase):
+    def test_refuses_each_goal_of_the_matching_build_before_it_reads_or_writes_anything(self):
+        # the build runs SHC under wibo on Linux on x86 alone, so on a Mac of either processor make refuses the goals
+        # that need it: make, which is make all, and each goal of the matching build, under -n too, and whatever WIBO
+        # names. It stops before the Python that reads the tables, and writes nothing, with the pinned tools in place
+        # or with none to fetch. RAN stands in for python3, for the curl that would fetch a tool and for wibo
+        self.assertEqual(sorted(MATCHING_GOALS), ['accept', 'all', 'check', 'offsets', 'progress', 'relink', 'shift'])
+        for mac in MACS:
+            for tools in ({**PINNED, WIBO: RAN}, {}):
+                with self.subTest(mac, tools=bool(tools)), \
+                        scripted({**UNBUILT, **tools, 'bin/python3': RAN, 'bin/curl': RAN}) as root:
+                    path, before = path_with_bin(root), sorted(root.rglob('*'))
+                    for goals in ((), *((goal,) for goal in MATCHING_GOALS), ('lint', 'check')):
+                        for flags in ((), ('-n',), ('WIBO=bin/wibo',)):
+                            with self.subTest(goals=goals, flags=flags):
+                                status, output = make(root, *flags, *goals, path=path, uname=mac)
+                                self.assertEqual(status, 2, output)
+                                self.assertRegex(output, rf'\A{no_shc(*goals)}\Z')
+                    self.assertEqual(sorted(root.rglob('*')), before)
+
+    def test_refuses_each_file_of_the_matching_build_named_as_a_goal(self):
+        # each of MATCHING_SAMPLES is a goal on x86-64 Linux. A Mac refuses it by the same line once make has listed
+        # the tree's objects, links and images, before it writes build/deps.mk or a record, and with the originals in
+        # place, so the stop is not the one for a missing disc. It refuses a wibo no host fetches, and a file of a
+        # release's. One Mac has the pinned tools in place, and the other, under -n, none to fetch
+        with checkout({**UNBUILT, **PINNED}) as root:
+            status, output = make(root, '-n', *MATCHING_SAMPLES)
+        self.assertEqual(status, 0, output)
+        for mac, flags, tools in zip(MACS, ((), ('-n',)), ({**PINNED, WIBO: RAN}, {})):
+            with self.subTest(mac), scripted({**UNBUILT, **tools, 'bin/curl': RAN}) as root:
+                path, before = path_with_bin(root), held(root)
+                for goal in (*MATCHING_SAMPLES, 'tools/wibo-macos', 'tools/shc-v5.0r32/asmsh.exe'):
+                    with self.subTest(goal):
+                        status, output = make(root, *flags, goal, path=path, uname=mac)
+                        self.assertEqual(status, 2, output)
+                        self.assertRegex(output, rf'\A{no_shc(goal)}\Z')
+                self.assertEqual(held(root), before)
+
+    def test_no_other_host_refuses_the_matching_build(self):
+        # the refusal names macOS, so no other host may meet it. Each plans make check as x86-64 Linux does: 32-bit
+        # x86 Linux, two hosts wibo-i686 isn't built for, and one whose uname prints nothing
+        with checkout({**UNBUILT, **PINNED}) as root:
+            linux = make(root, '-n', 'check')
+            self.assertEqual(linux[0], 0, linux[1])
+            for uname in ('Linux i686', 'Linux aarch64', 'FreeBSD amd64', ''):
+                with self.subTest(uname):
+                    self.assertEqual(make(root, '-n', 'check', uname=uname), linux)
+
+    def test_a_rule_that_comes_to_depend_on_shc_stops_at_its_stamp_or_its_download_and_names_it(self):
+        # no goal a Mac runs may reach SHC. Here make review comes to depend on a file SHC builds, on wibo's stamp or
+        # on a download, as a rule that regresses would. Each rule that runs SHC, asmsh, lnk or cnvs depends on a
+        # stamp, which stops make on a Mac, under -n too, and the line names the stamp: R32's for a stub and for a
+        # link's object, R10's for an SDK source's object, and wibo's own. A download stops make alike. Nothing is
+        # fetched, stamped or run
+        reached = (('build/stub/modules/mod/a.obj', 'build/tools/r32.id'),
+                   ('build/sdk/ninja/s.obj', 'build/tools/r10.id'),
+                   ('build/1st_read/src/main.bin', 'build/tools/r32.id'),
+                   ('build/tools/wibo.id', 'build/tools/wibo.id'), (WIBO, WIBO),
+                   ('tools/shc-v5.0r26/shc.exe', 'tools/shc-v5.0r26/shc.exe'))
+        for needs, stops in reached:
+            for tools in ({**PINNED, WIBO: RAN}, {}):
+                regressed = (ROOT / 'Makefile').read_text() + f'review: {needs}\n'
+                with self.subTest(needs, tools=bool(tools)), \
+                        scripted({**UNBUILT, **tools, 'Makefile': regressed, 'bin/curl': RAN}) as root:
+                    path, before = path_with_bin(root), held(root)
+                    for flags in ((), ('-n',)):
+                        status, output = make(root, *flags, 'review', path=path, uname=MACS[0])
+                        self.assertEqual(status, 2, output)
+                        self.assertRegex(output, rf'\A{no_shc("review", reached=stops)}\Z')
+                    self.assertEqual(held(root), before)
+
+    def test_each_rule_that_runs_shc_asmsh_lnk_or_cnvs_waits_for_a_stamp(self):
+        # a stamp stops a Mac's make, so no recipe there runs wibo so long as make reads a stamp before it runs the
+        # recipe. RUNNERS spells what runs SHC, asmsh, lnk or cnvs. No makefile but the Makefile and
+        # config/compilers.mk, whose rules make help reads, spells one outside a comment: make dc's and the engine's
+        # spell none, but for the .exe of engine/mk/native.mk, the suffix of the PC game's own programs on Windows,
+        # which no wibo runs. Of the repository's targets in make help's database, each whose recipe spells one
+        # depends on a stamp, with two exceptions. An image's shift list depends on the image's whole link, which
+        # depends on a stamp. And three rules put wibo and a release in place, the two that fetch them and the one
+        # that stamps wibo: a Mac's Makefile has a stop for the recipe of each
+        status, output = database()
+        self.assertIn(status, (0, 1), output[-3000:])
+        read = re.search(r'(?m)^MAKEFILE_LIST := (.*)$', output)[1].split()
+        self.assertEqual(read, ['Makefile', 'config/compilers.mk'])
+        for path in sorted(set(MAKEFILES) - set(read)):
+            names = [name for name in RUNNERS if (path, name) != ('engine/mk/native.mk', '.exe')]
+            for line in (ROOT / path).read_text().splitlines():
+                for name in names:
+                    self.assertNotIn(name, line.split('#')[0], path)
+        stamps = set(re.search(r'(?m)^SHC_IDS := (.*)$', output)[1].split())
+        self.assertEqual(len(stamps), 4, stamps)
+        rules = {}
+        for entry in output.split('\n\n'):
+            lines = entry.splitlines()
+            recipe = [line for line in lines if line.startswith('\t')]
+            # a target's rule follows the lines that give its own variables, each TARGET: NAME := VALUE
+            rule = [line for line in lines if line[:1] not in ('#', '\t') and ':' in line]
+            if rule and recipe:
+                target, _, prerequisites = rule[-1].partition(':')
+                rules[target] = (set(prerequisites.replace('|', ' ').split()), '\n'.join(recipe))
+        running = {target for target, (_, recipe) in rules.items() if any(name in recipe for name in RUNNERS)}
+        stamped = {target for target in running if rules[target][0] & stamps}
+        self.assertGreater(len(stamped), 10000)
+        self.assertEqual({re.sub(r'/\w+/fixed', '/IMAGE/fixed', target) for target in running - stamped},
+                         {'build/relink/IMAGE/fixed.txt', WIBO, 'tools/shc-%/shc.exe', 'build/tools/wibo.id'})
+        self.assertEqual([target for target in running - stamped
+                          if target.endswith('/fixed.txt') and not rules[target][0] & stamped], [])
+
+    def test_an_image_stops_at_r32_s_stamp_where_make_reads_no_build_deps_mk(self):
+        # an image's links reach it through build/deps.mk, which make reads for a goal that compiles. make review
+        # compiles nothing, so an image it came to depend on would be spliced with no link behind it. Each image
+        # depends on R32's stamp itself: a Mac stops at the stamp before any splice, and Linux's rule names it
+        regressed = (ROOT / 'Makefile').read_text() + 'review: build/1ST_READ.BIN\n'
+        with checkout({**UNBUILT, 'Makefile': regressed}) as root:
+            status, output = make(root, '-n', 'review', uname=MACS[0])
+            self.assertEqual(status, 2, output)
+            self.assertRegex(output, rf'\n{no_shc("review", reached="build/tools/r32.id")}\Z')
+            self.assertNotIn('tools/splice.py', output)
+            status, output = make(root, '-pn', 'help')
+        self.assertEqual(status, 0, output[-3000:])
+        rules = dict(line.split(':', 1) for line in output.splitlines()
+                     if line.startswith(('build/1ST_READ.BIN:', 'build/SONICADV/MOD.BIN:', 'build/SONICADV/MOD.PRS:')))
+        self.assertEqual(len(rules), 3, output[-3000:])
+        for rule in rules.values():
+            self.assertIn('build/tools/r32.id', rule.split())
+
+    def test_stops_a_make_that_rosetta_2_translates_whatever_its_goal(self):
+        # on a Mac, sysctl.proc_translated is 1 in a process Rosetta 2 translates and 0 in any other. A make there
+        # stops before any goal, the matching build's among them, under -n too. Linux has no Rosetta 2, and asks
+        # no sysctl
+        sysctl = '#!/bin/sh\n[ "$*" = "-n sysctl.proc_translated" ] || exit 2\ntouch asked\necho {}\n'.format
+        said = 'the build needs a native make, and this one runs under Rosetta 2; see README.md#build'
+        with scripted({**SEARCHED, 'bin/sysctl': sysctl(1)}) as root:
+            path = path_with_bin(root)
+            for mac in MACS:
+                for goals in (('help',), ('test',), ('lint', 'format'), ('check',), ('dc',)):
+                    for flags in ((), ('-n',)):
+                        with self.subTest(mac, goals=goals, flags=flags):
+                            status, output = make(root, *flags, *goals, path=path, uname=mac)
+                            self.assertEqual(status, 2, output)
+                            self.assertRegex(output, rf'\A{stopped(*goals, said=said)}\Z')
+            (root / 'asked').unlink()
+            self.assertEqual(make(root, 'help', path=path)[0], 0)
+            self.assertFalse((root / 'asked').exists())
+            (root / 'bin/sysctl').write_text(sysctl(0))
+            self.assertEqual(make(root, 'help', path=path, uname=MACS[0])[0], 0)
+            self.assertTrue((root / 'asked').exists())
 
 
 class Help(unittest.TestCase):
@@ -740,11 +1399,24 @@ class Help(unittest.TestCase):
         self.assertLessEqual(max(map(len, output.splitlines())), 80, output)
         self.assertEqual({name.split('=')[0] for name, _ in variables}, VARIABLES)
 
+    def test_ends_on_a_mac_by_naming_the_goals_it_doesn_t_run(self):
+        # after the lines every host prints, and in their columns
+        with checkout({**PINNED, **SEARCHED}) as root:
+            status, linux = make(root, 'help')
+            self.assertEqual(status, 0, linux)
+            for mac in MACS:
+                with self.subTest(mac):
+                    last = f'{"not on macOS":20}{" ".join(MATCHING_GOALS)}\n'
+                    self.assertEqual(make(root, 'help', uname=mac), (0, linux + last))
+                    self.assertLessEqual(len(last.rstrip('\n')), 80)
+            self.assertEqual(written(root), set())
+
     def test_refuses_a_setting_it_doesn_t_list_before_it_writes_anything(self):
         # no stamp keeps one, so what it changed would pass for what make builds without it; MAKE, HUNG and GRACE,
-        # which the tests set, change no output
+        # which the tests set, change no output, and SETTINGS holds no other name that make help doesn't list
+        self.assertEqual(set(SETTINGS), VARIABLES | {'MAKE', 'HUNG', 'GRACE'})
         with checkout({**PINNED, **SEARCHED}) as root:
-            for goals in ((), ('gcc',), ('accept',)):
+            for goals in ((), ('dc',), ('accept',)):
                 with self.subTest(goals=goals):
                     status, output = make(root, '-n', *goals, 'CC=true', 'GCCFLAGS=-DVALUE=2')
                     self.assertNotEqual(status, 0, output)
@@ -753,6 +1425,465 @@ class Help(unittest.TestCase):
             self.assertEqual(written(root), set())
             status, output = make(root, 'help', *(f'{name}=x' for name in (*VARIABLES, 'MAKE', 'HUNG', 'GRACE')))
         self.assertEqual(status, 0, output)
+
+
+# the native slice's program, which make pc builds. A test that runs the slice's rules puts a stand-in in its
+# place and gives make -o for it, so that make takes it as built
+PLAY = 'build/engine/native/play'
+# what lets make read the engine's own rules for native or pc in a checkout that holds none of the engine's sources:
+# the rules; in bin/, a stand-in that does nothing for each command the slice's host check asks of PATH; the two files
+# of the engine's that the slice's marked copy of the game's C depends on, and the record that the copy is current,
+# so make writes none; and the slice's census with the script that writes it, so make writes none
+SLICE = {**{path: (ROOT / path).read_text() for path in MAKEFILES if path.startswith('engine/')},
+         **{f'bin/{command}': '#!/bin/sh\n' for command in ('clang', 'readelf', 'nm')},
+         'engine/tools/marks.py': '', 'engine/dc/dreamcast.h': '', 'build/engine/native/marked.mk': '',
+         'engine/tools/census.py': '', 'build/engine/native/census.txt': ''}
+
+
+# the copies of play that make native has strip make, one without its symbol table and one whose table lacks iamb, a
+# name the adapter finds a static by: strip's flags for each, the words make native holds its log to, and runner.c's
+# sentence with those words, which such a play says as it starts, with KEEP after it, before it ends with 2
+KEEP = 'the program must keep the symbol table it was linked with, which strip removes'
+COPIES = {'stripped': ('', 'holds no symbol table',
+                       "this program's own file holds no symbol table, where it finds the game's statics by name"),
+          'lacking': ('-N iamb ', 'holds no object named iamb',
+                      "this program's symbol table holds no object named iamb, a static of the game's it finds by "
+                      'name')}
+# stand-ins for a test that runs make native. play prints its arguments and ends with status.txt's status. strip adds
+# its arguments to strip.txt and copies the program, its last argument, to the one after -o. A copy prints the said.
+# file of its name and ends with the status the ended. file of its name holds: COPIES' sentence for it, and 2, where
+# the test writes neither
+STRIPPED = {'bin/strip': '#!/bin/sh\necho "$*" >> strip.txt\nwhile [ "$1" != -o ]; do shift; done\ncp "$3" "$2"\n',
+            **{f'said.{copy}': f'sa1: {says}: {KEEP}\n' for copy, (_, _, says) in COPIES.items()},
+            **{f'ended.{copy}': '2\n' for copy in COPIES},
+            PLAY: ('#!/bin/sh\ncopy=${0##*/play}\n[ -z "$copy" ] || { cat "said$copy"; exit "$(cat "ended$copy")"; }\n'
+                   'echo "sa1: $*"\nexit "$(cat status.txt)"\n')}
+
+
+@contextlib.contextmanager
+def sliced(files):
+    """A scripted() checkout of the pinned tools, SLICE and files, settled. Until the caller is done, os.environ
+    holds no variable named NATIVE or NATIVE_ and more, which engine/mk/native.mk's rules would take from it for
+    how they build the slice, and names a C++ compiler that does nothing, as CC=true names such a C compiler. Yields
+    the checkout's root and a PATH that searches its bin/ first."""
+    env = {name: value for name, value in os.environ.items() if not re.match(r'NATIVE(_|\Z)', name)}
+    with scripted({**PINNED, **SEARCHED, **SLICE, **files}) as root, \
+            mock.patch.dict(os.environ, {**env, 'CXX': 'true'}, clear=True):
+        settle(root)
+        yield root, path_with_bin(root)
+
+
+class Engine(unittest.TestCase):
+    def test_reads_the_engine_s_rules_for_its_own_goals_alone(self):
+        # so the matching build and the port's image take none of the engine's rules
+        with checkout({**PINNED, **SEARCHED, 'engine/engine.mk': '$(error engine.mk read)\n'}) as root:
+            for goals in ((), ('check',), ('dc',), ('dc-disc',), ('dc-check',), ('help',), ('test',)):
+                with self.subTest(goals=goals):
+                    _, output = make(root, '-n', *goals)
+                    self.assertNotIn('engine.mk read', output)
+            for goal in ('native', 'pc', 'play', 'engine-test', 'engine-sa1', 'build/engine/abi/c'):
+                with self.subTest(goal=goal):
+                    status, output = make(root, '-n', goal)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertRegex(output, r'(?m)^engine/engine\.mk:1: \*\*\* engine\.mk read\.  Stop\.$')
+
+    def test_native_fails_where_its_run_stops_short_of_its_frames_and_runs_it_again(self):
+        # play ends with 0 once it has run its frames, and with another status where it stops short of them. The
+        # run keeps its log either way, with that status as its last line, and make native holds the line to exit
+        # 0: it fails where the line is another, and names the log. Such a log is never current, so the next make
+        # runs play again, where a log that ends with exit 0 is current until play builds again. Nor is a log
+        # current that no run finished: an empty one, or one whose last line only ends with 0. play is a stand-in
+        # here, STRIPPED's, whose copies from strip each refuse as make native holds them to, so it runs each copy
+        # once and their logs stay current. The menus' table is empty, so the slice's scan of it prints no error
+        with sliced({**STRIPPED, 'config/advertise/splits.txt': '', 'status.txt': '3\n'}) as (root, path):
+            log = root / 'build/engine/native/run.txt'
+            ran = f'sa1: {root}/orig 600 1 0\n'
+            run = f'  run    build/engine/native/run.txt\n{ran}'
+            for copied in (''.join(f'  strip  build/engine/native/{copy}.txt\n' for copy in COPIES), ''):
+                failed = (f'{run}exit 3\n{copied}build/engine/native/run.txt: the run ended with exit 3, where one '
+                          'that reaches its frames ends with exit 0; read the log for where it stopped\n')
+                status, output = make(root, '-o', PLAY, 'native', 'CC=true', path=path)
+                self.assertEqual(status, 2, output)
+                self.assertRegex(output, rf'\A{re.escape(failed)}.*: \*\*\* '
+                                         r'\[engine/mk/native\.mk:\d+: native\] Error 1\n\Z')
+                self.assertEqual(log.read_text(), f'{ran}exit 3\n')
+            (root / 'status.txt').write_text('0\n')
+            for printed in (f'{run}exit 0\n', ''):
+                self.assertEqual(make(root, '-o', PLAY, 'native', 'CC=true', path=path), (0, printed))
+                self.assertEqual(log.read_text(), f'{ran}exit 0\n')
+            for unfinished in ('', 'sa1: stopped at 0\n'):
+                log.write_text(unfinished)
+                self.assertEqual(make(root, '-o', PLAY, 'native', 'CC=true', path=path), (0, f'{run}exit 0\n'))
+                self.assertEqual(log.read_text(), f'{ran}exit 0\n')
+
+    def test_native_stops_where_the_marked_copy_can_t_be_made_again(self):
+        # the slice compiles marks.py's copy of the game's C, and make reads the copy's record as a makefile. A copy
+        # older than marks.py is made again, and where marks.py fails, make stops and leaves the record as it was,
+        # so the next make fails the same way: it never builds the older copy in the new one's place
+        record = 'build/engine/native/marked.mk'
+        fails = '#!/usr/bin/env python3\nimport sys\nsys.exit("src/a.c: no longer holds: a line")\n'
+        with sliced({PLAY: '#!/bin/sh\n', 'config/advertise/splits.txt': '',
+                     'engine/tools/marks.py': fails}) as (root, path):
+            later = (root / record).stat().st_mtime + 10
+            os.utime(root / 'engine/tools/marks.py', (later, later))
+            for _ in range(2):
+                status, output = make(root, '-o', PLAY, 'native', 'CC=true', path=path)
+                self.assertEqual(status, 2, output)
+                self.assertRegex(output, r'\A  marks  build/engine/native/src\nsrc/a\.c: no longer holds: a line\n'
+                                         rf'.*: \*\*\* \[engine/mk/native\.mk:\d+: {re.escape(record)}\] Error 1\n')
+                self.assertNotIn('  run ', output)
+                self.assertEqual((root / record).read_text(), '')
+
+    def test_native_fails_where_the_host_failed_a_read_of_the_disc_and_runs_it_again(self):
+        # the game goes on from a read of the disc that the host failed, as it does from a sector the drive can't
+        # read, so such a run can reach its frames and end with 0. gdfs.c names the file on a line of the log, "sa1:
+        # can't read NAME on the disc: REASON", and make native fails on a log with such a line, names the log and
+        # the first such line, and runs play again the next time. A line that holds those words past its start is
+        # no such line, nor is one of another file than the disc's. play is a stand-in here, which prints its
+        # arguments and said.txt, and ends with 0. Its copies from strip, STRIPPED's, each refuse as make native
+        # holds them to, so it runs each copy once and their logs stay current
+        play = ('#!/bin/sh\ncopy=${0##*/play}\n[ -z "$copy" ] || { cat "said$copy"; exit "$(cat "ended$copy")"; }\n'
+                'echo "sa1: $*"\ncat said.txt\n')
+        first = "sa1: can't read stg01.PRS on the disc: Input/output error"
+        unread = f"{first}\nsa1: can't read set0100s.bin on the disc: it ends before the size it opened with\n"
+        with sliced({**STRIPPED, PLAY: play, 'config/advertise/splits.txt': '',
+                     'said.txt': unread}) as (root, path):
+            log = root / 'build/engine/native/run.txt'
+            ran = f'sa1: {root}/orig 600 1 0\n'
+            run = f'  run    build/engine/native/run.txt\n{ran}'
+            for copied in (''.join(f'  strip  build/engine/native/{copy}.txt\n' for copy in COPIES), ''):
+                failed = (f'{run}{unread}exit 0\n{copied}build/engine/native/run.txt: the run reached its frames '
+                          'past a read of the disc that the host failed, which the log\'s first such line names: '
+                          f'{first}\n')
+                status, output = make(root, '-o', PLAY, 'native', 'CC=true', path=path)
+                self.assertEqual(status, 2, output)
+                self.assertRegex(output, rf'\A{re.escape(failed)}.*: \*\*\* '
+                                         r'\[engine/mk/native\.mk:\d+: native\] Error 1\n\Z')
+                self.assertEqual(log.read_text(), f'{ran}{unread}exit 0\n')
+            other = "sa1: no file sa1: can't read x on the disc: y\nsa1: can't read settings.txt\n"
+            (root / 'said.txt').write_text(other)
+            for printed in (f'{run}{other}exit 0\n', ''):
+                self.assertEqual(make(root, '-o', PLAY, 'native', 'CC=true', path=path), (0, printed))
+                self.assertEqual(log.read_text(), f'{ran}{other}exit 0\n')
+
+    def test_the_slice_s_table_of_its_disc_is_each_original_file_s_line_of_sha256sums(self):
+        # play holds the disc it is given to the build's: build/engine/native/disc.c gives it each original file's
+        # path below orig/ and its hash, as SHA256SUMS lists them, and no file make builds. play links the table's
+        # object. A SHA256SUMS that lists no original file fails the rule, as a table of no rows would hold a disc
+        # to nothing, and the table stays as the last rule that passed wrote it
+        table = 'build/engine/native/disc.c'
+        built, first, module = (f'{digit * 64}  {name}\n' for digit, name in zip('123', (
+            'build/1st_read/main.bin', 'orig/1ST_READ.BIN', 'orig/SONICADV/MOD.PRS')))
+        written = ('#include "native.h"\nconst struct native_disc_sum native_disc_sums[] = {\n'
+                   f'    {{"1ST_READ.BIN", "{"2" * 64}"}},\n    {{"SONICADV/MOD.PRS", "{"3" * 64}"}},\n}};\n'
+                   'const int native_disc_sum_count = sizeof native_disc_sums / sizeof *native_disc_sums;\n')
+        with sliced({'SHA256SUMS': built + first + module, 'config/advertise/splits.txt': ''}) as (root, path):
+            self.assertEqual(make(root, table, 'CC=true', path=path), (0, f'  sums   {table}\n'))
+            self.assertEqual((root / table).read_text(), written)
+            (root / 'SHA256SUMS').write_text(built)
+            status, output = make(root, table, 'CC=true', path=path)
+            self.assertEqual(status, 2, output)
+            self.assertRegex(output, rf'\A  sums   {re.escape(table)}\nSHA256SUMS: no line names a file of orig/\n'
+                                     rf'.*: \*\*\* \[engine/mk/native\.mk:\d+: {re.escape(table)}\] Error 1\n\Z')
+            self.assertEqual((root / table).read_text(), written)
+            status, output = make(root, '-n', '-p', '-o', PLAY, 'native', 'CC=true', path=path)
+        self.assertEqual(status, 0, output[:3000])
+        self.assertIn('build/engine/native/disc.o', re.search(rf'(?m)^{re.escape(PLAY)}: (.*)$', output)[1].split())
+
+    def test_native_fails_where_a_copy_of_play_that_lacks_its_symbols_does_not_refuse_to_start(self):
+        # play finds some of the game's statics by name in its own symbol table, so a play whose file lacks the
+        # table, or whose table lacks one of the names, starts no game: it says which, in runner.c's sentence for
+        # it, and ends with 2. make native has strip make a copy of each kind, COPIES', runs each on the disc for
+        # one vsync, and keeps its log with its status as the last line. It fails, naming the log, on a copy that
+        # ends with another status, as one that ran its vsync or died in a draw would, and on one that ends with 2
+        # over other words, as any play does that finds no disc, or as either copy does that says the other's
+        # sentence. A log it fails is never current. One it passes is, until play builds again. strip and play
+        # are STRIPPED's stand-ins here, and play's own run reaches its frames
+        runner = re.sub(r'"\s*"', '', (ROOT / 'engine/native/runner.c').read_text())
+        self.assertIn(f'"{KEEP}"', runner)
+        for _, words, says in COPIES.values():
+            self.assertIn(words, says)
+            self.assertIn(f'"{says.replace("iamb", "%s")}: %s"', runner)
+        self.assertIn('"iamb"', (ROOT / 'engine/sa1/records.c').read_text())
+        with sliced({**STRIPPED, 'config/advertise/splits.txt': '', 'status.txt': '0\n'}) as (root, path):
+            ahead = f'  run    build/engine/native/run.txt\nsa1: {root}/orig 600 1 0\nexit 0\n'
+            for copy, (_, words, says) in COPIES.items():
+                log = root / f'build/engine/native/{copy}.txt'
+                strip = f'  strip  build/engine/native/{copy}.txt\n'
+                refusal = f'sa1: {says}: {KEEP}\n'
+                other = next(text for name, text in STRIPPED.items() if name.startswith('said.') and text != refusal)
+                for said, status in ((f'sa1: no disc at {root}/orig\n', 2), (other, 2), ('', 2), (refusal, 0),
+                                     (refusal, 3)):
+                    with self.subTest(copy=copy, said=said, status=status):
+                        (root / f'said.{copy}').write_text(said)
+                        (root / f'ended.{copy}').write_text(f'{status}\n')
+                        failed = (f'{ahead}{strip}build/engine/native/{copy}.txt.tmp: the copy of play that strip '
+                                  f'made ended with exit {status}, where one that {words} says so and ends with exit '
+                                  '2; read the log for what it did\n')
+                        made, output = make(root, '-o', PLAY, 'native', 'CC=true', path=path)
+                        self.assertEqual(made, 2, output)
+                        self.assertRegex(output, rf'\A{re.escape(failed)}.*: \*\*\* \[engine/mk/native\.mk:\d+: '
+                                                 rf'build/engine/native/{copy}\.txt\] Error 1\n\Z')
+                        self.assertFalse(log.exists())
+                        self.assertEqual((root / f'{log}.tmp').read_text(), f'{said}exit {status}\n')
+                        ahead = ''
+                # the next make runs this copy, which refuses as it must, ahead of what follows it
+                (root / f'said.{copy}').write_text(refusal)
+                (root / f'ended.{copy}').write_text('2\n')
+                ahead = strip
+            for printed in (ahead, ''):
+                self.assertEqual(make(root, '-o', PLAY, 'native', 'CC=true', path=path), (0, printed))
+            for copy, (flags, _, says) in COPIES.items():
+                self.assertEqual((root / f'build/engine/native/{copy}.txt').read_text(),
+                                 f'sa1: {says}: {KEEP}\nexit 2\n')
+                self.assertEqual((root / f'{PLAY}.{copy}').read_text(), STRIPPED[PLAY])
+                self.assertIn(f'{flags}-o {PLAY}.{copy} {PLAY}', (root / 'strip.txt').read_text().splitlines())
+
+    def test_play_links_the_slice_s_host_c_and_wraps_the_pads_and_the_adapter_s_calls(self):
+        # the slice's host C is engine/native/'s and engine/sa1/'s, but play.c, the front end's, which play's link
+        # names itself. play links each of their objects, and takes the objects among its prerequisites, which hold
+        # the inventory of them and what gives the link's command too. Its wraps are the pads' and the adapter's
+        sources = {f'engine/{name}.c': '' for name in ('native/runner', 'native/bare', 'sa1/records', 'sa1/play')}
+        obj = 'build/engine/native/obj/engine'
+        with sliced({**sources, 'config/advertise/splits.txt': ''}) as (root, path):
+            status, output = make(root, '-n', '-p', '-o', PLAY, 'native', 'CC=true', path=path)
+        self.assertEqual(status, 0, output[:3000])
+        names, recipe = re.search(rf'(?m)^{re.escape(PLAY)}: (.*)\n(?:#.*\n)*((?:\t.*\n)+)', output).groups()
+        self.assertNotIn(' | ', names)
+        self.assertLessEqual({f'{obj}/native/runner.o', f'{obj}/native/bare.o', f'{obj}/sa1/records.o',
+                              f'{obj}/sa1/play.o'}, set(names.split()))
+        self.assertEqual(recipe.splitlines()[-1],
+                         '\t$(Q)$(NATIVE_CC) $(NATIVE_LINK_FLAGS) -o $@ $(filter %.o,$^) $(PC_LIBS) -lstdc++ -lm '
+                         '$(NATIVE_CRT_END)')
+        self.assertLessEqual({'build/engine/native/objects.txt', 'build/engine/native/request.txt',
+                              'engine/mk/native.mk'}, set(names.split()))
+        fragment = (ROOT / 'engine/mk/native.mk').read_text()
+        self.assertEqual(re.findall(r'(?m)^(NATIVE_\w*WRAPS) := (.*)$', fragment), [(
+            'NATIVE_WRAPS', 'pad_scan frame_wait njDrawTriangle3D njDrawPolygon2D njDrawLine3D njDrawTexture '
+                            'njDrawPolygon kmRender')])
+
+    def test_each_directory_s_c_plus_plus_builds_objects_in_a_directory_of_their_own(self):
+        # a directory is its files' namespace, and make takes the first pattern rule whose source it finds: were
+        # two directories' objects one directory's, a source of the second with the stem of one of the first's
+        # would build no object. The PC backend, SA1's client and the runtime's core here each hold a same.cpp,
+        # and each builds an object of its own: with the host's C++, which CXX names true here, and for Windows
+        # with llvm-mingw's, under the slice's directory. The headers are the engine's, empty, since a rule
+        # names those its sources read
+        headers = {path.relative_to(ROOT).as_posix(): '' for path in (ROOT / 'engine').rglob('*.h')}
+        sources = {f'engine/{directory}/same.cpp': '' for directory in ('pc', 'sa1', 'runtime')}
+        windows = 'build/engine/native-windows'
+        marked = {'config/advertise/splits.txt': '', f'{windows}/marked.mk': ''}
+        for host, objects in (
+                ({}, {'build/engine/replay': 'pc', 'build/engine/sa1': 'sa1', 'build/engine/runtime': 'runtime'}),
+                ({'NATIVE_HOST': 'windows'}, {f'{windows}/{name}': name for name in ('pc', 'sa1', 'runtime')})):
+            with self.subTest(host=host), sliced({**headers, **sources, **marked}) as (root, path), \
+                    mock.patch.dict(os.environ, host):
+                status, output = make(root, '-n', *(f'{made}/same.o' for made in objects), path=path)
+                self.assertEqual(status, 0, output)
+                for made, directory in objects.items():
+                    self.assertRegex(output, rf'(?m) -c -o {made}/same\.o engine/{directory}/same\.cpp$')
+
+    def test_the_windows_slice_ends_at_a_domain_past_0_and_names_the_setting(self):
+        # COFF keeps an absolute address in 32 bits, so the slice for Windows links at the domain's 0 alone. make
+        # ends as it reads the rules under any other NATIVE_DOMAIN, with the setting it was given and what to give
+        windows = 'build/engine/native-windows'
+        with sliced({'config/advertise/splits.txt': '', f'{windows}/marked.mk': ''}) as (root, path):
+            for domain, refused in (('0x100000000', True), ('0', False)):
+                with self.subTest(domain=domain), \
+                        mock.patch.dict(os.environ, {'NATIVE_HOST': 'windows', 'NATIVE_DOMAIN': domain}):
+                    status, output = make(root, '-n', f'{windows}/request.txt', path=path)
+                    self.assertEqual(status, 2 * refused, output)
+                    self.assertEqual(re.findall(r'(?m)^engine/mk/native\.mk:\d+: \*\*\* (.*)\.  Stop\.$', output), [
+                        "NATIVE_DOMAIN=0x100000000: NATIVE_HOST=windows links the game at the domain's 0 alone, as "
+                        'COFF keeps an absolute address in 32 bits: leave NATIVE_DOMAIN unset, or give it 0'] * refused)
+
+    def test_the_slice_ends_where_the_disc_lies_under_a_path_with_a_space_and_says_how_to_link_it(self):
+        # make's functions split a path at a space, so the directory orig/ links to would reach the runner as two
+        # words. make ends as it reads the rules, and under a path without a space it reads them through
+        with sliced({'config/advertise/splits.txt': ''}) as (root, path):
+            for name, refused in (('a disc', True), ('disc', False)):
+                with self.subTest(name=name), tempfile.TemporaryDirectory() as folder:
+                    extract = Path(folder).resolve() / name
+                    extract.mkdir()
+                    (extract / '1ST_READ.BIN').write_bytes(b'')
+                    if (root / 'orig').is_symlink():
+                        (root / 'orig').unlink()
+                    else:
+                        shutil.rmtree(root / 'orig', ignore_errors=True)
+                    (root / 'orig').symlink_to(extract)
+                    status, output = make(root, '-n', 'build/engine/native/request.txt', path=path)
+                    self.assertEqual(status, 2 * refused, output)
+                    self.assertEqual(re.findall(r'(?m)^engine/mk/native\.mk:\d+: \*\*\* (.*)\.  Stop\.$', output), [
+                        "orig/1ST_READ.BIN lies under a directory whose path holds a space, which make can't name: "
+                        'link orig/ to the disc by a path without one'] * refused)
+
+    def test_the_slice_s_stubs_assembly_and_programs_wait_on_a_record_of_native_explore(self):
+        # stubs.py, asm2c.py and programs.py fail on what the slice's tables don't allow, and write past it under
+        # NATIVE_EXPLORE=1, and under no other value: 0 fails as no setting does. Each one's output waits on a
+        # record of the setting, which make writes anew as the setting changes, so a build without it runs each of
+        # them again and links nothing that a build with it wrote. The record's first write is dated the epoch, and
+        # rebuilds nothing
+        made = [f'build/engine/native/{name}' for name in ('stubs.c', 'asm.c', 'programs.c')]
+        record = 'build/engine/native/explore.id'
+        with sliced({'config/advertise/splits.txt': ''}) as (root, path):
+            for setting, held, flag, fresh in (('', 'fail', '', False), ('0', 'fail', '', False),
+                                               ('1', 'explore', '--explore', True), ('', 'fail', '', True),
+                                               ('yes', 'fail', '', True)):
+                with self.subTest(setting=setting), mock.patch.dict(os.environ, {'NATIVE_EXPLORE': setting}):
+                    status, output = make(root, '-n', '-p', '-o', PLAY, 'native', 'CC=true', path=path)
+                    self.assertEqual(status, 0, output[:3000])
+                    self.assertEqual((root / record).read_text(), f'{held}\n')
+                    self.assertEqual((root / record).stat().st_mtime > 0, fresh)
+                    self.assertEqual(re.search(r'(?m)^NATIVE_EXPLORING := ?(.*)$', output)[1], flag)
+                    for target in made:
+                        names, recipe = re.search(rf'(?m)^{re.escape(target)}: (.*)\n(?:#.*\n)*((?:\t.*\n)+)',
+                                                  output).groups()
+                        self.assertIn(record, names.split(), target)
+                        self.assertIn('$(NATIVE_EXPLORING)', recipe, target)
+
+    def test_pc_names_no_shc_and_writes_no_stamp_of_wibo_or_shc_on_any_host(self):
+        # make pc runs no SHC, so it leaves the stamps of wibo and SHC's releases alone on Linux, where the build
+        # runs SHC, as on a Mac. wibo and the releases are in place with no stamp of either, so a goal that may run
+        # SHC would write each stamp as make reads the makefiles, under make -n too. A dry run passes, names no
+        # stamp, SHC, asmsh or wibo, and writes no stamp. play counts as built here, so the run holds the goal,
+        # and not the rules of the game's objects, which the checkout has no sources for
+        stamps = [f'build/tools/{name}.id' for name in ('wibo', 'r10', 'r26', 'r32')]
+        for uname in (LINUX, *MACS):
+            with self.subTest(uname), sliced({PLAY: ''}) as (root, path):
+                status, output = make(root, '-n', '-o', PLAY, 'pc', path=path, uname=uname)
+                self.assertEqual(status, 0, output)
+                for step in (*stamps, 'shc.exe', 'asmsh.exe', 'wibo'):
+                    self.assertNotIn(step, output)
+                for stamp in stamps:
+                    self.assertFalse((root / stamp).exists(), stamp)
+
+    def test_pc_fails_where_the_list_of_the_disc_s_files_fails_and_extracts_none_of_them(self):
+        # where orig/ holds the disc's .gdi, make pc lists the .gdi's files in build/disc.txt and extracts each that
+        # orig/ lacks, which the game reads as it runs. A list that fails, though it printed files first, fails make
+        # pc, which then writes no build/disc.txt and extracts nothing. build/gdi is a stand-in here: asked for a
+        # list, it prints listed.txt and ends with status.txt's status, and it writes each file it is asked to
+        # extract, holding the file's name. make pc reads the tables, and would refuse an empty one for the menus,
+        # so the checkout has none, and the slice's scan of it prints an error ahead of make's own lines
+        gdi = ('#!/bin/sh\n[ -f "$2" ] || exit 2\n[ "$1" != list ] || { cat listed.txt; exit "$(cat status.txt)"; }\n'
+               'dir=$3\nshift 3\n'
+               'for f; do mkdir -p "$dir/$(dirname "$f")" && printf %s "$f" > "$dir/$f" || exit 1; done\n')
+        disc = ('1ST_READ.BIN', 'SONICADV/MOD.PRS', 'SONICADV/E_SAI.PRS', 'SA1.MPG')
+        files = {**ORIGINALS, 'orig/disc.gdi': '', 'build/gdi': gdi, 'build/tools/vendored.ok': '', PLAY: '',
+                 'listed.txt': ''.join(f'{size:10}  {name}\n' for size, name in enumerate(disc)), 'status.txt': '2\n'}
+        rest = {f'orig/{name}': name for name in disc[2:]}
+        with sliced(files) as (root, path):
+            status, output = make(root, '-o', PLAY, 'pc', 'CC=true', path=path)
+            self.assertEqual(status, 2, output)
+            self.assertRegex(output, r'(?m)^  gdi    orig/disc\.gdi\n.*: \*\*\* '
+                                     r'\[engine/mk/native\.mk:\d+: build/disc\.txt\] Error 2\n\Z')
+            self.assertFalse((root / 'build/disc.txt').exists())
+            self.assertFalse([name for name in rest if (root / name).exists()])
+            (root / 'status.txt').write_text('0\n')
+            status, output = make(root, '-o', PLAY, 'pc', 'CC=true', path=path)
+            self.assertEqual(status, 0, output)
+            self.assertRegex(output, r'(?m)^  gdi    orig/disc\.gdi\n\Z')
+            self.assertEqual((root / 'build/disc.txt').read_text(), ''.join(f'{name}\n' for name in disc))
+            self.assertEqual({name: (root / name).read_text() for name in rest}, rest)
+
+
+# play math's fragment, which alone names the library's sources, each build's objects and the tables it writes for
+# the fast path
+PLAY_MATH_MK = 'engine/mk/play_math.mk'
+TABLES = ('build/engine/numeric/sine.h', 'build/engine/numeric/sine-console.h')
+# the host's compile of a source of the library and its link of a test, under CC=true, and the slice's objects of
+# the library
+HOST = 'true -std=c17 -Wall -Wextra -Werror -pedantic -O2'
+SLICE_MATH = 'build/engine/native/obj/engine/numeric'
+
+
+def numeric(words):
+    """The objects among words, a command's, that lie under a directory named numeric: play math's."""
+    return [word for word in words if re.fullmatch(r'\S*/numeric/\S*\.o', word)]
+
+
+class PlayMath(unittest.TestCase):
+    maxDiff = None
+
+    def test_no_file_but_play_math_mk_names_a_source_a_table_or_an_object_of_the_library(self):
+        # config/parts.txt gives the library's sources their thing. play_math.mk names each build's objects and
+        # compiles them, and a link takes its build's objects from it, so no other makefile and no script of the
+        # engine's tests names a source of the library, a table the fragment writes, or an object by a source's
+        # name, as math.o is math.c's. A fragment whose sources include the library's header names it as
+        # PLAY_MATH_HEADER
+        rows = parts.rows(ROOT / parts.PARTS)
+        sources = [path for path in tracked('engine') if (row := parts.part(rows, path)) and row.thing == 'play-math']
+        self.assertIn('engine/numeric/play_math.h', sources)
+        self.assertIn('engine/numeric/fast.c', sources)
+        fragment = (ROOT / PLAY_MATH_MK).read_text()
+        self.assertRegex(fragment, r'(?m)^PLAY_MATH_HEADER\s*:= engine/numeric/play_math\.h$')
+        stems = sorted(Path(path).stem for path in sources if path.endswith('.c'))
+        objects = re.compile(rf'(?<![\w-])(?:{"|".join(stems)})\.o\b')
+        self.assertEqual(set(objects.findall(fragment)), {'math.o', 'fast.o'})
+        for path in (*(name for name in MAKEFILES if name != PLAY_MATH_MK), *tracked('engine/tests/*.py')):
+            text = (ROOT / path).read_text()
+            with self.subTest(path=path):
+                self.assertEqual([name for name in (*sources, *TABLES) if name in text] + objects.findall(text), [],
+                                 f"{path} names a source, a table or an object of play math's: take a build's "
+                                 f'objects from {PLAY_MATH_MK}, as $(call play_math_reference,DIR) gives the '
+                                 "reference's")
+
+    def test_each_link_takes_the_objects_of_its_build_as_play_math_mk_names_them(self):
+        # the fragment's rule compiles the library's objects under a directory for each compiler: the host's CC
+        # under the engine's flags, and clang under the flags of the host's C for the slice. A console build lies
+        # under console/ and compiles with SA_NUMERIC_CONSOLE, and the fast path alone searches the directory of
+        # the tables, which the host's reference of each build writes. Each program links the objects of one
+        # build: the fast path's test in either answer, asm2c.py's test the host's reference by PLAY_MATH, SA1's
+        # adapter's test the slice's reference, and the slice the fast path
+        engine = {name: (ROOT / name).read_text() for name in tracked('engine')}
+        with checkout({**PINNED, **SEARCHED, **engine, 'config/advertise/splits.txt': ''}) as root:
+            status, output = make(root, '-n', '-p', 'engine-play-math', 'engine-native-tools', 'CC=true')
+        self.assertEqual(status, 0, output[:3000])
+        dry, database = output.split('\n# Make data base', 1)
+        commands = [line.split() for line in dry.replace('\\\n', ' ').splitlines()]
+        compiled = {words[words.index('-o') + 1]: ' '.join(words) for words in commands if '-c' in words}
+        self.assertEqual(compiled, {
+            'build/engine/numeric/math.o': f'{HOST} -c -o build/engine/numeric/math.o engine/numeric/math.c',
+            'build/engine/numeric/console/math.o':
+                f'{HOST} -DSA_NUMERIC_CONSOLE -c -o build/engine/numeric/console/math.o engine/numeric/math.c',
+            'build/engine/numeric/fast.o':
+                f'{HOST} -Ibuild/engine/numeric -c -o build/engine/numeric/fast.o engine/numeric/fast.c',
+            'build/engine/numeric/console/fast.o':
+                f'{HOST} -DSA_NUMERIC_CONSOLE -Ibuild/engine/numeric -c -o build/engine/numeric/console/fast.o '
+                'engine/numeric/fast.c'})
+        linked = {words[words.index('-o') + 1]: numeric(words) for words in commands
+                  if '-o' in words and '-c' not in words and numeric(words)}
+        reference = ['build/engine/numeric/math.o']
+        self.assertEqual(linked, {
+            'build/engine/numeric/sine.h.bin': reference,
+            'build/engine/numeric/sine-console.h.bin': ['build/engine/numeric/console/math.o'],
+            'build/engine/tests/fast': ['build/engine/numeric/fast.o'],
+            'build/engine/tests/fast-console': ['build/engine/numeric/console/fast.o']})
+        # the fast path's test compiles one source for both builds, and its link takes the C library's math
+        for words in commands:
+            if '-o' in words and words[words.index('-o') + 1].startswith('build/engine/tests/'):
+                target = words[words.index('-o') + 1]
+                with self.subTest(target=target):
+                    self.assertNotIn('-DSA_NUMERIC_CONSOLE', words)
+                    self.assertEqual(words[-1], '-lm')
+        self.assertIn(f"PLAY_MATH='{' '.join(reference)}' python3 engine/tests/native_tools.py", dry)
+        # the slice's objects, by make's database: no goal here builds them
+        rule = {target: re.search(rf'(?m)^{re.escape(target)}: (?!PLAY_MATH_TABLES)(.*)$', database)[1].split()
+                for target in ('build/engine/tests/sa1', f'{SLICE_MATH}/fast.o', f'{SLICE_MATH}/math.o')}
+        self.assertEqual(numeric(rule['build/engine/tests/sa1']), [f'{SLICE_MATH}/math.o'])
+        # each waits on its source, the model math.c includes, the header and the fragment, and on what gives the
+        # slice's commands: the engine's make files and the record of the slice's request. A name a rule gives twice
+        # counts once
+        needs = ['engine/numeric/sh4_fpu_approx.h', 'engine/numeric/play_math.h', PLAY_MATH_MK, 'engine/engine.mk',
+                 'engine/mk/native.mk', 'build/engine/native/request.txt']
+        self.assertEqual(list(dict.fromkeys(rule[f'{SLICE_MATH}/math.o'])), ['engine/numeric/math.c', *needs])
+        self.assertEqual(list(dict.fromkeys(rule[f'{SLICE_MATH}/fast.o'])),
+                         ['engine/numeric/fast.c', *needs, 'engine/numeric/math.c', TABLES[0]])
+        self.assertIn(f'\n{SLICE_MATH}/fast.o: PLAY_MATH_TABLES := -Ibuild/engine/numeric\n', database)
+        self.assertIn('\n\t$(Q)$(NATIVE_CC) $(NATIVE_HOST_CFLAGS) -O2 $(PLAY_MATH_TABLES) -c -o $@ $<\n', database)
+        self.assertEqual(numeric(re.search(r'(?m)^NATIVE_OBJ := (.*)$', database)[1].split()), [f'{SLICE_MATH}/fast.o'])
+        for flags in ('NATIVE_HOST_CFLAGS', 'NATIVE_SA1_CFLAGS'):
+            with self.subTest(flags=flags):
+                self.assertIn('-Iengine/numeric', re.search(rf'(?m)^{flags} := (.*)$', database)[1].split())
 
 
 # an assembly source for b.src, whose one function's @asm tag is open
@@ -792,7 +1923,7 @@ class Diagnostics(unittest.TestCase):
             Path(root, 'bin').mkdir()
             Path(root, 'bin/awk').write_text('#!/bin/sh\nexit 2\n')
             Path(root, 'bin/awk').chmod(0o755)
-            status, output = make(root, '-B', path=f'{Path(root, "bin")}{os.pathsep}{os.environ["PATH"]}')
+            status, output = make(root, '-B', path=f'{Path(root, "bin")}{os.pathsep}{PATH}')
             self.assertNotEqual(status, 0, output)
 
 
@@ -810,49 +1941,86 @@ class Clean(unittest.TestCase):
             self.assertFalse((root / 'build').exists())
 
 
-# GATE_MAKE(make=..., bin=...) is the text of bin/make, a stand-in for make that PATH finds first. Given accept, it runs
-# the make that make= names, with MAKE naming the stand-in, so accept runs each gate with the stand-in. That make's
-# environment sets SH_ELF to gcc, as a person's shell may. Given a gate, the stand-in adds a line to bin/gates.txt: its
-# arguments, then the name of each of MAKEFLAGS, MAKELEVEL, SH_ELF and V that its environment sets. It fails, as make
-# does, where its arguments are bin/fails.txt's text
-GATE_MAKE = ('#!/bin/sh\ncase " $* " in *" accept "*) exec env SH_ELF=gcc {make} MAKE={bin}/make "$@";; esac\n'
-             'echo "$*${{MAKEFLAGS+ MAKEFLAGS}}${{MAKELEVEL+ MAKELEVEL}}${{SH_ELF+ SH_ELF}}${{V+ V}}" '
-             '>> {bin}/gates.txt\n'
+# GATE_MAKE(make=..., bin=...) is the text of bin/make, a stand-in for make that a candidate's tests run in MAKE's
+# place. Given accept, it runs the make that make= names, with MAKE naming the stand-in, so accept runs each gate with
+# the stand-in. That make's environment sets SH_ELF to gcc, as a person's shell may, and NATIVE and NATIVE_OPT, two of
+# the variables engine/mk/native.mk's rules take from it, and NATIVE_X, which no rule reads: accept unsets a variable
+# for its name, NATIVE or NATIVE_ and more, and keeps no list of them. Given a gate, the stand-in adds a line to
+# bin/gates.txt: its arguments, then the name of each of MAKEFLAGS, MAKELEVEL, SH_ELF, NATIVE, NATIVE_OPT, NATIVE_X
+# and V that its environment sets. It fails, as make does, where its arguments are bin/fails.txt's text
+GATE_MAKE = ('#!/bin/sh\ncase " $* " in *" accept "*)\n'
+             '    exec env SH_ELF=gcc NATIVE=out NATIVE_OPT=-O0 NATIVE_X=1 {make} MAKE={bin}/make "$@";; esac\n'
+             'echo "$*${{MAKEFLAGS+ MAKEFLAGS}}${{MAKELEVEL+ MAKELEVEL}}${{SH_ELF+ SH_ELF}}${{NATIVE+ NATIVE}}'
+             '${{NATIVE_OPT+ NATIVE_OPT}}${{NATIVE_X+ NATIVE_X}}${{V+ V}}" >> {bin}/gates.txt\n'
              '[ "$*" != "$(cat {bin}/fails.txt 2> /dev/null)" ] || exit 2\n').format
 # the environment of a candidate's git and its make accept. It holds none of the host's GIT_ variables, as a hook's
 # GIT_DIR, and none of the host's git configuration. It names an author and committer of its own
 GIT_ENV = {**{name: value for name, value in os.environ.items() if not name.startswith('GIT_')},
            'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_AUTHOR_NAME': 'a',
            'GIT_AUTHOR_EMAIL': 'a@a', 'GIT_COMMITTER_NAME': 'a', 'GIT_COMMITTER_EMAIL': 'a@a'}
+# what a candidate's dc and dc-disc gates leave, which accept sums: the manifest, 1ST_READ.BIN's final ELF and a disc
+GATED = {'build/dc/manifest.txt': 'a manifest\n', 'build/dc/link/1st_read/final.elf': 'an ELF\n',
+         'build/dc/disc/disc.gdi': 'a gdi\n', 'build/dc/disc/track01.bin': 'a track\n'}
+# the record's sum lines for GATED, in sha256sum's order
+GATED_SUMS = [f'sum      {hashlib.sha256(text.encode()).hexdigest()}  {path}' for path, text in GATED.items()]
 
 
 class Accept(unittest.TestCase):
+    # accept's gates in the order it runs them, each with the SH_ELF its command line takes from GATE_MAKE's
+    # environment
+    GATES = ('lint', 'all', 'check', 'dc SH_ELF=gcc', 'dc-disc SH_ELF=gcc', 'pc', 'native', 'engine-test SH_ELF=gcc',
+             'test SH_ELF=gcc')
+
     @contextlib.contextmanager
     def candidate(self):
-        """A checkout committed to git, which ignores build/, with os.environ set to GIT_ENV. Yields its root, its
-        commit, a PATH that finds GATE_MAKE's make first, and that make's directory."""
-        with checkout({**SEARCHED, '.gitignore': '/build/\n'}) as root, tempfile.TemporaryDirectory() as bin, \
+        """A checkout committed to git, which ignores build/, with GATED's files and os.environ set to GIT_ENV. Until
+        the caller is done, make() runs GATE_MAKE's make in MAKE's place, and that make runs MAKE for accept. Yields
+        the checkout's root, its commit, a PATH that searches that make's directory first, and the directory."""
+        with checkout({**SEARCHED, **GATED, '.gitignore': '/build/\n'}) as root, tempfile.TemporaryDirectory() as bin, \
                 mock.patch.dict(os.environ, GIT_ENV, clear=True):
-            Path(bin, 'make').write_text(GATE_MAKE(make=shutil.which('make'), bin=bin))
-            Path(bin, 'make').chmod(0o755)
+            stand_in = Path(bin, 'make')
+            stand_in.write_text(GATE_MAKE(make=MAKE, bin=bin))
+            stand_in.chmod(0o755)
             for command in (['init', '-q'], ['add', '-A'], ['commit', '-q', '-m', 'a candidate']):
                 subprocess.run(['git', *command], cwd=root, check=True, stdout=subprocess.DEVNULL)
             commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, check=True, stdout=subprocess.PIPE,
                                     text=True).stdout.strip()
-            yield root, commit, f'{bin}{os.pathsep}{os.environ["PATH"]}', Path(bin)
+            with mock.patch.object(support, 'MAKE', str(stand_in)):
+                yield root, commit, f'{bin}{os.pathsep}{PATH}', Path(bin)
 
     def test_runs_each_gate_in_turn_as_it_runs_alone_and_records_accepted_once_all_pass(self):
         # of make accept's flags and command-line variables, only -j reaches a gate. SH_ELF, from its environment,
-        # reaches gcc, gcc-disc and test alone, on their command lines, and test runs last
+        # reaches dc, dc-disc, engine-test and test alone, on their command lines, and test runs last. NATIVE,
+        # NATIVE_OPT and NATIVE_X, from its environment, reach no gate, so pc, which runs once the port's disc is
+        # built and takes nothing on its command line, builds the PC game make pc builds with no such variable set.
+        # native runs next, ahead of engine-test, and takes nothing either
         with self.candidate() as (root, commit, path, bin):
             status, output = make(root, 'accept', 'V=1', path=path)
             self.assertEqual(status, 0, output)
             gates = (bin / 'gates.txt').read_text().splitlines()
             record = (root / 'build/accept.txt').read_text().splitlines()
-        commands = ['lint', 'all', 'check', 'gcc SH_ELF=gcc', 'gcc-disc SH_ELF=gcc', 'test SH_ELF=gcc']
-        self.assertEqual(gates, [f'-j1 {command}' for command in commands])
+        self.assertEqual(gates, [f'-j1 {command}' for command in self.GATES])
         self.assertEqual(record, [f'commit   {commit}',
-                                  *(f'gate     0  {bin}/make -j1 {command}' for command in commands), 'accepted'])
+                                  *(f'gate     0  {bin}/make -j1 {command}' for command in self.GATES), *GATED_SUMS,
+                                  'accepted'])
+        self.assertTrue(output.endswith('\n'.join([*record, ''])), output)
+
+    def test_sums_what_the_gates_built_and_fails_without_accepted_where_one_is_gone(self):
+        # sha256sum -c on the sum lines holds the files to the run that passed. With the disc gone, the gates pass but
+        # the record names no sum and says no accepted
+        with self.candidate() as (root, commit, path, bin):
+            status, output = make(root, 'accept', path=path)
+            self.assertEqual(status, 0, output)
+            record = (root / 'build/accept.txt').read_text().splitlines()
+            sums = ''.join(f'{line[9:]}\n' for line in record if line.startswith('sum      '))
+            self.assertEqual(subprocess.run(['sha256sum', '-c', '--quiet', '-'], cwd=root, input=sums, text=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT).returncode, 0)
+            shutil.rmtree(root / 'build/dc/disc')
+            status, output = make(root, 'accept', path=path)
+            self.assertNotEqual(status, 0, output)
+            record = (root / 'build/accept.txt').read_text().splitlines()
+        self.assertEqual(len(record), 1 + len(self.GATES))
+        self.assertFalse([line for line in record if not line.startswith(('commit ', 'gate     0  '))], record)
 
     def test_a_gate_that_fails_stops_the_run_and_its_record_says_so_and_not_accepted(self):
         # a second run fails at all, after a first that accepted. A third, on a tree that differs from its commit,
@@ -880,7 +2048,7 @@ class Accept(unittest.TestCase):
     def test_refuses_another_goal(self):
         # make -j runs the goals at once, so accept's gates would race the other goal's writes
         with self.candidate() as (root, commit, path, bin):
-            for goals in (('accept', 'gcc'), ('check', 'accept')):
+            for goals in (('accept', 'dc'), ('check', 'accept')):
                 with self.subTest(goals=goals):
                     status, output = make(root, '-n', *goals, path=path)
                     self.assertNotEqual(status, 0, output)
@@ -898,7 +2066,7 @@ class Accept(unittest.TestCase):
             status, output = make(root, 'accept', path=path)
             self.assertNotEqual(status, 0, output)
             record = (root / 'build/accept.txt').read_text().splitlines()
-        self.assertEqual(len(record), 7)
+        self.assertEqual(len(record), 1 + len(self.GATES))
         self.assertNotIn('accepted', record)
 
     def test_runs_no_gate_on_an_untracked_file_git_s_configuration_leaves_out(self):
@@ -967,6 +2135,21 @@ class Originals(unittest.TestCase):
         none = 'orig/ holds none of the 6 files the build needs: 1ST_READ.BIN and 5 under SONICADV/.\n'
         self.assertRegex(output, rf'\A{re.escape(none + self.HOW)}Makefile:\d+: \*\*\* no disc in orig/\.  Stop\.\n\Z')
 
+    def test_names_the_goal_the_host_builds_without_the_disc(self):
+        # MOD.PRS decoded is a file make dc reads too, so a Mac doesn't refuse it. Without the disc, make stops
+        # there as on Linux. For a goal that isn't make dc's, Linux names make check, which a Mac doesn't run, and a
+        # Mac make dc-check
+        none = 'orig/ holds none of the 6 files the build needs: 1ST_READ.BIN and 5 under SONICADV/.\n'
+        put, _ = self.HOW.splitlines(True)
+        on_a_mac = f"{put}  Without the disc, make dc-check builds and sums the port's objects that need none.\n"
+        with checkout(self.TREE) as root:
+            for uname, how in ((LINUX, self.HOW), *((mac, on_a_mac) for mac in MACS)):
+                with self.subTest(uname):
+                    status, output = make(root, '-n', 'build/gen/img/MOD.BIN', uname=uname)
+                    self.assertNotEqual(status, 0, output)
+                    self.assertRegex(output, rf'\A{re.escape(none + how)}Makefile:\d+: \*\*\* no disc in orig/\.  '
+                                             r'Stop\.\n\Z')
+
     def test_names_the_first_three_files_orig_lacks_and_counts_the_rest(self):
         held = ('1ST_READ.BIN', 'SONICADV/MOD.PRS', 'SONICADV/EV0111.PRS', 'SONICADV/EV0177.PRS', 'SONICADV/EV017B.PRS')
         for present, lacks in (
@@ -1002,21 +2185,43 @@ class Originals(unittest.TestCase):
         compiling = next(index for index, line in enumerate(lines) if 'shc.exe' in line)
         self.assertLess(extract, compiling, output)
 
+    # build/gdi's stand-in: it finds the image by the name make gives it, and writes each file it is asked for as
+    # ORIGINALS holds it
+    EXTRACT = ('#!/bin/sh\n[ "$1" = extract ] && [ -f "$2" ] || exit 1\ndir=$3\nshift 3\n'
+               'for f; do mkdir -p "$dir/$(dirname "$f")" && printf %s "$f" > "$dir/$f" || exit 1; done\n')
+    # SHA256SUMS' line for each of ORIGINALS, by its path
+    SUMS = {path: f'{hashlib.sha256(data).hexdigest()}  {path}\n' for path, data in sorted(ORIGINALS.items())}
+
     def test_extracts_from_a_gdi_whose_name_holds_quotes_or_a_dollar(self):
-        # a .gdi takes whatever name its owner gives it; build/gdi's stand-in finds the image by that name, and writes
-        # each file it is asked for as ORIGINALS holds it
-        extract = ('#!/bin/sh\n[ "$1" = extract ] && [ -f "$2" ] || exit 1\ndir=$3\nshift 3\n'
-                   'for f; do mkdir -p "$dir/$(dirname "$f")" && printf %s "$f" > "$dir/$f" || exit 1; done\n')
-        sums = ''.join(f'{hashlib.sha256(data).hexdigest()}  {path}\n' for path, data in sorted(ORIGINALS.items()))
+        # a .gdi takes whatever name its owner gives it
         for gdi in ("orig/Sonic Adventure (Tails' copy).gdi", 'orig/disc $HOME "two" `x`.gdi'):
-            with self.subTest(gdi=gdi), checkout({**SEARCHED, gdi: '', 'build/gdi': extract,
-                                                  'build/tools/vendored.ok': '', 'SHA256SUMS': sums}) as root:
+            with self.subTest(gdi=gdi), checkout({**SEARCHED, gdi: '', 'build/gdi': self.EXTRACT,
+                                                  'build/tools/vendored.ok': '',
+                                                  'SHA256SUMS': ''.join(self.SUMS.values())}) as root:
                 (root / 'build/gdi').chmod(0o755)
                 settle(root)
                 status, output = make(root, 'unpack')
                 self.assertEqual(status, 0, output)
                 self.assertEqual(output, f'  gdi    {gdi}\n')
                 self.assertEqual({path: (root / path).read_bytes() for path in ORIGINALS}, ORIGINALS)
+
+    def test_moves_no_file_into_orig_once_one_fails_its_check(self):
+        # a file SHA256SUMS gives another hash fails the check, and so does one it gives no line: GNU's sha256sum -c
+        # fails an empty list and macOS's passes one, so make gives it none. Either way make names the file, and
+        # orig/ stays as it was
+        wrong = 'orig/SONICADV/MOD.PRS'
+        for line, message in ((f'{HASH}  {wrong}\n', "orig/disc.gdi: its SONICADV/MOD.PRS isn't the original"),
+                              ('', f'{wrong}: not in SHA256SUMS')):
+            with self.subTest(message), checkout({**SEARCHED, 'orig/disc.gdi': '', 'build/gdi': self.EXTRACT,
+                                                  'build/tools/vendored.ok': '',
+                                                  'SHA256SUMS': ''.join({**self.SUMS, wrong: line}.values())}) as root:
+                (root / 'build/gdi').chmod(0o755)
+                settle(root)
+                status, output = make(root, 'unpack')
+                self.assertNotEqual(status, 0, output)
+                self.assertRegex(output, rf'\A  gdi    orig/disc\.gdi\n{re.escape(message)}\n'
+                                         r'.*: \*\*\* \[Makefile:\d+: unpack\] Error 1\n\Z')
+                self.assertEqual([path for path in ORIGINALS if (root / path).exists()], [])
 
 
 class Relink(unittest.TestCase):
@@ -1094,6 +2299,9 @@ class Relink(unittest.TestCase):
 class Downloads(unittest.TestCase):
     # the text fetch prints after the path of a download tools/SHA256SUMS doesn't pin
     UNPINNED = ': tools/SHA256SUMS gives it no line, or more than one\n'
+    # what make says, after its goals, on Linux on arm64, a host for which the Makefile pins no wheel
+    NO_WHEEL = ('clang-format and clang-tidy need x86-64 Linux or macOS, whose wheels make pins, and this is '
+                'Linux aarch64; see README.md#build')
 
     def test_names_each_download_as_it_starts(self):
         # MODULE's sources need R32 and wibo alone; tools/SHA256SUMS lists neither, so make refuses each before curl
@@ -1101,8 +2309,22 @@ class Downloads(unittest.TestCase):
         with checkout(SEARCHED) as root, host() as path:
             status, output = make(root, '-k', 'check', 'CC=true', path=path)
         self.assertNotEqual(status, 0, output)
-        for download in ('tools/shc-v5.0r32.tar.gz', 'tools/wibo-i686'):
+        for download in ('tools/shc-v5.0r32.tar.gz', WIBO):
             self.assertIn(f'  fetch  {download}\n{download}{self.UNPINNED}', output)
+
+    def test_pins_and_fetches_no_wibo_but_linux_s(self):
+        # the build runs no SHC on a Mac, so tools/SHA256SUMS pins no wibo for one, and no rule fetches one. Linux's
+        # comes from wibo's release by its own name
+        pinned = [line.split()[1] for line in (ROOT / 'tools/SHA256SUMS').read_text().splitlines() if 'wibo' in line]
+        self.assertEqual(pinned, [WIBO])
+        with checkout(SEARCHED) as root:
+            status, output = make(root, '-n', WIBO)
+            self.assertEqual(status, 0, output)
+            self.assertIn(f'curl -fsSL -o {WIBO}.part https://github.com/decompals/wibo/releases/download/1.2.0/'
+                          f'{Path(WIBO).name} && ', output)
+            status, output = make(root, '-n', 'tools/wibo-macos')
+        self.assertNotEqual(status, 0, output)
+        self.assertIn("No rule to make target 'tools/wibo-macos'", output)
 
     def test_moves_a_wheel_into_place_only_once_tools_sha256sums_lists_its_hash(self):
         # tools/SHA256SUMS gives clang-format's wheel the hash of CURL's file, and clang-tidy's no line, a line only
@@ -1114,20 +2336,56 @@ class Downloads(unittest.TestCase):
             with self.subTest(refusal=refusal), \
                     checkout({**SEARCHED, 'bin/curl': CURL, 'tools/SHA256SUMS': listing(WHEELS[:1]) + second}) as root:
                 (root / 'bin/curl').chmod(0o755)
-                status, output = make(root, 'format', path=f'{root / "bin"}{os.pathsep}{os.environ["PATH"]}')
+                status, output = make(root, 'format', path=f'{root / "bin"}{os.pathsep}{PATH}')
                 self.assertNotEqual(status, 0, output)
                 self.assertIn(refusal, output)
                 self.assertEqual((root / WHEELS[0]).read_bytes(), b'wheel')
                 self.assertFalse((root / WHEELS[1]).exists())
                 self.assertFalse((root / 'tools/llvm/bin').exists())
 
-    def test_installs_clang_format_and_clang_tidy_from_their_wheels_alone_then_removes_the_wheels(self):
-        # pip reads no index, and installs no package a wheel depends on; nothing reads a wheel once it is installed
-        with checkout(SEARCHED) as root:
-            status, output = make(root, '-n', 'format')
-        self.assertEqual(status, 0, output)
-        wheels = ' '.join(WHEELS)
-        self.assertIn(f'pip install -q --no-index --no-deps --force-reinstall {wheels}\nrm {wheels}\n', output)
+    def test_installs_clang_format_and_clang_tidy_from_their_host_s_wheels_alone_then_removes_the_wheels(self):
+        # pip reads no index, and installs no package a wheel depends on; nothing reads a wheel once it is installed.
+        # The Makefile pins a wheel of each tool for x86-64 Linux and for a Mac of either processor, and make takes
+        # the two of the host uname names
+        for uname in PLATFORMS:
+            with self.subTest(uname), checkout(SEARCHED) as root:
+                status, output = make(root, '-n', 'format', uname=uname)
+                self.assertEqual(status, 0, output)
+                wheels = [line.split()[1] for line in wheel_sums(uname).splitlines()]
+                self.assertEqual([Path(wheel).name.split('-')[0] for wheel in wheels], ['clang_format', 'clang_tidy'])
+                self.assertIn(f'pip install -q --no-index --no-deps --force-reinstall {" ".join(wheels)}\n'
+                              f'rm {" ".join(wheels)}\n', output)
+
+    def test_lint_and_format_stop_on_a_host_whose_wheels_it_doesn_t_pin_and_no_other_goal_does(self):
+        # the Makefile pins the two tools' wheels for three hosts, and Linux on arm64 is none of them: it can't run
+        # the programs x86-64 Linux's wheels hold. make stops before it writes anything, with the tools installed or
+        # not. Any other goal runs there as on x86-64 Linux: only a Mac refuses the matching build
+        for installed in ({}, INSTALLED):
+            with self.subTest(installed=bool(installed)), checkout({**SEARCHED, **installed}) as root:
+                for goals in (('lint',), ('format',), ('check', 'format')):
+                    for flags in ((), ('-n',)):
+                        with self.subTest(goals=goals, flags=flags):
+                            status, output = make(root, *flags, *goals, uname='Linux aarch64')
+                            self.assertEqual(status, 2, output)
+                            self.assertRegex(output, rf'\A{stopped(*goals, said=self.NO_WHEEL)}\Z')
+                self.assertEqual(written(root), set())
+                self.assertEqual(make(root, '-n', 'check', uname='Linux aarch64'), make(root, '-n', 'check'))
+
+    def test_a_file_that_needs_the_tools_stops_at_their_install_on_a_host_whose_wheels_it_doesn_t_pin(self):
+        # a file make lint or make format builds is no goal make stops for as it starts. The rule that installs the
+        # wheels stops make there instead, by the same line and under -n too, with the tools installed for another
+        # host or not: it names no wheel for curl, which RAN stands in for, to fetch, and leaves an install as it was
+        for installed in ({}, INSTALLED):
+            with self.subTest(installed=bool(installed)), \
+                    scripted({**SEARCHED, **installed, '.clang-format': '', 'bin/curl': RAN}) as root:
+                path, before = path_with_bin(root), held(root)
+                for goal in (*CLANG_TOOLS, 'build/lint/format.ok'):
+                    for flags in ((), ('-n',)):
+                        with self.subTest(goal, flags=flags):
+                            status, output = make(root, *flags, goal, path=path, uname='Linux aarch64')
+                            self.assertEqual(status, 2, output)
+                            self.assertRegex(output, rf'\A{stopped(goal, said=self.NO_WHEEL)}\Z')
+                self.assertEqual([file for file in held(root) if 'build' not in file.relative_to(root).parts], before)
 
 
 # a pip that installs each wheel's tool, named and versioned by the wheel's file name, and leaves a wheel installed at
@@ -1167,9 +2425,12 @@ LATER = [wheel.replace(f'-{wheel.split("-")[1]}-', '-99.0.0-') for wheel in WHEE
 
 
 def pin(root, wheels):
-    """Pin root's Makefile to wheels in WHEELS' place, and list them in its tools/SHA256SUMS."""
+    """Pin root's Makefile to wheels in WHEELS' place, and list them in its tools/SHA256SUMS. The Makefile names each
+    wheel with $(WHEEL) for its host's platform tag."""
     text = (root / 'Makefile').read_text()
     for wheel, other in zip(WHEELS, wheels):
+        wheel, other = (name.replace(PLATFORMS[LINUX], '$(WHEEL)') for name in (wheel, other))
+        assert wheel in text, wheel
         text = text.replace(wheel, other)
     (root / 'Makefile').write_text(text)
     (root / 'tools/SHA256SUMS').write_text(listing(wheels))
@@ -1181,7 +2442,23 @@ def pips(root):
     return len(log.read_text().splitlines()) if log.exists() else 0
 
 
+def mismatch(path):
+    """A pattern for the two lines sha256sum -c --quiet prints where path alone differs from its hash: the file's
+    line and a warning. GNU's sha256sum prints them in that order, and macOS's prints the warning first."""
+    line, warning = (re.escape(text) for text in (f'{path}: FAILED\n',
+                                                  'sha256sum: WARNING: 1 computed checksum did NOT match\n'))
+    return f'(?:{line}{warning}|{warning}{line})'
+
+
 class Install(unittest.TestCase):
+    def test_no_other_make_file_assigns_the_variable_the_install_s_rule_reads(self):
+        # the rule that installs the wheels reads UNINSTALLED once make has read every make file, dc.mk and the
+        # engine's among them, so an assignment in one of those would decide whether lint's tools install
+        others = [path for path in MAKEFILES if path != 'Makefile']
+        self.assertIn('dc.mk', others)
+        self.assertEqual([path for path in others
+                          if re.search(r'(?m)^\s*UNINSTALLED\s*[:+?]?=', (ROOT / path).read_text())], [])
+
     def test_installs_the_wheels_again_when_a_tool_is_gone(self):
         # pip finds each wheel installed, so only a forced install brings the tool back
         for gone in CLANG_TOOLS:
@@ -1205,7 +2482,7 @@ class Install(unittest.TestCase):
             (root / 'tools/SHA256SUMS').write_text(listing(WHEELS[:1]) + f'{HASH}  {WHEELS[1]}\n')
             status, output = make(root, 'format', path=path)
             self.assertNotEqual(status, 0, output)
-            self.assertIn(f'  fetch  {WHEELS[1]}\n{WHEELS[1]}.part: FAILED\n', output)
+            self.assertRegex(output, re.escape(f'  fetch  {WHEELS[1]}\n') + mismatch(f'{WHEELS[1]}.part'))
             (root / 'tools/SHA256SUMS').write_text(listing(WHEELS))
             status, output = make(root, 'format', path=path)
             self.assertEqual(status, 0, output)
@@ -1264,7 +2541,7 @@ class Install(unittest.TestCase):
         with checkout({**SEARCHED, 'bin/curl': CURL, 'bin/python3': VENV, 'tools/SHA256SUMS': listing(WHEELS)}) as root:
             for stand_in in ('bin/curl', 'bin/python3'):
                 (root / stand_in).chmod(0o755)
-            yield root, f'{root / "bin"}{os.pathsep}{os.environ["PATH"]}'
+            yield root, f'{root / "bin"}{os.pathsep}{PATH}'
 
     def assertInstalls(self, root, path, wheels):
         """make format, in root, installs each tool from its wheel of wheels, and make format again runs no pip."""
@@ -1295,23 +2572,42 @@ class Sums(unittest.TestCase):
                 settle(root)
                 status, output = make(root, *goals, 'CC=true')
                 self.assertNotEqual(status, 0, output)
-                self.assertIn('build/mod/modules/mod/b.bin: FAILED\n'
-                              'sha256sum: WARNING: 1 computed checksum did NOT match\n', output)
+                self.assertRegex(output, '(?m)^' + mismatch('build/mod/modules/mod/b.bin'))
                 self.assertNotIn('files match', output)
 
-    def test_leaves_the_census_and_the_import_check_to_make_gcc(self):
-        # make gcc's link waits for the census and the import check, and the matching build's bytes rest on neither
-        for goals in ((), ('check',)):
+    def test_leaves_the_census_and_each_import_s_uses_to_make_dc(self):
+        # make dc's link waits for the census and the uses of the imports, and the matching build's bytes rest on
+        # neither. make check holds each import to its definition, in the objects it builds, and plain make doesn't
+        for goals, definitions in (((), 0), (('check',), 1)):
             with self.subTest(goals=goals), self.built() as root:
                 status, output = make(root, '-n', *goals, 'CC=true')
                 self.assertEqual(status, 0, output)
                 self.assertNotIn('tools/census.py', output)
-                self.assertNotIn('tools/imports.py', output)
+                self.assertEqual(output.count('python3 tools/imports.py --definitions\n'), definitions)
+                self.assertEqual(output.count('tools/imports.py'), definitions)
 
-    def test_holds_each_motion_file_to_its_line_and_leaves_its_words_to_make_gcc(self):
+    def test_check_holds_each_import_to_the_definition_in_its_source_s_object(self):
+        # 1ST_READ.BIN takes a_init from mod, whose tables put it at the start of a.c's code. make check passes
+        # where a.c's object defines it there. Where the object defines it 8 bytes on, make check fails, naming
+        # the import's row, before it checks a hash
+        imported = {**HASHED, 'config/1st_read/imports.txt': 'a_init  mod\n'}
+        for offset, passes in ((0, True), (8, False)):
+            a_obj = obj('a', {'P': (0x10, 4, True)}, defines=[definition('_a_init', offset)])
+            with self.subTest(offset=offset), self.built(files={**imported, 'build/modules/mod/a.obj': a_obj}) as root:
+                status, output = make(root, 'check', 'CC=true')
+                if passes:
+                    self.assertEqual((status, output), (0, '  sums   3 files match SHA256SUMS\n'))
+                    continue
+                self.assertEqual(status, 2, output)
+                self.assertEqual(output.splitlines()[0],
+                                 'imports: config/1st_read/imports.txt:1: a_init: build/modules/mod/a.obj defines '
+                                 'a_init at P + 0x8, and mod puts it at 0x0c900000, in P')
+                self.assertNotIn('files match', output)
+
+    def test_holds_each_motion_file_to_its_line_and_leaves_its_words_to_make_dc(self):
         # make holds the motion file to its line, as it does each original, and reads it no further. Its decoded image
         # holds 0x8c010000, an address in 1ST_READ.BIN's image. Nothing but the word's bits says it is a pointer, and
-        # make gcc's census fails on such a word. Plain make passes only because it runs no census
+        # make dc's census fails on such a word. Plain make passes only because it runs no census
         listed = {**LISTED, 'orig/SONICADV/X_MOT.PRS': b'X_MOT'}
         files = {**HASHED, **listed, **MOTION,
                  'build/verified/SONICADV/X_MOT.PRS.ok': '',
@@ -1376,13 +2672,12 @@ class Stamps(unittest.TestCase):
 
     def test_compiles_nothing_again_with_a_tool_fetched_again_byte_for_byte(self):
         # wibo, CURL's file, gone from tools/ and fetched again
-        files = {**HASHED, 'tools/wibo-i686': 'wheel', 'bin/curl': CURL,
-                 'tools/SHA256SUMS': listing(['tools/wibo-i686'])}
+        files = {**HASHED, WIBO: 'wheel', 'bin/curl': CURL, 'tools/SHA256SUMS': listing([WIBO])}
         with self.built(files=files) as root:
             (root / 'bin/curl').chmod(0o755)
-            (root / 'tools/wibo-i686').unlink()
-            status, output = make(root, 'check', 'CC=true', path=f'{root / "bin"}{os.pathsep}{os.environ["PATH"]}')
-        self.assertEqual((status, output), (0, '  fetch  tools/wibo-i686\n  sums   3 files match SHA256SUMS\n'))
+            (root / WIBO).unlink()
+            status, output = make(root, 'check', 'CC=true', path=f'{root / "bin"}{os.pathsep}{PATH}')
+        self.assertEqual((status, output), (0, f'  fetch  {WIBO}\n  sums   3 files match SHA256SUMS\n'))
 
     def test_builds_the_vendored_tools_again_with_another_cc_and_again_with_the_one_before(self):
         # CC's stamp holds its command, and a make with the same CC leaves its date alone
@@ -1434,7 +2729,7 @@ def shells(text):
 class Bytecode(unittest.TestCase):
     def test_puts_the_bytecode_of_python_a_shell_runs_under_build(self):
         # make before 4.4 passes no exported variable to $(shell), so each that runs Python names the prefix itself
-        calls = [call for path in ('Makefile', 'config/compilers.mk', 'gcc.mk', 'config/gcc.mk')
+        calls = [call for path in ('Makefile', 'config/compilers.mk', 'dc.mk', 'config/gcc.mk')
                  for call in shells((ROOT / path).read_text())
                  if 'python3' in call]
         self.assertTrue(calls)
@@ -1446,18 +2741,65 @@ class Quiet(unittest.TestCase):
     def test_hides_each_command_unless_v_is_set(self):
         # Q is @ unless V is set, so each command a recipe runs opens with it; a status line prints under either, and
         # a make function that runs no command needs neither
-        text = ''.join((ROOT / path).read_text() for path in ('Makefile', 'gcc.mk')).replace('\\\n', ' ')
+        text = ''.join((ROOT / path).read_text() for path in ('Makefile', 'dc.mk')).replace('\\\n', ' ')
         for line in re.findall(r'^\t.*', text, re.M):
             self.assertRegex(line, r'^\t\+?\$\$?\(Q\)|^\t@\$\$?\(call status,|^\t\$\((file|if|info|error) ')
 
     def test_a_make_the_tests_run_takes_no_setting_from_their_environment(self):
         # make test V=1 puts V=1 in the tests' environment, and a make that took it would print the commands whose
-        # output the tests read. One that took SH_ELF or CC would run a tool the test doesn't name
+        # output the tests read. One that took SH_ELF or CC would run a tool the test doesn't name. MAKE=1 there
+        # changes no make either: make() runs the one bound as the tests started
         probe = 'all:\n\t@echo $(foreach name,{},$(origin $(name)))\n'.format(' '.join(SETTINGS))
         with tree({'Makefile': probe}) as root, mock.patch.dict(os.environ, dict.fromkeys(SETTINGS, '1')):
             status, output = make(root)
         self.assertEqual(status, 0, output)
         self.assertNotIn('environment', output.split())
+
+
+class Test(unittest.TestCase):
+    def test_hands_the_tests_the_make_that_runs_it_and_a_dry_run_runs_no_test(self):
+        # the tests run make in checkouts of their own, with the make the recipe names in MAKE. make runs a recipe
+        # line that names $(MAKE) even under -n, so the recipe names it through a variable, and make -n test prints
+        # its two commands and runs neither
+        with checkout(SEARCHED) as root:
+            status, output = make(root, '-n', 'test')
+        self.assertEqual((status, output), (0, f"MAKE='{MAKE}' PYTHONPATH=tools:tests python3 -m unittest discover "
+                                               '-s tests -q\npython3 tools/vendor.py --check\n'))
+
+    def test_the_tests_run_the_make_their_environment_names_as_they_start_or_else_make(self):
+        # by its path, so that each test runs one make whatever PATH the test gives it
+        for named, bound in ((sys.executable, sys.executable), ('sh', shutil.which('sh')),
+                             (None, shutil.which('make') or 'make')):
+            env = {name: value for name, value in os.environ.items() if name != 'MAKE'}
+            env['PYTHONPATH'] = os.pathsep.join(str(ROOT / path) for path in ('tools', 'tests'))
+            if named:
+                env['MAKE'] = named
+            with self.subTest(named=named):
+                found = subprocess.run([sys.executable, '-B', '-c', 'import support; print(support.MAKE)'],
+                                       cwd=ROOT, env=env, check=True, stdout=subprocess.PIPE, text=True).stdout
+                self.assertEqual(found, f'{bound}\n')
+
+    def test_the_makefiles_ask_uname_for_their_host_once(self):
+        # make() answers one question for the host a test names, the Makefile's, which assigns the answer to HOST.
+        # Every other makefile reads HOST, so the host a test names is the host of every rule
+        asked = [(path, line) for path in MAKEFILES for line in (ROOT / path).read_text().splitlines()
+                 if 'uname' in line.split('#')[0]]
+        self.assertEqual([path for path, _ in asked], ['Makefile'], asked)
+        self.assertRegex(asked[0][1], r'\AHOST\s*:=\s*\$\(shell uname -sm\)\Z')
+
+    def test_a_make_the_tests_run_reads_the_host_they_name_from_uname(self):
+        # the Makefile takes its host from uname -sm. make() answers it with x86-64 Linux, or the host a test names,
+        # ahead of the PATH it searches, so no test depends on the host that runs it. The stand-in fails on any other
+        # question, which the host's own uname would answer for the host that runs the tests
+        with tree({'Makefile': 'all:\n\t@echo $(shell uname -sm)\nsystem:\n\t@uname -s\n'}) as root, host() as path:
+            self.assertEqual(make(root), (0, f'{LINUX}\n'))
+            self.assertEqual(make(root, path=path), (0, f'{LINUX}\n'))
+            for mac in MACS:
+                self.assertEqual(make(root, uname=mac), (0, f'{mac}\n'))
+            status, output = make(root, 'system')
+            self.assertNotEqual(status, 0, output)
+            self.assertEqual(output.splitlines()[0],
+                             "uname: the tests' stand-in answers -sm alone, and this is uname -s")
 
 
 if __name__ == '__main__':

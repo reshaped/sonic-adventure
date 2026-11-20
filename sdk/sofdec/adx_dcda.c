@@ -13,6 +13,26 @@
 /* a halfword byte swap, for a block's big-endian scale */
 #define BIG_HALF(w) ((((w) >> 8) & 0xff) | (((w) << 8) & ~0xff))
 
+/* FTRC, the conversion of a sample to int, which saturates on the SH-4. the
+ * Xbox port's is the port's model of it (xbox/include/sh4.h): x86's
+ * conversion gives -2^31 for any value out of range, which turned each
+ * peak past 32767 into -32768, a click */
+#ifdef XBOX
+#define FTRC(x) xbox_ftrc(x)
+static inline int xbox_ftrc(Float f)
+{
+    if (f >= 2147483648.0F || f != f) {
+        return 0x7fffffff;
+    }
+    if (f < -2147483648.0F) {
+        return (int)0x80000000;
+    }
+    return (int)f;
+}
+#else
+#define FTRC(x) ((int)(x))
+#endif
+
 /* decode as ADX_DecodeSte2 does, in single precision, on samples scaled by
  * 65536 and with each step from AdxQtblFloat0 and AdxQtblFloat1. a sample
  * past 16 bits comes out as 32767 or -32768, since FTRC, the conversion to
@@ -80,14 +100,14 @@ Sint32 ADX_DecodeSteFloat(Sint8 *ibuf, Sint32 nblk, Sint16 *obufl,
             x = (c0 * newer_l) + (c1 * older_l) + (gain * step);
             older_l = newer_l;
             newer_l = x;
-            sample = (int)x;
+            sample = FTRC(x);
             *obufl++ = sample >> 16;
 
             step = AdxQtblFloat1[code];
             x = (c0 * newer_l) + (c1 * older_l) + (gain * step);
             older_l = newer_l;
             newer_l = x;
-            sample = (int)x;
+            sample = FTRC(x);
             *obufl++ = sample >> 16;
         }
 
@@ -104,21 +124,21 @@ Sint32 ADX_DecodeSteFloat(Sint8 *ibuf, Sint32 nblk, Sint16 *obufl,
             x = (c0 * newer_r) + (c1 * older_r) + (gain * step);
             older_r = newer_r;
             newer_r = x;
-            sample = (int)x;
+            sample = FTRC(x);
             *obufr++ = sample >> 16;
 
             step = AdxQtblFloat1[code];
             x = (c0 * newer_r) + (c1 * older_r) + (gain * step);
             older_r = newer_r;
             newer_r = x;
-            sample = (int)x;
+            sample = FTRC(x);
             *obufr++ = sample >> 16;
         }
     }
-    delayl[0] = (int)newer_l >> 16;
-    delayl[1] = (int)older_l >> 16;
-    delayr[0] = (int)newer_r >> 16;
-    delayr[1] = (int)older_r >> 16;
+    delayl[0] = FTRC(newer_l) >> 16;
+    delayl[1] = FTRC(older_l) >> 16;
+    delayr[0] = FTRC(newer_r) >> 16;
+    delayr[1] = FTRC(older_r) >> 16;
 
     return nblk;
 }

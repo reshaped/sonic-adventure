@@ -48,8 +48,8 @@ NJS_TEXLIST chaos_lifegauge_texlist = {
  * address in R11 and PIECE_SIZE in R12 in the draw (0x8c0fd396,
  * 0x8c0fd3d6); as one array, the two trade registers and 15 of 194 words
  * differ */
-#ifdef GCC
-/* keeps the sprite's read from the cap: GCC's six are one array */
+#ifdef NONMATCHING
+/* keeps the sprite's read from the cap: this side's six are one array */
 static NJS_TEXANIM life_gauge_pieces[PIECES] = {
     {
 #include "hud/life_gauge/life_gauge_cap.inc"
@@ -125,7 +125,7 @@ static void life_gauge_draw(struct task *task)
     if (hud_hidden < 0) {
         return;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the gauge about the screen's right edge */
     port_wide_anchor = WIDE_RIGHT;
 #endif
@@ -173,7 +173,7 @@ static void life_gauge_draw(struct task *task)
         njDrawSprite2D(&life_gauge_sprite, PIECE_FILL_END, -2.0F,
                        NJD_SPRITE_ALPHA | NJD_SPRITE_COLOR);
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }

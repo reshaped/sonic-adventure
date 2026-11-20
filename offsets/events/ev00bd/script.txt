@@ -1,0 +1,4 @@
+datum  ev00bd_floor  D  0x00000000  4
+datum  ev00bd_fade  D  0x00000004  4
+datum  ev00bd_textures  D  0x00000008  16
+text  TEXT_1  C  0x0000000c  12

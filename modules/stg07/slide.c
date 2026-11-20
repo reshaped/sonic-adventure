@@ -22,7 +22,7 @@
 /* @hack type: int, not stage.h's Uint16, so SHC compares the result without
  * extending it (MOV R0,R3 at 0x0c90aaec). as stage.h declares it, an EXTU.W
  * stands there, and 1 of slide_run's 303 words differs */
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #else
 extern int stage_get_stage_act(void);

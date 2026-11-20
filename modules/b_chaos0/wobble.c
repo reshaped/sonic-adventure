@@ -17,7 +17,7 @@ extern NJS_POINT3 *chaos0_wobble_rest;
 /* each wobbling point's distance from the z axis, times RADIUS_ANGLE, in
  * wobble_indices' order */
 extern Angle *chaos0_wobble_radii;
-#ifdef GCC
+#ifdef NONMATCHING
 /* B_CHAOS0's tables place these three in bss that no source holds. the
  * port defines them here */
 struct task_motion *chaos0_wobble_motion;

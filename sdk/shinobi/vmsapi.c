@@ -540,7 +540,7 @@ Sint32 buMountDisk(Sint32 drive, void *addr, Sint32 size)
 {
     Sint32 result = vmsfs_setwork(drive, addr, size);
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the result the tag below names: buMount's, or vmsfs_setwork's
      * where it fails */
     if (result == BUD_ERR_OK) {

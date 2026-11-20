@@ -33,7 +33,7 @@ int frame_interval;
  * each pass of a spin all the same (MOV.L @R4,R2 at 0x8c054a14). declared
  * volatile, 101 of the 124 words of frame_pacing_init, frame_wait,
  * frame_wait_step and frame_vsync differ */
-#ifdef GCC
+#ifdef NONMATCHING
 volatile int frame_countdown;
 #else
 int frame_countdown;
@@ -107,7 +107,7 @@ void frame_set_interval(int interval)
 
 void frame_wait(void)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     Uint32 wait = syTmrGetCount();
     /* a flip waits out the first vsync of the frame it starts. a frame that
      * ends in time then finds 0 vsyncs left or more, and a frame n vsyncs
@@ -118,13 +118,13 @@ void frame_wait(void)
     while (frame_countdown > 0) {
     }
     frame_countdown = frame_interval;
-#ifdef GCC
+#ifdef NONMATCHING
     frame_end(wait, left < 0 ? -left : 0);
 #endif
     /* @hack spelling: draw_off compared with TRUE, CMP/EQ #1 (0x8c054a24).
      * every store to draw_off is TRUE or FALSE. as a plain test, SHC writes TST
      * and 10 of 51 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* a split frame that dropped its second picture holds its first */
     if (draw_off == TRUE || present_hold()) {
 #else
@@ -142,7 +142,7 @@ void frame_wait(void)
         kmFlipFrameBuffer();
     }
     pdExecPeripheralServer();
-#ifdef GCC
+#ifdef NONMATCHING
     overlay_pad();
 #endif
     _nj_wait_vsync_out_ = syTmrGetCount();
@@ -153,7 +153,7 @@ void frame_wait_step(int left)
     while (frame_countdown > left) {
     }
     pdExecPeripheralServer();
-#ifdef GCC
+#ifdef NONMATCHING
     overlay_pad();
 #endif
     sound_send_queue();
@@ -170,7 +170,7 @@ void frame_vsync(void)
     Uint16 stage;
 
     frame_countdown--;
-#ifdef GCC
+#ifdef NONMATCHING
     /* at a skip's interval of 0, frame_wait sets frame_countdown to 0, so it
      * is below 0 at every test here. the act's hook and the sound server
      * then run at each vsync, as at an interval of 1, and so they do while

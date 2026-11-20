@@ -1,0 +1,10 @@
+datum  ev0166_light_points  D  0x00000000  12336
+datum  ev0166_light_path  D  0x00003030  8
+datum  ev0166_first_light  D  0x00003038  4
+datum  ev0166_second_light  D  0x0000303c  4
+datum  ev0166_textures  D  0x00003040  8
+text  TEXT_1  C  0x00000000  24
+text  TEXT_2  C  0x00000018  51
+text  TEXT_3  C  0x0000004c  71
+text  TEXT_4  C  0x00000094  65
+text  TEXT_5  C  0x000000d8  63

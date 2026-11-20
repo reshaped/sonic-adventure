@@ -684,7 +684,29 @@ static void mole_draw_game(struct task *task)
             }
         }
         njPopMatrix(1);
+#ifdef NONMATCHING
+        /* each draw of the board advances its panel, flash and scroll. the
+         * second picture's pass puts back what its draw moves. the other
+         * corners copy the first, which alone goes back */
+        if (frame_redrawing) {
+            struct mole_game kept = *game;
+            Sint32 shown = mole_shown;
+            NJS_COLOR color = mole_panel_colors[0];
+            Uint32 saved = mole_saved_color.color;
+            Float width = mole_panel_points[0].x;
+
+            mole_draw_board(task, work);
+            *game = kept;
+            mole_shown = shown;
+            mole_panel_colors[0] = color;
+            mole_saved_color.color = saved;
+            mole_panel_points[0].x = width;
+        } else {
+            mole_draw_board(task, work);
+        }
+#else
         mole_draw_board(task, work);
+#endif
     }
 }
 
@@ -1415,8 +1437,8 @@ static void mole_draw_scroll(char *string, Float progress)
             *(Sint16 *)&mole_scroll_texanim.v1 = 0;
             *(Sint16 *)&mole_scroll_texanim.u2 = 256;
             *(Sint16 *)&mole_scroll_texanim.v2 = 256;
-#ifdef GCC
-            /* repairs the read the tag names: GCC loads no texid for a
+#ifdef NONMATCHING
+            /* repairs the read the tag names: this side loads no texid for a
              * space, which draws nothing */
             if (LETTER(string) != ' ') {
                 mole_scroll_texanim.texid =
@@ -1434,7 +1456,7 @@ static void mole_draw_scroll(char *string, Float progress)
             *(Sint16 *)&mole_scroll_texanim.u2 = 256;
             sprite.sx = (sprite.p.x + 1.0F) * 2.0F;
             sprite.p.x = -sprite.sx - 256.0F;
-#ifdef GCC
+#ifdef NONMATCHING
             /* as above: no texid for a space */
             if (LETTER(string) != ' ') {
                 mole_scroll_texanim.texid =
@@ -1452,7 +1474,7 @@ static void mole_draw_scroll(char *string, Float progress)
             *(Sint16 *)&mole_scroll_texanim.u2 = (8.0F - sprite.p.x) * 256.0F;
             sprite.sx = (8.0F - sprite.p.x) * 2.0F;
             sprite.p.x = (sprite.p.x - 4.0F) * 64.0F;
-#ifdef GCC
+#ifdef NONMATCHING
             /* as above: no texid for a space */
             if (LETTER(string) != ' ') {
                 mole_scroll_texanim.texid =

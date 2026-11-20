@@ -232,7 +232,7 @@ void kmiCreateRegionArray(KMDWORD width, KMDWORD height, KMDWORD index,
     struct region_tile third;
     struct region_tile fourth;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that these are set wherever they are read. the tile loop
      * reads dummy_list only under the two tests that set it, which nothing
      * between changes, and each caller's order is BY_COLUMNS or BY_ROWS, which

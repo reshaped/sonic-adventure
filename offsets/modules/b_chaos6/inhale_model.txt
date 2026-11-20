@@ -1,0 +1,8 @@
+datum  dat_0c951858  D  0x00000000  20
+datum  dat_0c95186c  D  0x00000014  160
+datum  chaos6_inhale_inner_uvs  D  0x000000b4  256
+datum  dat_0c951a0c  D  0x000001b4  24
+datum  dat_0c951a24  D  0x000001cc  408
+datum  dat_0c951bbc  D  0x00000364  408
+datum  dat_0c951d54  D  0x000004fc  40
+datum  chaos6_inhale_inner_object  D  0x00000524  52

@@ -23,7 +23,7 @@
  * result without extending it, as at 0x0c90650a. as stage.h declares it, 7
  * of footprints_run's 664 words and 1 of the 165 words of its pools and pad
  * differ */
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #else
 extern int stage_get_stage_act(void);

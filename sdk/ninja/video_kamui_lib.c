@@ -212,7 +212,7 @@ KMINT32 kmiFBControl(KMINT32 width, KMINT32 height, KMBPPMODE bpp,
     if (0) {
         setup.width = extra_tiles;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that bits is a case below: pixel_bits holds only 16, 24
      * and 32 */
     setup.write_format = setup.depth = setup.dither = 0;
@@ -307,7 +307,7 @@ KMINT32 kmiFBControl(KMINT32 width, KMINT32 height, KMBPPMODE bpp,
              * it. the copy of setup at 0x8c66492c passes the unset word on,
              * and store_frame reads it at 0x8c6643e4. LOADER.BIN does the same
              * at 0x8ce1da16, 0x8ce1db96 and 0x8ce1d770 */
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the unset vscale the tag names: a mode no case names
              * halves its doubled lines, 0x800, as the 240-line modes do */
             setup.vscale = 0x800;

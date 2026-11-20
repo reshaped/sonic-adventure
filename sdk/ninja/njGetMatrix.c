@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* copy the current matrix, in XMTRX, to m */
 /* @asm epilogue: fill, the body has no return of its own and runs on through
  * SHC's .ALIGN 4 fill, the NOP at 0x8c627eca, into its RTS at 0x8c627ecc */

@@ -1,0 +1,9 @@
+datum  amy_mode_names  D  0x00000000  400
+datum  amy_actions  D  0x00000190  1568
+datum  amy_shapes  D  0x000007b0  104
+datum  amy_look_nodes  D  0x00000818  12
+datum  amy_weld_indices  D  0x00000824  80
+datum  amy_welds  D  0x00000874  432
+datum  amy_zero_triggers  C  0x00000000  128
+datum  amy_base_matrix  B  0x00000000  64
+datum  amy_node_matrix  B  0x00000040  64

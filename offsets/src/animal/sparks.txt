@@ -1,0 +1,6 @@
+datum  animal_slow_texanims  C  0x00000000  20
+datum  animal_slow_sprite  C  0x00000014  32
+datum  animal_fast_texanims  C  0x00000034  20
+datum  animal_fast_sprite  C  0x00000048  32
+datum  animal_flash_texanims  C  0x00000068  80
+datum  animal_flash_sprite  C  0x000000b8  32

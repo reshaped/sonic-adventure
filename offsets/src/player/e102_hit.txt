@@ -1,0 +1,5 @@
+datum  e102hit_textures  C  0x00000000  204
+datum  hit_flash_frames  C  0x000000cc  748
+datum  hit_spark_frames  C  0x000003b8  220
+datum  e102hit_texlist  D  0x00000000  8
+datum  hit_sparks  D  0x00000008  4

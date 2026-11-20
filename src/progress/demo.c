@@ -20,6 +20,7 @@
 #include "stage/stage.h"
 #include "system/frame.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/sbinit.h"
 #include "system/task.h"

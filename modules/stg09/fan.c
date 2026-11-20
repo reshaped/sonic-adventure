@@ -478,12 +478,24 @@ static void fan_bits_draw(struct task_work *work)
     Angle ang;
     int count;
 
+#ifdef NONMATCHING
+    /* where step 1 drew the fan, the second picture's pass skips its
+     * callback. so step 1 draws the bits too, where port.h's FRAME_DRAWS
+     * says */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+#else
     if (frame_step) {
         return;
     }
+#endif
     if (!VARS(work)->bits) {
         return;
     }
+#ifdef NONMATCHING
+    present_untimed(TRUE);
+#endif
     bit = VARS(work)->bits;
     count = BITS;
     model = fan_bit_object.model;
@@ -503,4 +515,7 @@ static void fan_bits_draw(struct task_work *work)
         bit++;
     }
     njPopMatrix(2);
+#ifdef NONMATCHING
+    present_untimed(FALSE);
+#endif
 }

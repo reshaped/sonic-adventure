@@ -200,12 +200,12 @@ static void ribbon_bead_step(struct task *task)
         /* @hack implicit: knot stepped twice and read in one expression, which
          * SHC does left to right; sequenced, through a copy of knot and a
          * partial sum, 132 of 412 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
         {
-            /* repairs the read the @bug memory tag above names: where the
-             * third knot lies past the strand's last point, GCC takes that
-             * last point. in each fight's data, path[count] is the first
-             * point of the path that follows, and after the last path, the
+            /* repairs the read the @bug memory tag above names. where the
+             * third knot lies past the strand's last point, this side takes
+             * that last point. in each fight's data, path[count] is the first
+             * point of the path that follows. after the last path, it is the
              * strands' first 12 bytes */
             const NJS_POINT3 *third =
                 index + 2 < ribbon_strands[bead->strand].count

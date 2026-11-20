@@ -229,6 +229,13 @@ static void go_round_horses_draw(struct task *task)
     struct task_work *work = task->work;
     Angle ang;
 
+#ifdef NONMATCHING
+    /* while the tick is up to LAMPS_LIT, the step lights the lamps only around
+     * its call of this. so the second picture's pass lights them too */
+    if (frame_redrawing && work->tick <= LAMPS_LIT) {
+        go_round_object->model->mats->attr_texId = LAMPS_LIT_TEXTURE;
+    }
+#endif
     if (frame_step == 0) {
         njPushMatrix(NULL);
         njTranslateV(NULL, &work->pos);
@@ -261,6 +268,11 @@ static void go_round_horses_draw(struct task *task)
         njPopMatrix(1);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing && work->tick <= LAMPS_LIT) {
+        go_round_object->model->mats->attr_texId = LAMPS_DARK_TEXTURE;
+    }
+#endif
 }
 
 /* while the go-round turns, bob the horses and turn them with it. blink the

@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set c's angle of view to ang */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c66874c follows the
  * body's own return at 0x8c668748 */

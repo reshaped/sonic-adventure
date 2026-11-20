@@ -11,8 +11,10 @@
 #include "stage/stage.h"
 #include "system/pad.h"
 
-/* the last sample a recording fills from pad 0. PAD_SAMPLE_END fits in the
- * 128 KB after it */
+/* a recording fills samples from pad 0 while recording_next is at or below
+ * this bound. its 12-byte samples start at DEMO_RECORDING, so the last one
+ * filled starts 8 bytes below the bound. the PAD_SAMPLE_END sample after it
+ * still fits in DEMO_RECORDING's 128 KB */
 #define RECORD_LAST ((struct pad_sample *)0x0cbfffe8)
 /* the last sample a playback reads, past the recording's 128 KB */
 #define PLAY_LAST ((struct pad_sample *)0x0cd60000)

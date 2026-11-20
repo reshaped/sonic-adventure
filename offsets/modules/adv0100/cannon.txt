@@ -1,0 +1,5 @@
+datum  cannon_shapes  D  0x00000000  572
+datum  cannon_presets  D  0x0000023c  60
+datum  cannon_glow  D  0x00000278  60
+datum  cannon_shot_shape  D  0x000002b4  52
+template  points  C  0x00000000  24

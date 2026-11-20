@@ -26,7 +26,7 @@
  * &event_sprite_texlists[EVENT_SPRITE_SPARKLE], SHC keeps the address in R11.
  * script.c's code then ends at 0x0cb80658, 16 bytes past the image's. 542 of
  * 601 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC's link binds a name only where a definition starts, and this one
  * names a texlist inside event_sprite_texlists */
 #define event_sprite_sparkle_texlist                                           \

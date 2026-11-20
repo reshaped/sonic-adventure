@@ -1,0 +1,3 @@
+datum  puff_frames  D  0x00000000  160
+datum  puff_anim  D  0x000000a0  20
+datum  egg_carrier_puff_pool  D  0x000000b4  16

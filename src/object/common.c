@@ -452,7 +452,7 @@ void carry_step_still(struct task *task)
 
 void object_clear_touch(struct task_work *work, struct task_motion *motion)
 {
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture clears no touch */
     if (frame_redrawing) {
         return;

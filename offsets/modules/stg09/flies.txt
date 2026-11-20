@@ -1,0 +1,7 @@
+datum  flies_width  D  0x00000000  4
+datum  flies_height  D  0x00000004  4
+datum  flies_frames  D  0x00000008  40
+text  TEXT_1  C  0x00000000  5
+text  TEXT_2  C  0x00000008  15
+text  TEXT_3  C  0x00000018  15
+text  TEXT_4  C  0x00000028  15

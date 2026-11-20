@@ -17,7 +17,7 @@
 #include "system/task.h"
 #include "system/util.h"
 
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #include "vmu/vibration.h"
 #else
@@ -578,7 +578,7 @@ static void telepot_run(struct task *task)
              * gets three. its time, R7 at the JSR at 0x0c911a04, is slot_count
              * as placement_editing left it (MOV.W at 0x8c04551e): 1 until the
              * set editor changes it */
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps the shake the tag names: the image's three arguments,
              * and a time of 1, which slot_count holds while the set editor
              * stays shut */
@@ -661,7 +661,7 @@ static void telepot_run(struct task *task)
 static void telepot_draw(struct task *task)
 {
     struct task_work *work = task->work;
-#ifdef GCC
+#ifdef NONMATCHING
     /* uv_scroll_move points the meshsets' vertuv here, and model.c's
      * clipped strips read each u and v pair as one longword, which faults
      * on an address off 4. GCC aligns this array only to its Sint16s */

@@ -1,0 +1,4 @@
+datum  windy_act0_death_zones  D  0x00000000  16
+datum  windy_act1_death_zones  D  0x00000010  16
+datum  windy_act2_death_zones  D  0x00000020  40
+datum  windy_death_zones  D  0x00000048  12

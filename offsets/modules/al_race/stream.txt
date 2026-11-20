@@ -1,0 +1,3 @@
+datum  stream_falloff  C  0x00000000  12
+datum  stream_desc  C  0x0000000c  24
+datum  stream_kinds  C  0x00000024  16

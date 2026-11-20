@@ -1,0 +1,6 @@
+datum  ev00d1_walk_keys  C  0x00000000  1008
+datum  ev00d1_walk  C  0x000003f0  8
+datum  ev00d1_textures  D  0x00000000  8
+text  TEXT_1  C  0x000003f8  8
+text  TEXT_2  C  0x00000400  49
+text  TEXT_3  C  0x00000434  27

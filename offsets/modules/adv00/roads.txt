@@ -1,0 +1,5 @@
+datum  office_road_points  D  0x00000000  1840
+datum  office_road  D  0x00000730  16
+datum  station_road_points  D  0x00000740  3400
+datum  station_road  D  0x00001488  16
+datum  station_square_act0_paths  D  0x00001498  12

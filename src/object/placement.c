@@ -243,6 +243,40 @@ struct placement placements[PLACEMENT_COUNT];
 /* the stage and act whose set file the manager places */
 static Sint8 placed_stage;
 static Sint8 placed_act;
+#ifdef NONMATCHING
+/* a placement's reach copies its entry's point and its kind's squared
+ * range, which a scan's range test reads. a scan tests the reach first. it
+ * skips a placement that fails, without reading its entry or its kind. the
+ * same test on the same bits would fail on the entry too. a scan that reads
+ * a placement in full writes its reach. an infinite range, the mark, sends
+ * the scans to the placement in full. a KIND_ALWAYS kind and a saved pose
+ * take the mark, and a forgotten reach holds it. add_placements forgets
+ * every reach, so the first pass reads every placement in full, as its
+ * KIND_FIRST kinds need.
+ *
+ * placements[i]'s reach is REACH(i), so the reaches lie in reverse order.
+ * placements' 1023 16-byte elements span 16 bytes less than the operand
+ * cache's 16 KB. in placements' order, a reach just past them would share
+ * its placement's cache set at every other placement. the two would then
+ * evict each other. in reverse, a reach shares its placement's set at 4
+ * placements at most, wherever the arrays lie. each reach lies in one line */
+struct placement_reach {
+    NJS_POINT3 pos;
+    Float range;
+};
+static struct placement_reach placement_reaches[PLACEMENT_COUNT]
+    __attribute__((aligned(sizeof(struct placement_reach))));
+#define REACH(i) (&placement_reaches[PLACEMENT_COUNT - 1 - (i)])
+
+void placement_forget_reaches(void)
+{
+    int i;
+
+    for (i = 0; i < PLACEMENT_COUNT; i++) {
+        placement_reaches[i].range = __builtin_inff();
+    }
+}
+#endif
 
 void placement_manager_step(struct task *task)
 {
@@ -414,6 +448,9 @@ static void place_near_two(void)
     register Bool near;
     int attr;
     register int i;
+#ifdef NONMATCHING
+    struct placement_reach *reach;
+#endif
 
     /* @hack type: player_work read as a pair, so player 1 loads at @(4,R4)
      * from its base (0x8c096306); through player_work itself, 21 of 227
@@ -443,7 +480,14 @@ no_other:
     other = NULL;
 have_other:
     placement = placements;
+#ifdef NONMATCHING
+    /* past the reaches' end, since they lie in reverse order */
+    reach = &placement_reaches[PLACEMENT_COUNT];
+#endif
     for (i = placement_count - 1; i >= 0; placement++, i--) {
+#ifdef NONMATCHING
+        reach--;
+#endif
         flags = placement->flags;
         /* @hack spelling: PLACEMENT_ACTIVE tested as flags' sign bit, which SHC
          * tests with CMP/PZ (0x8c096364); as flags & PLACEMENT_ACTIVE, SHC
@@ -451,6 +495,16 @@ have_other:
         if (flags >= 0 || (flags & PLACEMENT_LIVE)) {
             continue;
         }
+#ifdef NONMATCHING
+        /* the mark skips the test: an infinite range refuses a NaN point,
+         * which a KIND_ALWAYS kind places anyway. the mark is tested as ==,
+         * since this side calls __unordsf2 for != */
+        if (reach->range == __builtin_inff()) {
+        } else if (!in_range_or_near(&reach->pos.x, x, y, z, reach->range,
+                                     other)) {
+            continue;
+        }
+#endif
         entry = placement->entry;
         kind = &placement_list->kinds[entry->id & SET_KIND];
         saved = flags & PLACEMENT_SAVED;
@@ -481,6 +535,15 @@ have_other:
                                         range, other);
             }
         } while (0);
+#ifdef NONMATCHING
+        /* a KIND_ALWAYS kind is placed untested, and a saved placement's
+         * test reads its pose: both take the mark */
+        reach->pos = entry->pos;
+        reach->range =
+            saved || (attr & (KIND_RANGE | KIND_ALWAYS)) == KIND_ALWAYS
+                ? __builtin_inff()
+                : range;
+#endif
         if (!near) {
             continue;
         }
@@ -522,7 +585,7 @@ have_other:
  * range of player 0. the camera stands in for player 0 while there is none
  * or the set editor is open. the camera also stands in during the alife
  * race, and for Big while the fishing game has the camera */
-#ifdef GCC
+#ifdef NONMATCHING
 /* inlined into placement_manager_step, its registers spill: 21k cycles a
  * frame more in Emerald Coast */
 static void place_near_one(void) __attribute__((noinline));
@@ -548,6 +611,9 @@ static void place_near_one(void)
     register Bool near;
     int attr;
     register int i;
+#ifdef NONMATCHING
+    struct placement_reach *reach;
+#endif
 
     if (player_work[0] == NULL || edit_mode == 1 ||
         IN_STAGE(STAGE_ALIFE_RACE) ||
@@ -564,7 +630,14 @@ static void place_near_one(void)
     y = center->pos.y;
     z = center->pos.z;
     placement = placements;
+#ifdef NONMATCHING
+    /* past the reaches' end, as in place_near_two */
+    reach = &placement_reaches[PLACEMENT_COUNT];
+#endif
     for (i = placement_count - 1; i >= 0; placement++, i--) {
+#ifdef NONMATCHING
+        reach--;
+#endif
         flags = placement->flags;
         /* @hack spelling: PLACEMENT_ACTIVE tested as the sign bit, as in
          * place_near_two (CMP/PZ at 0x8c0965e4); as flags & PLACEMENT_ACTIVE,
@@ -572,6 +645,13 @@ static void place_near_one(void)
         if (flags >= 0 || (flags & PLACEMENT_LIVE)) {
             continue;
         }
+#ifdef NONMATCHING
+        /* in_range on the reach, as in place_near_two */
+        if (reach->range == __builtin_inff()) {
+        } else if (!in_range(&reach->pos, x, y, z, reach->range)) {
+            continue;
+        }
+#endif
         entry = placement->entry;
         kind = &placement_list->kinds[entry->id & SET_KIND];
         saved = flags & PLACEMENT_SAVED;
@@ -599,6 +679,14 @@ static void place_near_one(void)
                 near = in_range(&placement->leave.pose->pos, x, y, z, range);
             }
         } while (0);
+#ifdef NONMATCHING
+        /* the reach, as in place_near_two */
+        reach->pos = entry->pos;
+        reach->range =
+            saved || (attr & (KIND_RANGE | KIND_ALWAYS)) == KIND_ALWAYS
+                ? __builtin_inff()
+                : range;
+#endif
         if (!near) {
             continue;
         }
@@ -721,14 +809,30 @@ static void add_placements(void)
      * entries (CMP/GT R2,R6 at 0x8c096950). at the cap, last is
      * PLACEMENT_COUNT, and the stores land past placements, on placed_stage,
      * placed_act and the bytes after them */
+#ifdef NONMATCHING
+    /* repairs the stores the tag names. this side's loop stops at last, so a
+     * full set stores nothing past placements. no set on the disc is full:
+     * SET1202E.BIN's 1021 entries are the most. short of the cap, this side
+     * skips the placement past the entries. that placement lies past
+     * placement_count, where the scans stop. placement_reset reads only its
+     * PLACEMENT_KEEP, which the image's loop never sets. set_add writes each
+     * field of it that the image's loop writes. a task that outlives the act
+     * reads only its placement's flags and leave range */
+    for (i = first, placement = placements; i < last;
+         i++, entry++, placement++) {
+#else
     for (i = first, placement = placements; i <= last;
          i++, entry++, placement++) {
+#endif
         placement->flags |= PLACEMENT_ACTIVE;
         placement->tasks = 0;
         placement->state = 0;
         placement->entry = entry;
     }
     placement_count = last;
+#ifdef NONMATCHING
+    placement_forget_reaches();
+#endif
 }
 
 /* stop placing every placement but the held ones, and destroy their live
@@ -862,7 +966,7 @@ Bool placement_try_leave_by(struct task *task, Float range)
     Float y;
     Float z;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture lets no task leave */
     if (frame_redrawing) {
         return FALSE;
@@ -926,8 +1030,27 @@ Bool placement_try_leave_saving_by(struct task *task, Float range)
                 /* @bug memory: a task without a placement gets here too, and
                  * the pose and PLACEMENT_SAVED are stored through its null
                  * placement (0x8c096d42, 0x8c096d4a) */
+#ifdef NONMATCHING
+                /* repairs the stores the tag names: a task without a
+                 * placement keeps no pose */
+                if (task->placement == NULL) {
+                    heap_free(pose);
+                } else {
+                    task->placement->leave.pose = pose;
+                    task->placement->flags |= PLACEMENT_SAVED;
+                    /* its next test reads the pose, so its reach takes the
+                     * mark. the set editor's slot placements lie outside
+                     * placements, and have no reach */
+                    if ((Uint32)task->placement - (Uint32)placements <
+                        sizeof(placements)) {
+                        REACH(task->placement - placements)->range =
+                            __builtin_inff();
+                    }
+                }
+#else
                 task->placement->leave.pose = pose;
                 task->placement->flags |= PLACEMENT_SAVED;
+#endif
             }
             task->step = task_destroy;
             return TRUE;
@@ -993,8 +1116,8 @@ Sint8 placement_get_state(struct task *task)
     }
     /* @bug uninitialized: without a placement, the function returns the R0
      * its caller left, as the BT at 0x8c096e34 skips to the RTS */
-#ifdef GCC
-    /* repairs the missing return the tag names: with no placement, GCC
+#ifdef NONMATCHING
+    /* repairs the missing return the tag names: with no placement, this side
      * returns 0 */
     return 0;
 #endif

@@ -1,0 +1,11 @@
+datum  trail_texlist  D  0x00000000  8
+datum  trail_slot  D  0x00000008  1
+datum  trail_tasks  D  0x0000000c  32
+datum  emitter_params  D  0x0000002c  60
+datum  flake_texlist  D  0x00000068  8
+text  TEXT_1  C  0x00000000  17
+text  TEXT_2  C  0x00000014  17
+text  TEXT_3  C  0x00000028  12
+text  TEXT_4  C  0x00000034  11
+text  TEXT_5  C  0x00000040  11
+text  TEXT_6  C  0x0000004c  11

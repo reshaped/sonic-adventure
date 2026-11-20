@@ -74,9 +74,9 @@ static void alife_sparkle_step(struct task *task)
      * texanim of frame 4 is glint_sprite's first 20 bytes */
     if ((VARS(work)->frame += 1.0F / 3.0F) >= GLINT_FRAMES) {
         task_kill(task);
-#ifdef GCC
-        /* repairs the read the tag names: GCC draws nothing on the step
-         * that kills the glint, as the image's texanim, of size 0, draws */
+#ifdef NONMATCHING
+        /* repairs the read the tag names. the texanim the image reads has
+         * size 0, so the image draws nothing on this step either */
         return;
 #endif
     }
@@ -258,9 +258,9 @@ static void fleck_step(struct task *task)
      * fleck_sprite's first 20 bytes */
     if ((VARS(work)->frame += VARS(work)->rate) >= FLECK_FRAMES) {
         task_kill(task);
-#ifdef GCC
-        /* repairs the read the tag names: GCC draws nothing on the step
-         * that kills the fleck, as the image's texanim, of size 0, draws */
+#ifdef NONMATCHING
+        /* repairs the read the tag names. the texanim the image reads has
+         * size 0, so the image draws nothing on this step either */
         return;
 #endif
     }

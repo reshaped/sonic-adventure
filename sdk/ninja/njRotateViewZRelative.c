@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* add ang to the roll of v. a null v selects the current view */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c65b36c follows the
  * body's own return at 0x8c65b362 */

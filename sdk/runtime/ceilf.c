@@ -3,7 +3,7 @@
 
 extern float _in_ceils(float x);
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* each C call inlines mathf.h's zam_ceilf, so nothing calls this
  * definition */
 #undef ceilf

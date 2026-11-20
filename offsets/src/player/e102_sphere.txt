@@ -1,0 +1,12 @@
+datum  e102_sphere_size_max  D  0x00000000  4
+datum  e102_sphere_meshset  D  0x00000004  24
+datum  e102_sphere_material  D  0x0000001c  20
+datum  e102_sphere_model  D  0x00000030  40
+datum  e102_sphere_texlist  D  0x00000058  8
+datum  e102_sphere_built  D  0x00000060  4
+datum  e102_sphere_shape  D  0x00000064  52
+datum  e102_sphere_ring  B  0x00000000  64
+datum  e102_sphere_points  B  0x00000040  1536
+datum  e102_sphere_normals  B  0x00000640  1536
+datum  e102_sphere_strips  B  0x00000c40  304
+datum  e102_sphere_uvs  B  0x00000d70  576

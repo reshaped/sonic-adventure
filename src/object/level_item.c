@@ -353,8 +353,8 @@ static NJS_SPRITE level_item_glow_sprite = {
  * 0x8c06e47c). ISO C leaves the read past level_item_spark_x undefined, but
  * SHC lays the four out in a row. as one NJS_SPRITE, 20 of the function's
  * 129 words differ */
-#ifdef GCC
-/* keeps the read the tag names: GCC's spark is one NJS_SPRITE, its
+#ifdef NONMATCHING
+/* keeps the read the tag names: this side's spark is one NJS_SPRITE, its
  * position then its look */
 static NJS_SPRITE level_item_spark_sprite = {
     {0.0F, 0.0F, 0.0F},
@@ -427,9 +427,9 @@ void level_item_step(struct task *task)
                 /* @bug memory: collision_init takes a count of 3
                  * (MOV #3,R2 at 0x8c06d336) for the stand's one shape, so it
                  * copies two more from the 104 bytes past level_item_shape */
-#ifdef GCC
-                /* repairs the count the tag names: GCC's stand takes its one
-                 * shape */
+#ifdef NONMATCHING
+                /* repairs the count the tag names: this side's stand takes its
+                 * one shape */
                 collision_init(task, &level_item_shape[0], COLLISION_OBJECT, 1,
                                1);
 #else
@@ -552,11 +552,10 @@ static void level_item_find(Sint16 character, int area, Sint32 *kind)
     /* @bug memory: when none of the character's items is found in
      * the field, the search runs past level_item_places' entries and reads
      * on (MOV.W @R13,R13 at 0x8c06d5f0) */
-#ifdef GCC
-    /* repairs the search the tag names: GCC's stops at the table's end, at
-     * LEVEL_ITEM_COUNT, where the image's stops further on. level_item_pick
-     * takes any kind from LEVEL_ITEM_LURE up as a lure's, so the stand ends
-     * as it does in the image */
+#ifdef NONMATCHING
+    /* repairs the search the tag names: this side's stops at the table's end,
+     * LEVEL_ITEM_COUNT. level_item_pick takes any kind from LEVEL_ITEM_LURE up
+     * as a lure's. so the stand ends as it does in the image */
     while (i < LEVEL_ITEM_COUNT &&
            (!level_item_is_for(i, character) || !level_item_in_area(i, area))) {
 #else
@@ -821,14 +820,14 @@ static void level_item_float(struct task *task)
         pos.x = level_item_current->pos.x + (rand() * RAND_SCALE * 6.0F) - 3.0F;
         pos.y = level_item_current->pos.y + (rand() * RAND_SCALE * 6.0F) - 3.0F;
         pos.z = level_item_current->pos.z + (rand() * RAND_SCALE * 6.0F) - 3.0F;
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the glint's rate. with r as rand() * RAND_SCALE, the C
-         * gives (r + 0.5) * 0.5, and the image computes (r + 0.5) squared.
+         * gives (r + 0.5) * 0.5. the image computes (r + 0.5) squared.
          * SHC's FMAC writes r + 0.5 over FR2, which held the multiply's 0.5F
-         * (FMAC FR0,FR3,FR2 at 0x8c06df28), so FMUL FR2,FR5 at 0x8c06df2c
-         * squares the sum. SHC evaluates the arguments right to left, so the
+         * (FMAC FR0,FR3,FR2 at 0x8c06df28). FMUL FR2,FR5 at 0x8c06df2c then
+         * squares the sum. SHC evaluates the arguments right to left. so the
          * image draws the rate's rand() before the size's (JSR at
-         * 0x8c06df18). C leaves that order unspecified, so GCC draws the
+         * 0x8c06df18). C leaves that order unspecified, so this side draws the
          * rate before the call */
         {
             Float rate = ((rand() * RAND_SCALE) + 0.5F) * 0.5F;

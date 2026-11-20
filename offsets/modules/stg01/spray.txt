@@ -1,0 +1,6 @@
+datum  beach_spray_texnames  D  0x00000000  12
+datum  beach_spray_texlist  D  0x0000000c  8
+datum  beach_spray_frame  D  0x00000014  20
+datum  beach_spray_mist  D  0x00000028  60
+datum  beach_spray_sprite  B  0x00000000  32
+text  TEXT_1  C  0x0000000c  12

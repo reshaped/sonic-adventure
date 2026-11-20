@@ -11,6 +11,9 @@
 #include "draw/draw.h"
 #include "effect/beam.h"
 #include "effect/bomb.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#endif
 #include "system/task.h"
 #include "system/util.h"
 
@@ -187,6 +190,13 @@ static void blast_run(struct task *task)
         collision_register(work);
     }
     blast_ball_step(task);
+#ifdef NONMATCHING
+    /* the second picture's pass draws the ball by blast_draw. a split frame's
+     * later steps draw none, so that the picture adds the ball once */
+    if (frame_split && frame_step != 0) {
+        return;
+    }
+#endif
     blast_draw(task);
 }
 

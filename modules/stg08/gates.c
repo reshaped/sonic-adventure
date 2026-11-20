@@ -129,7 +129,7 @@ static void icecap_gate_combo_draw(struct task *task)
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_BOTHSRCALPHA);
     njTextureFilterMode(NJD_TEXTUREFILTER_POINT_SAMPLE);
     njSetConstantMaterial((NJS_ARGB *)&icecap_gate_combo_white);
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the count about the screen's right edge */
     port_wide_anchor = WIDE_RIGHT;
 #endif
@@ -147,7 +147,7 @@ static void icecap_gate_combo_draw(struct task *task)
         njDrawSprite2D(&icecap_gate_combo_sprite, icecap_gate_combo_count,
                        COMBO_PRI, NJD_SPRITE_ALPHA);
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
     njSetConstantMaterial((NJS_ARGB *)&icecap_gate_combo_none);

@@ -1,0 +1,16 @@
+datum  rain_drops  D  0x00000000  4
+datum  dat_0c95f774  D  0x00000004  4
+datum  dat_0c95f778  D  0x00000008  4
+datum  drop_speed  D  0x0000000c  4
+datum  drop_speed_spread  D  0x00000010  4
+datum  dat_0c95f784  D  0x00000014  24
+datum  rain_textures  D  0x0000002c  12
+datum  rain_texlist  D  0x00000038  8
+datum  rain_texanim  D  0x00000040  20
+datum  rain_sprite  D  0x00000054  32
+datum  drop_points  D  0x00000074  24
+datum  drop_colors  D  0x0000008c  8
+datum  drop_line  D  0x00000094  16
+datum  rain_task  D  0x000000a4  4
+datum  splash_color  D  0x000000a8  16
+text  TEXT_1  C  0x00000000  15

@@ -66,6 +66,15 @@ static Bool sr_door_pose(Float frame, NJS_POINT3 *first, NJS_POINT3 *second)
     /* Ninja needs a matrix on an 8-byte boundary, and the stack is aligned
      * only to 4. matrix points at the boundary at or below room's start, and
      * pad keeps that boundary inside the struct */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    /* GCC warns of this struct, which aligns only to 4 and holds an
+     * NJS_MATRIX (njtypes.h). only the address rounded down to 8 reaches
+     * Ninja, so the warning is off around the struct */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wif-not-aligned"
+#endif
+#endif
     struct {
         /* @hack type: matrix in the struct with room, which keeps it in the
          * frame (MOV.L R2,@R14 at 0x0c90f400); as a local of its own it takes
@@ -74,6 +83,11 @@ static Bool sr_door_pose(Float frame, NJS_POINT3 *first, NJS_POINT3 *second)
         Float pad;
         NJS_MATRIX room;
     } pose;
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma GCC diagnostic pop
+#endif
+#endif
 
     pose.matrix = (NJS_MATRIX *)((Uint32)&pose.room & ~7);
     njPushMatrix(&_unit_matrix_);

@@ -670,8 +670,9 @@ void camera_step_follow(struct camera_view *view);
 void camera_step_work_view(struct camera_view *view);
 void camera_step_path(struct camera_view *view);
 /* a step for camera_override that places the camera at camera_pose_pos,
- * turned by camera_pose_ang, and sets camera_pose_taken. the stages' path
- * cameras set the pose each step */
+ * turned by camera_pose_ang, and sets camera_pose_taken. Final Egg's path
+ * cameras set the pose each step. those of Emerald Coast, Speed Highway,
+ * Lost World and Casinopolis set it on a frame's first step alone */
 void camera_step_pose(struct camera_view *view);
 /* run camera_override with a step that moves the camera along path, turned
  * the way player 0 faces, looking at his eyes. mode, one of

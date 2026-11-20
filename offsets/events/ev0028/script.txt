@@ -1,0 +1,10 @@
+datum  ev0028_punch_keys  C  0x00000000  147
+datum  ev0028_punch  C  0x00000094  8
+datum  ev0028_textures  D  0x00000000  24
+text  TEXT_1  C  0x0000009c  14
+text  TEXT_2  C  0x000000b0  12
+text  TEXT_3  C  0x000000bc  12
+text  TEXT_4  C  0x000000cc  44
+text  TEXT_5  C  0x000000f8  25
+text  TEXT_6  C  0x000000ac  2
+text  TEXT_7  C  0x000000c8  4

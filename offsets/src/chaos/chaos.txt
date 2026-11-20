@@ -1,0 +1,11 @@
+datum  chaos_form_textures  C  0x00000000  12
+datum  puddle_rim  D  0x00000000  16
+datum  chaos_axis_lines  D  0x00000010  72
+datum  chaos_axis_color  D  0x00000058  4
+datum  chaos_axes  D  0x0000005c  36
+datum  chaos_blink_color  D  0x00000080  16
+datum  puddle_trail  B  0x00000000  216
+datum  puddle_ground  B  0x000000d8  36
+datum  puddle_highest  B  0x000000fc  4
+datum  puddle_texture  B  0x00000100  2
+datum  puddle_points  B  0x00000104  4

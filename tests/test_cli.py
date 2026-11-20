@@ -23,10 +23,15 @@ TOOLS = {
     'disc': (['disc.gdi', 'manifest.txt', 'disc'], OUTSIDE),
     'floats': (['--assembly', 'a.src'], 'a.src: No such file or directory'),
     'graft': (['new.src', 'donor.src', 'out.src'], 'new.src: No such file or directory'),
-    'imports': ([], OUTSIDE),
+    'guards': (['src/main.c'], 'src/main.c: No such file or directory'),
+    'imports': (['--uses'], OUTSIDE),
     'inline': (['a.c', 'out.c', 'text.src'], 'a.c: No such file or directory'),
     'ld': (['link.txt', 'out'], 'link.txt: No such file or directory'),
     'link': (['build/src/main.obj'], 'build/src/main.obj: no such object'),
+    'order': (['spec.txt', 'out'], 'spec.txt: No such file or directory'),
+    'offsets': (['src/main.c'], "offsets/src/main.txt: missing; it records where src/main.c's data sits in the "
+                                'original. make offsets writes it on x86 Linux; a renamed source takes a git mv; see '
+                                'TOOLCHAIN.md#stub-and-full-builds'),
     'progress': (['--patched', '--grafted', '--inline'], OUTSIDE),
     'publish': (['spec.txt', 'out', 'manifest.txt'], 'spec.txt: No such file or directory'),
     'relink': (['stg01'], OUTSIDE),
@@ -39,28 +44,33 @@ TOOLS = {
 }
 # command lines argparse takes and the tool's own check refuses: each lacks an argument the check requires, or
 # holds one it rules out
-REFUSED = [('census', ['--gcc', '--disc']), ('census', ['--add', '1st_read', 'gcc/src/port.c']), ('data', []),
+REFUSED = [('census', ['--dc', '--disc']), ('census', ['--add', '1st_read', 'engine/dc/port.c']), ('data', []),
            ('data', ['--texts', 'a.c', 'text.inc', 'out.c']),
+           ('data', ['--offsets', 'a.c', 'a.lis', 'a.d', 'a.txt', 'out.c']),
            ('floats', ['a.i']), ('floats', ['--shc', 'r10', '-fpu=single', 'a.i']),
            ('floats', ['--shc', 'r26', '-aggressive=2', 'a.i']),
            ('floats', ['--assembly', 'a.src', 'a.i']),
+           ('imports', ['--definitions', '--add', '1st_read', 'engine/dc/port.c']),
+           ('imports', ['--definitions', '--replace', 'src/port.src', 'engine/dc/port.c']),
            ('progress', []), ('splice', ['--verbose', 'build/1ST_READ.BIN']),
            ('splice', ['--check', 'build/1ST_READ.BIN']),
            ('tags', ['--contract', 'f', 'a.c']),
            ('vendor', ['--check', 'shckit'])]
 # tools/ld.py's spec of GAME_TREE's stga alone, as tools/spec.py opens one. tools/publish.py writes the image to
-# build/gcc/SONICADV/STGA.BIN, which build/prskit compresses to STGA.PRS
-STGA_SPEC = "# make gcc's images, as tools/spec.py writes them\nimage  stga  0x0c900000  0x00280000\n"
+# build/dc/SONICADV/STGA.BIN, which build/prskit compresses to STGA.PRS
+STGA_SPEC = "# make dc's images, as tools/spec.py writes them\nimage  stga  0x0c900000  0x00280000\n"
 # the shortest final link tools/publish.py takes: an ELF whose sections are a symbol table and its names, which
 # defines _image_end, absolute at stga's origin
 NAMES, SYMBOLS = b'\0_image_end\0', bytes(16) + struct.pack('<IIIBBH', 1, 0x0C900000, 0, 0x10, 0, 0xFFF1)
 FINAL = (b'\x7fELF\x01\x01'.ljust(32, b'\0') + struct.pack('<I', 96).ljust(14, b'\0') + struct.pack('<HHH', 40, 3, 1)
          + NAMES + SYMBOLS + bytes(40) + struct.pack('<10I', 0, 3, 0, 0, 52, len(NAMES), 0, 0, 1, 0)
          + struct.pack('<10I', 0, 2, 0, 0, 64, len(SYMBOLS), 1, 0, 4, 16))
-# the toolchain the publish cases name by SH_ELF, whichever one the tests run with: its one cc1, which publish finds
-# before it removes or writes a file. Each case fails before publish hashes the cc1, so it can be empty
+# the toolchain the publish cases name by SH_ELF, whichever one the tests run with: its one cc1 and the programs of
+# its link-time compile, which publish finds before it removes or writes a file. Each case fails before publish
+# hashes one, so each can be empty
 SH_ELF = 'tools/sh-elf'
-CC1 = {f'{SH_ELF}/libexec/gcc/sh-elf/16.2.0/cc1': ''}
+CC1 = {f'{SH_ELF}/libexec/gcc/sh-elf/16.2.0/{name}': ''
+       for name in ('cc1', 'lto1', 'lto-wrapper', 'collect2', 'liblto_plugin.so')}
 # command lines that have a tool read, write or remove where it can't, or run what isn't there, by case: the tool, its
 # arguments, the files the directory holds, the variables the environment sets, and the problem the tool fails with
 UNABLE = {
@@ -80,8 +90,8 @@ UNABLE = {
         'ld', ['link.txt', 'out'], {'out/main/final.elf/a': ''}, {}, 'out/main/final.elf: Is a directory'),
     "a file where an old output's directory goes": (
         'publish', ['spec.txt', 'out', 'manifest.txt'],
-        dict(GAME_TREE, **CC1, **{'spec.txt': STGA_SPEC, 'build/gcc/SONICADV': ''}), {'SH_ELF': SH_ELF},
-        'build/gcc/SONICADV/STGA.BIN: Not a directory\npublish: build/gcc/SONICADV/STGA.PRS: Not a directory'),
+        dict(GAME_TREE, **CC1, **{'spec.txt': STGA_SPEC, 'build/dc/SONICADV': ''}), {'SH_ELF': SH_ELF},
+        'build/dc/SONICADV/STGA.BIN: Not a directory\npublish: build/dc/SONICADV/STGA.PRS: Not a directory'),
     'a prskit that is missing': (
         'publish', ['spec.txt', 'out', 'manifest.txt'],
         dict(GAME_TREE, **CC1, **{'spec.txt': STGA_SPEC, 'out/stga/final.elf': FINAL}), {'SH_ELF': SH_ELF},

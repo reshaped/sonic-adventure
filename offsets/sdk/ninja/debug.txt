@@ -1,0 +1,1 @@
+datum  _nj_debug_char_  DSG  0x00000000  32768

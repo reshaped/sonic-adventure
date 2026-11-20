@@ -1,0 +1,2 @@
+datum  course_span_start  D  0x00000000  4
+datum  course_span_end  D  0x00000004  4

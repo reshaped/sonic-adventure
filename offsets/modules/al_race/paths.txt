@@ -1,0 +1,7 @@
+datum  dat_0cbd3d08  D  0x00000000  820
+datum  dat_0cbd403c  D  0x00000334  16
+datum  dat_0cbd404c  D  0x00000344  920
+datum  dat_0cbd43e4  D  0x000006dc  16
+datum  dat_0cbd43f4  D  0x000006ec  1560
+datum  dat_0cbd4a0c  D  0x00000d04  16
+datum  race_paths  D  0x00000d14  12

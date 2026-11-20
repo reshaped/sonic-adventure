@@ -425,9 +425,9 @@ void windy_path_leaf_step(struct task *task)
     if (PATH_LEAF(work)->phase) {
         int count = PATH_LEAF(work)->path->count;
         index = count * PATH_LEAF(work)->phase / 20;
-#ifdef GCC
-        /* repairs the reads the tag names: GCC's index stops at count - 2,
-         * so points[index + 1] is at most the last point */
+#ifdef NONMATCHING
+        /* repairs the reads the tag names: points[index + 1] is at most the
+         * last point */
         if (index > count - 2) {
             index = count - 2;
         }
@@ -646,7 +646,7 @@ static Float leaf_push(struct task_work *work, NJS_VECTOR *push)
     Float distance;
     Uint8 i;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that the loop sets *push wherever it lowers nearest, the
      * one case in which the scaling below reads it */
     push->x = push->y = push->z = 0.0F;
@@ -665,9 +665,9 @@ static Float leaf_push(struct task_work *work, NJS_VECTOR *push)
          * reload at 0x0c907ee6, y and z forwarded at 0x0c907ed8 and 0x0c907eec.
          * stored in statements of their own, the function is 8 bytes longer,
          * windy_leaf_blower_step after it moves, and 89 of 97 words differ */
-#ifdef GCC
-        /* keeps SHC's distance: C leaves the tag's spelling undefined, so GCC
-         * sets each difference before its square, as SHC's code does */
+#ifdef NONMATCHING
+        /* keeps SHC's distance: C leaves the tag's spelling undefined. this
+         * side sets each difference before its square, as SHC's code does */
         delta.x = work->pos.x - player->pos.x;
         delta.y = work->pos.y - player->pos.y;
         delta.z = work->pos.z - player->pos.z;
@@ -1167,6 +1167,16 @@ struct column_wind_vars {
 #define MODEL_SINK 0.5F
 #define MODEL_REACH 30.0F
 
+/* the passes each of the column's loops makes */
+#ifdef NONMATCHING
+/* repairs the reads the tags in windy_column_wind_step name: the loops take
+ * player 0 alone. the image's loops match them where the bytes past player
+ * 0's work hold no position in reach */
+#define COLUMN_PASSES 1
+#else
+#define COLUMN_PASSES 2
+#endif
+
 /* work->tick is 1 on the steps the column lifts. on each of those steps, it
  * rolls for a rising leaf. on a pass, it sends a leaf up from a random point
  * near its axis. the point is within half the radius on x and on z. it lies
@@ -1252,7 +1262,7 @@ void windy_column_wind_step(struct task *task)
          * own size, so the second pass reads the 64 bytes after that work, not
          * player 1's: MOV.L @R10,R10 at 0x0c9089e0 loads player_work[0], and
          * ADD #64,R10 at 0x0c908a5e steps it */
-        for (i = 0, player = player_work[0]; i < 2; i++, player++) {
+        for (i = 0, player = player_work[0]; i < COLUMN_PASSES; i++, player++) {
             if (!player) {
                 continue;
             }
@@ -1281,7 +1291,8 @@ void windy_column_wind_step(struct task *task)
              * by its own size, so the second pass reads the 64 bytes after
              * that work, not player 1's: MOV.L @R10,R10 at 0x0c908aea loads
              * player_work[0], and ADD #64,R10 at 0x0c908b0a steps it */
-            for (i = 0, player = player_work[0]; i < 2; i++, player++) {
+            for (i = 0, player = player_work[0]; i < COLUMN_PASSES;
+                 i++, player++) {
                 if (!player) {
                     continue;
                 }
@@ -1376,8 +1387,8 @@ void windy_column_wind_step(struct task *task)
          * bytes after each, not player 1's: MOV.L @R11,R11 at 0x0c908e0c and
          * MOV.L @R3,R2 at 0x0c908e0a load player_work[0] and player_motion[0],
          * and ADD #64 at 0x0c908f3c and 0x0c908f40 step them */
-        for (i = 0, player = player_work[0], motion = player_motion[0]; i < 2;
-             i++, player++, motion++) {
+        for (i = 0, player = player_work[0], motion = player_motion[0];
+             i < COLUMN_PASSES; i++, player++, motion++) {
             /* @hack redundant: a never-run test of player, which keeps player
              * in R11 and the index into dwell in R10 (0x0c908e0c,
              * 0x0c908e22); without it, 14 of 898 words differ */
