@@ -40,6 +40,15 @@ bool window_pump(Window *)
     return false;
 }
 
+void window_title(Window *, const char *)
+{
+}
+
+bool window_rays_key(Window *)
+{
+    return false;
+}
+
 sa_result window_pad(Window *, uint32_t, sa_pad &)
 {
     return SA_EMPTY;

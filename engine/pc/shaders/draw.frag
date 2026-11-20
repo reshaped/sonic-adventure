@@ -90,7 +90,9 @@ void main()
         }
         uvec4 bytes = uvec4(clamp(c, 0.0, 1.0) * 255.0 + 0.5);
         list.fragments[at].color = bytes.r | bytes.g << 8 | bytes.b << 16 | bytes.a << 24;
-        list.fragments[at].depth = gl_FragCoord.z;
+        // 1/z, which is gl_FragCoord.z except for a screen draw nearer than z = 1. draw.vert
+        // holds that draw's depth to 1, and gl_FragCoord.w is its own 1/z, which sorts it
+        list.fragments[at].depth = gl_FragCoord.w > 1.0 ? gl_FragCoord.w : gl_FragCoord.z;
         list.fragments[at].order = batch.blend | triangle << 6;
         list.fragments[at].next = imageAtomicExchange(heads, ivec2(gl_FragCoord.xy), at);
     }

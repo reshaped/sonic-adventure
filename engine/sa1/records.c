@@ -97,6 +97,9 @@ enum {
     SIMPLE_SCALE,
     SIMPLE_AMBIENT,
     ACT_LIGHTS,
+    SHADOW,
+    WORLD_ADDED,
+    WORLD_ADDED_COUNT,
     STATICS
 };
 static const char *const static_names[STATICS] = {
@@ -109,6 +112,9 @@ static const char *const static_names[STATICS] = {
     [SIMPLE_SCALE] = "base_light_scale",
     [SIMPLE_AMBIENT] = "iamb",
     [ACT_LIGHTS] = "sources_file",
+    [SHADOW] = "shadow_object",
+    [WORLD_ADDED] = "world_added",
+    [WORLD_ADDED_COUNT] = "world_added_count",
 };
 static char *statics[STATICS];
 
@@ -1171,10 +1177,21 @@ static void serial_forget(uint32_t slot)
     }
 }
 
+/* the stage's sky task, from native_sky_created to its destroy, or null */
+static const struct task *sky_task;
+
+void native_sky_created(struct task *task)
+{
+    sky_task = task;
+}
+
 void native_task_destroy(struct task *task)
 {
     uint32_t slot = task_slot(task);
 
+    if (task == sky_task) {
+        sky_task = NULL;
+    }
     if (recording && serials[slot].task) {
         sa_task_destroy destroy = {.task = serials[slot].serial,
                                    .destructor =
@@ -1616,6 +1633,7 @@ struct part {
     const NJS_MODEL *model;
     uint32_t instance;
     uint32_t next; /* the next part of the model's chain, from 1, or 0 */
+    uint16_t liquid; /* SA_DRAW_LIQUID where the land holds it as a liquid */
     float world[12];
     struct reads reads; /* held in the tables, each key table_hold's */
     struct reads drawn; /* by the open picture's first draw of it */
@@ -1691,6 +1709,84 @@ static void parts_settle(int kept)
     parts_drawn_count = 0;
 }
 
+/* TRUE from native_liquid_begin to native_liquid_end */
+static int liquid_draws;
+
+void native_liquid_begin(void)
+{
+    liquid_draws = 1;
+}
+
+void native_liquid_end(void)
+{
+    liquid_draws = 0;
+}
+
+/* whether model is object's own or one of the tree's under it. those are the
+ * models the game's collision reads of an object, and the ones a drawer of
+ * trees draws of it */
+static int object_holds(const NJS_OBJECT *object, const NJS_MODEL *model)
+{
+    if (object->model == model) {
+        return 1;
+    }
+    for (const NJS_OBJECT *child = object->child; child;
+         child = child->sibling) {
+        if (object_holds(child, model)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* whether the task that draws is the stage's sky task or a task under it. a
+ * child's step draws under its parent's name, and its draw callback under its
+ * own */
+static int sky_draws(void)
+{
+    for (const struct task *task = sa1_step_task; task && sky_task;
+         task = task->parent) {
+        if (task == sky_task) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* whether the collision world holds model as a liquid a task put in it */
+static int liquid_added(const NJS_MODEL *model)
+{
+    const struct world_object *added =
+        (const struct world_object *)statics[WORLD_ADDED];
+    int count = *(const Sint16 *)statics[WORLD_ADDED_COUNT];
+
+    for (int i = 0; i < count; i++) {
+        if ((added[i].flags & WORLD_LIQUID) &&
+            object_holds(added[i].object, model)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* what a draw of model is of, as sa_sa1.h's hints say: its SA_DRAW_BACKDROP,
+ * _SHADOW and _LIQUID. a liquid's surface is no backdrop, whichever task
+ * draws it. a part's draw takes the part's liquid beside them */
+static uint16_t hints_of(const NJS_MODEL *model)
+{
+    uint16_t hints = 0;
+
+    if (object_holds((const NJS_OBJECT *)statics[SHADOW], model)) {
+        hints |= SA_DRAW_SHADOW;
+    }
+    if (liquid_draws || liquid_added(model)) {
+        hints |= SA_DRAW_LIQUID;
+    } else if (sky_draws()) {
+        hints |= SA_DRAW_BACKDROP;
+    }
+    return hints;
+}
+
 void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
                       enum sa1_header header, const struct sa1_attrs *attrs,
                       uint16_t flags)
@@ -1719,13 +1815,15 @@ void sa1_record_model(const NJS_MODEL *model, uint8_t mode,
         picture_lost++;
         return;
     }
-    draw.flags = flags;
+    draw.flags = (uint16_t)(flags | hints_of(model));
     /* the task is born to a reader by its first draw, a part's too */
     draw.instance = instance();
-    /* a part's draw takes the part's own instance, which names it whole. any
-     * other draw is its drawer's nth of the model's shape */
+    /* a part's draw takes the part's own instance, which names it whole, and
+     * is of a liquid where the part is. any other draw is its drawer's nth of
+     * the model's shape */
     if (part) {
         draw.instance = part->instance;
+        draw.flags |= part->liquid;
     } else {
         draw.thing = shape_of(model);
         if (!nth_of(draw.instance, draw.thing, &draw.nth)) {
@@ -1824,8 +1922,10 @@ static void part_give(const NJS_MODEL *model, const struct draw_state *state,
             draw.object_to_world[4 * j + k] = (float)place->m[k][j];
         }
     }
-    *part = (struct part){
-        .model = model, .instance = draw.instance, .next = part_heads[home]};
+    *part = (struct part){.model = model,
+                          .instance = draw.instance,
+                          .next = part_heads[home],
+                          .liquid = (uint16_t)(flags & SA_DRAW_LIQUID)};
     memcpy(part->world, draw.object_to_world, sizeof part->world);
     part->reads.mesh = table_hold(&meshes, reads.mesh);
     part->reads.list = table_hold(&lists, reads.list);
@@ -2053,7 +2153,8 @@ void native_land_loaded(const struct land_table *land, unsigned int name,
         }
         place_translate(&place, object->pos);
         place_rotate(&place, object->ang, 0);
-        part_give(object->model, &state, &place, (uint32_t)i, 0, &end.lost);
+        part_give(object->model, &state, &place, (uint32_t)i,
+                  entry->flags & WORLD_LIQUID ? SA_DRAW_LIQUID : 0, &end.lost);
     }
     for (int i = 0; (land->flags & LAND_MOTIONS) && i < land->motion_count;
          i++) {

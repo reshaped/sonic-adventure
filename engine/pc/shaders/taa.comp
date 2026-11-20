@@ -1,0 +1,234 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// the antialiasing pass: temporal antialiasing (after Karis, "High Quality
+// Temporal Supersampling"). each picture's camera rays cross their pixels
+// at their own point, which the host steps through a Halton sequence, so
+// the pictures over time cover the pixel. composed holds this picture's
+// display values. the pass mixes them with what the pictures before held
+// where the pixel's surface lay, once that history is clipped to the colors
+// about the pixel now, which keeps it from trailing what moved. the colors
+// about a pixel can't say what surface a history was of, so a pixel takes
+// none where the picture before showed, at the place its surface lay, a
+// surface nearer or farther than any the pixels about it show now: one newly
+// uncovered, whose history is of what covered it. at an edge the pixels
+// about it show both surfaces, or a surface and the background, and it takes
+// either's. the result is this picture's history and the target.
+//
+// the picture may be traced at a share of the target's pixels, and this
+// pass fills the target from it: each target pixel takes the traced pixels
+// whose camera rays crossed nearest its center, and the history holds what
+// the pictures before gave it, each crossing at its own point, so that over
+// the pictures a target pixel takes its own detail
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#include "rays.glsl"
+
+layout(set = 2, binding = 3, rgba16f) uniform readonly image2D motion;
+layout(set = 2, binding = 5, rgba16f) uniform readonly image2D gbuffer[2];
+layout(set = 2, binding = 9, rgba8) uniform writeonly image2D shown;
+layout(set = 2, binding = 15, rgba16f) uniform readonly image2D composed;
+// the antialiased pictures, as display values: the two alternate by picture,
+// so the picture before's is there to read
+layout(set = 2, binding = 16, rgba16f) uniform image2D past[2];
+
+// the share this picture takes of a pixel's color, and the standard
+// deviations about the colors near the pixel that its history may stray
+const float NEWEST = 0.1;
+const float SPREAD = 1.0;
+// how far past the depths the pixels about a pixel had before the history's
+// surface may lie and still be one of theirs, as a share of the depth
+const float DEPTH_SLACK = 0.05;
+
+// a traced pixel's surface, as the trace pass wrote it for this picture or
+// the one before: its depth is 0 where the camera ray met nothing
+vec4 surface(ivec2 p, bool before)
+{
+    return ((rays.counts.x & 1u) != 0u) != before ? imageLoad(gbuffer[1], p)
+                                                  : imageLoad(gbuffer[0], p);
+}
+
+// whether the picture before showed, at the place was, what the traced
+// pixels about nearest show now: a surface whose depth there lies among the
+// depths theirs had, or the background, where one of them shows it
+bool history_shown(ivec2 nearest, vec3 was, ivec2 size)
+{
+    float least = was.z;
+    float most = was.z;
+    bool open = false;
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            ivec2 near = clamp(nearest + ivec2(x, y), ivec2(0), size - 1);
+            vec4 near_was = imageLoad(motion, near);
+
+            open = open || surface(near, false).z == 0.0;
+            if (near_was.w != 0.0) {
+                least = min(least, near_was.z);
+                most = max(most, near_was.z);
+            }
+        }
+    }
+    // the pixel of the picture before whose camera ray crossed nearest
+    ivec2 q = ivec2(floor(was.xy - rays.jitter.zw));
+
+    if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) {
+        return false;
+    }
+    float there = surface(q, true).z;
+
+    return there != 0.0 ? there >= least * (1.0 - DEPTH_SLACK) && there <= most * (1.0 + DEPTH_SLACK)
+                        : open;
+}
+
+vec3 ycocg(vec3 c)
+{
+    return vec3(0.25 * c.r + 0.5 * c.g + 0.25 * c.b, 0.5 * c.r - 0.5 * c.b,
+                -0.25 * c.r + 0.5 * c.g - 0.25 * c.b);
+}
+
+vec3 rgb(vec3 c)
+{
+    return vec3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z);
+}
+
+// the Catmull-Rom spline's weights of the four pixels about a place, at
+// part of the way from the second to the third
+vec4 catmull_rom(float part)
+{
+    float p2 = part * part;
+    float p3 = p2 * part;
+
+    return vec4(-0.5 * p3 + p2 - 0.5 * part, 1.5 * p3 - 2.5 * p2 + 1.0,
+                -1.5 * p3 + 2.0 * p2 + 0.5 * part, 0.5 * p3 - 0.5 * p2);
+}
+
+// the history at a place in the target's pixels, where a pixel's center lies
+// at its index and a half, by the Catmull-Rom spline over its 4 by 4 nearest
+// pixels, which keeps it sharp from picture to picture where a bilinear
+// mean would blur it. it may overshoot, and is held to 0 and over
+vec3 history_at(vec2 at, ivec2 size)
+{
+    bool turn = (rays.counts.x & 1u) != 0u;
+    vec2 from = at - 0.5;
+    ivec2 corner = ivec2(floor(from)) - 1;
+    vec2 part = from - floor(from);
+    vec4 wx = catmull_rom(part.x);
+    vec4 wy = catmull_rom(part.y);
+    vec3 sum = vec3(0.0);
+
+    for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 4; x++) {
+            ivec2 q = clamp(corner + ivec2(x, y), ivec2(0), size - 1);
+
+            sum += (turn ? imageLoad(past[0], q) : imageLoad(past[1], q)).rgb * (wx[x] * wy[y]);
+        }
+    }
+    return max(sum, vec3(0.0));
+}
+
+// the color this picture gives a target pixel's center, which lies at
+// center in the traced pixels, of which nearest crossed nearest it. each
+// traced pixel's camera ray crossed it at the picture's jitter from its
+// center, so each of the 3 by 3 about nearest stands for a point, and is
+// weighed by that point's distance from center in the target's pixels, by
+// a Gaussian fit to a Blackman-Harris window (after Karis). a pixel's color
+// then moves little from one picture to the next as the jitter steps. the
+// weights' sum says how near the picture's points came
+struct Centered {
+    vec3 color;
+    float weight;
+};
+
+Centered centered(ivec2 nearest, vec2 center, ivec2 size, vec2 share)
+{
+    Centered c;
+    vec3 sum = vec3(0.0);
+    float weights = 0.0;
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            ivec2 q = nearest + ivec2(x, y);
+            vec2 off = (vec2(q) + 0.5 + rays.jitter.xy - center) / share;
+            float w = exp(-2.29 * dot(off, off));
+
+            sum += imageLoad(composed, clamp(q, ivec2(0), size - 1)).rgb * w;
+            weights += w;
+        }
+    }
+    c.color = sum / max(weights, 1.0e-6);
+    c.weight = weights;
+    return c;
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 target = ivec2(rays.shown.xy);
+    ivec2 size = ivec2(rays.size.xy);
+
+    if (pixel.x >= target.x || pixel.y >= target.y) {
+        return;
+    }
+    // the traced pixels to one of the target's, the pixel's center among
+    // them, and the one whose camera ray crossed nearest it
+    vec2 share = rays.size.xy / rays.shown.xy;
+    vec2 center = (vec2(pixel) + 0.5) * share;
+    ivec2 nearest = clamp(ivec2(floor(center - rays.jitter.xy)), ivec2(0), size - 1);
+    Centered now = centered(nearest, center, size, share);
+    // a picture that stands alone shows its own pixel's color, or, traced
+    // at a share, the color it gives the center
+    vec3 color = share.x >= 1.0 && share.y >= 1.0 ? imageLoad(composed, nearest).rgb : now.color;
+
+    if (rays.counts.w == 0u) {
+        vec4 moved = imageLoad(motion, nearest);
+        // where the point the nearest camera ray met lay before, in the
+        // picture before's traced pixels, and its depth there. the
+        // background stays where it is on the screen
+        vec3 was = vec3(vec2(nearest) + 0.5 + rays.jitter.xy + moved.xy, moved.z);
+        bool met = surface(nearest, false).z != 0.0;
+        // the pixel's center lay as far from that point as it lies from it
+        // now, and the history holds centers
+        vec2 at = !met ? vec2(pixel) + 0.5
+                  : moved.w != 0.0 && history_shown(nearest, was, size)
+                      ? (was.xy + center - (vec2(nearest) + 0.5 + rays.jitter.xy)) / share
+                      : vec2(-1.0);
+
+        if (all(greaterThanEqual(at, vec2(0.0))) && all(lessThan(at, vec2(target)))) {
+            // the colors about the pixel now, as a mean and a deviation
+            vec3 mean = vec3(0.0);
+            vec3 square = vec3(0.0);
+
+            for (int y = -1; y <= 1; y++) {
+                for (int x = -1; x <= 1; x++) {
+                    vec3 c = ycocg(
+                        imageLoad(composed, clamp(nearest + ivec2(x, y), ivec2(0), size - 1)).rgb);
+
+                    mean += c;
+                    square += c * c;
+                }
+            }
+            mean /= 9.0;
+            vec3 deviation = sqrt(max(square / 9.0 - mean * mean, vec3(0.0)));
+            vec3 kept = ycocg(history_at(at, target));
+            // the history clipped toward the mean, into the box the
+            // deviation spans about it
+            vec3 off = kept - mean;
+            vec3 box = SPREAD * deviation + 1.0e-4;
+            vec3 over = abs(off) / box;
+            float most = max(over.x, max(over.y, over.z));
+
+            if (most > 1.0) {
+                kept = mean + off / most;
+            }
+            // a picture whose points came far from the center takes the
+            // less of it
+            color = mix(rgb(kept), now.color, NEWEST * min(now.weight, 1.0));
+        }
+    }
+    if ((rays.counts.x & 1u) != 0u) {
+        imageStore(past[1], pixel, vec4(color, 1.0));
+    } else {
+        imageStore(past[0], pixel, vec4(color, 1.0));
+    }
+    imageStore(shown, pixel, vec4(clamp(color, 0.0, 1.0), 1.0));
+}

@@ -34,6 +34,11 @@ void window_size(Window *window, uint32_t &width, uint32_t &height);
 /* take the platform's events and the fullscreen key. it gives true where
  * the platform asks to end */
 bool window_pump(Window *window);
+/* give the window another title */
+void window_title(Window *window, const char *title);
+/* whether F10, the key that turns ray tracing off and on, was pressed since the
+ * last call. window_pump reads the key */
+bool window_rays_key(Window *window);
 /* the pad in port, by Shinobi's bits: SA_OK, or SA_EMPTY */
 sa_result window_pad(Window *window, uint32_t port, sa_pad &pad);
 /* sa_input_rumble's */

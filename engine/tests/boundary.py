@@ -107,8 +107,8 @@ ADAPTER = parts.directories(PARTS, 'recorder')
 HOST = parts.directories(PARTS, 'backend', parts.PLAY)
 DRAWERS = parts.directories(PARTS, 'drawer')
 SOURCES = [p for d in OWN for p in (ROOT / d).rglob('*') if p.is_file() and 'shaders' not in p.parts]
-# the headers the build writes of the backend's shaders, one a shader
-SHADERS = {f'{p.name}.h' for d in OWN for p in (ROOT / d / 'shaders').glob('*')}
+# the headers the build writes of the backend's shaders, one a shader. a .glsl file is text the shaders include
+SHADERS = {f'{p.name}.h' for d in OWN for p in (ROOT / d / 'shaders').glob('*') if p.suffix != '.glsl'}
 # what a quoted include may name: the backend's and the runtime's own files,
 # the contracts, and the shaders' generated words, and in the backend SA1's
 # headers

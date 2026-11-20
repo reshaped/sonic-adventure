@@ -1,5 +1,4 @@
-#define VK_NO_PROTOTYPES
-#include "raster.h"
+#include "device.h"
 
 #include <math.h>
 #include <string.h>
@@ -13,11 +12,6 @@
 #include <dlfcn.h>
 #endif
 
-#include <map>
-#include <tuple>
-
-#include <vulkan/vulkan_core.h>
-
 #include "area.comp.h"
 #include "draw.frag.h"
 #include "draw.vert.h"
@@ -30,6 +24,27 @@
 namespace pc {
 
 namespace {
+
+/* the times waited and idle make a wait before they give it up. each makes
+ * it again only where it fails for want of memory */
+constexpr int WAITS = 4;
+
+/* the words of the fragments' head, as the shaders' Fragments holds them,
+ * and its bytes. the head lies ahead of the fragments in their buffer */
+enum { HEAD_COUNT, HEAD_CAPACITY, HEAD_LOST, HEAD_CUT, HEAD_WORDS };
+constexpr VkDeviceSize LIST_HEAD = HEAD_WORDS * sizeof(uint32_t);
+/* a batch's push constants, as the shaders' Batch holds them. blend holds
+ * the source's blend instruction, then the destination's, three bits each */
+struct Push {
+    uint32_t flags;
+    uint32_t blend;
+};
+/* a fragment's bytes, as the shaders' Fragment. FRAGMENTS_A_PIXEL bounds
+ * the lists' room, in fragments a pixel of the target on average */
+constexpr VkDeviceSize FRAGMENT = 16;
+constexpr VkDeviceSize FRAGMENTS_A_PIXEL = 16;
+/* the most sets, each a texture under a sampler, live at once */
+constexpr uint32_t TEXTURE_SETS = 8192;
 
 /* Vulkan's loader, which the raster opens as it starts */
 #ifdef _WIN32
@@ -63,199 +78,6 @@ void loader_close(void *loader)
 }
 #endif
 
-/* the calls the raster makes, which open takes from the loader.
- * SURFACE_CALLS and SWAPCHAIN_CALLS are a window's: an instance and a device
- * made for none lack them */
-#define GLOBAL_CALLS(X) X(vkCreateInstance)
-#define INSTANCE_CALLS(X)                                                      \
-    X(vkDestroyInstance)                                                       \
-    X(vkEnumeratePhysicalDevices)                                              \
-    X(vkGetPhysicalDeviceProperties)                                           \
-    X(vkGetPhysicalDeviceQueueFamilyProperties)                                \
-    X(vkGetPhysicalDeviceMemoryProperties)                                     \
-    X(vkGetPhysicalDeviceFeatures)                                             \
-    X(vkCreateDevice)                                                          \
-    X(vkGetDeviceProcAddr)                                                     \
-    X(vkEnumerateDeviceExtensionProperties)
-#define SURFACE_CALLS(X)                                                       \
-    X(vkDestroySurfaceKHR)                                                     \
-    X(vkGetPhysicalDeviceSurfaceSupportKHR)                                    \
-    X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)                               \
-    X(vkGetPhysicalDeviceSurfaceFormatsKHR)                                    \
-    X(vkGetPhysicalDeviceSurfacePresentModesKHR)
-#define DEVICE_CALLS(X)                                                        \
-    X(vkDestroyDevice)                                                         \
-    X(vkGetDeviceQueue)                                                        \
-    X(vkCreateCommandPool)                                                     \
-    X(vkDestroyCommandPool)                                                    \
-    X(vkAllocateCommandBuffers)                                                \
-    X(vkFreeCommandBuffers)                                                    \
-    X(vkBeginCommandBuffer)                                                    \
-    X(vkEndCommandBuffer)                                                      \
-    X(vkQueueSubmit)                                                           \
-    X(vkDeviceWaitIdle)                                                        \
-    X(vkCreateImage)                                                           \
-    X(vkDestroyImage)                                                          \
-    X(vkCreateImageView)                                                       \
-    X(vkDestroyImageView)                                                      \
-    X(vkGetImageMemoryRequirements)                                            \
-    X(vkBindImageMemory)                                                       \
-    X(vkCreateBuffer)                                                          \
-    X(vkDestroyBuffer)                                                         \
-    X(vkGetBufferMemoryRequirements)                                           \
-    X(vkBindBufferMemory)                                                      \
-    X(vkAllocateMemory)                                                        \
-    X(vkFreeMemory)                                                            \
-    X(vkMapMemory)                                                             \
-    X(vkUnmapMemory)                                                           \
-    X(vkCreateRenderPass)                                                      \
-    X(vkDestroyRenderPass)                                                     \
-    X(vkCreateFramebuffer)                                                     \
-    X(vkDestroyFramebuffer)                                                    \
-    X(vkCreateShaderModule)                                                    \
-    X(vkDestroyShaderModule)                                                   \
-    X(vkCreateDescriptorSetLayout)                                             \
-    X(vkDestroyDescriptorSetLayout)                                            \
-    X(vkCreatePipelineLayout)                                                  \
-    X(vkDestroyPipelineLayout)                                                 \
-    X(vkCreateGraphicsPipelines)                                               \
-    X(vkDestroyPipeline)                                                       \
-    X(vkCreateDescriptorPool)                                                  \
-    X(vkDestroyDescriptorPool)                                                 \
-    X(vkAllocateDescriptorSets)                                                \
-    X(vkUpdateDescriptorSets)                                                  \
-    X(vkCreateSampler)                                                         \
-    X(vkDestroySampler)                                                        \
-    X(vkCmdBeginRenderPass)                                                    \
-    X(vkCmdEndRenderPass)                                                      \
-    X(vkCmdBindPipeline)                                                       \
-    X(vkCmdBindDescriptorSets)                                                 \
-    X(vkCmdBindVertexBuffers)                                                  \
-    X(vkCmdPushConstants)                                                      \
-    X(vkCmdDraw)                                                               \
-    X(vkCmdSetViewport)                                                        \
-    X(vkCmdSetScissor)                                                         \
-    X(vkCmdPipelineBarrier)                                                    \
-    X(vkCmdCopyBufferToImage)                                                  \
-    X(vkCmdCopyImageToBuffer)                                                  \
-    X(vkCmdBlitImage)                                                          \
-    X(vkCmdClearColorImage)                                                    \
-    X(vkCmdDispatch)                                                           \
-    X(vkCreateComputePipelines)                                                \
-    X(vkFreeDescriptorSets)                                                    \
-    X(vkCmdUpdateBuffer)                                                       \
-    X(vkCmdCopyBuffer)                                                         \
-    X(vkCreateFence)                                                           \
-    X(vkDestroyFence)                                                          \
-    X(vkResetFences)                                                           \
-    X(vkWaitForFences)                                                         \
-    X(vkGetFenceStatus)                                                        \
-    X(vkCreateSemaphore)                                                       \
-    X(vkDestroySemaphore)                                                      \
-    X(vkCreateQueryPool)                                                       \
-    X(vkDestroyQueryPool)                                                      \
-    X(vkCmdResetQueryPool)                                                     \
-    X(vkCmdWriteTimestamp)                                                     \
-    X(vkGetQueryPoolResults)
-#define SWAPCHAIN_CALLS(X)                                                     \
-    X(vkCreateSwapchainKHR)                                                    \
-    X(vkDestroySwapchainKHR)                                                   \
-    X(vkGetSwapchainImagesKHR)                                                 \
-    X(vkAcquireNextImageKHR)                                                   \
-    X(vkQueuePresentKHR)
-
-#define DECLARE(name) PFN_##name name = nullptr;
-struct Calls {
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
-    GLOBAL_CALLS(DECLARE)
-    INSTANCE_CALLS(DECLARE)
-    SURFACE_CALLS(DECLARE)
-    DEVICE_CALLS(DECLARE)
-    SWAPCHAIN_CALLS(DECLARE)
-};
-#undef DECLARE
-
-struct Buffer {
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    void *mapped = nullptr;
-    VkDeviceSize size = 0;
-};
-
-/* textures take slots cut from blocks of BLOCK bytes. a block is allocated
- * only where no free slot fits. a slot's bytes are the least power of two that
- * holds the texture and its alignment. a texture whose slot would pass a
- * quarter of a block allocates memory of its own. a block lives as long as
- * the raster */
-constexpr VkDeviceSize BLOCK = VkDeviceSize{4} << 20;
-struct Slot {
-    VkDeviceMemory block = VK_NULL_HANDLE;
-    VkDeviceSize at = 0;
-    uint32_t type = 0; /* the block's memory type */
-    uint32_t size = 0; /* log2 of the slot's bytes */
-};
-
-struct Texture {
-    VkImage image = VK_NULL_HANDLE;
-    VkImageView view = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE; /* its own, or none for a slot */
-    Slot slot;
-    uint64_t load = 0; /* the number of the load that sends its texels */
-};
-
-/* the staging's least size. a texture larger than the staging makes
- * it again at the texture's size */
-constexpr VkDeviceSize STAGING = VkDeviceSize{16} << 20;
-
-/* the times waited and idle make a wait before they give it up. each makes
- * it again only where it fails for want of memory */
-constexpr int WAITS = 4;
-
-/* what one picture in flight owns. the target and the lists are shared, as
- * one queue runs the pictures in turn */
-struct Frame {
-    VkCommandBuffer commands = VK_NULL_HANDLE;
-    VkFence fence = VK_NULL_HANDLE;
-    /* a picture went to the device on the fence, which signals as it
-     * retires. else the frame holds none, and nothing signals the fence */
-    bool sent = false;
-    VkSemaphore acquired = VK_NULL_HANDLE;
-    VkDescriptorSet picture_set = VK_NULL_HANDLE;
-    Buffer uniform;
-    Buffer vertices;
-    Buffer readback;
-    Buffer stats; /* the fragments' head as the picture left it */
-};
-
-/* the words of the fragments' head, as the shaders' Fragments holds them,
- * and its bytes. the head lies ahead of the fragments in their buffer */
-enum { HEAD_COUNT, HEAD_CAPACITY, HEAD_LOST, HEAD_CUT, HEAD_WORDS };
-constexpr VkDeviceSize LIST_HEAD = HEAD_WORDS * sizeof(uint32_t);
-/* a batch's push constants, as the shaders' Batch holds them. blend holds
- * the source's blend instruction, then the destination's, three bits each */
-struct Push {
-    uint32_t flags;
-    uint32_t blend;
-};
-/* a fragment's bytes, as the shaders' Fragment. FRAGMENTS_A_PIXEL bounds
- * the lists' room, in fragments a pixel of the target on average */
-constexpr VkDeviceSize FRAGMENT = 16;
-constexpr VkDeviceSize FRAGMENTS_A_PIXEL = 16;
-/* the compute shaders' local size, each way */
-constexpr uint32_t GROUP = 8;
-/* the most sets, each a texture under a sampler, live at once */
-constexpr uint32_t TEXTURE_SETS = 8192;
-
-/* an image the area filter writes from a larger target. readout takes the
- * picture at WIDTH by HEIGHT for read, and fitted at the window's region */
-struct Scaled {
-    VkImage image = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkImageView view = VK_NULL_HANDLE;
-    VkDescriptorSet set = VK_NULL_HANDLE;
-    VkExtent2D extent{};
-};
-
 /* a PowerVR blend instruction as Vulkan's factor for the source where
  * source, else for the destination. 2 and 3 take the other one's color */
 VkBlendFactor factor(uint32_t instruction, bool source, bool alpha)
@@ -286,7 +108,8 @@ VkBlendFactor factor(uint32_t instruction, bool source, bool alpha)
     }
 }
 
-/* the PowerVR's compare modes, on 1/z, which the depth holds as is */
+/* the PowerVR's compare modes, on 1/z, which the depth holds as is. a screen
+ * draw nearer than z = 1 is compared at 1, where draw.vert holds its depth */
 VkCompareOp compare(uint32_t mode)
 {
     static const VkCompareOp ops[8] = {VK_COMPARE_OP_NEVER,
@@ -348,153 +171,6 @@ std::string words(VkResult result)
 }
 
 } // namespace
-
-struct Raster::Impl {
-    Calls vk;
-    void *loader = nullptr;
-    /* why the raster draws no more, or empty while it draws. it names the
-     * first call that failed with the device lost or holding a load or
-     * picture. every texture and picture after is refused with it */
-    std::string broken;
-    VkInstance instance = VK_NULL_HANDLE;
-    VkPhysicalDevice physical = VK_NULL_HANDLE;
-    VkPhysicalDeviceProperties properties{};
-    VkPhysicalDeviceMemoryProperties memory_properties{};
-    VkDevice device = VK_NULL_HANDLE;
-    VkQueue queue = VK_NULL_HANDLE;
-    uint32_t family = 0;
-    VkCommandPool pool = VK_NULL_HANDLE;
-    /* a load is the commands that copy the textures added since the last,
-     * sent in one submission. it is sent before a picture, where the staging
-     * lacks room, and before an image it names ends. its texels lie in
-     * staging from its start */
-    VkCommandBuffer commands = VK_NULL_HANDLE;
-    VkFence loaded = VK_NULL_HANDLE;
-    uint64_t loads = 1; /* the load recording's number, or the next one's */
-    bool loading = false;
-    Buffer staging;
-    VkDeviceSize staged = 0;
-    std::vector<VkDeviceMemory> blocks;
-    /* the free slots, by memory type and size */
-    std::map<std::pair<uint32_t, uint32_t>, std::vector<Slot>> slots;
-    std::vector<Frame> frames;
-    bool readback = false;
-    bool vsync = true;
-    Window *window = nullptr;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    VkFormat swap_format = VK_FORMAT_UNDEFINED;
-    VkExtent2D swap_extent{};
-    VkExtent2D made_for{}; /* the window's size as the swapchain was made */
-    std::vector<VkImage> swap_images;
-    std::vector<VkSemaphore> rendered; /* one for each image */
-    VkQueryPool timer = VK_NULL_HANDLE;
-    float timer_period = 0.0F; /* nanoseconds a tick, 0 where none */
-    uint64_t timer_mask = 0; /* a timestamp's valid bits, each set */
-    uint32_t resolution = 1; /* RasterOptions', 0 only with a window */
-    bool wide = false; /* the picture shows 16:9 */
-    VkExtent2D target{}; /* the target's size, which the images below take */
-    VkImage color = VK_NULL_HANDLE;
-    VkImage depth = VK_NULL_HANDLE;
-    VkDeviceMemory color_memory = VK_NULL_HANDLE;
-    VkDeviceMemory depth_memory = VK_NULL_HANDLE;
-    VkImageView color_view = VK_NULL_HANDLE;
-    VkImageView depth_view = VK_NULL_HANDLE;
-    VkRenderPass pass = VK_NULL_HANDLE;
-    VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    VkDescriptorSetLayout picture_layout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
-    VkPipelineLayout layout = VK_NULL_HANDLE;
-    VkShaderModule vert = VK_NULL_HANDLE;
-    VkShaderModule frag = VK_NULL_HANDLE;
-    VkShaderModule resolve_module = VK_NULL_HANDLE;
-    VkPipeline resolve = VK_NULL_HANDLE;
-    /* the area filter: its pipeline, and the images it writes */
-    VkDescriptorSetLayout area_set_layout = VK_NULL_HANDLE;
-    VkPipelineLayout area_layout = VK_NULL_HANDLE;
-    VkShaderModule area_module = VK_NULL_HANDLE;
-    VkPipeline area = VK_NULL_HANDLE;
-    Scaled readout;
-    Scaled fitted;
-    /* the per-pixel lists of blending fragments. heads holds each pixel's
-     * first fragment, and fragments holds them after the fragments' head */
-    VkImage heads = VK_NULL_HANDLE;
-    VkDeviceMemory heads_memory = VK_NULL_HANDLE;
-    VkImageView heads_view = VK_NULL_HANDLE;
-    Buffer fragments;
-    uint32_t capacity = 0;
-    VkDescriptorPool descriptors = VK_NULL_HANDLE;
-    std::vector<Texture> textures;
-    std::vector<uint32_t> free_textures;
-    std::map<uint32_t, VkSampler> samplers;
-    /* the samplers' bias, log2 of the target's width over the width the
-     * picture shows at. with it, a picture larger than where it shows samples
-     * each texture at the level it would there. the area filter then smooths
-     * its edges and leaves its texels as they were */
-    float bias = 0.0F;
-    std::map<std::pair<uint32_t, uint32_t>, VkDescriptorSet> sets;
-    std::map<
-        std::tuple<uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool>,
-        VkPipeline>
-        pipelines;
-    /* each batch's pipeline and texture set, for the picture being sent */
-    std::vector<std::pair<VkPipeline, VkDescriptorSet>> drawn;
-
-    bool took(VkResult result, const char *call, std::string &why);
-    /* took, for a call that makes handle. a failing call leaves handle
-     * undefined, so made sets it null, which is safe to destroy */
-    template <typename Handle>
-    bool made(VkResult result, Handle &handle, const char *call,
-              std::string &why)
-    {
-        if (took(result, call, why)) {
-            return true;
-        }
-        handle = VK_NULL_HANDLE;
-        return false;
-    }
-    bool breaks(const std::string &why);
-    bool waited(VkFence fence, std::string &why);
-    bool idle();
-    /* true where f holds a picture the raster answers for. a broken
-     * raster's device may hold part of a picture, or have lost one and
-     * signaled its fence */
-    bool holds(const Frame &f) const { return f.sent && broken.empty(); }
-    uint32_t memory_type(uint32_t bits, VkMemoryPropertyFlags want) const;
-    bool make_buffer(Buffer &b, VkDeviceSize size, VkBufferUsageFlags usage,
-                     std::string &why, bool on_device = false);
-    void free_buffer(Buffer &b);
-    bool make_frame(Frame &f, std::string &why);
-    void bind_target(Frame &f);
-    bool make_target(VkExtent2D size, std::string &why);
-    void free_target();
-    bool make_scaled(Scaled &s, VkExtent2D size, std::string &why);
-    void free_scaled(Scaled &s);
-    VkRect2D region() const;
-    bool fit(std::string &why);
-    void filter(VkCommandBuffer c, const Scaled &to);
-    bool make_swapchain(std::string &why);
-    void free_swapchain_images();
-    bool make_image(VkImage &image, VkDeviceMemory &memory, VkFormat format,
-                    uint32_t w, uint32_t h, uint32_t levels,
-                    VkImageUsageFlags usage, std::string &why);
-    bool make_view(VkImageView &view, VkImage image, VkFormat format,
-                   VkImageAspectFlags aspect, uint32_t levels,
-                   std::string &why);
-    bool make_texture(Texture &t, uint32_t w, uint32_t h, uint32_t levels,
-                      std::string &why);
-    void end_texture(Texture &t);
-    VkCommandBuffer load(std::string &why);
-    bool flush(std::string &why);
-    VkPipeline pipeline(const State &s, bool collect, std::string &why);
-    VkDescriptorSet texture_set(uint32_t texture, uint32_t sample,
-                                std::string &why);
-    void barrier(VkCommandBuffer c, VkImage image, VkImageLayout from,
-                 VkImageLayout to, uint32_t level, uint32_t levels,
-                 VkAccessFlags src, VkAccessFlags dst,
-                 VkPipelineStageFlags src_stage,
-                 VkPipelineStageFlags dst_stage);
-};
 
 uint32_t Raster::Impl::memory_type(uint32_t bits,
                                    VkMemoryPropertyFlags want) const
@@ -592,7 +268,16 @@ bool Raster::Impl::make_buffer(Buffer &b, VkDeviceSize size,
     VkMemoryPropertyFlags host = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
+    VkMemoryAllocateFlagsInfo addressed{
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+
     alloc.allocationSize = need.size;
+    /* a buffer with a device address needs memory allocated with the
+     * device-address flag */
+    if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        addressed.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        alloc.pNext = &addressed;
+    }
     /* the host's buffers take memory the CPU caches, where the device has
      * some. an RTX can read write-combined memory just allocated as 64-byte
      * lines of zeros where the host wrote. a texture staged from it keeps
@@ -814,11 +499,11 @@ VkCommandBuffer Raster::Impl::load(std::string &why)
     return commands;
 }
 
-/* send the load and wait for it, which frees its staging and lets what it
- * names end. a load the device won't take leaves its textures with no
- * texels, so it breaks the raster. it returns false, with why, then and on a
- * broken raster. the fence the last load signaled is reset just before the
- * send, so a failed reset sends nothing */
+/* send the load and wait for it, which frees its staging and lets what it names
+ * end. the meshes' builds come last in it. a load the device won't take leaves
+ * its textures with no texels, so it breaks the raster. it returns false, with
+ * why, then and on a broken raster. the fence the last load signaled is reset
+ * just before the send, so a failed reset sends nothing */
 bool Raster::Impl::flush(std::string &why)
 {
     VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -832,6 +517,9 @@ bool Raster::Impl::flush(std::string &why)
     }
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &commands;
+    if (rays != nullptr) {
+        ray_build(commands);
+    }
     if (!took(vk.vkEndCommandBuffer(commands), "vkEndCommandBuffer", why) ||
         !took(vk.vkResetFences(device, 1, &loaded), "vkResetFences", why) ||
         !took(vk.vkQueueSubmit(queue, 1, &submit, loaded), "vkQueueSubmit",
@@ -869,38 +557,17 @@ void Raster::Impl::barrier(VkCommandBuffer c, VkImage image, VkImageLayout from,
  * kept. under collect it writes no color or depth, as BATCH_COLLECT's
  * fragments go to the lists. null, with why, where the device won't make
  * it */
-VkPipeline Raster::Impl::pipeline(const State &s, bool collect,
-                                  std::string &why)
+VkPipeline Raster::Impl::make_pipeline(const Drawing &d, std::string &why)
 {
-    auto key = std::make_tuple(s.blend, s.src, s.dst, s.depth, s.depth_write,
-                               s.cull, collect);
-    auto found = pipelines.find(key);
-
-    if (found != pipelines.end()) {
-        return found->second;
-    }
     VkPipelineShaderStageCreateInfo stages[2] = {
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO},
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}};
     stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = vert;
+    stages[0].module = d.vertex;
     stages[0].pName = "main";
     stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module = frag;
+    stages[1].module = d.fragment;
     stages[1].pName = "main";
-    VkVertexInputBindingDescription binding{0, sizeof(Vertex),
-                                            VK_VERTEX_INPUT_RATE_VERTEX};
-    VkVertexInputAttributeDescription attributes[4] = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, at)},
-        {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)},
-        {2, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(Vertex, base)},
-        {3, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(Vertex, offset)}};
-    VkPipelineVertexInputStateCreateInfo input{
-        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    input.vertexBindingDescriptionCount = 1;
-    input.pVertexBindingDescriptions = &binding;
-    input.vertexAttributeDescriptionCount = 4;
-    input.pVertexAttributeDescriptions = attributes;
     VkPipelineInputAssemblyStateCreateInfo assembly{
         VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -911,34 +578,16 @@ VkPipeline Raster::Impl::pipeline(const State &s, bool collect,
     VkPipelineRasterizationStateCreateInfo raster{
         VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = s.cull ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
+    raster.cullMode = d.cull;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
     VkPipelineMultisampleStateCreateInfo multisample{
         VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkPipelineDepthStencilStateCreateInfo depth_state{
-        VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    depth_state.depthTestEnable = VK_TRUE;
-    depth_state.depthWriteEnable =
-        s.depth_write && !collect ? VK_TRUE : VK_FALSE;
-    depth_state.depthCompareOp = compare(s.depth);
-    VkPipelineColorBlendAttachmentState attachment{};
-    attachment.blendEnable = s.blend && !collect ? VK_TRUE : VK_FALSE;
-    attachment.srcColorBlendFactor = factor(s.src, true, false);
-    attachment.dstColorBlendFactor = factor(s.dst, false, false);
-    attachment.colorBlendOp = VK_BLEND_OP_ADD;
-    attachment.srcAlphaBlendFactor = factor(s.src, true, true);
-    attachment.dstAlphaBlendFactor = factor(s.dst, false, true);
-    attachment.alphaBlendOp = VK_BLEND_OP_ADD;
-    attachment.colorWriteMask =
-        collect ? 0
-                : VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     VkPipelineColorBlendStateCreateInfo blend{
         VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     blend.attachmentCount = 1;
-    blend.pAttachments = &attachment;
+    blend.pAttachments = &d.attachment;
     VkDynamicState dynamic_states[2] = {VK_DYNAMIC_STATE_VIEWPORT,
                                         VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic{
@@ -949,15 +598,15 @@ VkPipeline Raster::Impl::pipeline(const State &s, bool collect,
         VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     info.stageCount = 2;
     info.pStages = stages;
-    info.pVertexInputState = &input;
+    info.pVertexInputState = &d.input;
     info.pInputAssemblyState = &assembly;
     info.pViewportState = &viewport;
     info.pRasterizationState = &raster;
     info.pMultisampleState = &multisample;
-    info.pDepthStencilState = &depth_state;
+    info.pDepthStencilState = &d.depth;
     info.pColorBlendState = &blend;
     info.pDynamicState = &dynamic;
-    info.layout = layout;
+    info.layout = d.layout;
     info.renderPass = pass;
     VkPipeline one = VK_NULL_HANDLE;
     if (!made(vk.vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info,
@@ -965,7 +614,55 @@ VkPipeline Raster::Impl::pipeline(const State &s, bool collect,
               one, "vkCreateGraphicsPipelines", why)) {
         return VK_NULL_HANDLE;
     }
-    pipelines[key] = one;
+    return one;
+}
+
+VkPipeline Raster::Impl::pipeline(const State &s, bool collect,
+                                  std::string &why)
+{
+    auto key = std::make_tuple(s.blend, s.src, s.dst, s.depth, s.depth_write,
+                               s.cull, collect);
+    auto found = pipelines.find(key);
+
+    if (found != pipelines.end()) {
+        return found->second;
+    }
+    VkVertexInputBindingDescription binding{0, sizeof(Vertex),
+                                            VK_VERTEX_INPUT_RATE_VERTEX};
+    VkVertexInputAttributeDescription attributes[4] = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, at)},
+        {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)},
+        {2, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(Vertex, base)},
+        {3, 0, VK_FORMAT_R8G8B8A8_UNORM, offsetof(Vertex, offset)}};
+    Drawing d;
+
+    d.vertex = vert;
+    d.fragment = frag;
+    d.layout = layout;
+    d.input.vertexBindingDescriptionCount = 1;
+    d.input.pVertexBindingDescriptions = &binding;
+    d.input.vertexAttributeDescriptionCount = 4;
+    d.input.pVertexAttributeDescriptions = attributes;
+    d.cull = s.cull ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
+    d.depth.depthTestEnable = VK_TRUE;
+    d.depth.depthWriteEnable = s.depth_write && !collect ? VK_TRUE : VK_FALSE;
+    d.depth.depthCompareOp = compare(s.depth);
+    d.attachment.blendEnable = s.blend && !collect ? VK_TRUE : VK_FALSE;
+    d.attachment.srcColorBlendFactor = factor(s.src, true, false);
+    d.attachment.dstColorBlendFactor = factor(s.dst, false, false);
+    d.attachment.colorBlendOp = VK_BLEND_OP_ADD;
+    d.attachment.srcAlphaBlendFactor = factor(s.src, true, true);
+    d.attachment.dstAlphaBlendFactor = factor(s.dst, false, true);
+    d.attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    d.attachment.colorWriteMask =
+        collect ? 0
+                : VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VkPipeline one = make_pipeline(d, why);
+
+    if (one != VK_NULL_HANDLE) {
+        pipelines[key] = one;
+    }
     return one;
 }
 
@@ -1089,7 +786,7 @@ bool Raster::Impl::make_frame(Frame &f, std::string &why)
     write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write.pBufferInfo = &uniform_info;
     vk.vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
-    return true;
+    return rays == nullptr || make_ray_frame(f, why);
 }
 
 /* f's set names the lists and the target from binding 1, after its uniform
@@ -1131,6 +828,9 @@ void Raster::Impl::free_target()
     vk.vkFreeMemory(device, depth_memory, nullptr);
     vk.vkFreeMemory(device, heads_memory, nullptr);
     free_buffer(fragments);
+    if (rays != nullptr) {
+        free_ray_target();
+    }
     framebuffer = VK_NULL_HANDLE;
     color_view = depth_view = heads_view = VK_NULL_HANDLE;
     color = depth = heads = VK_NULL_HANDLE;
@@ -1234,7 +934,8 @@ bool Raster::Impl::make_target(VkExtent2D size, std::string &why)
                     LIST_HEAD + static_cast<VkDeviceSize>(capacity) * FRAGMENT,
                     lists, why, true) &&
         (!readback || (size.width == WIDTH && size.height == HEIGHT) ||
-         make_scaled(readout, {WIDTH, HEIGHT}, why));
+         make_scaled(readout, {WIDTH, HEIGHT}, why)) &&
+        (rays == nullptr || make_ray_target(size, c, why));
     if (!whole) {
         free_target();
         return false;
@@ -1607,6 +1308,7 @@ Raster::~Raster()
      * made. the raster then ends none of it, and leaves it all to the
      * process's end */
     if (r.device != VK_NULL_HANDLE && !r.idle()) {
+        r.drop_rays();
         delete impl_;
         return;
     }
@@ -1622,7 +1324,9 @@ Raster::~Raster()
             r.free_buffer(f.vertices);
             r.free_buffer(f.readback);
             r.free_buffer(f.stats);
+            r.free_ray_frame(f);
         }
+        r.free_rays();
         vk.vkDestroyQueryPool(r.device, r.timer, nullptr);
         for (auto &p : r.pipelines) {
             vk.vkDestroyPipeline(r.device, p.second, nullptr);
@@ -1693,6 +1397,7 @@ bool Raster::open(const RasterOptions &options, std::string &why)
     r.readback = options.readback;
     r.resolution =
         options.resolution != 0 || r.window != nullptr ? options.resolution : 1;
+    r.render_scale = options.render_scale;
 
     r.loader = loader_open();
     if (r.loader == nullptr) {
@@ -1719,7 +1424,9 @@ bool Raster::open(const RasterOptions &options, std::string &why)
     }
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app.pApplicationName = "sonic-adventure";
-    app.apiVersion = VK_API_VERSION_1_1;
+    /* ray tracing needs a Vulkan 1.2 device, and an instance created for 1.1
+     * would limit the device to 1.1 */
+    app.apiVersion = options.rays ? VK_API_VERSION_1_2 : VK_API_VERSION_1_1;
     VkInstanceCreateInfo instance_info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     instance_info.pApplicationInfo = &app;
     if (r.window != nullptr) {
@@ -1744,6 +1451,14 @@ bool Raster::open(const RasterOptions &options, std::string &why)
         SURFACE_CALLS(INSTANCE)
     }
 #undef INSTANCE
+    /* no ray tracing call is required: a raster that lacks one doesn't trace */
+#define OPTIONAL(name)                                                         \
+    vk.name = reinterpret_cast<PFN_##name>(                                    \
+        vk.vkGetInstanceProcAddr(r.instance, #name));
+    if (options.rays) {
+        RAY_INSTANCE_CALLS(OPTIONAL)
+    }
+#undef OPTIONAL
     /* the raster's end would call what the instance lacks, so an instance
      * short of a call ends here. it ends by vkDestroyInstance, unless that
      * is the call it lacks */
@@ -1805,7 +1520,7 @@ bool Raster::open(const RasterOptions &options, std::string &why)
                                                 families.data());
     /* the one queue draws, dispatches the resolve and the area filter, and
      * shows the window where there is one */
-    VkQueueFlags needs = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+    VkQueueFlags queue_needs = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     r.family = UINT32_MAX;
     for (uint32_t i = 0; i < count && r.family == UINT32_MAX; i++) {
         VkBool32 shows = VK_TRUE;
@@ -1816,7 +1531,7 @@ bool Raster::open(const RasterOptions &options, std::string &why)
                     "vkGetPhysicalDeviceSurfaceSupportKHR", why)) {
             return false;
         }
-        if ((families[i].queueFlags & needs) == needs && shows) {
+        if ((families[i].queueFlags & queue_needs) == queue_needs && shows) {
             r.family = i;
         }
     }
@@ -1854,10 +1569,28 @@ bool Raster::open(const RasterOptions &options, std::string &why)
     device_info.queueCreateInfoCount = 1;
     device_info.pQueueCreateInfos = &queue_info;
     device_info.pEnabledFeatures = &features;
-    const char *swapchain_extension = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    const char *extensions[4];
     if (r.window != nullptr) {
-        device_info.enabledExtensionCount = 1;
-        device_info.ppEnabledExtensionNames = &swapchain_extension;
+        extensions[device_info.enabledExtensionCount++] =
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    }
+    /* a device that traces is created with the features ray_device asks for,
+     * and with no other feature of its own */
+    RayNeeds needs;
+    bool traces = options.rays && r.ray_device(needs);
+
+    if (traces) {
+        needs.structure.pNext = &needs.query;
+        needs.core.pNext = &needs.structure;
+        device_info.pNext = &needs.core;
+        features.shaderSampledImageArrayDynamicIndexing =
+            needs.indexing ? VK_TRUE : VK_FALSE;
+        for (const char *extension : needs.extensions) {
+            extensions[device_info.enabledExtensionCount++] = extension;
+        }
+    }
+    if (device_info.enabledExtensionCount != 0) {
+        device_info.ppEnabledExtensionNames = extensions;
     }
     if (!r.made(vk.vkCreateDevice(r.physical, &device_info, nullptr, &r.device),
                 r.device, "vkCreateDevice", why)) {
@@ -1870,6 +1603,14 @@ bool Raster::open(const RasterOptions &options, std::string &why)
     }
 #undef DEVICE
 #undef TAKE
+#define OPTIONAL(name)                                                         \
+    vk.name =                                                                  \
+        reinterpret_cast<PFN_##name>(vk.vkGetDeviceProcAddr(r.device, #name)); \
+    traces = traces && vk.name != nullptr;
+    if (traces) {
+        RAY_CALLS(OPTIONAL)
+    }
+#undef OPTIONAL
     /* a device short of a call ends here, as an instance does */
     if (lacks != nullptr) {
         why = std::string("the Vulkan device has no ") + lacks;
@@ -2076,6 +1817,9 @@ bool Raster::open(const RasterOptions &options, std::string &why)
         return false;
     }
     r.frames.resize(frames);
+    if (traces && !r.make_rays(why)) {
+        return false;
+    }
     for (Frame &f : r.frames) {
         if (!r.make_frame(f, why)) {
             return false;
@@ -2216,13 +1960,37 @@ void Raster::free_texture(uint32_t texture)
         i = r.sets.erase(i);
     }
     r.end_texture(t);
+    if (r.rays != nullptr) {
+        r.ray_free_texture(texture);
+    }
     r.free_textures.push_back(texture);
+}
+
+bool Raster::traces() const
+{
+    return impl_ != nullptr && impl_->rays != nullptr;
+}
+
+uint32_t Raster::add_mesh(const RayMesh &mesh, std::string &why)
+{
+    if (!traces()) {
+        why = "the device can't ray trace";
+        return 0;
+    }
+    return impl_->ray_add_mesh(mesh, why);
+}
+
+void Raster::free_mesh(uint32_t mesh)
+{
+    if (traces()) {
+        impl_->ray_free_mesh(mesh);
+    }
 }
 
 bool Raster::submit(uint32_t frame, const PictureUniform &picture,
                     uint32_t clear, const std::vector<Vertex> &vertices,
                     const std::vector<Batch> &batches, bool sorted,
-                    std::string &why)
+                    const RayPicture *rays, std::string &why)
 {
     Impl &r = *impl_;
     Calls &vk = r.vk;
@@ -2232,6 +2000,10 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
 
     if (!r.broken.empty()) {
         why = r.broken;
+        return false;
+    }
+    if (rays != nullptr && r.rays == nullptr) {
+        why = "the device can't ray trace";
         return false;
     }
     /* a window that changed size, or shrank to nothing and came back, gets
@@ -2278,6 +2050,9 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
             return false;
         }
         r.drawn.emplace_back(p, set);
+    }
+    if (rays != nullptr && !r.ray_ready(f, *rays, why)) {
+        return false;
     }
     /* an empty vector's data may be null. memcpy takes no null pointer, even
      * for no bytes */
@@ -2332,6 +2107,12 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
         vk.vkCmdWriteTimestamp(c, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, r.timer,
                                frame * 2);
     }
+    /* the picture is traced first, into the ray tracing images */
+    if (rays != nullptr) {
+        r.ray_trace(c, f);
+    } else if (r.rays != nullptr) {
+        r.ray_skipped();
+    }
     uint32_t head[HEAD_WORDS] = {};
     head[HEAD_CAPACITY] = r.capacity;
     vk.vkCmdUpdateBuffer(c, r.fragments.buffer, 0, sizeof head, head);
@@ -2341,11 +2122,15 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
     VkImageSubresourceRange whole{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vk.vkCmdClearColorImage(c, r.heads, VK_IMAGE_LAYOUT_GENERAL, &none, 1,
                             &whole);
+    /* the fragments read and write the heads, and the resolve reads them
+     * after: as the clear left them, in a picture whose fragments wrote
+     * none */
     all.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     all.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
     vk.vkCmdPipelineBarrier(c, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &all,
-                            0, nullptr, 0, nullptr);
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                            0, 1, &all, 0, nullptr, 0, nullptr);
     VkClearValue clears[2];
     clears[0].color.float32[0] = ((clear >> 16) & 0xff) / 255.0F;
     clears[0].color.float32[1] = ((clear >> 8) & 0xff) / 255.0F;
@@ -2368,6 +2153,10 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture,
     VkRect2D scissor{{0, 0}, r.target};
     vk.vkCmdSetViewport(c, 0, 1, &viewport);
     vk.vkCmdSetScissor(c, 0, 1, &scissor);
+    /* the traced picture and its depth are drawn before the batches */
+    if (rays != nullptr) {
+        r.ray_show(c);
+    }
     VkDeviceSize zero = 0;
     vk.vkCmdBindVertexBuffers(c, 0, 1, &f.vertices.buffer, &zero);
     vk.vkCmdBindDescriptorSets(c, VK_PIPELINE_BIND_POINT_GRAPHICS, r.layout, 0,

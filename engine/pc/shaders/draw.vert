@@ -2,7 +2,11 @@
 // a corner of a draw, in world space, or under BATCH_SCREEN at the screen's
 // pixels with its view z. the screen is 640 by 480, and a point shows at
 // center + focal * (x, y) / z in view space, z ahead. depth is 1/z, as the
-// PowerVR compares it, so z = 1 is the near plane
+// PowerVR compares it, so z = 1 is the near plane. the PowerVR has no near
+// plane for a draw on the screen, which may lie nearer: the pause menu's
+// strips are at a 1/z of 9 to 15. such a draw's depth is held to 1, so that
+// none of it is clipped. it is depth-tested and written as a draw at z = 1,
+// and gl_Position's w keeps its own z for draw.frag
 layout(set = 0, binding = 0) uniform Picture {
     vec4 view[3]; // world to view, by rows
     vec4 project; // focal x and y, center x and y
@@ -35,6 +39,7 @@ void main()
 {
     vec3 view = at;
     vec2 screen;
+    float z = 1.0; // clip-space z: the depth is z / w
 
     if ((batch.flags & BATCH_SCREEN) == 0u) {
         vec4 p = vec4(at, 1.0);
@@ -42,8 +47,9 @@ void main()
         screen = picture.project.xy * view.xy + picture.project.zw * view.z;
     } else {
         screen = at.xy * view.z;
+        z = min(view.z, 1.0);
     }
-    gl_Position = vec4(screen.x / 320.0 - view.z, screen.y / 240.0 - view.z, 1.0, view.z);
+    gl_Position = vec4(screen.x / 320.0 - view.z, screen.y / 240.0 - view.z, z, view.z);
     gl_ClipDistance[0] = (batch.flags & BATCH_NEAR) != 0u ? view.z - picture.fog.y : 1.0;
     out_uv = uv;
     out_base = base;

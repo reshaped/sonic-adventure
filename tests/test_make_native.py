@@ -162,7 +162,7 @@ for name, sources in LISTS.items():
     assert cut == 1, name
 # the PC backend's sources: the last two are SDL3's window and pads, and the one before them the window of a host
 # without it
-BACKEND = ('backend', 'storage', 'scene', 'world', 'raster', 'disc', 'pvr', 'ninja', 'png', 'sound', 'dsp',
+BACKEND = ('backend', 'storage', 'scene', 'world', 'raster', 'rays', 'disc', 'pvr', 'ninja', 'png', 'sound', 'dsp',
            'window_none', 'window', 'input')
 # the compilers' stand-ins, by the names the tests run them under
 COMPILERS = ('clang', 'cc', 'other-cc', 'c++', 'other-c++')
@@ -195,7 +195,7 @@ SLICE = {
     'engine/sa1/sa_sa1.h': '/* sa_sa1.h */\n', 'engine/sa1/sa1.h': '#include <ninja.h>\n',
     'engine/sa1/records.c': '#include "sa1.h"\nint records;\n',
     'engine/sa1/play.c': '#include "sa_sa1.h"\nint play;\n',
-    **{f'engine/sa1/{name}.h': '' for name in ('sa_capture', 'sa_client', 'client', 'basic', 'rules')},
+    **{f'engine/sa1/{name}.h': '' for name in ('sa_capture', 'sa_client', 'client', 'basic', 'rules', 'emissive')},
     'engine/include/sa_engine.h': '', 'engine/include/sa_pc.h': '',
     'engine/runtime/runtime.h': '', 'engine/runtime/engine.cpp': 'int engine;\n',
     **{f'engine/pc/{name}.cpp': f'int {name};\n' for name in BACKEND},

@@ -2,11 +2,14 @@
  * holds each resource's bytes until its SA_EVENT_RETIRED */
 #include "client.h"
 
+#include <ctype.h>
 #include <string.h>
 
 #include <algorithm>
+#include <iterator>
 
 #include "basic.h"
+#include "emissive.h"
 #include "png.h"
 
 namespace pc {
@@ -36,6 +39,35 @@ sa_handle Client::make(uint32_t kind, uint32_t format,
         std::max(totals.lent_most, static_cast<uint32_t>(lent.size()));
     return handle;
 }
+
+namespace {
+
+/* whether list, in strcmp's order, holds name */
+template <size_t N>
+bool listed(const char *const (&list)[N], const std::string &name)
+{
+    return std::binary_search(
+        std::begin(list), std::end(list), name.c_str(),
+        [](const char *a, const char *b) { return strcmp(a, b) < 0; });
+}
+
+/* whether a material with flags, whose texture is named name, is
+ * emissive, as emissive.h lists. a name of EMISSIVE_UNLIT counts only under
+ * SA_MAT_UNLIT, which the adapter sets where the model's material ignores
+ * light */
+bool emissive(std::string name, uint32_t flags)
+{
+    for (char &c : name) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+    }
+    if (name.size() > 4 && name.compare(name.size() - 4, 4, ".pvr") == 0) {
+        name.resize(name.size() - 4);
+    }
+    return listed(EMISSIVE, name) ||
+           ((flags & SA_MAT_UNLIT) && listed(EMISSIVE_UNLIT, name));
+}
+
+} // namespace
 
 void Client::release(sa_handle &handle)
 {
@@ -88,16 +120,24 @@ void Client::evict()
 
 /* a mesh undrawn for over MESH_KEEP pictures is released. a later draw
  * makes it again from its bytes. the meshes lent stay bounded where a
- * capture frees none. end ages them every AGE_EVERY pictures */
+ * capture frees none. end ages them every AGE_EVERY pictures. a mesh a part
+ * of the staying scene reads is kept however long the part goes undrawn: a
+ * backend that keeps the scene loses each part whose mesh goes */
 constexpr uint32_t MESH_KEEP = 30;
 constexpr uint32_t AGE_EVERY = 16;
 
 void Client::age_meshes()
 {
+    std::set<uint32_t> read;
+
+    for (const auto &part : part_meshes) {
+        read.insert(part.second);
+    }
     for (auto &entry : names.meshes) {
         Mesh &m = entry.second;
 
-        if (m.handle != SA_NULL && picture.picture - m.drawn > MESH_KEEP) {
+        if (m.handle != SA_NULL && read.count(entry.first) == 0 &&
+            picture.picture - m.drawn > MESH_KEEP) {
             release(m.handle);
             m.tried = false;
         }
@@ -219,6 +259,14 @@ sa_handle Client::materials(uint32_t id)
         }
         m.specular = c.specular;
         m.flags = c.flags;
+        if (c.flags & SA_MAT_TEXTURE) {
+            auto shown = names.textures.find(c.texture);
+
+            if (shown != names.textures.end() &&
+                emissive(shown->second.name, c.flags)) {
+                m.flags |= SA_MAT_EMISSIVE;
+            }
+        }
         m.alpha = c.alpha;
         m.filter = c.filter;
         m.src = c.src;
@@ -338,6 +386,7 @@ void Client::part(const sa_draw &d)
         return;
     }
     m->drawn = picture.picture;
+    part_meshes[d.instance] = d.mesh;
     sa_draw out = d;
 
     out.mesh = m->handle;
@@ -371,6 +420,13 @@ void Client::draw(const sa_draw &d)
         return;
     }
     m->drawn = picture.picture;
+    /* a part drawn with another mesh, as one the game moves, reads that one
+     * from now */
+    auto part = part_meshes.find(d.instance);
+
+    if (part != part_meshes.end()) {
+        part->second = d.mesh;
+    }
     sa_draw out = d;
 
     out.mesh = m->handle;
@@ -739,6 +795,7 @@ sa_result Client::record(const uint8_t *body, uint32_t size)
         sa_scene s;
         memcpy(&s, body, sizeof s);
         scenes.ended++;
+        part_meshes.clear();
         if (sa_scene_ended(engine, s.scene) != SA_OK) {
             scenes.refused++;
         }

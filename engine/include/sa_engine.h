@@ -242,7 +242,11 @@ enum {
     SA_MAT_FLIP_V = 0x1000,
     /* under a game's mode, the points take the draw's tint */
     SA_MAT_CONSTANT = 0x2000,
-    SA_MAT_WHITE = 0x4000 /* the points take white, as a game's mode says */
+    SA_MAT_WHITE = 0x4000, /* the points take white, as a game's mode says */
+    /* its texture shows a light source, as a lamp's or a flame's does. a
+     * backend that computes lighting may treat the texture's bright texels
+     * as emissive. a backend that draws the game's own picture ignores it */
+    SA_MAT_EMISSIVE = 0x8000
 };
 /* blend factors, in the PowerVR's order */
 enum {
@@ -386,7 +390,24 @@ enum {
     /* the mesh, a resource, is one the game's code wrote. a backend that
      * keeps a scene keeps a copy of it, as of a payload. it names the mesh
      * by its shape */
-    SA_DRAW_WRITTEN = 0x2
+    SA_DRAW_WRITTEN = 0x2,
+    /* 0x4 is SA_DRAW_MOVING, a scene's part's.
+     *
+     * the three after it are hints: each says what the draw is, where the
+     * game's adapter can tell, by the rule its header gives. a draw without
+     * a hint may still be such a thing. a backend that draws the game's own
+     * picture ignores them. they are for a backend that computes the
+     * scene's lighting itself */
+    /* the draw belongs to the backdrop: the sky, and distant scenery that
+     * the game draws around its camera. it is at no true distance, and the
+     * scene's lighting doesn't apply to it */
+    SA_DRAW_BACKDROP = 0x8,
+    /* the draw is the game's stand-in for a shadow: a dark shape under an
+     * object. a backend that casts its own shadows leaves it out */
+    SA_DRAW_SHADOW = 0x10,
+    /* the draw is a liquid's surface, which is in the scene: no draw has
+     * this hint with SA_DRAW_BACKDROP. a scene's part may have it too */
+    SA_DRAW_LIQUID = 0x20
 };
 typedef struct sa_draw {
     sa_record_head head;
@@ -813,10 +834,10 @@ typedef struct sa_scene {
  * says. it has this bit set and SA_INSTANCE_UNOWNED clear. a picture's draw
  * of the part gives the same */
 #define SA_INSTANCE_SCENE 0x40000000U
-/* a draw's flag, beside SA_DRAW_OUT and SA_DRAW_WRITTEN. it marks a scene's
- * part the game moves, given where it stood as the scene was given. the
- * game leaves a part without it where it was given. a reader may so build
- * such a part once, before a picture draws it */
+/* a draw's flag, beside sa_draw's own. it marks a scene's part the game
+ * moves, given where it stood as the scene was given. the game leaves a
+ * part without it where it was given. a reader may so build such a part
+ * once, before a picture draws it */
 enum { SA_DRAW_MOVING = 0x4 };
 /* a part is the draw the game would make of it, an sa_draw. it gives its mesh,
  * its materials, its tint, a shade the scene was given and its place. its

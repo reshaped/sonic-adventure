@@ -1011,6 +1011,33 @@ class Marks(unittest.TestCase):
         self.assertEqual(text.count('    native_land_released();\n    world_release_act(world_stage, world_act);\n'), 2)
         self.assertEqual(text.count('native_land_released('), 2)
 
+    def test_the_stages_sky_task_reaches_the_adapter(self):
+        text = (ROOT / 'src/stage/stage.c').read_text()
+        for old, new, *_ in marks.SITES['src/stage/stage.c']:
+            text = text.replace(old, new)
+        # the one task the stage makes of its sky's step, or the null task_create answers
+        self.assertIn('    if (sky_steps[stage_current] != NULL) {\n'
+                      '        native_sky_created(task_create(TASK_WORK, 2, sky_steps[stage_current]));\n', text)
+        self.assertEqual(text.count('native_sky_created('), 1)
+        self.assertEqual(len(re.findall(r'\bsky_steps\[', text)), 3)
+
+    def test_each_draw_of_a_liquid_a_site_names_lies_between_the_adapters_two_calls(self):
+        # Emerald Coast's sea, which two tasks draw, and the last boss's flood: each source's draws of them
+        for path, liquid, draws in (('modules/stg01/sea.c', r'&beach_sea_(?:surface|grid)_object', 2),
+                                    ('modules/stg01/sea_surface.c', '&beach_sea_surface_object', 1),
+                                    ('modules/b_chaos7/chaos7.c', 'sea', 1)):
+            with self.subTest(path=path):
+                drawn = re.compile(rf'\bdraw(?:_tree)?\({liquid}\);')
+                text = (ROOT / path).read_text()
+                for old, new, *_ in marks.SITES[path]:
+                    text = text.replace(old, new)
+                self.assertEqual((text.count('native_liquid_begin();'), text.count('native_liquid_end();')), (1, 1))
+                between = text[text.index('native_liquid_begin();'):text.index('native_liquid_end();')]
+                # every draw of the liquid, and no return or draw of another's, between the two
+                self.assertEqual((len(drawn.findall(text)), len(drawn.findall(between))), (draws, draws))
+                self.assertNotIn('return', between)
+                self.assertEqual(len(re.findall(r'\bdraw\w*\(', between)), draws)
+
     def test_a_member_is_marked_and_its_comment_is_not(self):
         text = 'struct over {\n    struct task *owner; /* the *owner, */\n    /* a *comment, */\n    int n;\n};\n'
         self.assertEqual(marks.mark(text, {'over'}),

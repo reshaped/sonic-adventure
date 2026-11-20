@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "pvr.h"
+#include "rays.h"
 #include "sa_engine.h"
 #include "window.h"
 
@@ -107,6 +108,13 @@ struct RasterOptions {
      * the window shows it at, never under WIDTH by HEIGHT, and is 1
      * headless */
     uint32_t resolution = 1;
+    /* create the device with ray queries where it supports them, so that submit
+     * can trace a picture. without them the raster still opens, and traces()
+     * reports that it only rasterizes */
+    bool rays = false;
+    /* a traced picture is traced at this share of the picture's width and
+     * height, and the antialiasing fills the picture from it */
+    float render_scale = 1.0F;
 };
 
 /* a call that fails says why, naming any Vulkan call that failed and how.
@@ -134,15 +142,26 @@ public:
     /* end texture once no frame in flight reads it. a broken raster keeps
      * its textures until it ends */
     void free_texture(uint32_t texture);
+    /* whether the raster can trace: it was opened with rays, and the device has
+     * ray queries. add_mesh, and submit with rays, require it */
+    bool traces() const;
+    /* upload mesh's triangles for ray tracing. it returns the mesh's index,
+     * from 1, or 0, with why, where the device refuses */
+    uint32_t add_mesh(const RayMesh &mesh, std::string &why);
+    /* end mesh once no frame in flight traces it. a broken raster keeps its
+     * meshes until it ends */
+    void free_mesh(uint32_t mesh);
     /* draw the batches over clear, an ARGB color, on frame, and show the
-     * picture in any window. it waits first for frame's last picture to
-     * retire. where sorted, a blending batch's fragments compose per pixel
-     * from the farthest, as the PowerVR's autosort does. else they blend in
-     * the batches' order */
+     * picture in any window. it waits first for frame's last picture to retire.
+     * where sorted, a blending batch's fragments compose per pixel from the
+     * farthest, as the PowerVR's autosort does. else they blend in the batches'
+     * order. with rays, the picture is traced through picture's view first, and
+     * the batches are drawn over it, depth-tested against the traced surfaces.
+     * with null the picture is only rasterized */
     bool submit(uint32_t frame, const PictureUniform &picture, uint32_t clear,
                 const std::vector<Vertex> &vertices,
                 const std::vector<Batch> &batches, bool sorted,
-                std::string &why);
+                const RayPicture *rays, std::string &why);
     /* show the pictures from the next submit at 16:9 where on, else at 4:3.
      * a window shows them in its largest centered rectangle of that aspect.
      * the picture keeps its WIDTH by HEIGHT coordinates */

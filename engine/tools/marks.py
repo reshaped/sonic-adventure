@@ -193,6 +193,26 @@ SITES = {
         ('        stage_run_step();\n#ifdef NONMATCHING\n        present_step();\n',
          '        stage_run_step();\n        native_hook_stage_step();\n#ifdef NONMATCHING\n        present_step();\n',
          2),
+        # the adapter hears of the stage's sky task, whose draws are what
+        # lies behind the stage
+        ('        task_create(TASK_WORK, 2, sky_steps[stage_current]);\n',
+         '        native_sky_created(task_create(TASK_WORK, 2, sky_steps[stage_current]));\n'),
+    ],
+    # and of each draw of Emerald Coast's sea, a liquid's surface that the
+    # collision world holds no model of: the sea's own task draws it. the
+    # last boss's flood is another, which the stage's sky task draws
+    'modules/stg01/sea.c': [
+        ('    draw = draw_tree;\n', '    draw = draw_tree;\n    native_liquid_begin();\n'),
+        ('    draw(&beach_sea_surface_object);\n',
+         '    draw(&beach_sea_surface_object);\n    native_liquid_end();\n'),
+    ],
+    'modules/stg01/sea_surface.c': [
+        ('        draw_tree(&beach_sea_surface_object);\n',
+         '        native_liquid_begin();\n        draw_tree(&beach_sea_surface_object);\n'
+         '        native_liquid_end();\n'),
+    ],
+    'modules/b_chaos7/chaos7.c': [
+        ('    draw_tree(sea);\n', '    native_liquid_begin();\n    draw_tree(sea);\n    native_liquid_end();\n'),
     ],
     # texture_load_pvm writes each texture's address into its texlist's
     # names, and sprite_bind each frame's texture into its frames, which the

@@ -133,6 +133,9 @@ public:
     std::vector<sa_handle> stale; /* released, not yet tried by a draw */
     std::set<uint32_t> shades_given; /* in the open picture */
     std::set<uint32_t> scene_shades; /* given to the open scene */
+    /* the mesh each part of the staying scene reads, by the part's
+     * instance: the one it was given with, or its last draw's */
+    std::map<uint32_t, uint32_t> part_meshes;
     bool in_scene = false; /* between SA_CAP_SCENE and SA_CAP_SCENE_END */
     Scenes scenes;
     uint32_t births = 0;

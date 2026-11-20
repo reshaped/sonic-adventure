@@ -3,7 +3,8 @@
  * a live draw reads at its call. it tests what a draw leaves in Ninja's
  * context on each way out, and a record's bytes. it tests the draws Ninja's
  * own drawers send nothing for. it tests the file a texture's record names,
- * the scene a land's load gives, and the sound calls.
+ * the scene a land's load gives, the hints a draw carries, and the sound
+ * calls.
  * it needs no disc. the test calls sa_present_live as src/draw/model.c, SA1's
  * layer, does. it defines the light, palette and colors the layer defines */
 #include <kamui.h>
@@ -45,13 +46,16 @@ void present_draw(struct task *task, void (*draw)(struct task *task))
     }
 }
 /* the split frame's hooks, which keep nothing and refuse no draw. a split
- * frame is a frame of play that shows two pictures */
+ * frame is a frame of play that shows two pictures. polygons_asked counts the
+ * 2D polygons that asked present_record, which a split frame would keep */
 int frame_later_draws;
 Uint32 port_sprites_sent, port_draws_sent;
+static int polygons_asked;
 Int present_record(enum present_kind kind, const void *what, Int count, Int a,
                    Float pri, Uint32 attr)
 {
-    (void)kind, (void)what, (void)count, (void)a, (void)pri, (void)attr;
+    (void)what, (void)count, (void)a, (void)pri, (void)attr;
+    polygons_asked += kind == PRESENT_POLYGON_2D;
     return TRUE;
 }
 Int present_sprite(enum present_kind kind, const void *what, Int count, Int a,
@@ -185,12 +189,20 @@ KMSTATUS kmSetCullingRegister(KMFLOAT size)
     return KMSTATUS_SUCCESS;
 }
 void __wrap_frame_wait(void);
+void __wrap_njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr);
 /* the entries of Ninja's simple and easy drawers that ninja.c defines */
 void _njSimpleDrawModelSub(NJS_MODEL *model);
 void _njEasyDrawModel(NJS_MODEL *model);
-/* the overlay, which draws nothing here */
+/* the overlay, which draws one band while overlay_bands is set, and nothing
+ * otherwise */
+static int overlay_bands;
+static const Float band[4] = {16.0F, 32.0F, 48.0F, 64.0F};
 void overlay_draw(void)
 {
+    if (overlay_bands) {
+        port_band(band[0], band[1], band[2], band[3], 0xa0000000, -1.0F,
+                  NJD_FILL | NJD_TRANSPARENT);
+    }
 }
 /* the test's own engine, which the adapter's sound calls reach. it counts the
  * stops, streams and banks they give it, and keeps the last bank */
@@ -277,6 +289,16 @@ static struct {
  * below holds njModelS.c's light, its scale and its ambient */
 static float easy_work[16];
 static float simple_direction[3], simple_scale, simple_ambient;
+/* models.h's shadow_object, the game's shadow, with a model under it. then
+ * world.c's table of the objects tasks put in the collision world, and its
+ * count. the hints' test fills them */
+static NJS_MODEL shadow_model, shadow_child_model;
+static NJS_OBJECT shadow_child = {
+    0, &shadow_child_model, {0, 0, 0}, {0, 0, 0}, {1, 1, 1}, NULL, NULL};
+static NJS_OBJECT shadow_object = {
+    0, &shadow_model, {0, 0, 0}, {0, 0, 0}, {1, 1, 1}, &shadow_child, NULL};
+static struct world_object world_added[1];
+static Sint16 world_added_count;
 /* each of the game's statics the adapter finds by name, and where the test
  * holds it. no two share their bytes, so a read shows which name it found */
 static const struct {
@@ -292,6 +314,9 @@ static const struct {
     {"base_light_scale", &simple_scale},
     {"iamb", &simple_ambient},
     {"sources_file", &sources_file},
+    {"shadow_object", &shadow_object},
+    {"world_added", world_added},
+    {"world_added_count", &world_added_count},
 };
 #define NAMED (sizeof named / sizeof named[0])
 /* the name the test's program lacks, as a stripped one would, or null where
@@ -797,6 +822,44 @@ static void screen_polygons(void)
               point.at[1] == corners[order[k]].y && point.at[2] == 2.0F &&
               point.color == colors[order[k]].color);
     }
+}
+
+/* the overlay's band lies in the picture frame_wait ends, and asks
+ * present_record nothing. a split frame keeps each 2D draw that asks, and its
+ * next first picture replays it. the overlay draws over that picture too, so
+ * a kept band would show there twice. the game's own 2D polygon asks */
+static void overlay_band(void)
+{
+    static NJS_POINT2 corners[4] = {{0, 0}, {640, 0}, {640, 480}, {0, 480}};
+    static NJS_COLOR colors[4] = {
+        {0x80000001}, {0x80000002}, {0x80000003}, {0x80000004}};
+    NJS_POINT2COL polygon = {corners, colors, NULL, 4};
+    const uint8_t *at;
+    const uint8_t *last = NULL;
+    sa_triangles head;
+    sa_point first, end;
+
+    reset();
+    polygons_asked = 0;
+    __wrap_njDrawPolygon2D(&polygon, 4, -2.0F, NJD_FILL | NJD_TRANSPARENT);
+    CHECK(polygons_asked == 1);
+    overlay_bands = 1;
+    __wrap_frame_wait();
+    overlay_bands = 0;
+    CHECK(polygons_asked == 1);
+    read_file();
+    for (int i = 0; (at = record(SA_CAP_TRIANGLES, i)); i++) {
+        last = at;
+    }
+    CHECK(last != NULL);
+    memcpy(&head, last, sizeof head);
+    CHECK(head.count == 2 && head.form == SA_TRIANGLES_STRIP);
+    CHECK(head.flags == (SA_TRIANGLES_SCREEN | SA_TRIANGLES_BLEND));
+    memcpy(&first, last + sizeof head, sizeof first);
+    memcpy(&end, last + sizeof head + 3 * sizeof end, sizeof end);
+    CHECK(first.at[0] == band[0] && first.at[1] == band[1] &&
+          end.at[0] == band[2] && end.at[1] == band[3] &&
+          first.color == 0xa0000000);
 }
 
 /* Ninja's lines go as two points each, in the object's space. a strip's line i
@@ -1551,9 +1614,10 @@ static void camera_cuts(void)
 }
 
 /* an act's land. the land's task may draw entries 0 and 2, which share a
- * model, but never entry 1. entry 3's model has more meshsets than the adapter
- * has room to name. the motion's keys carry the moving part's one node from 0
- * to 100 along x over ten frames */
+ * model, but never entry 1. the land holds entries 1 and 2 as liquids. entry
+ * 3's model has more meshsets than the adapter has room to name. the motion's
+ * keys carry the moving part's one node from 0 to 100 along x over ten
+ * frames */
 static NJS_POINT3 land_points[4] = {
     {-5, -5, 0}, {5, -5, 0}, {-5, 5, 0}, {5, 5, 0}};
 static NJS_MODEL land_model = {
@@ -1572,8 +1636,9 @@ static NJS_OBJECT land_objects[4] = {
     {0, &unnamed_model, {0, 0, 90}, {0, 0, 0}, {1, 1, 1}, NULL, NULL}};
 static struct land_entry land_entries[4] = {
     {.object = &land_objects[0], .flags = (Sint32)LAND_DRAWN},
-    {.object = &land_objects[1]},
-    {.object = &land_objects[2], .flags = (Sint32)LAND_DRAWN},
+    {.object = &land_objects[1], .flags = WORLD_WATER},
+    {.object = &land_objects[2],
+     .flags = (Sint32)(LAND_DRAWN | WORLD_THICK_LIQUID)},
     {.object = &land_objects[3], .flags = (Sint32)LAND_DRAWN}};
 static NJS_MKEY_F moving_keys[2] = {{0, {0, 0, 0}}, {10, {100, 0, 0}}};
 static NJS_MDATA1 moving_data = {{moving_keys}, {2}};
@@ -2168,10 +2233,10 @@ static void views_in_a_frame(void)
 /* a land's load gives the act's scene. its lights come first: the act's light
  * and the sources its file marks used. each entry the task may draw is a part,
  * as is each model of its moving parts. a part takes a number, where it stands
- * and the state the task draws it in. a later draw by the task is the part's
- * own, and another task's is not. until the scene ends, no free names the
- * mesh or the list of materials a part reads. the shade it was given goes as
- * any name does */
+ * and the state the task draws it in. a part the land holds as a liquid is a
+ * liquid's surface. a later draw by the task is the part's own, and another
+ * task's is not. until the scene ends, no free names the mesh or the list of
+ * materials a part reads. the shade it was given goes as any name does */
 static void land_scene(void)
 {
     sa_draw part[3];
@@ -2257,7 +2322,9 @@ static void land_scene(void)
     CHECK(part[0].instance == (SA_INSTANCE_SCENE | 0) &&
           part[1].instance == (SA_INSTANCE_SCENE | 2) &&
           part[2].instance == (SA_INSTANCE_SCENE | 4));
-    CHECK(part[0].flags == 0 && part[1].flags == 0 &&
+    /* entry 2 is a liquid the land draws. entry 1, a liquid it never draws,
+     * is no part */
+    CHECK(part[0].flags == 0 && part[1].flags == SA_DRAW_LIQUID &&
           part[2].flags == SA_DRAW_MOVING);
     CHECK(part[0].payload == SA_NO_PAYLOAD && part[0].mesh == part[1].mesh &&
           part[0].mesh != part[2].mesh);
@@ -2297,6 +2364,12 @@ static void land_scene(void)
     CHECK(!(drawn[4].instance & (SA_INSTANCE_SCENE | SA_INSTANCE_UNOWNED)) &&
           drawn[4].object_to_world[3] == 10.0F &&
           drawn[4].object_to_world[11] == 0.0F);
+    /* the task's draw of the liquid part is a liquid's surface. its draw of
+     * the part that shares the model is none, nor is another task's draw of
+     * the model */
+    CHECK(!(drawn[1].flags & SA_DRAW_LIQUID) &&
+          (drawn[2].flags & SA_DRAW_LIQUID) &&
+          !(drawn[4].flags & SA_DRAW_LIQUID));
     /* each task gets its creation record at its first draw. the land's task
      * gets one though its draws name parts, so two follow the scene */
     CHECK(records_after(SA_REC_TASK_CREATE, SA_CAP_SCENE_END) == 2);
@@ -2474,6 +2547,114 @@ static void names_of_things(void)
      * the picture's first unowned draw of that shape */
     CHECK((unowned[0].instance & SA_INSTANCE_UNOWNED) &&
           unowned[0].thing == first[0].thing && unowned[0].nth == 0);
+}
+
+/* the stage's sky task, a task under it, and whether they draw with fog on */
+static void *sky_task[TASK_POINTERS], *cloud_task[TASK_POINTERS];
+static int sky_fogged;
+/* an object a task puts in the collision world, and its model */
+static NJS_MODEL pool_model;
+static NJS_OBJECT pool_object = {.model = &pool_model, .scl = {1, 1, 1}};
+
+static void sky_draws(struct task *task)
+{
+    (void)task;
+    _nj_parameterkm_.TSPPARAMBUFFER =
+        sky_fogged ? 0 : (Uint32)KM_NOFOG << TSP_FOG_SHIFT;
+    draw_model_nested(&model);
+}
+
+/* the hints a draw carries, as sa_sa1.h says. a draw of the game's shadow
+ * model is the stand-in for a shadow under each drawer, in view or out of it,
+ * as is a draw of the model under it. a mesh the stage's sky task draws is the
+ * backdrop, with fog off or on, and so is one a task under it draws from its
+ * draw callback. a draw by another task or by no task is none, nor is the sky
+ * task's once the task ends. a draw of a model the collision world holds as a
+ * liquid a task put in it is a liquid's surface. so is each draw from
+ * native_liquid_begin to native_liquid_end, the sky task's too, which is then
+ * no backdrop. land_scene tests the land's own liquids */
+static void hints(void)
+{
+    const uint16_t all = SA_DRAW_BACKDROP | SA_DRAW_SHADOW | SA_DRAW_LIQUID;
+    sa_draw shadows[6], skies[7], liquids[7];
+    int pictures;
+
+    shadow_model = shadow_child_model = pool_model = model;
+    __wrap_frame_wait();
+    read_file();
+    pictures = records_after(SA_CAP_PICTURE, SA_CAP_HEAD);
+    reset();
+    draw_model(&shadow_model);
+    _njSimpleDrawModelSub(&shadow_model);
+    _njEasyDrawModel(&shadow_model);
+    draw_model(&shadow_child_model);
+    draw_model(&model);
+    xmtrx[14] = -100.0F;
+    draw_model(&shadow_model);
+    __wrap_frame_wait();
+    /* the sky task's parent is none, and the task under it names it */
+    cloud_task[2] = sky_task;
+    native_sky_created((struct task *)sky_task);
+    reset();
+    native_task_step((struct task *)sky_task, sky_draws);
+    native_task_draw((struct task *)cloud_task, sky_draws);
+    native_task_step((struct task *)other_task, sky_draws);
+    sky_draws(NULL);
+    sky_fogged = 1;
+    native_task_step((struct task *)sky_task, sky_draws);
+    native_liquid_begin();
+    native_task_step((struct task *)sky_task, sky_draws);
+    native_liquid_end();
+    native_task_destroy((struct task *)sky_task);
+    native_task_step((struct task *)sky_task, sky_draws);
+    __wrap_frame_wait();
+    /* the world holds the object as solid, as water, as a thicker liquid and
+     * then not at all */
+    reset();
+    world_added[0] = (struct world_object){WORLD_SOLID, &pool_object, NULL};
+    world_added_count = 1;
+    draw_model(&pool_model);
+    world_added[0].flags = WORLD_MOVES | WORLD_WATER;
+    draw_model(&pool_model);
+    draw_model(&model);
+    world_added[0].flags = WORLD_THICK_LIQUID;
+    _njSimpleDrawModelSub(&pool_model);
+    world_added_count = 0;
+    draw_model(&pool_model);
+    native_liquid_begin();
+    _njEasyDrawModel(&model);
+    native_liquid_end();
+    draw_model(&model);
+    __wrap_frame_wait();
+    read_file();
+    CHECK(draws_between(SA_CAP_PICTURE, pictures, SA_CAP_END, shadows, 6) == 6);
+    CHECK(draws_between(SA_CAP_PICTURE, pictures + 1, SA_CAP_END, skies, 7) ==
+          7);
+    CHECK(draws_between(SA_CAP_PICTURE, pictures + 2, SA_CAP_END, liquids, 7) ==
+          7);
+    for (int i = 0; i < 4; i++) {
+        CHECK(shadows[i].flags == SA_DRAW_SHADOW);
+    }
+    CHECK(shade_of(shadows[0].shade).mode == SA_SHADE_PALETTE &&
+          shade_of(shadows[1].shade).mode == SA_SHADE_LINEAR &&
+          shade_of(shadows[2].shade).mode == SA_SHADE_RAMP);
+    CHECK(shadows[4].flags == 0 &&
+          shadows[5].flags == (SA_DRAW_SHADOW | SA_DRAW_OUT));
+    CHECK(skies[0].flags == SA_DRAW_BACKDROP &&
+          skies[1].flags == SA_DRAW_BACKDROP &&
+          skies[1].instance != skies[0].instance);
+    CHECK(!(skies[2].flags & all) && !(skies[3].flags & all) &&
+          (skies[3].instance & SA_INSTANCE_UNOWNED));
+    CHECK(shade_of(skies[0].shade).fog == SA_FOG_NONE &&
+          shade_of(skies[4].shade).fog == SA_FOG_TABLE &&
+          skies[4].flags == SA_DRAW_BACKDROP &&
+          skies[4].instance == skies[0].instance);
+    CHECK(skies[5].flags == SA_DRAW_LIQUID &&
+          skies[5].instance == skies[0].instance && !(skies[6].flags & all));
+    CHECK(liquids[0].flags == 0 && liquids[1].flags == SA_DRAW_LIQUID &&
+          liquids[2].flags == 0 && liquids[3].flags == SA_DRAW_LIQUID &&
+          liquids[4].flags == 0 && liquids[5].flags == SA_DRAW_LIQUID &&
+          liquids[6].flags == 0);
 }
 
 /* start music on a file of size bytes, which plays. it returns the state the
@@ -2734,6 +2915,7 @@ int main(int argc, char **argv)
     textures_of_files();
     texels_in_fours();
     screen_polygons();
+    overlay_band();
     lines();
     screen_strip();
     sprite_scales();
@@ -2752,6 +2934,7 @@ int main(int argc, char **argv)
     models_at_the_bound();
     names_of_things();
     land_scene();
+    hints();
     stream_loops();
     stream_refused();
     stream_from_memory();

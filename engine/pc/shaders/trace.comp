@@ -1,0 +1,1496 @@
+#version 460
+#extension GL_EXT_ray_query : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+// the trace pass: the lighting of each pixel of a ray-traced picture
+//
+// a camera ray leaves the eye through its pixel, at a point the host steps
+// from picture to picture for the antialiasing pass, as draw.vert projects
+// a point, to center + focal * (x, y) / z. its direction has a view-space z
+// of 1, so a hit's distance along it is the hit's view-space z. walk()
+// follows the ray through the translucent surfaces it crosses to the first
+// opaque one, and composes each as the PowerVR's blend would.
+//
+// lighting is hybrid. the game shades a surface from a palette: for each
+// light, a ramp of 256 colors indexed by the angle between the normal and
+// the light. the trace pass takes that shade and splits it in two. the
+// ambient part is the shade up to the ramp's entry for a normal
+// perpendicular to the light, and the sun's part is what a normal that
+// faces the light holds above that. rays then decide how much of each part
+// a surface receives, and add the light a palette can't hold:
+//
+//   sun         a shadow ray toward the sun scales the sun's part
+//   ambient     a cosine-weighted bounce ray scales the ambient part by its
+//               occlusion within CLOSE, and adds the color of a hit that is
+//               sunlit or unlit (MAT_GLOW)
+//   overhead    where sunlight is missing, shadow rays in a narrow cone
+//               about straight up find the objects over the point
+//   lamps       the host makes point lights of emissive texels and of the
+//               game's additive sprites. reservoir sampling picks one a
+//               ray, and a shadow ray tests it
+//   reflection  a liquid, and an environment-mapped surface that is not
+//               too curved for one ray to sample, show what a reflection
+//               ray hits
+//
+// enclosure.comp measures how enclosed the eye is. the more enclosed, the
+// less the shadow ray toward the sun counts, and where the eye is fully
+// enclosed the sun's part of the shade stays as the game computed it.
+//
+// compose.comp puts a pixel together from the images this pass writes:
+//
+//   layer_adds + layer_keeps *
+//       fog(displayed(direct + ambient * open + albedo * added) + highlight)
+//
+// open, the share of its ambient light a surface's surroundings leave it, and
+// added, the light they and the lamps add, are noisy below UNFILTERED rays a
+// pixel. indirect holds the two, and the denoiser filters it alone. every
+// other term is deterministic there: the sun's shadow ray goes to the sun's
+// center, and the overhead cone is a fixed pattern
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// a mesh as the host uploads it: six floats a point (position, then normal),
+// three point indices a triangle, and one Corner a triangle
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Points {
+    float word[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Indices {
+    uint point[];
+};
+struct Corner {
+    vec2 uv[3];
+    uint material; // an index into the instance's materials
+    uint reserved;
+};
+layout(buffer_reference, std430, buffer_reference_align = 8) readonly buffer Corners {
+    Corner corner[];
+};
+struct Instance {
+    vec4 to_world[3]; // object to world, 3 by 4, by rows
+    vec4 before[3]; // the same in the picture before
+    // its draw's light in world space, as sa_shade.light gives it: the way the
+    // light travels, at the game's length
+    vec4 light_way;
+    Points points;
+    Indices indices;
+    Corners corners;
+    uint materials; // the index of its first
+    uint flags;
+    uint light;
+    // the ambient and diffuse levels of its shade, under RAY_SHADE_RAMP or
+    // RAY_SHADE_LINEAR
+    float ambient;
+    float diffuse;
+    uint reserved;
+};
+struct Material {
+    uint texture;
+    uint sampling;
+    uint flags;
+    uint color; // ARGB
+    uint specular; // ARGB, the tint of its reflection
+    uint blend; // the source's instruction, then the destination's, three bits each
+    uint gloss; // 1 + the light whose ramp holds its highlights, or 0 for none
+    uint reserved;
+};
+
+#include "rays.glsl"
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT world;
+layout(set = 0, binding = 3, std430) readonly buffer Instances {
+    Instance instance[];
+} instances;
+layout(set = 0, binding = 4, std430) readonly buffer Materials {
+    Material material[];
+} materials;
+// the game's palette: for each of the picture's lights, a ramp of RAMP
+// entries, from a normal that faces the light to one that faces away. an
+// entry is two ARGB colors: the shade, then the highlight a glossy material
+// adds
+layout(set = 0, binding = 5, std430) readonly buffer Ramps {
+    uint color[];
+} ramps;
+// the picture's lamps in a hash grid, each cell of which lists the lamps
+// whose light reaches it. rays.h's lamp_table() gives the layout
+layout(set = 0, binding = 6, std430) readonly buffer Lamps {
+    uint word[];
+} lamps;
+layout(set = 1, binding = 0) uniform texture2D textures[];
+layout(set = 1, binding = 1) uniform sampler samplers[];
+// the pixel's opaque surface in parts, as the header's formula joins them.
+// direct's alpha is 1 where the picture's fog applies
+layout(set = 2, binding = 0, rgba16f) uniform writeonly image2D direct;
+layout(set = 2, binding = 1, rgba16f) uniform writeonly image2D albedo;
+// the noisy terms: the light added to the surface, before its albedo, then the
+// share of its ambient light that is left
+layout(set = 2, binding = 2, rgba16f) uniform writeonly image2D indirect;
+// a motion vector: the offset in pixels from where the camera ray crossed the
+// pixel to where the surface point was in the picture before, its view-space z
+// there, and 1 where both are known
+layout(set = 2, binding = 3, rgba16f) uniform writeonly image2D motion;
+// the view-space z of the surface the camera ray ends on, or 0 for none
+layout(set = 2, binding = 4, r32f) uniform writeonly image2D depth;
+// the surface the denoiser matches pixels by: its normal, octahedral-encoded,
+// its view-space z held to FARTHEST, and 1 where it is shaded. the two images
+// alternate by picture, so the picture before's is still there to read
+layout(set = 2, binding = 5, rgba16f) uniform writeonly image2D gbuffer[2];
+layout(set = 2, binding = 10, std430) readonly buffer Enclosure {
+    float enclosed; // from 0 in the open to 1 where sunlight reaches nothing near the eye
+} measured;
+// the specular highlight of the pixel's opaque surface, as display values
+layout(set = 2, binding = 11, rgba16f) uniform writeonly image2D highlight;
+// what the translucent surfaces in front of the pixel's opaque surface add to
+// it and keep of it, as display values: the pixel is layer_adds + layer_keeps *
+// the opaque surface's own pixel
+layout(set = 2, binding = 12, rgba16f) uniform writeonly image2D layer_adds;
+layout(set = 2, binding = 13, rgba16f) uniform writeonly image2D layer_keeps;
+// the surface's ambient light at its albedo, which indirect's alpha scales,
+// then the distance of the nearest thing that occludes it, or CLOSE for none
+// that near. the denoiser filters a pixel's occlusion less widely the
+// nearer its occluder
+layout(set = 2, binding = 14, rgba16f) uniform writeonly image2D ambient;
+
+// a constant named MAT_, RAY_, MASK_, LAMP_ or EMISSIVE_ copies the host's,
+// and tests/test_shaders.py keeps the two alike
+const uint MAT_TEXTURE = 0x1u;
+const uint MAT_BLEND = 0x2u;
+const uint MAT_ENV = 0x4u;
+const uint MAT_DECAL = 0x80u;
+const uint MAT_EMISSIVE = 0x8000u; // its texture shows a light source: its bright texels emit light
+const uint MAT_COLOR = 0x10000u; // its color scales the texel
+// the game computes no lighting for it: its texel is its shade, which only
+// shadows and occlusion darken
+const uint MAT_PRELIT = 0x20000u;
+const uint MAT_GLOW = 0x40000u; // unlit: it shows as drawn, and a bounce ray takes its color
+const uint RAY_BACKDROP = 0x2u;
+const uint RAY_NORMALS = 0x4u;
+const uint RAY_NEW = 0x10u;
+const uint RAY_FOG = 0x20u;
+const uint RAY_LIQUID = 0x40u;
+const uint RAY_SHADE_RAMP = 0x200u;
+const uint RAY_SHADE_LINEAR = 0x400u;
+// the clamp on one sample of indirect light, against fireflies
+const float MOST = 16.0;
+// instance masks: what the picture drew, what lies outside its view, and
+// backdrops. camera rays hit the first and the last, reflection rays all three,
+// and shadow and bounce rays no backdrop
+const uint MASK_SEEN = 1u;
+const uint MASK_HIDDEN = 2u;
+const uint MASK_BACKDROP = 4u;
+const uint MASK_OBJECT = 16u; // opaque objects: instances that are no part of the scene
+const uint FACTOR_ONE = 1u;
+const float FAR = 1.0e7;
+// the largest z written to a 16-bit float image, whose largest finite value is
+// 65504
+const float FARTHEST = 6.0e4;
+// the most translucent surfaces a ray crosses
+const int LAYERS = 12;
+// a texel blended over the destination with at least this alpha is opaque to a
+// ray, as a cutout's solid texels are
+const float SOLID_ALPHA = 0.98;
+const uint BLEND_OVER = 4u | 5u << 3; // source alpha, inverse source alpha
+// ambient occlusion: the distance within which a bounce ray's hit occludes, and
+// the share of ambient light left by a hit at distance 0
+const float CLOSE = 20.0;
+const float UNDER = 0.0;
+// the range of an emissive material's texel, by its brightest channel, over
+// which it goes from emitting nothing to emitting its whole color
+const float EMISSIVE_DIM = 0.35;
+const float EMISSIVE_LIT = 0.75;
+// up in world space
+const vec3 UP = vec3(0.0, 1.0, 0.0);
+// the overhead shadow: how far above a point an object shades it, the tangent
+// of the cone's half angle, the cone's rays below UNFILTERED rays a pixel, and
+// the share of light left where every ray is blocked
+const float BELOW = 150.0;
+const float OVERHEAD = 0.06;
+const int TAPS = 12;
+const float SHADED = 0.3;
+// the share of a prelit surface's shade taken as sunlight, which the sun's
+// shadow removes. the rest is taken as ambient light
+const float PRELIT_SHADE = 0.45;
+// the footprint a shadow or bounce ray gains per unit of distance, which sets
+// its texture level of detail (ray cones)
+const float SPREAD = 0.25;
+// the gain on the color a bounce ray takes from an unlit surface
+const float GLOW = 2.5;
+// the most a reflection ray's footprint gains per unit of distance
+const float WIDEST = 1.0;
+// the angle, in radians, that a pixel's reflection rays span on a curved
+// mirror: up to SHARP the mirror reflects in full, and from BLURRED not at all
+const float SHARP = 0.02;
+const float BLURRED = 0.08;
+// the largest share of an environment-mapped surface's color that its
+// reflection ray gives. the rest is its environment map, lit as any texel is
+const float MIRROR = 0.4;
+// a liquid's reflectance at normal incidence, for Schlick's approximation.
+// water's is 0.02
+const float WET = 0.02;
+// the clamp on a liquid's reflectance, so that its texture still shows at
+// grazing angles
+const float DEEP = 0.75;
+// the tilt of a liquid's normal at a ripple's crest, and the gain on the sun's
+// reflection in a liquid
+const float RIPPLE = 0.035;
+const float SUN_IMAGE = 400.0;
+
+// a ramp's entry for a normal perpendicular to the light. the entries below it
+// are for normals that face the light
+const uint SIDE = 127u;
+// a ramp's entries, and the picture's lights, which have a ramp each
+const uint RAMP = 256u;
+const uint LIGHTS = 8u;
+
+// a ramp entry's color as display values: its shade, or with offset 1 its
+// highlight
+vec3 ramp(uint light, uint entry, uint offset)
+{
+    uint c = ramps.color[(light * RAMP + entry) * 2u + offset];
+
+    return vec3((c >> 16) & 0xffu, (c >> 8) & 0xffu, c & 0xffu) / 255.0;
+}
+
+// a pixel's width at z = 1, which is the footprint a camera ray gains per unit
+// of distance. a reflection ray goes on gaining as much
+float slope;
+
+// a uniform random number in [0, 1), by PCG's RXS-M-XS (O'Neill)
+uint seed;
+float random()
+{
+    seed = seed * 747796405u + 2891336453u;
+    uint word = ((seed >> ((seed >> 28u) + 4u)) ^ seed) * 277803737u;
+
+    return float(((word >> 22u) ^ word) >> 8u) * (1.0 / 16777216.0);
+}
+
+// the pixel's own offset into the sequence stratified() gives: interleaved
+// gradient noise (Jimenez), which differs most between neighbors
+vec2 offset;
+float gradient_noise(vec2 pixel)
+{
+    return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
+}
+
+// the nth point of the pixel's sequence over the unit square: Roberts's R2
+// sequence, whose points over any run of pictures cover the square evenly, so
+// a pixel's occlusion settles faster than with random directions. the
+// multipliers are the sequence's two steps as fractions of 2^32
+vec2 stratified(uint n)
+{
+    uvec2 at = n * uvec2(3242174889u, 2447445414u);
+
+    return fract(offset + vec2(at) * (1.0 / 4294967296.0));
+}
+
+struct Hit {
+    float t;
+    uint instance;
+    uint triangle;
+    vec2 at; // barycentric coordinates
+};
+struct Surface {
+    vec3 at;
+    vec3 before; // its position in the picture before
+    vec3 normal; // interpolated, facing the ray
+    vec3 face; // the triangle's own, facing the ray
+    vec3 color; // its albedo, in linear light
+    vec3 emitted; // the light it emits
+    vec3 tint; // the tint of its reflection
+    // an environment-mapped surface's curvature, 1 / its radius, or 0
+    float curvature;
+    uint gloss; // as Material's
+    float alpha;
+    uint flags; // its material's
+    uint blend;
+    uint light; // the light whose ramp shades it
+    // the game's palette shade in linear light, split in two. the game takes a
+    // ramp entry at each corner from the dot product of the draw's light and
+    // the corner's normal under the draw's matrix, neither normalized, and
+    // interpolates the entries' colors across the triangle. surface() does the
+    // same. ambient is the shade, held to the SIDE entry's color at a corner
+    // that faces the light, and sun is the rest
+    vec3 sun;
+    vec3 ambient;
+    // its material's highlight as display values, interpolated the same way,
+    // and the barycentric weight of the corners that face the light
+    vec3 highlight;
+    float facing;
+    // its draw's light is not the picture's sun. no shadow ray is cast for such
+    // a light, and its shade stays as the game computed it
+    bool own;
+    uint drawn; // its instance's flags
+};
+
+vec3 linear(vec3 c)
+{
+    return pow(c, vec3(2.2));
+}
+
+// the mip level for a ray of footprint width that hits a triangle with
+// world-space corners a, b and c and texture coordinates ua, ub and uc. texels
+// is the texture's size and facing the cosine of the angle of incidence (ray
+// cones)
+float level(vec3 a, vec3 b, vec3 c, vec2 ua, vec2 ub, vec2 uc, vec2 texels, float width,
+            float facing)
+{
+    float area = length(cross(b - a, c - a));
+    float covered =
+        abs((ub.x - ua.x) * (uc.y - ua.y) - (uc.x - ua.x) * (ub.y - ua.y)) * texels.x * texels.y;
+
+    return max(0.5 * log2(max(covered, 1.0e-12) / max(area, 1.0e-12)) +
+                   log2(max(width, 1.0e-12) / max(facing, 0.1)),
+               0.0);
+}
+
+// the position and the normal of a point of an instance's mesh, in mesh space
+vec3 point_of(Instance n, uint point)
+{
+    uint at = point * 6u;
+
+    return vec3(n.points.word[at], n.points.word[at + 1u], n.points.word[at + 2u]);
+}
+
+vec3 normal_of(Instance n, uint point)
+{
+    uint at = point * 6u + 3u;
+
+    return vec3(n.points.word[at], n.points.word[at + 1u], n.points.word[at + 2u]);
+}
+
+// a packed ARGB color as red, green, blue and alpha
+vec4 unpack(uint c)
+{
+    return vec4((c >> 16) & 0xffu, (c >> 8) & 0xffu, c & 0xffu, c >> 24) / 255.0;
+}
+
+// a material's texture with its sampler
+#define SAMPLED(m) \
+    sampler2D(textures[nonuniformEXT((m).texture)], samplers[nonuniformEXT((m).sampling)])
+
+// a ray's hit on a triangle, before lighting
+struct Texel {
+    Material m;
+    uvec3 points; // the triangle's point indices
+    vec3 a, b, c; // its corners in world space
+    vec3 weight; // the hit's barycentric weights
+    vec3 local; // the hit in mesh space
+    vec4 color; // the material's color and alpha at the hit
+};
+
+Texel shown(Instance n, Hit h, vec3 d, float width)
+{
+    Texel x;
+    Corner k = n.corners.corner[h.triangle];
+    uint first = h.triangle * 3u;
+
+    x.points =
+        uvec3(n.indices.point[first], n.indices.point[first + 1u], n.indices.point[first + 2u]);
+    vec3 la = point_of(n, x.points.x);
+    vec3 lb = point_of(n, x.points.y);
+    vec3 lc = point_of(n, x.points.z);
+
+    x.a = transform(n.to_world, la);
+    x.b = transform(n.to_world, lb);
+    x.c = transform(n.to_world, lc);
+    x.weight = vec3(1.0 - h.at.x - h.at.y, h.at.x, h.at.y);
+    x.local = la * x.weight.x + lb * x.weight.y + lc * x.weight.z;
+    x.m = materials.material[n.materials + k.material];
+    vec4 base = unpack(x.m.color);
+    vec4 t = vec4(1.0);
+
+    if ((x.m.flags & MAT_TEXTURE) != 0u && x.m.texture != 0u) {
+        vec2 uv = k.uv[0] * x.weight.x + k.uv[1] * x.weight.y + k.uv[2] * x.weight.z;
+        float lod = 0.0;
+
+        if ((x.m.flags & MAT_ENV) != 0u && (n.flags & RAY_NORMALS) != 0u) {
+            // an environment map is indexed by the view-space normal
+            vec3 normal = normal_of(n, x.points.x) * x.weight.x +
+                          normal_of(n, x.points.y) * x.weight.y +
+                          normal_of(n, x.points.z) * x.weight.z;
+            vec3 turned = rotate(n.to_world, normal);
+
+            uv = rotate(picture.view, turned).xy * 0.5 + 0.5;
+        } else {
+            vec3 face = cross(x.b - x.a, x.c - x.a);
+            float facing = abs(dot(normalize(face), normalize(d)));
+
+            lod = level(x.a, x.b, x.c, k.uv[0], k.uv[1], k.uv[2],
+                        vec2(textureSize(SAMPLED(x.m), 0)), width, facing);
+        }
+        t = textureLod(SAMPLED(x.m), uv, lod);
+    }
+    if ((x.m.flags & MAT_BLEND) == 0u) {
+        t.a = 1.0;
+        base.a = 1.0;
+    }
+    // MAT_DECAL replaces the material's color with the texel, and means nothing
+    // without a texture
+    if ((x.m.flags & (MAT_DECAL | MAT_TEXTURE)) == (MAT_DECAL | MAT_TEXTURE)) {
+        x.color = vec4(t.rgb, t.a);
+    } else {
+        x.color = vec4((x.m.flags & MAT_COLOR) != 0u ? t.rgb * base.rgb : t.rgb, t.a * base.a);
+    }
+    return x;
+}
+
+// a triangle's curvature, from its corners a, b and c and their unit normals:
+// the largest change of the normal along an edge, over the edge's length
+float curved(vec3 a, vec3 b, vec3 c, vec3 na, vec3 nb, vec3 nc)
+{
+    return max(length(nb - na) / max(length(b - a), 1.0e-6),
+               max(length(nc - na) / max(length(c - a), 1.0e-6),
+                   length(nc - nb) / max(length(c - b), 1.0e-6)));
+}
+
+// the share of its color that an emissive material's texel emits
+float emission(vec3 texel)
+{
+    return smoothstep(EMISSIVE_DIM, EMISSIVE_LIT, max(texel.r, max(texel.g, texel.b)));
+}
+
+Surface surface(Hit h, vec3 d, float width)
+{
+    Instance n = instances.instance[h.instance];
+    Texel x = shown(n, h, d, width);
+    Material m = x.m;
+    vec3 weight = x.weight;
+    vec4 color = x.color;
+    Surface s;
+
+    s.at = x.a * weight.x + x.b * weight.y + x.c * weight.z;
+    s.before = transform(n.before, x.local);
+    s.face = normalize(cross(x.b - x.a, x.c - x.a));
+    s.normal = s.face;
+    s.sun = vec3(0.0);
+    s.ambient = linear(ramp(n.light % LIGHTS, SIDE, 0u));
+    s.highlight = vec3(0.0);
+    s.facing = 0.0;
+    s.own = false;
+    s.curvature = 0.0;
+    if ((n.flags & RAY_NORMALS) != 0u) {
+        vec3 corner[3] = vec3[3](normal_of(n, x.points.x), normal_of(n, x.points.y),
+                                 normal_of(n, x.points.z));
+        vec3 local = corner[0] * weight.x + corner[1] * weight.y + corner[2] * weight.z;
+        // a normal transforms by the inverse transpose, here the cofactors with
+        // the determinant's sign
+        vec3 r0 = n.to_world[0].xyz, r1 = n.to_world[1].xyz, r2 = n.to_world[2].xyz;
+        vec3 turned =
+            vec3(dot(cross(r1, r2), local), dot(cross(r2, r0), local), dot(cross(r0, r1), local)) *
+            sign(dot(r0, cross(r1, r2)));
+        float size = length(turned);
+
+        if (size > 0.0) {
+            s.normal = turned / size;
+        }
+        if ((m.flags & MAT_ENV) != 0u) {
+            vec3 na = rotate(n.to_world, corner[0]);
+            vec3 nb = rotate(n.to_world, corner[1]);
+            vec3 nc = rotate(n.to_world, corner[2]);
+
+            if (dot(na, na) > 0.0 && dot(nb, nb) > 0.0 && dot(nc, nc) > 0.0) {
+                s.curvature =
+                    curved(x.a, x.b, x.c, normalize(na), normalize(nb), normalize(nc));
+            }
+        }
+        bool scaled = (n.flags & (RAY_SHADE_RAMP | RAY_SHADE_LINEAR)) != 0u;
+        vec3 side = scaled ? vec3(clamp(n.ambient, 0.0, 1.0)) : ramp(n.light % LIGHTS, SIDE, 0u);
+        vec3 unfiltered = vec3(0.0);
+        vec3 rest = vec3(0.0);
+
+        for (int k = 0; k < 3; k++) {
+            float lit = dot(rotate(n.to_world, corner[k]), n.light_way.xyz);
+            vec3 shade;
+            bool faces;
+
+            if (scaled) {
+                // Ninja's simple and easy drawers scale the material's color
+                // by ambient + diffuse * (N . L). RAY_SHADE_RAMP clamps the
+                // product at 0
+                float product = -n.diffuse * lit;
+
+                if ((n.flags & RAY_SHADE_RAMP) != 0u && !(product > 0.0)) {
+                    product = 0.0;
+                }
+                shade = vec3(clamp(n.ambient + product, 0.0, 1.0));
+                faces = product > 0.0;
+            } else {
+                lit = lit * 127.5 + 127.5;
+                // a NaN takes entry 0, as in the game
+                uint entry = lit > 0.0 ? (lit < 255.0 ? uint(lit) : 255u) : 0u;
+
+                shade = ramp(n.light % LIGHTS, entry, 0u);
+                faces = entry < SIDE;
+                if (m.gloss != 0u) {
+                    s.highlight += weight[k] * ramp(m.gloss - 1u, entry, 1u);
+                }
+            }
+            unfiltered += weight[k] * shade;
+            rest += weight[k] * (faces ? min(shade, side) : shade);
+            s.facing += faces ? weight[k] : 0.0;
+        }
+        float way = length(n.light_way.xyz);
+
+        s.ambient = linear(rest);
+        s.sun = max(linear(unfiltered) - s.ambient, 0.0);
+        s.own = way > 0.0 && dot(n.light_way.xyz, rays.to_sun.xyz) > -0.999 * way;
+    }
+    // a triangle is two-sided to a ray: its normals face the ray that hits it
+    if (dot(s.face, d) > 0.0) {
+        s.face = -s.face;
+    }
+    if (dot(s.normal, s.face) < 0.0) {
+        s.normal = -s.normal;
+    }
+    s.color = linear(color.rgb);
+    s.emitted = vec3(0.0);
+    if ((m.flags & MAT_EMISSIVE) != 0u) {
+        float gives = emission(color.rgb);
+
+        s.emitted = s.color * gives;
+        s.color *= 1.0 - gives;
+    }
+    s.tint = linear(unpack(m.specular).rgb);
+    s.gloss = m.gloss;
+    s.alpha = color.a;
+    // a backdrop is unlit, as a MAT_GLOW material is
+    s.flags = (n.flags & RAY_BACKDROP) != 0u ? m.flags | MAT_GLOW : m.flags;
+    s.blend = m.blend;
+    s.light = n.light % LIGHTS;
+    s.drawn = n.flags;
+    return s;
+}
+
+// the opacity of a candidate triangle to a ray, at barycentric coordinates at.
+// blends is set where its material blends, and adds where its blend keeps all
+// of the destination. lamp marks a lamp's shadow ray, which emitting texels
+// don't block
+float cover(uint instance, uint triangle, vec2 at, vec3 d, float width, bool lamp, out bool adds,
+            out bool blends)
+{
+    Instance n = instances.instance[instance];
+    Material m = materials.material[n.materials + n.corners.corner[triangle].material];
+
+    // an unblended material is opaque whatever its texel, so its texture isn't
+    // sampled, unless it is an emissive material in the way of a lamp's shadow
+    // ray
+    blends = (m.flags & MAT_BLEND) != 0u;
+    if (!blends && !(lamp && (m.flags & MAT_EMISSIVE) != 0u)) {
+        adds = false;
+        return 1.0;
+    }
+    vec4 color = shown(n, Hit(0.0, instance, triangle, at), d, width).color;
+
+    adds = blends && ((m.blend >> 3) & 7u) == FACTOR_ONE;
+    // an emitting texel is the lamp itself, and casts no shadow from it
+    return lamp && (m.flags & MAT_EMISSIVE) != 0u ? color.a * (1.0 - emission(color.rgb)) : color.a;
+}
+
+// whether a query's current candidate is a triangle, and whether a finished
+// query committed no hit
+bool candidate(rayQueryEXT q)
+{
+    return rayQueryGetIntersectionTypeEXT(q, false) == gl_RayQueryCandidateIntersectionTriangleEXT;
+}
+
+bool missed(rayQueryEXT q)
+{
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
+// cover() of a query's candidate triangle
+float covers(rayQueryEXT q, vec3 d, float width, bool lamp, out bool adds, out bool blends)
+{
+    return cover(uint(rayQueryGetIntersectionInstanceCustomIndexEXT(q, false)),
+                 uint(rayQueryGetIntersectionPrimitiveIndexEXT(q, false)),
+                 rayQueryGetIntersectionBarycentricsEXT(q, false), d, width, lamp, adds, blends);
+}
+
+// a ray that crosses a translucent surface at t continues from restart(t,
+// first), just short of the surface and no nearer than first, and takes no
+// blended candidate up to past(t). so it hits the translucent surface once, and
+// still hits an opaque surface coplanar with it, such as the floor under a
+// decal
+float restart(float t, float first)
+{
+    return max(t * 0.99999 - 1.0e-4, first);
+}
+
+float past(float t)
+{
+    return t * 1.00001 + 1.0e-4;
+}
+
+// the nearest hit of a ray from o along d between near and far, or false where
+// there is none. a texel of opacity 1/255 or less is no hit, and neither is a
+// blended material's at passed or nearer (see restart()). width is the ray's
+// footprint at o, and widens what it gains per unit of distance
+bool nearest(vec3 o, vec3 d, float near, float far, uint mask, float width, float widens,
+             float passed, out Hit h)
+{
+    rayQueryEXT q;
+
+    rayQueryInitializeEXT(q, world, gl_RayFlagsNoneEXT, mask, o, near, d, far);
+    while (rayQueryProceedEXT(q)) {
+        if (candidate(q)) {
+            bool adds, blends;
+            float t = rayQueryGetIntersectionTEXT(q, false);
+            float covered = covers(q, d, width + widens * t, false, adds, blends);
+
+            if (covered > 1.0 / 255.0 && !(blends && t <= passed)) {
+                rayQueryConfirmIntersectionEXT(q);
+            }
+        }
+    }
+    if (missed(q)) {
+        return false;
+    }
+    h.t = rayQueryGetIntersectionTEXT(q, true);
+    h.instance = uint(rayQueryGetIntersectionInstanceCustomIndexEXT(q, true));
+    h.triangle = uint(rayQueryGetIntersectionPrimitiveIndexEXT(q, true));
+    h.at = rayQueryGetIntersectionBarycentricsEXT(q, true);
+    return true;
+}
+
+// the transmittance of a shadow ray from o along d as far as far. an opaque
+// surface blocks it, a blended one transmits 1 - alpha, and an additive one
+// transmits everything. alpha is weighed, not tested at random, so a cutout's
+// shadow has no noise. lamp is as cover()'s
+float reaches(vec3 o, vec3 d, float far, float width, bool lamp)
+{
+    rayQueryEXT q;
+    float left = 1.0;
+
+    rayQueryInitializeEXT(q, world, gl_RayFlagsTerminateOnFirstHitEXT, MASK_SEEN | MASK_HIDDEN, o,
+                          0.0, d, far);
+    while (rayQueryProceedEXT(q)) {
+        if (candidate(q)) {
+            bool adds, blends;
+            float t = rayQueryGetIntersectionTEXT(q, false);
+            float a = covers(q, d, width + SPREAD * t, lamp, adds, blends);
+
+            if (!adds) {
+                left *= 1.0 - a;
+                if (left < 1.0 / 64.0) {
+                    rayQueryConfirmIntersectionEXT(q);
+                }
+            }
+        }
+    }
+    return missed(q) ? left : 0.0;
+}
+
+// p moved off its surface along normal, far enough that a ray from it doesn't
+// hit that surface again (Wachter and Binder, "A Fast and Robust Method for
+// Avoiding Self-Intersection")
+vec3 lifted(vec3 p, vec3 normal)
+{
+    ivec3 step = ivec3(256.0 * normal);
+    vec3 stepped = vec3(intBitsToFloat(floatBitsToInt(p.x) + (p.x < 0.0 ? -step.x : step.x)),
+                        intBitsToFloat(floatBitsToInt(p.y) + (p.y < 0.0 ? -step.y : step.y)),
+                        intBitsToFloat(floatBitsToInt(p.z) + (p.z < 0.0 ? -step.z : step.z)));
+
+    return mix(stepped, p + normal / 65536.0, lessThan(abs(p), vec3(1.0 / 32.0)));
+}
+
+// a unit vector perpendicular to n
+vec3 across(vec3 n)
+{
+    return normalize(abs(n.x) > abs(n.z) ? vec3(-n.y, n.x, 0.0) : vec3(0.0, -n.z, n.y));
+}
+
+// a cosine-weighted direction about normal, for a point u of the unit square
+vec3 above(vec3 normal, vec2 u)
+{
+    float z = 2.0 * u.x - 1.0;
+    float turn = 6.2831853 * u.y;
+    float r = sqrt(max(1.0 - z * z, 0.0));
+    vec3 way = normal + vec3(r * cos(turn), r * sin(turn), z);
+    float size = length(way);
+
+    return size > 1.0e-4 ? way / size : normal;
+}
+
+// whether the game computes no lighting for a surface, because its material is
+// prelit or its mesh has no normals. its texel is then its shade
+bool prelit(Surface s)
+{
+    return (s.flags & MAT_PRELIT) != 0u || (s.drawn & RAY_NORMALS) == 0u;
+}
+
+// the transmittance of a shadow ray from a surface along to, toward the sun, or
+// 0 for a triangle that faces away
+float sun_reaches(Surface s, vec3 to, float width)
+{
+    return dot(s.face, to) > 0.0 ? reaches(lifted(s.at, s.face), to, FAR, width, false) : 0.0;
+}
+
+// the sunlight on a surface a bounce ray hit: the sun's part of its shade times
+// a shadow ray's transmittance
+vec3 sunlit(Surface s, float width)
+{
+    if (s.sun == vec3(0.0) || s.own) {
+        return s.sun;
+    }
+    return s.sun * sun_reaches(s, rays.to_sun.xyz, width);
+}
+
+// a word of the lamp table as a float
+float lamp_float(uint at)
+{
+    return uintBitsToFloat(lamps.word[at]);
+}
+
+// the lamp table's layout, which rays.h's lamp_table() documents: a header, a
+// slot for each entry of the hash table, the words of a lamp and of a patch
+const uint LAMP_EMPTY = 0xffffffffu;
+const uint LAMP_HEAD = 4u;
+const uint LAMP_SLOT = 4u;
+const uint LAMP_WORDS = 12u;
+const uint PATCH_WORDS = 12u;
+// how far off its triangles a lamp's light leaves from, as a share of the
+// lamp's radius: a tube of neon or a bulb stands proud of the wall its
+// texture is painted on, and lights that wall
+const float PROUD = 0.25;
+
+vec3 lamp_vec3(uint at)
+{
+    return vec3(lamp_float(at), lamp_float(at + 1u), lamp_float(at + 2u));
+}
+
+// one sample of the lamps' light on a surface. reservoir sampling picks one
+// lamp of the surface's grid cell, in proportion to the most light it could
+// give, and a shadow ray tests one point of it: a point of its triangles,
+// or within its sphere where it has none
+vec3 lamplit(Surface s, float width)
+{
+    float total = 0.0;
+    float picked = 0.0;
+    float lit = 0.0;
+    uint chosen = 0u;
+    uint slots = lamps.word[0];
+
+    if (slots == 0u) {
+        return vec3(0.0);
+    }
+    // the cell's slot, by linear probing from its hash. a cell with no slot has
+    // no lamps
+    ivec3 cell = ivec3(floor(s.at * uintBitsToFloat(lamps.word[2])));
+    uint hash =
+        (uint(cell.x) * 73856093u) ^ (uint(cell.y) * 19349663u) ^ (uint(cell.z) * 83492791u);
+    uint slot = hash & (slots - 1u);
+    uint held = LAMP_EMPTY;
+
+    for (uint probe = 0u; probe < slots; probe++) {
+        uint at = LAMP_HEAD + LAMP_SLOT * ((slot + probe) & (slots - 1u));
+
+        held = lamps.word[at + 3u];
+        ivec3 its = ivec3(int(lamps.word[at]), int(lamps.word[at + 1u]), int(lamps.word[at + 2u]));
+
+        if (held == LAMP_EMPTY || its == cell) {
+            break;
+        }
+        held = LAMP_EMPTY;
+    }
+    if (held == LAMP_EMPTY) {
+        return vec3(0.0);
+    }
+    uint list = LAMP_HEAD + LAMP_SLOT * slots;
+    uint first = list + lamps.word[3];
+    uint shapes = first + LAMP_WORDS * lamps.word[1];
+
+    list += held >> 12;
+    for (uint i = 0u; i < (held & 4095u); i++) {
+        uint l = first + LAMP_WORDS * lamps.word[list + i];
+        vec3 to = lamp_vec3(l) - s.at;
+        float size = lamp_float(l + 3u);
+        float slack = lamp_float(l + 7u);
+        float far = length(to);
+        // the distance from the lamp's shape, and the largest cosine any part
+        // of it makes with the normal
+        float off = max(far - slack, 0.0);
+        float facing = clamp((dot(s.normal, to) + slack + sqrt(size)) / max(far, 1.0e-6), 0.0, 1.0);
+        vec3 sends = lamp_vec3(l + 4u) * (size / (off * off + size));
+        // light below the floor rays.lamp.x is dropped, and fades in up to 4
+        // times the floor, and a lamp's light fades out over the farther half
+        // of rays.lamp.y from its shape. the same two bound the cells
+        // lamp_table() lists a lamp in, so the grid leaves out no light
+        float kept =
+            smoothstep(rays.lamp.x, 4.0 * rays.lamp.x, max(sends.r, max(sends.g, sends.b))) *
+            (1.0 - smoothstep(0.5 * rays.lamp.y, rays.lamp.y, off));
+        float weight = (sends.r + sends.g + sends.b) * kept * facing;
+
+        if (weight <= 0.0) {
+            continue;
+        }
+        total += weight;
+        if (random() * total < weight) {
+            picked = weight;
+            lit = kept;
+            chosen = l;
+        }
+    }
+    if (picked <= 0.0) {
+        return vec3(0.0);
+    }
+    vec3 center = lamp_vec3(chosen);
+    float size = lamp_float(chosen + 3u);
+    vec3 color = lamp_vec3(chosen + 4u);
+    uint count = lamps.word[chosen + 9u];
+    vec3 to = center - s.at;
+    float short_of;
+
+    if (count == 0u) {
+        // a sphere: the shadow ray goes to a random point within its radius,
+        // for a soft shadow, and stops at that radius
+        float z = 2.0 * random() - 1.0;
+        float turn = 6.2831853 * random();
+        float r = sqrt(max(1.0 - z * z, 0.0));
+        vec3 within = vec3(r * cos(turn), r * sin(turn), z) * (sqrt(size) * pow(random(), 1.0 / 3.0));
+
+        short_of = max(length(to) - sqrt(size), 0.0);
+        if (dot(s.face, to + within) > 0.0) {
+            to += within;
+        }
+    } else {
+        // a point of its triangles, each chosen by its area: the first whose
+        // share of the lamp's area, summed along the run, reaches a random
+        // number
+        uint low = lamps.word[chosen + 8u];
+        uint high = low + count - 1u;
+        float share = random();
+
+        while (low < high) {
+            uint middle = (low + high) / 2u;
+
+            if (lamp_float(shapes + PATCH_WORDS * middle + 3u) < share) {
+                low = middle + 1u;
+            } else {
+                high = middle;
+            }
+        }
+        uint triangle = shapes + PATCH_WORDS * low;
+        vec3 ab = lamp_vec3(triangle + 4u);
+        vec3 ac = lamp_vec3(triangle + 8u);
+        float along = sqrt(random());
+        float across = random();
+        vec3 point = lamp_vec3(triangle) + along * ((1.0 - across) * ab + across * ac);
+        vec3 normal = normalize(cross(ab, ac));
+
+        // the light leaves from PROUD of the triangle, on the side the
+        // surface is on. a surface in the triangle's own plane, as the wall a
+        // sign is painted on, is on the side its normal points to
+        if (dot(normal, s.at + s.normal * sqrt(size) - point) < 0.0) {
+            normal = -normal;
+        }
+        to = point + normal * (PROUD * sqrt(size)) - s.at;
+        short_of = length(to);
+    }
+    float far = length(to);
+    float facing = dot(s.normal, to) / max(far, 1.0e-6);
+
+    if (facing <= 0.0 || dot(s.face, to) <= 0.0) {
+        return vec3(0.0);
+    }
+    vec3 light = color * (size / (far * far + size)) * facing * lit;
+
+    return light * (total / picked) * reaches(lifted(s.at, s.face), to / far, short_of, width, true);
+}
+
+// whether a ray continues through a surface: its material blends, and its texel
+// is not opaque by SOLID_ALPHA
+bool blending(Surface s)
+{
+    bool solid = (s.blend & 63u) == BLEND_OVER && s.alpha >= SOLID_ALPHA;
+
+    return (s.flags & MAT_BLEND) != 0u && !solid;
+}
+
+// above(), mirrored to the front of the surface's triangle where the
+// interpolated normal sends it behind
+vec3 way_above(Surface s, vec2 u)
+{
+    vec3 way = above(s.normal, u);
+
+    return dot(way, s.face) < 0.0 ? way - 2.0 * dot(way, s.face) * s.face : way;
+}
+
+// the share of ambient light left by an occluder at distance t
+float opened(float t)
+{
+    return mix(UNDER, 1.0, smoothstep(0.0, CLOSE, t));
+}
+
+// what a surface's surroundings do to its light, by one sample
+struct Fell {
+    vec3 added; // the light they add to it, before its albedo
+    float open; // the share of its ambient light they leave it
+    float near; // the nearest occluder's distance, or CLOSE for none within CLOSE
+};
+
+// what a bounce ray along way finds from a surface: the occlusion of its
+// first opaque hit, and the color of a hit that is unlit or sunlit. the ray
+// continues through translucent surfaces, each of which transmits 1 - alpha
+Fell around(Surface s, vec3 way, float width)
+{
+    vec3 from = lifted(s.at, s.face);
+    Fell f = Fell(vec3(0.0), 1.0, CLOSE);
+    float start = 0.0;
+    float passed = -1.0;
+    float left = 1.0;
+
+    for (int layer = 0; layer < LAYERS; layer++) {
+        Hit h;
+
+        if (!nearest(from, way, start, FAR, MASK_SEEN | MASK_HIDDEN, width, SPREAD, passed, h)) {
+            break;
+        }
+        Surface found = surface(h, way, width + SPREAD * h.t);
+        bool blends = blending(found);
+
+        if ((found.flags & MAT_GLOW) != 0u) {
+            // an emissive material's emitting texels are lamps, which lamplit()
+            // samples, so they are left out here
+            vec3 its = found.color;
+
+            if ((found.flags & MAT_EMISSIVE) == 0u) {
+                its += found.emitted;
+            }
+
+            f.added += left * found.alpha * its * GLOW;
+        } else if (!blends && measured.enclosed < 1.0 && !prelit(found)) {
+            f.added += left * (1.0 - measured.enclosed) * found.color *
+                       sunlit(found, width + SPREAD * h.t);
+        }
+        if (!blends) {
+            f.open = 1.0 - left * (1.0 - opened(h.t));
+            f.near = min(h.t, CLOSE);
+            break;
+        }
+        // an additive surface transmits everything
+        if (((found.blend >> 3) & 7u) != FACTOR_ONE) {
+            left *= 1.0 - found.alpha;
+            if (left < 1.0 / 64.0) {
+                break;
+            }
+        }
+        start = restart(h.t, 0.0);
+        passed = past(h.t);
+    }
+    return f;
+}
+
+// a surface's ambient occlusion along way: opened() of the ray's first opaque
+// hit within CLOSE, or 1, and in near that hit's distance, or CLOSE
+float open_above(Surface s, vec3 way, out float near)
+{
+    vec3 from = lifted(s.at, s.face);
+    float start = 0.0;
+    float passed = -1.0;
+
+    near = CLOSE;
+    // a translucent surface occludes nothing
+    for (int layer = 0; layer < LAYERS; layer++) {
+        Hit h;
+
+        if (!nearest(from, way, start, CLOSE, MASK_SEEN | MASK_HIDDEN, 0.0, SPREAD, passed, h)) {
+            break;
+        }
+        if (!blending(surface(h, way, SPREAD * h.t))) {
+            near = h.t;
+            return opened(h.t);
+        }
+        start = restart(h.t, 0.0);
+        passed = past(h.t);
+    }
+    return 1.0;
+}
+
+// the overhead shadow: the share of light the objects over a surface leave on
+// it, which takes the place of the disc the game draws under an object. shadow
+// rays in a cone about UP test objects alone (MASK_OBJECT), never the scene, as
+// far as BELOW. a surface that faces away from UP is not shaded, and an
+// emitting texel blocks nothing. the cone is TAPS rays in a fixed pattern
+float under(Surface s, float width)
+{
+    float facing = dot(s.normal, UP);
+
+    if (facing <= 0.0 || dot(s.face, UP) <= 0.0) {
+        return 1.0;
+    }
+    vec3 from = lifted(s.at, s.face);
+    vec3 u = across(UP);
+    vec3 v = cross(UP, u);
+    // the noise rotates the pattern by pixel, which turns banding into fine
+    // grain
+    float noise = gradient_noise(vec2(gl_GlobalInvocationID.xy));
+    float covered = 0.0;
+
+    for (int i = 0; i < TAPS; i++) {
+        // a Vogel spiral, which covers the cone's disc evenly
+        float out_by = OVERHEAD * sqrt((float(i) + 0.5) / float(TAPS));
+        float turn = 6.2831853 * noise + float(i) * 2.39996323;
+        vec3 way = normalize(UP + out_by * (cos(turn) * u + sin(turn) * v));
+        rayQueryEXT q;
+
+        rayQueryInitializeEXT(q, world, gl_RayFlagsNoneEXT, MASK_OBJECT, from, 0.0, way, BELOW);
+        while (rayQueryProceedEXT(q)) {
+            if (candidate(q)) {
+                bool adds, blends;
+                float t = rayQueryGetIntersectionTEXT(q, false);
+                float a = covers(q, way, width + SPREAD * t, true, adds, blends);
+
+                if (!adds && a >= 0.5) {
+                    rayQueryConfirmIntersectionEXT(q);
+                }
+            }
+        }
+        if (!missed(q)) {
+            covered += 1.0 - smoothstep(0.75 * BELOW, BELOW, rayQueryGetIntersectionTEXT(q, true));
+        }
+    }
+    return 1.0 - (1.0 - SHADED) * min(facing * 2.0, 1.0) * covered / float(TAPS);
+}
+
+// the color in linear light of a translucent surface, or of one a reflection
+// ray hits: its palette shade, with the sun's part scaled by a shadow ray
+// toward the sun's center. no bounce ray, lamp or overhead shadow lights it
+vec3 lit_through(Surface s, float width)
+{
+    if ((s.flags & MAT_GLOW) != 0u || prelit(s)) {
+        return s.color + s.emitted;
+    }
+    vec3 to = rays.to_sun.xyz;
+    vec3 sun = s.sun;
+    vec3 ambient = s.ambient;
+
+    if (sun != vec3(0.0) && measured.enclosed < 1.0 && !s.own) {
+        sun *= mix(sun_reaches(s, to, width), 1.0, measured.enclosed);
+    }
+    return s.emitted + s.color * (ambient + sun);
+}
+
+// a PowerVR blend as two terms: for a source of color c and alpha a under the
+// blend how, the result is adds + keeps * the destination
+void blended(uint how, vec3 c, float a, out vec3 adds, out vec3 keeps)
+{
+    uint src = how & 7u;
+    uint dst = (how >> 3) & 7u;
+    vec3 held = clamp(c, 0.0, 1.0);
+    vec3 by = dst == 0u   ? vec3(0.0)
+              : dst == 1u ? vec3(1.0)
+              : dst == 2u ? held
+              : dst == 3u ? 1.0 - held
+              : dst == 4u ? vec3(a)
+              : dst == 5u ? vec3(1.0 - a)
+              : dst == 6u ? vec3(1.0)
+                          : vec3(0.0);
+
+    if (src == 2u) {
+        adds = vec3(0.0);
+        keeps = c + by;
+    } else if (src == 3u) {
+        adds = c;
+        keeps = by - c;
+    } else {
+        float scale = src == 0u   ? 0.0
+                      : src == 1u ? 1.0
+                      : src == 4u ? a
+                      : src == 5u ? 1.0 - a
+                      : src == 6u ? 1.0
+                                  : 0.0;
+
+        adds = c * scale;
+        keeps = by;
+    }
+}
+
+// the picture's background at a screen position, as display values: the color
+// of a ray that hits nothing
+vec3 background(vec2 screen)
+{
+    vec2 at = screen / vec2(640.0, 480.0);
+
+    vec3 across = (rays.back[1].rgb - rays.back[0].rgb) * at.x;
+    vec3 down = (rays.back[2].rgb - rays.back[0].rgb) * at.y;
+
+    return clamp(rays.back[0].rgb + across + down, 0.0, 1.0);
+}
+
+// the same in linear light, for a reflection ray
+vec3 beyond(vec2 screen)
+{
+    return linear(background(screen));
+}
+
+// the light a reflection ray returns, in linear light: lit_through() of its
+// first opaque hit, or the background, behind the translucent surfaces it
+// crosses. each of those adds alpha * its own lit_through() and transmits 1 -
+// alpha, or everything where it is additive
+vec3 reflected(vec3 from, vec3 way, float width, float widens, vec2 screen)
+{
+    vec3 seen = vec3(0.0);
+    float left = 1.0;
+    float start = 0.0;
+    float passed = -1.0;
+
+    for (int layer = 0; layer < LAYERS; layer++) {
+        Hit h;
+
+        if (!nearest(from, way, start, FAR, MASK_SEEN | MASK_HIDDEN | MASK_BACKDROP, width, widens,
+                     passed, h)) {
+            break;
+        }
+        float there = width + widens * h.t;
+        Surface found = surface(h, way, there);
+
+        if (!blending(found)) {
+            return seen + left * lit_through(found, there);
+        }
+        seen += left * found.alpha * lit_through(found, there);
+        if (((found.blend >> 3) & 7u) != FACTOR_ONE) {
+            left *= 1.0 - found.alpha;
+            if (left < 1.0 / 64.0) {
+                return seen;
+            }
+        }
+        start = restart(h.t, 0.0);
+        passed = past(h.t);
+    }
+    return seen + left * beyond(screen);
+}
+
+// the reflection in an environment-mapped surface: reflected() along the mirror
+// direction, tinted by the material's specular color
+vec3 mirrored(Surface s, vec3 d, vec2 screen, float width)
+{
+    vec3 way = reflect(normalize(d), s.normal);
+
+    // a direction behind the triangle is mirrored to its front
+    if (dot(way, s.face) < 0.0) {
+        way -= 2.0 * dot(way, s.face) * s.face;
+    }
+    // Schlick's approximation, with the tint as the reflectance at normal
+    // incidence
+    vec3 shows = mix(s.tint, vec3(1.0), pow(clamp(1.0 - dot(way, s.normal), 0.0, 1.0), 5.0));
+    // a curved mirror spreads one pixel's reflection rays by twice its
+    // curvature times the pixel's footprint on it (ray cones), so what it
+    // reflects is sampled over that spread and doesn't alias
+    float widens = min(slope + 2.0 * s.curvature * width, WIDEST);
+
+    return shows * reflected(lifted(s.at, s.face), way, width, widens, screen);
+}
+
+// a liquid's normal at a surface point: the surface's own, tilted by two pairs
+// of sine waves that move with the picture's time
+vec3 rippled(Surface s)
+{
+    // the waves' phases come from the position along two world axes, chosen by
+    // the triangle's facing, so the pattern is fixed in the world whatever the
+    // interpolated normal
+    vec3 f = abs(s.face);
+    vec3 first = f.x > f.y && f.x > f.z ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 second = f.z > f.x && f.z > f.y ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+    vec3 u = normalize(first - s.normal * dot(first, s.normal));
+    vec3 v = normalize(second - s.normal * dot(second, s.normal));
+    float t = rays.clock.x;
+    float a = dot(s.at, first);
+    float b = dot(s.at, second);
+    vec2 tilt = vec2(sin(a * 0.13 + b * 0.05 + t * 1.7) + 0.6 * sin(a * 0.31 - b * 0.22 - t * 2.3),
+                     sin(b * 0.11 - a * 0.07 + t * 1.3) + 0.6 * sin(b * 0.37 + a * 0.19 + t * 2.9));
+
+    return normalize(s.normal + RIPPLE * (tilt.x * u + tilt.y * v));
+}
+
+// the reflection in a liquid's surface, in linear light, and in share its
+// reflectance: Schlick's approximation from WET, held to DEEP. the sun's
+// reflection is added where the reflection ray points at the sun and a shadow
+// ray reaches it
+vec3 wet(Surface s, vec3 d, vec2 screen, float width, out float share)
+{
+    vec3 normal = rippled(s);
+    vec3 in_way = normalize(d);
+    vec3 way = reflect(in_way, normal);
+    vec3 from = lifted(s.at, s.face);
+
+    // a direction behind the triangle is mirrored to its front
+    if (dot(way, s.face) < 0.0) {
+        way -= 2.0 * dot(way, s.face) * s.face;
+    }
+    share = min(WET + (1.0 - WET) * pow(clamp(1.0 - dot(-in_way, normal), 0.0, 1.0), 5.0), DEEP);
+    // the ripples scatter one pixel's reflection rays, so the reflection ray's
+    // footprint grows at least as fast as they tilt the normal
+    float widens = max(slope, 2.0 * RIPPLE);
+
+    vec3 seen = reflected(from, way, width, widens, screen);
+    float toward = dot(way, rays.to_sun.xyz);
+
+    if (toward > 0.99) {
+        // the sun's color: the most the liquid's ramp holds above its SIDE
+        // entry
+        vec3 sun = max(linear(ramp(s.light, 0u, 0u)) - linear(ramp(s.light, SIDE, 0u)), 0.0);
+
+        seen += sun * SUN_IMAGE * pow(toward, 2048.0) *
+                reaches(from, rays.to_sun.xyz, FAR, width, false);
+    }
+    return seen;
+}
+
+// a surface's highlight as display values. reached, the sun's transmittance to
+// the surface, scales the share that comes from corners that face the light
+vec3 glint(Surface s, float reached)
+{
+    return s.highlight * mix(1.0, reached, s.facing);
+}
+
+// display color c under the picture's fog at view-space z t, where the
+// surface's draw is fogged
+vec3 fogged(Surface s, vec3 c, float t)
+{
+    return (s.drawn & RAY_FOG) != 0u ? mix(c, picture.fog_color.rgb, fog_alpha(1.0 / t)) : c;
+}
+
+// what walk() ends a camera ray on
+const int ENDS_ON_NOTHING = 0; // no surface: the layers hold the background
+const int ENDS_UNSHADED = 1; // an unlit opaque surface, which the layers hold
+const int ENDS_SHADED = 2; // an opaque surface to shade
+
+// follow a camera ray through the translucent surfaces it crosses to the first
+// opaque surface, which h and s return. each translucent surface is composed as
+// the rasterizer composes it: its display color, fogged at its own depth, under
+// its own blend. adds and keeps accumulate those layers, so that the pixel is
+// adds + keeps * the opaque surface's display color. an unlit surface or the
+// background ends the ray within the layers, with keeps 0
+int walk(vec3 eye, vec3 d, vec2 screen, float width, inout vec3 adds, inout vec3 keeps, out Hit h,
+         out Surface s)
+{
+    float from = 1.0;
+    float passed = -1.0;
+    bool wetted = false;
+
+    for (int layer = 0; layer < LAYERS; layer++) {
+        if (!nearest(eye, d, from, FAR, MASK_SEEN | MASK_BACKDROP, 0.0, width, passed, h)) {
+            break;
+        }
+        s = surface(h, d, width * h.t);
+        // only the first liquid surface along the ray reflects
+        if ((s.drawn & RAY_LIQUID) != 0u && !wetted) {
+            float share;
+            vec3 seen = displayed(wet(s, d, screen, width * h.t, share));
+
+            adds += keeps * share * seen;
+            keeps *= 1.0 - share;
+            wetted = true;
+        }
+        if (blending(s)) {
+            vec3 more, left;
+
+            vec3 color = fogged(s, displayed(lit_through(s, width * h.t)), h.t);
+
+            blended(s.blend, color, s.alpha, more, left);
+            adds += keeps * more;
+            keeps *= left;
+            from = restart(h.t, 1.0);
+            passed = past(h.t);
+            if (max(abs(keeps.r), max(abs(keeps.g), abs(keeps.b))) < 1.0 / 512.0) {
+                keeps = vec3(0.0);
+                return ENDS_ON_NOTHING;
+            }
+            continue;
+        }
+        if ((s.flags & MAT_GLOW) != 0u) {
+            // an unlit texel displays at its own value, with no tone mapping
+            adds += keeps * fogged(s, pow(s.color + s.emitted, vec3(1.0 / 2.2)), h.t);
+            keeps = vec3(0.0);
+            return ENDS_UNSHADED;
+        }
+        return ENDS_SHADED;
+    }
+    adds += keeps * background(screen);
+    keeps = vec3(0.0);
+    return ENDS_ON_NOTHING;
+}
+
+// the deterministic terms of an opaque surface's pixel: direct, its light apart
+// from indirect light, albedo, which scales the light added to it, ambient, its
+// ambient light at its albedo, which its occlusion scales, and highlight, as
+// display values
+struct Opaque {
+    vec3 direct;
+    vec3 albedo;
+    vec3 ambient;
+    vec3 highlight;
+    bool prelit;
+};
+
+Opaque opaque(Surface s, vec3 d, vec2 screen, float spread)
+{
+    Opaque o;
+    float enclosed = measured.enclosed;
+    vec3 to = rays.to_sun.xyz;
+    float reached = 1.0;
+    float below = 1.0; // the share of light the overhead shadow leaves
+    float sunlit = 0.0; // the share of sunlight the shadow ray found, 0 where fully enclosed
+    float mine = 1.0; // the share of the pixel that is the surface's own color, not its reflection
+
+    o.prelit = prelit(s);
+    o.direct = vec3(0.0);
+    o.highlight = vec3(0.0);
+    // a shadow ray toward the sun scales the sun's part of the shade, and
+    // counts for less the more enclosed the eye is. a prelit triangle that
+    // faces away from the sun keeps its shade
+    if (enclosed < 1.0 && !s.own) {
+        bool faces = dot(s.face, to) > 0.0;
+        float found = faces ? reaches(lifted(s.at, s.face), to, FAR, spread, false) : 0.0;
+
+        reached = mix(faces || !o.prelit ? found : 1.0, 1.0, enclosed);
+        sunlit = (1.0 - enclosed) * found;
+    }
+    // the overhead shadow applies as far as sunlight is missing
+    if (sunlit < 1.0 - 1.0 / 255.0) {
+        below = mix(1.0, under(s, spread), 1.0 - sunlit);
+    }
+    if ((s.flags & MAT_ENV) != 0u && (s.drawn & RAY_NORMALS) != 0u) {
+        // the angle one pixel's reflection rays span on a curved mirror. one
+        // ray can't sample a wide span, so the reflection fades out over
+        // SHARP to BLURRED and the surface keeps its environment map, which
+        // is the game's picture of a blurred reflection
+        float share = MIRROR * (1.0 - smoothstep(SHARP, BLURRED, 2.0 * s.curvature * spread));
+
+        if (share > 0.0) {
+            o.direct = share * mirrored(s, d, screen, spread);
+            mine = 1.0 - share;
+        }
+    } else if (!o.prelit && s.gloss != 0u) {
+        o.highlight = glint(s, reached) * below;
+    }
+    // emitted light is never shadowed. a prelit surface takes PRELIT_SHADE of
+    // its texel as the sun's part of its shade
+    vec3 direct = o.prelit ? vec3(PRELIT_SHADE) : s.sun;
+
+    o.direct += mine * (s.emitted + s.color * direct * reached * below);
+    o.albedo = mine * s.color * below;
+    // a prelit surface's ambient light is the rest of its texel
+    o.ambient = o.albedo * (o.prelit ? vec3(1.0 - PRELIT_SHADE) : s.ambient);
+    return o;
+}
+
+// the occlusion rays of one sample of a surface's surroundings
+const uint OPEN = 2u;
+
+// the nth sample of what an opaque surface's surroundings do to its light: the
+// occlusion of OPEN rays, the first of which is a bounce ray that also takes
+// the color of what it hits, plus the lamps' light. baked marks a prelit
+// surface, which takes no bounce
+Fell falls_on(Surface s, float spread, bool baked, uint nth)
+{
+    Fell f = Fell(vec3(0.0), 0.0, CLOSE);
+
+    for (uint k = 0u; k < OPEN; k++) {
+        vec3 way = way_above(s, stratified(nth * OPEN + k));
+
+        if (k == 0u && !baked) {
+            Fell found = around(s, way, spread);
+
+            f.added = found.added;
+            f.open += found.open;
+            f.near = found.near;
+        } else {
+            float near;
+
+            f.open += open_above(s, way, near);
+            f.near = min(f.near, near);
+        }
+    }
+    f.open /= float(OPEN);
+    f.added = min(f.added + lamplit(s, spread), vec3(MOST));
+    return f;
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+
+    if (pixel.x >= int(rays.size.x) || pixel.y >= int(rays.size.y)) {
+        return;
+    }
+    uint samples = max(rays.counts.z, 1u);
+    vec3 eye = vec3(rays.eye[0].w, rays.eye[1].w, rays.eye[2].w);
+    // a ray's footprint is a pixel of the target's, which sets the texture
+    // detail the antialiasing pass gathers over the pictures
+    float width = rays.shown.z / picture.project.x;
+    vec2 screen = (vec2(pixel) + 0.5 + rays.jitter.xy) * rays.size.zw;
+    vec3 d = rotate(rays.eye, vec3((screen - picture.project.zw) / picture.project.xy, 1.0));
+    vec4 out_direct = vec4(0.0); // alpha is 1 where the surface's draw is fogged
+    vec3 out_albedo = vec3(0.0);
+    vec4 out_ambient = vec4(0.0);
+    vec4 out_indirect = vec4(0.0);
+    vec3 out_highlight = vec3(0.0);
+    vec3 adds = vec3(0.0);
+    vec3 keeps = vec3(1.0);
+    vec4 surface_met = vec4(0.0);
+    vec4 step_back = vec4(0.0);
+    float z = 0.0;
+    Hit h;
+    Surface s;
+
+    slope = width;
+    seed = uint(pixel.x) * 1973u + uint(pixel.y) * 9277u + rays.counts.x * 26699u + 1u;
+    random();
+    offset = vec2(gradient_noise(vec2(pixel)), gradient_noise(vec2(pixel.yx) + vec2(31.0, 57.0)));
+    // one camera ray finds the pixel's surface, and the rays a pixel are
+    // samples of the surface's noisy terms
+    int ends = walk(eye, d, screen, width, adds, keeps, h, s);
+
+    if (ends == ENDS_SHADED) {
+        float spread = width * h.t;
+        Opaque o = opaque(s, d, screen, spread);
+        float near = CLOSE;
+
+        for (uint k = 0u; k < samples; k++) {
+            Fell f = falls_on(s, spread, o.prelit, rays.counts.x * samples + k);
+
+            out_indirect += vec4(f.added, f.open);
+            near = min(near, f.near);
+        }
+        out_indirect /= float(samples);
+        out_direct = vec4(o.direct, (s.drawn & RAY_FOG) != 0u ? 1.0 : 0.0);
+        out_albedo = o.albedo;
+        out_ambient = vec4(o.ambient, near);
+        out_highlight = o.highlight;
+    }
+    if (ends != ENDS_ON_NOTHING) {
+        z = h.t;
+        // an unlit surface has no indirect light, so the denoiser is told the
+        // pixel holds no surface
+        surface_met = vec4(folded(s.normal), min(h.t, FARTHEST), ends == ENDS_SHADED ? 1.0 : 0.0);
+        if ((s.drawn & RAY_NEW) == 0u) {
+            vec3 seen = transform(rays.before_view, s.before);
+
+            if (seen.z > 0.0) {
+                vec2 there = rays.before_project.zw + rays.before_project.xy * seen.xy / seen.z;
+                vec2 step = there / rays.size.zw - (vec2(pixel) + 0.5 + rays.jitter.xy);
+
+                // an offset past a 16-bit float's range is no motion vector,
+                // and a NaN fails the comparison
+                if (abs(step.x) < FARTHEST && abs(step.y) < FARTHEST) {
+                    step_back = vec4(step, min(seen.z, FARTHEST), 1.0);
+                }
+            }
+        }
+    }
+    imageStore(direct, pixel, out_direct);
+    imageStore(albedo, pixel, vec4(out_albedo, 0.0));
+    imageStore(indirect, pixel, out_indirect);
+    imageStore(ambient, pixel, out_ambient);
+    imageStore(motion, pixel, step_back);
+    imageStore(highlight, pixel, vec4(out_highlight, 0.0));
+    imageStore(layer_adds, pixel, vec4(adds, 0.0));
+    imageStore(layer_keeps, pixel, vec4(keeps, 0.0));
+    imageStore(depth, pixel, vec4(z));
+    if ((rays.counts.x & 1u) != 0u) {
+        imageStore(gbuffer[1], pixel, surface_met);
+    } else {
+        imageStore(gbuffer[0], pixel, surface_met);
+    }
+}

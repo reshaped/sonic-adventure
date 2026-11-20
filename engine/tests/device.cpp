@@ -72,6 +72,7 @@ void reset()
     device->most = {16384, 16384};
     device->follows = false;
     device->names.clear();
+    device->traces = false;
     device->lacks = nullptr;
     device->calls.clear();
     device->failed = nullptr;
@@ -259,7 +260,7 @@ bool submit(Run &run, int at, pc::Raster &raster, uint32_t frame,
     pc::PictureUniform picture{};
     bool sent = run.step(at, true, [&](std::string &why) {
         return raster.submit(frame, picture, 0xff102030, vertices, batches,
-                             sorted, why);
+                             sorted, nullptr, why);
     });
 
     run.held[frame] = run.held[frame] || sent;
@@ -422,6 +423,115 @@ void sized(Run &run)
     windowed(run, 0);
 }
 
+/* a mesh of one triangle for ray tracing, or 0 where the device refuses
+ * one */
+uint32_t mesh(Run &run, int at, pc::Raster &raster)
+{
+    static const float points[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
+    pc::RayMesh one;
+    uint32_t made = 0;
+
+    one.points = points;
+    one.count = 3;
+    one.corners = {0, 1, 2};
+    one.uv.assign(6, 0.0F);
+    one.materials = {0};
+    run.step(at, true, [&](std::string &why) {
+        made = raster.add_mesh(one, why);
+        return made != 0;
+    });
+    return made;
+}
+
+/* a traced picture of count instances of mesh, each under one material of
+ * texture, with a batch over it. a mesh of 0 gives a picture of no instance */
+bool trace(Run &run, int at, pc::Raster &raster, uint32_t frame, uint32_t mesh,
+           uint32_t texture, uint32_t count)
+{
+    static pc::RayPicture rays;
+    std::vector<pc::Vertex> vertices(3);
+    pc::PictureUniform picture{};
+    pc::RayMaterial material;
+    pc::RayInstance instance;
+
+    rays.clear();
+    material.texture = texture;
+    material.flags = texture != 0 ? SA_MAT_TEXTURE : 0;
+    rays.materials.push_back(material);
+    instance.mesh = mesh;
+    instance.flags = pc::RAY_SEEN | pc::RAY_OPAQUE;
+    instance.object_to_world[0] = instance.object_to_world[5] =
+        instance.object_to_world[10] = 1.0F;
+    rays.instances.assign(mesh != 0 ? count : 0, instance);
+    rays.lamps.assign(1, pc::RayLamp{{0, 0, 0}, 1.0F, {1, 1, 1}});
+    bool sent = run.step(at, true, [&](std::string &why) {
+        return raster.submit(frame, picture, 0xff102030, vertices,
+                             {batch(0, 1, texture, BILINEAR, false)}, true,
+                             &rays, why);
+    });
+
+    run.held[frame] = run.held[frame] || sent;
+    return sent;
+}
+
+/* a raster that traces, on a device that can. its meshes are built in a
+ * load, and one is freed while its load records. two traced pictures are in
+ * flight at once. one holds more instances than the top-level structure has
+ * room for, which is then made again, and one holds none. a rasterized
+ * picture comes between traced ones. a mesh and a texture a picture named
+ * are freed, and a texture takes the freed one's index */
+void traced(Run &run)
+{
+    static const pc::Image small = image_of(8, 8);
+    pc::Raster raster;
+    pc::RasterOptions options;
+
+    device->traces = true;
+    options.frames = 2;
+    options.rays = true;
+    if (!run.step(__LINE__, false, [&](std::string &why) {
+            return raster.open(options, why);
+        })) {
+        return;
+    }
+    if (!raster.traces()) {
+        run.breaks(__LINE__, "a raster opened with rays doesn't trace");
+        return;
+    }
+    uint32_t first = texture(run, __LINE__, raster, small);
+    uint32_t one = mesh(run, __LINE__, raster);
+    uint32_t dropped = mesh(run, __LINE__, raster);
+
+    if (dropped != 0) {
+        run.quiet([&]() { raster.free_mesh(dropped); });
+    }
+    trace(run, __LINE__, raster, 0, one, first, 1);
+    trace(run, __LINE__, raster, 1, one, first, 2);
+    retire(run, __LINE__, raster, 0);
+    trace(run, __LINE__, raster, 0, one, first, 1500);
+    uint32_t two = mesh(run, __LINE__, raster);
+
+    retire(run, __LINE__, raster, 1);
+    submit(run, __LINE__, raster, 1, 1, {batch(0, 1, first, BILINEAR, false)},
+           true);
+    retire(run, __LINE__, raster, 0);
+    trace(run, __LINE__, raster, 0, two, first, 3);
+    retire(run, __LINE__, raster, 1);
+    trace(run, __LINE__, raster, 1, 0, 0, 0);
+    retire(run, __LINE__, raster, 0);
+    retire(run, __LINE__, raster, 1);
+    if (one != 0) {
+        run.quiet([&]() { raster.free_mesh(one); });
+    }
+    if (first != 0) {
+        run.quiet([&]() { raster.free_texture(first); });
+    }
+    uint32_t second = texture(run, __LINE__, raster, small);
+
+    trace(run, __LINE__, raster, 0, two, second, 1);
+    retire(run, __LINE__, raster, 0);
+}
+
 /* a raster opened once the last has ended draws */
 void after(Run &run)
 {
@@ -561,10 +671,12 @@ int outgrown()
         device->fail_name = call;
         device->fail_nth = 1;
         device->fail_result = result;
-        return raster.submit(0, picture, 0, vertices, batches, true, why) &&
+        return raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                             why) &&
                made("vkCreateSwapchainKHR") == swapchains &&
                made("vkQueuePresentKHR") == shown &&
-               raster.submit(0, picture, 0, vertices, batches, true, why) &&
+               raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                             why) &&
                made("vkCreateSwapchainKHR") == swapchains &&
                made("vkQueuePresentKHR") == shown + 1;
     };
@@ -657,14 +769,16 @@ int surfaced()
         CHECK(raster.open(options, why));
         for (const auto &each : EXTENTS) {
             window = {each.window.width, each.window.height};
-            CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+            CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                                why));
             CHECK(device->swapchain.imageExtent.width == each.taken.width &&
                   device->swapchain.imageExtent.height == each.taken.height);
         }
         uint32_t swapchains = made("vkCreateSwapchainKHR");
 
         window = {0, 0};
-        CHECK(raster.submit(0, picture, 0, vertices, batches, true, why) &&
+        CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                            why) &&
               made("vkCreateSwapchainKHR") == swapchains);
     }
     CHECK(device->faults == 0 && device->live == 0);
@@ -735,7 +849,8 @@ int sampling()
         for (uint32_t sample = 0; sample < 1024; sample++) {
             batches.push_back(batch(sample, 1, first, sample, false));
         }
-        CHECK(raster.submit(0, picture, 0, vertices, batches, false, why));
+        CHECK(raster.submit(0, picture, 0, vertices, batches, false, nullptr,
+                            why));
         CHECK(made("vkCreateSampler") == 432 && device->draws.size() == 1024);
         /* each filter at each adjust, then bilinear at each edge, then the
          * other texture: no sampler more */
@@ -751,7 +866,8 @@ int sampling()
             batches.push_back(batch(0, 1, first, BILINEAR | edge, false));
         }
         batches.push_back(batch(0, 1, second, BILINEAR, false));
-        CHECK(raster.submit(0, picture, 0, vertices, batches, false, why));
+        CHECK(raster.submit(0, picture, 0, vertices, batches, false, nullptr,
+                            why));
         CHECK(made("vkCreateSampler") == 432 &&
               device->draws.size() == batches.size());
         const TestDraw *draw = device->draws.data();
@@ -798,14 +914,14 @@ int counted()
     CHECK(raster.open(options, why));
     device->shaded = [](uint32_t *head) { head[2] += 5; };
     device->resolved = [](uint32_t *head) { head[3] += 7; };
-    CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+    CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr, why));
     raster.wait(0);
     CHECK(raster.lost(0) == 10 && raster.cut(0) == 7);
-    CHECK(raster.submit(1, picture, 0, vertices, batches, false, why));
+    CHECK(raster.submit(1, picture, 0, vertices, batches, false, nullptr, why));
     raster.wait(1);
     CHECK(raster.lost(1) == 10 && raster.cut(1) == 0);
     device->shaded = nullptr;
-    CHECK(raster.submit(1, picture, 0, vertices, batches, true, why));
+    CHECK(raster.submit(1, picture, 0, vertices, batches, true, nullptr, why));
     raster.wait(1);
     CHECK(raster.lost(1) == 0 && raster.cut(1) == 7);
     /* the first frame's picture keeps its own */
@@ -835,7 +951,8 @@ int budgeted()
         pc::RasterOptions options;
 
         CHECK(raster.open(options, why));
-        CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+        CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                            why));
         raster.wait(0);
         CHECK(capacity == 8191);
     }
@@ -867,12 +984,14 @@ int unshown()
         CHECK(raster.open(options, why));
         device->fail_name = "vkQueuePresentKHR";
         device->fail_nth = 1;
-        CHECK(!raster.submit(0, picture, 0, vertices, batches, true, why) &&
+        CHECK(!raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                             why) &&
               why.find("vkQueuePresentKHR") != std::string::npos);
         std::string first = why;
 
         why.clear();
-        CHECK(!raster.submit(1, picture, 0, vertices, batches, true, why) &&
+        CHECK(!raster.submit(1, picture, 0, vertices, batches, true, nullptr,
+                             why) &&
               why == first);
         why.clear();
         CHECK(raster.add_texture(small, why) == 0 && why == first);
@@ -914,14 +1033,17 @@ int given()
         options.readback = true;
         CHECK(raster.open(options, why));
         CHECK(none(0) && none(1));
-        CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+        CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                            why));
         raster.wait(0);
         CHECK(raster.done(0) && gives(0) && none(1));
         device->fail_name = "vkCreateGraphicsPipelines";
         device->fail_nth = 1;
-        CHECK(!raster.submit(0, picture, 0, vertices, culled, true, why));
+        CHECK(!raster.submit(0, picture, 0, vertices, culled, true, nullptr,
+                             why));
         CHECK(none(0));
-        CHECK(raster.submit(0, picture, 0, vertices, culled, true, why));
+        CHECK(
+            raster.submit(0, picture, 0, vertices, culled, true, nullptr, why));
         raster.wait(0);
         CHECK(raster.done(0) && gives(0));
     }
@@ -956,7 +1078,8 @@ int timed()
             pc::RasterOptions options;
 
             CHECK(raster.open(options, why));
-            CHECK(raster.submit(0, picture, 0, vertices, batches, true, why));
+            CHECK(raster.submit(0, picture, 0, vertices, batches, true, nullptr,
+                                why));
             raster.wait(0);
             CHECK(raster.gpu_ns(0) == 1000);
         }
@@ -992,15 +1115,15 @@ int starved()
             std::vector<pc::Batch> batches = {
                 batch(0, 1, texture, BILINEAR, true)};
 
-            CHECK(texture != 0 &&
-                  raster.submit(0, picture, 0, vertices, batches, true, why));
+            CHECK(texture != 0 && raster.submit(0, picture, 0, vertices,
+                                                batches, true, nullptr, why));
             device->fail_name = "vkWaitForFences";
             device->fail_nth = 1;
             device->fail_run = 1000;
             device->fail_result = VK_ERROR_OUT_OF_HOST_MEMORY;
             if (submits) {
                 CHECK(!raster.submit(0, picture, 0, vertices, batches, true,
-                                     why));
+                                     nullptr, why));
             } else {
                 raster.wait(0);
             }
@@ -1008,7 +1131,8 @@ int starved()
             CHECK(device->fail_nth == 1);
             raster.free_texture(texture);
             why.clear();
-            CHECK(!raster.submit(0, picture, 0, vertices, batches, true, why) &&
+            CHECK(!raster.submit(0, picture, 0, vertices, batches, true,
+                                 nullptr, why) &&
                   why.find("vkWaitForFences") != std::string::npos);
             CHECK(raster.add_texture(small, why) == 0);
             CHECK(!raster.read(0, rgba) && raster.lost(0) == 0 &&
@@ -1045,7 +1169,8 @@ int unsettled()
             pc::RasterOptions options;
 
             sent = raster.open(options, why) &&
-                   raster.submit(0, picture, 0, vertices, batches, true, why);
+                   raster.submit(0, picture, 0, vertices, batches, true,
+                                 nullptr, why);
             device->fail_name = "vkDeviceWaitIdle";
             device->fail_nth = 1;
             device->fail_run = 1000;
@@ -1091,6 +1216,46 @@ int reused()
 
 /* a raster opens once. a second open is refused and makes no call, whether
  * the first failed or took. what the first made ends with the raster */
+/* a raster opened with rays on a device that can't trace opens all the
+ * same and rasterizes. it holds no mesh for ray tracing and refuses a traced
+ * picture, each with a reason, and a picture without one draws as ever */
+int untraced()
+{
+    std::string why;
+
+    reset();
+    {
+        pc::Raster raster;
+        pc::RasterOptions options;
+        pc::RayMesh mesh;
+        pc::RayPicture traced;
+        pc::PictureUniform picture{};
+        std::vector<pc::Vertex> vertices(3);
+        std::vector<pc::Batch> batches(1);
+        const float points[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
+
+        options.rays = true;
+        CHECK(raster.open(options, why) && !raster.traces());
+        mesh.points = points;
+        mesh.count = 3;
+        mesh.corners = {0, 1, 2};
+        mesh.uv.assign(6, 0.0F);
+        mesh.materials = {0};
+        why.clear();
+        CHECK(raster.add_mesh(mesh, why) == 0 && !why.empty());
+        batches[0].count = 3;
+        traced.clear();
+        why.clear();
+        CHECK(!raster.submit(0, picture, 0xff102030, vertices, batches, true,
+                             &traced, why) &&
+              !why.empty());
+        CHECK(raster.submit(0, picture, 0xff102030, vertices, batches, true,
+                            nullptr, why));
+    }
+    CHECK(device->faults == 0 && device->live == 0);
+    return 0;
+}
+
 int reopened()
 {
     for (bool fails : {true, false}) {
@@ -1180,6 +1345,7 @@ int failing()
         failures += sweep("headless", headless, loss);
         failures += sweep("a window fitted", fitted, loss);
         failures += sweep("a window sized", sized, loss);
+        failures += sweep("traced", traced, loss);
     }
     if (failures != 0) {
         fprintf(stderr, "device: %d failing calls leave the raster wrong\n",
@@ -1228,6 +1394,9 @@ int main()
         line = reused();
     }
     if (line == 0) {
+        line = untraced();
+    }
+    if (line == 0) {
         line = reopened();
     }
     if (line == 0) {
@@ -1250,7 +1419,9 @@ int main()
     }
 
     if (line != 0) {
-        fprintf(stderr, "device: line %d\n", line);
+        fprintf(stderr, "device: line %d%s%s\n", line,
+                device->faults != 0 ? ": the device faults: " : "",
+                device->fault);
     }
     return line != 0;
 }

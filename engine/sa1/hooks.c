@@ -2,7 +2,8 @@
  * dc takes from the Dreamcast engine. the PC has no pillarbox, so
  * port_pillarbox stays FALSE. where the game holds the window at 4:3, the
  * picture is 4:3 too. the PC's window then bands it. src/system/pace.c
- * defines the window */
+ * defines the window. port_band is ninja.c's, beside the 2D polygon's
+ * record */
 #include <ninja.h>
 
 #include "draw/model.h"
@@ -43,28 +44,6 @@ Int port_wide_covers(const Float *x, Int count, Int stride)
         }
     }
     return left && right;
-}
-
-void port_band(Float x0, Float y0, Float x1, Float y1, Uint32 color, Float pri,
-               Uint32 attr)
-{
-    NJS_POINT2 points[4];
-    NJS_COLOR colors[4];
-    NJS_POINT2COL band;
-    int i;
-
-    points[0].x = points[3].x = x0;
-    points[1].x = points[2].x = x1;
-    points[0].y = points[1].y = y0;
-    points[2].y = points[3].y = y1;
-    for (i = 0; i < 4; i++) {
-        colors[i].color = color;
-    }
-    band.p = points;
-    band.col = colors;
-    band.tex = NULL;
-    band.num = 4;
-    njDrawPolygon2D(&band, 4, pri, attr);
 }
 
 void wide_apply(void)

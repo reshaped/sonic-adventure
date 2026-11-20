@@ -9,6 +9,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <algorithm>
+#include <map>
 #include <new>
 #include <string>
 #include <type_traits>
@@ -32,6 +34,7 @@ struct Resource {
     const sa_material *materials = nullptr;
     uint32_t material_count = 0;
     uint32_t texture = 0; /* the raster's */
+    bool refused = false; /* the raster refused its mesh for ray tracing */
 };
 
 /* a release on its way to SA_EVENT_RETIRED: once serial has retired */
@@ -39,6 +42,16 @@ struct Retiring {
     sa_handle handle;
     uint64_t serial;
     uint32_t texture;
+    uint32_t mesh; /* the raster's mesh for ray tracing, or 0 */
+};
+
+/* a part of the act's scene, kept for ray tracing: the draw that last gave
+ * or drew it, in the game's view or out of it, and that draw's shade. a
+ * traced picture that leaves the part out still gives it to shadow, bounce
+ * and reflection rays */
+struct Part {
+    sa_draw draw;
+    sa_shade shade;
 };
 
 /* a picture in flight, by its arena's slot */
@@ -73,6 +86,29 @@ struct Backend {
     pc::World world;
     pc::Scene between;
     uint32_t rate = 0; /* sa_pc_options.rate, in thousandths of a hertz */
+    /* the rays a pixel of a traced picture, or 0 where every picture is
+     * rasterized */
+    uint32_t rays = 0;
+    bool traces = false; /* whether the device traces */
+    uint32_t rays_asked = 0; /* the count F10 turns ray tracing back on to */
+    /* the window's title as it was asked. on a device that traces, the
+     * title shown adds whether ray tracing is on */
+    std::string title;
+    /* pairs each traced picture with the traced picture sent before it */
+    pc::RayPast past;
+    /* the lamps of the draws a traced picture lacks, which both scenes
+     * hold and the game's own pictures teach */
+    pc::LampMemory lamps;
+    /* on a device that traces, each raster texture's colors, by its index,
+     * as Scene::open takes them */
+    std::vector<pc::TextureColors> colors;
+    /* on a device that traces, the parts of the scene that stays, by their
+     * instance. they are kept while ray tracing is off too, so that turning
+     * it on again finds the act whole */
+    std::map<uint32_t, Part> parts;
+    /* the open picture has the parts it left out, which sa_present_end gives
+     * it once however often the call is made */
+    bool parts_hidden = false;
     double per_step = 0; /* the display's pictures a step of the game */
     double owed = 0; /* the display's pictures the steps so far owe */
     uint32_t shown = 1; /* for the picture last ended */
@@ -104,8 +140,9 @@ struct Backend {
     uint32_t light_count = 0;
     /* the scene's index of the open picture's view each id names, or
      * NO_VIEW. id 0 names the picture's own. the picture is drawn in the
-     * space of the view its first draw names, the scene's home. a draw
-     * under another view is carried into the home */
+     * space of the scene's home: the view its first draw names, or a traced
+     * picture's own view. a draw under another view is carried into the
+     * home */
     uint32_t views[SA_VIEWS + 1] = {};
     uint32_t home = 0;
     bool homed = false;
@@ -192,6 +229,9 @@ void collect(sa_engine &engine)
         }
         if (r.texture != 0) {
             b.raster.free_texture(r.texture);
+        }
+        if (r.mesh != 0) {
+            b.raster.free_mesh(r.mesh);
         }
         post(engine, SA_EVENT_RETIRED, r.handle, 0, engine.tick);
         b.retiring_first = (b.retiring_first + 1) % engine.desc.events;
@@ -308,27 +348,41 @@ const sa_lights *lights_of(const Backend &b, uint32_t shade)
     return nullptr;
 }
 
+/* the scene's index of the open picture's home, where first is the view
+ * the first record of a call names: the home the picture has, or the one
+ * that call gives it. a traced picture's home is its own view, as
+ * sa_engine.h says of a backend that makes a picture of its own. the trace
+ * pass takes the home's space for the game's world, whose y is up and in
+ * which the parts a picture leaves out stand. another picture's home is the
+ * view its first record names */
+uint32_t home_of(const Backend &b, uint32_t first)
+{
+    if (b.homed) {
+        return b.home;
+    }
+    return b.scene.traces() ? 0 : b.views[first];
+}
+
 /* first is the view the first record of the call names. it and id must be
  * views the picture has. a record placed in the world needs the scene to
- * carry its view into the home. before the picture's first draw, first
- * names the home */
+ * carry its view into the home */
 sa_result check_view(const Backend &b, uint32_t id, uint32_t first, bool places)
 {
     if (id > SA_VIEWS || b.views[id] == NO_VIEW || first > SA_VIEWS ||
         b.views[first] == NO_VIEW) {
         return SA_ERR_HANDLE;
     }
-    return !places || b.scene.carries(b.homed ? b.home : b.views[first],
-                                      b.views[id])
+    return !places || b.scene.carries(home_of(b, first), b.views[id])
                ? SA_OK
                : SA_ERR_INVALID;
 }
 
-/* the view the picture's first draw names becomes the scene's home */
+/* the picture's first record, which names view id, gives the scene its
+ * home */
 void take_home(Backend &b, uint32_t id)
 {
     if (!b.homed) {
-        b.home = b.views[id];
+        b.home = home_of(b, id);
         b.homed = true;
         b.scene.home(b.home);
     }
@@ -357,6 +411,33 @@ sa_result draw_mesh(sa_engine &engine, const sa_draw &d, pc::MeshView &mesh)
     return SA_OK;
 }
 
+/* the raster's mesh, for ray tracing, of the resource a draw names. the
+ * raster takes the mesh the first time a draw names it, and holds it until
+ * the resource retires. 0 where the draw's mesh is a payload's, or the
+ * device refuses the mesh, which then says so once and is rasterized */
+uint32_t ray_mesh_of(sa_engine &engine, const sa_draw &d)
+{
+    Backend &b = backend(engine);
+    Resource *r =
+        d.mesh != SA_NULL ? live(engine, d.mesh, SA_KIND_MESH) : nullptr;
+
+    if (r == nullptr || r->refused) {
+        return 0;
+    }
+    if (r->mesh.rays == 0) {
+        pc::RayMesh mesh;
+        std::string why;
+
+        pc::ray_mesh(r->mesh, mesh);
+        r->mesh.rays = b.raster.add_mesh(mesh, why);
+        if (r->mesh.rays == 0) {
+            fprintf(stderr, "engine: %s\n", why.c_str());
+            r->refused = true;
+        }
+    }
+    return r->mesh.rays;
+}
+
 /* check a part's names before any part given with it is taken. its mesh
  * and materials must be live, and its shade one the open scene has */
 sa_result check_part(sa_engine &engine, const sa_draw &d, pc::MeshView &mesh,
@@ -364,9 +445,8 @@ sa_result check_part(sa_engine &engine, const sa_draw &d, pc::MeshView &mesh,
 {
     Backend &b = backend(engine);
 
-    if ((d.instance & (SA_INSTANCE_UNOWNED | SA_INSTANCE_SCENE)) !=
-            SA_INSTANCE_SCENE ||
-        d.payload != SA_NO_PAYLOAD || !all_finite(d.object_to_world)) {
+    if (!pc::of_scene(d.instance) || d.payload != SA_NO_PAYLOAD ||
+        !all_finite(d.object_to_world)) {
         return SA_ERR_INVALID;
     }
     Resource *r = live(engine, d.mesh, SA_KIND_MESH);
@@ -424,22 +504,94 @@ sa_result check_draw(sa_engine &engine, const sa_draw &d, pc::MeshView &mesh,
                : SA_ERR_HANDLE;
 }
 
+/* give scene, which holds a traced picture, each of the act's parts that it was
+ * given no draw of, placed where the part's last draw put it. no camera ray
+ * hits them. such a part goes under the picture's own view, so it is where the
+ * game's world has it. a part the picture draws under another view is carried
+ * to the home, so the two line up only where that view has the picture's own
+ * matrix. a part whose mesh or materials were freed is dropped */
+void hide_parts(sa_engine &engine, pc::Scene &scene)
+{
+    Backend &b = backend(engine);
+
+    for (auto at = b.parts.begin(); at != b.parts.end();) {
+        Part &part = at->second;
+        Resource *mesh = live(engine, part.draw.mesh, SA_KIND_MESH);
+        Resource *materials =
+            live(engine, part.draw.materials, SA_KIND_MATERIAL);
+        uint32_t textures[MOST_MATERIALS];
+
+        if (mesh == nullptr || materials == nullptr ||
+            materials->material_count < mesh->mesh.materials ||
+            !textures_live(engine, materials->materials,
+                           materials->material_count)) {
+            at = b.parts.erase(at);
+            continue;
+        }
+        ++at;
+        if (scene.holds(part.draw.instance) || mesh->mesh.triangles == 0) {
+            continue;
+        }
+        pc::MeshView view = mesh->mesh;
+
+        view.rays = ray_mesh_of(engine, part.draw);
+        for (uint32_t k = 0; k < materials->material_count; k++) {
+            texture_of(engine, materials->materials[k].texture, textures[k]);
+        }
+        scene.hidden(part.draw, view, materials->materials, textures,
+                     part.shade, 0);
+    }
+}
+
+/* trace the pictures from the next one with rays rays a pixel, or rasterize
+ * them where rays is 0. the first traced picture after a change reuses nothing
+ * of the pictures before it */
+void take_rays(Backend &b, uint32_t rays)
+{
+    b.rays = rays;
+    b.scene.trace(rays);
+    b.between.trace(rays);
+    b.past.forget();
+    b.lamps.forget();
+    if (b.traces) {
+        pc::window_title(
+            b.window,
+            (b.title + (rays != 0 ? " (rays on)" : " (rays off)")).c_str());
+    }
+}
+
+/* send scene's finished picture to the raster's frame. a traced picture is
+ * paired with the traced picture sent before it, and is the one the next
+ * pairs with once the device has taken it. it prints why the device refuses
+ * a picture */
+bool send(Backend &b, uint32_t frame, pc::Scene &scene)
+{
+    pc::PictureUniform uniform;
+    std::string why;
+
+    scene.uniform(uniform);
+    scene.pair(b.past);
+    if (!b.raster.submit(frame, uniform, scene.clear_color(), scene.vertices(),
+                         scene.batches(), scene.sorted(), scene.ray_picture(),
+                         why)) {
+        fprintf(stderr, "engine: %s\n", why.c_str());
+        return false;
+    }
+    if (scene.traces()) {
+        b.past.keep();
+    }
+    return true;
+}
+
 /* draw and send picture index of those shown for the picture last ended.
  * the last is the picture itself, and each before it is a picture between */
 bool show(sa_engine &engine, uint32_t index)
 {
     Backend &b = backend(engine);
-    std::string why;
     uint64_t began = now_ns();
 
     if (index + 1 == b.shown) {
-        pc::PictureUniform uniform;
-
-        b.scene.uniform(uniform);
-        if (!b.raster.submit(b.show_slot, uniform, b.scene.clear_color(),
-                             b.scene.vertices(), b.scene.batches(),
-                             b.scene.sorted(), why)) {
-            fprintf(stderr, "engine: %s\n", why.c_str());
+        if (!send(b, b.show_slot, b.scene)) {
             return false;
         }
         b.flights[b.show_slot].ended = true;
@@ -448,8 +600,7 @@ bool show(sa_engine &engine, uint32_t index)
     }
     uint32_t room = engine.desc.pictures +
                     static_cast<uint32_t>(b.between_made++ % BETWEEN_ROOMS);
-    const pc::Scene *scene = &b.between;
-    pc::PictureUniform made;
+    pc::Scene *scene = &b.between;
 
     b.raster.wait(room);
     /* the display never shows part of a picture. where the render-owned
@@ -463,11 +614,15 @@ bool show(sa_engine &engine, uint32_t index)
         if (b.full == 0) {
             b.full = SA_PC_FULL_BETWEEN;
         }
+    } else {
+        /* a traced picture between takes the parts it left out before it is
+         * finished, as the game's own does */
+        if (b.between.traces()) {
+            hide_parts(engine, b.between);
+        }
+        b.between.finish();
     }
-    scene->uniform(made);
-    if (!b.raster.submit(room, made, scene->clear_color(), scene->vertices(),
-                         scene->batches(), scene->sorted(), why)) {
-        fprintf(stderr, "engine: %s\n", why.c_str());
+    if (!send(b, room, *scene)) {
         return false;
     }
     b.between_room[index] = room;
@@ -513,6 +668,67 @@ bool show_due(sa_engine &engine, uint64_t until)
         b.show_next++;
     }
     return true;
+}
+
+/* an image's mean color, ARGB. its alpha is the mean of its texels' own,
+ * and each texel counts toward its color by its alpha */
+uint32_t mean_color(const pc::Image &image)
+{
+    uint64_t sum[4] = {};
+    size_t texels = image.rgba.size() / 4;
+
+    for (size_t i = 0; i < texels; i++) {
+        const uint8_t *texel = &image.rgba[i * 4];
+
+        for (int k = 0; k < 3; k++) {
+            sum[k] += static_cast<uint64_t>(texel[k]) * texel[3];
+        }
+        sum[3] += texel[3];
+    }
+    if (texels == 0 || sum[3] == 0) {
+        return 0;
+    }
+    return static_cast<uint32_t>(sum[3] / texels) << 24 |
+           static_cast<uint32_t>(sum[0] / sum[3]) << 16 |
+           static_cast<uint32_t>(sum[1] / sum[3]) << 8 |
+           static_cast<uint32_t>(sum[2] / sum[3]);
+}
+
+/* an image's emission under an emissive material, as TextureColors holds
+ * it: the mean color of its bright texels, each counted by how far its
+ * brightest channel lies from EMISSIVE_DIM to EMISSIVE_LIT and by its alpha,
+ * with the share of the image they cover in the high byte. trace.comp
+ * weighs a texel the same way */
+uint32_t emission_color(const pc::Image &image)
+{
+    double sum[3] = {};
+    double bright = 0.0;
+    size_t texels = image.rgba.size() / 4;
+
+    for (size_t i = 0; i < texels; i++) {
+        const uint8_t *texel = &image.rgba[i * 4];
+        float peak =
+            static_cast<float>(std::max({texel[0], texel[1], texel[2]})) /
+            255.0F;
+        float t = std::clamp((peak - pc::EMISSIVE_DIM) /
+                                 (pc::EMISSIVE_LIT - pc::EMISSIVE_DIM),
+                             0.0F, 1.0F);
+        double gives = t * t * (3.0 - 2.0 * t) * texel[3] / 255.0;
+
+        for (int k = 0; k < 3; k++) {
+            sum[k] += texel[k] * gives;
+        }
+        bright += gives;
+    }
+    if (texels == 0 || bright <= 0.0) {
+        return 0;
+    }
+    uint32_t share = static_cast<uint32_t>(std::clamp(
+        bright / static_cast<double>(texels) * 255.0 + 0.5, 1.0, 255.0));
+
+    return share << 24 | static_cast<uint32_t>(sum[0] / bright) << 16 |
+           static_cast<uint32_t>(sum[1] / bright) << 8 |
+           static_cast<uint32_t>(sum[2] / bright);
 }
 
 /* a PVR's bytes, a GBIX chunk before its PVRT or not, as RGBA */
@@ -577,7 +793,10 @@ sa_result backend_create(sa_engine &engine)
     auto *bytes = static_cast<uint8_t *>(engine.backend);
     std::string why;
 
-    if (engine.desc.resources == 0) {
+    if (engine.desc.resources == 0 || options->rays > SA_PC_PIXEL_RAYS ||
+        !(options->render_scale == 0.0F ||
+          (options->render_scale >= SA_PC_RENDER_SCALE_LEAST &&
+           options->render_scale <= 1.0F))) {
         return SA_ERR_INVALID;
     }
     auto *made = new (bytes) Backend();
@@ -626,6 +845,11 @@ sa_result backend_create(sa_engine &engine)
     raster.vsync = (options->flags & SA_PC_NO_VSYNC) == 0;
     raster.readback = (options->flags & SA_PC_READBACK) != 0;
     raster.resolution = options->resolution;
+    raster.rays = options->rays != 0;
+    raster.render_scale =
+        options->render_scale != 0.0F ? options->render_scale : 1.0F;
+    made->title =
+        options->title != nullptr ? options->title : "Sonic Adventure";
     if (options->flags & SA_PC_WINDOW) {
         uint32_t scale = options->scale != 0 ? options->scale : 2;
         pc::Image icon;
@@ -633,8 +857,7 @@ sa_result backend_create(sa_engine &engine)
                         pvr_file(options->icon, options->icon_bytes, icon);
 
         made->window = pc::window_open(
-            options->title != nullptr ? options->title : "Sonic Adventure",
-            SA_PC_WIDTH * scale, SA_PC_HEIGHT * scale,
+            made->title.c_str(), SA_PC_WIDTH * scale, SA_PC_HEIGHT * scale,
             options->flags & (SA_PC_FULLSCREEN | SA_PC_EXCLUSIVE),
             options->settings, has_icon ? &icon : nullptr, why);
         if (made->window == nullptr) {
@@ -653,9 +876,19 @@ sa_result backend_create(sa_engine &engine)
         pc::window_close(window);
         return SA_ERR_UNSUPPORTED;
     }
-    made->scene.open(options->blend);
+    made->scene.open(options->blend, &made->colors);
+    made->scene.remember(&made->lamps, true);
+    made->between.remember(&made->lamps, false);
+    if (options->rays != 0 && !made->raster.traces()) {
+        fprintf(stderr,
+                "engine: %s can't ray trace, so pictures are rasterized\n",
+                made->raster.device_name().c_str());
+    }
+    made->traces = made->raster.traces();
+    made->rays_asked = made->traces ? options->rays : 0;
+    take_rays(*made, made->rays_asked);
     if (made->rate != 0) {
-        made->between.open(options->blend);
+        made->between.open(options->blend, &made->colors);
         /* a release holds an event until it retires. one made while a
          * picture is open retires after it. desc.events thus bounds a
          * picture's releases */
@@ -892,6 +1125,13 @@ sa_result sa_resource_create(sa_engine *engine, const sa_resource_desc *desc,
             engine->event_reserved--;
             return SA_ERR_FULL;
         }
+        /* only a traced picture reads a texture's colors */
+        if (b.traces) {
+            if (b.colors.size() <= made.texture) {
+                b.colors.resize(made.texture + 1);
+            }
+            b.colors[made.texture] = {mean_color(image), emission_color(image)};
+        }
     }
     b.resources[engine->resources.find(handle)] = made;
     *resource = handle;
@@ -917,8 +1157,9 @@ sa_result sa_resource_release(sa_engine *engine, sa_handle resource)
      * under a rate it waits one picture more, for the pictures between.
      * each release holds the event sa_resource_create reserved for it. the
      * ring has a place for each event, so it can't fill */
-    b.retiring[at] = Retiring{resource, b.opened + (b.rate != 0 ? 1 : 0),
-                              b.resources[slot].texture};
+    b.retiring[at] =
+        Retiring{resource, b.opened + (b.rate != 0 ? 1 : 0),
+                 b.resources[slot].texture, b.resources[slot].mesh.rays};
     if (b.rate != 0) {
         b.world.released(
             resource, kind == SA_KIND_TEXTURE ? b.resources[slot].texture : 0);
@@ -942,6 +1183,9 @@ sa_result sa_present_begin(sa_engine *engine, const sa_picture *picture)
      * that picture's aspect */
     if (!show_due(*engine, UINT64_MAX)) {
         return SA_ERR_UNSUPPORTED;
+    }
+    if (b.traces && pc::window_rays_key(b.window)) {
+        take_rays(b, b.rays != 0 ? 0 : b.rays_asked);
     }
     b.raster.wide(b.wide);
     uint32_t slot = static_cast<uint32_t>(b.opened % engine->desc.pictures);
@@ -971,7 +1215,12 @@ sa_result sa_present_begin(sa_engine *engine, const sa_picture *picture)
         b.views[i] = NO_VIEW;
     }
     b.homed = false;
-    b.scene.begin(*picture);
+    b.parts_hidden = false;
+    /* a traced picture after a cut reuses nothing of the one before it */
+    if (picture->flags & SA_PICTURE_CUT) {
+        b.past.forget();
+    }
+    b.scene.begin(*picture, picture->tick * pc::TICK_SECONDS);
     if (b.rate != 0) {
         b.world.begin(*picture, b.opened);
     }
@@ -1144,16 +1393,31 @@ sa_result sa_present_draw(sa_engine *engine, const sa_draw *draws,
          * scene still keeps its instance where the draw put it */
         bool out = (draws[i].flags & SA_DRAW_OUT) != 0;
 
-        if (out && b.rate == 0) {
+        /* a draw of a part, in the game's view or out of it, is the part as
+         * ray tracing keeps it from then. so a picture's last draw of a part
+         * is the one kept */
+        if (b.traces && b.scene_stays && draws[i].mesh != SA_NULL &&
+            pc::of_scene(draws[i].instance)) {
+            b.parts[draws[i].instance] = Part{draws[i], *shade};
+        }
+        if (out && b.rate == 0 && b.rays == 0) {
             b.draws++;
             continue;
         }
         for (uint32_t k = 0; k < materials->material_count; k++) {
             texture_of(*engine, materials->materials[k].texture, textures[k]);
         }
+        if (b.rays != 0 && mesh.triangles != 0) {
+            mesh.rays = ray_mesh_of(*engine, draws[i]);
+        }
         if (!out && mesh.meshsets != 0) {
             b.scene.draw(draws[i], mesh, materials->materials, textures, *shade,
                          lights, b.views[draws[i].view]);
+        } else if (out && mesh.meshsets != 0) {
+            /* a traced picture gives a draw out of the game's view to
+             * shadow, bounce and reflection rays */
+            b.scene.hidden(draws[i], mesh, materials->materials, textures,
+                           *shade, b.views[draws[i].view]);
         }
         if (b.rate != 0) {
             b.world.draw(draws[i], mesh, materials->materials, textures, *shade,
@@ -1262,6 +1526,10 @@ sa_result sa_present_end(sa_engine *engine)
         static_cast<uint32_t>((b.opened - 1) % engine->desc.pictures);
     double owed = b.owed;
 
+    if (b.scene.traces() && !b.parts_hidden) {
+        hide_parts(*engine, b.scene);
+        b.parts_hidden = true;
+    }
     b.scene.finish();
     b.shown = 1;
     b.repeated = 0;
@@ -1308,6 +1576,14 @@ sa_result sa_present_end(sa_engine *engine)
     b.stats.arena = b.picture_used;
     b.stats.shades = b.shade_count;
     b.stats.shown = b.shown;
+    if (const pc::RayPicture *rays = b.scene.ray_picture()) {
+        b.stats.rays = rays->samples;
+        b.stats.traced = static_cast<uint32_t>(rays->instances.size());
+        for (const pc::RayInstance &instance : rays->instances) {
+            b.stats.hidden += instance.flags & pc::RAY_SEEN ? 0 : 1;
+        }
+        b.stats.lamps = static_cast<uint32_t>(rays->lamps.size());
+    }
     if (b.rate != 0) {
         const pc::BetweenCounts &c = b.world.counts();
 
@@ -1394,11 +1670,14 @@ sa_result sa_pc_read_overview(sa_engine *engine, const sa_picture *picture,
     std::string why;
 
     b.raster.wait(room);
+    /* the overview is rasterized, whether or not the pictures are traced */
+    b.between.trace(0);
     *drawn = b.world.overview(*picture, b.between);
+    b.between.trace(b.rays);
     b.between.uniform(made);
     if (!b.raster.submit(room, made, b.between.clear_color(),
                          b.between.vertices(), b.between.batches(),
-                         b.between.sorted(), why)) {
+                         b.between.sorted(), nullptr, why)) {
         fprintf(stderr, "engine: %s\n", why.c_str());
         return SA_ERR_UNSUPPORTED;
     }
@@ -1488,11 +1767,21 @@ sa_result sa_scene_part(sa_engine *engine, const sa_draw *parts, uint32_t count)
         }
         bytes += pc::World::part_bytes(mesh, parts[i].flags);
     }
+    /* of parts given together, none is taken where the render-owned scene
+     * has no room for them all */
+    if (b.rate != 0 && !b.world.room_for_parts(count, bytes)) {
+        return SA_ERR_FULL;
+    }
+    if (b.traces) {
+        for (uint32_t i = 0; i < count; i++) {
+            const sa_shade *shade =
+                shade_of(b.scene_shades, b.scene_shade_count, parts[i].shade);
+
+            b.parts[parts[i].instance] = Part{parts[i], *shade};
+        }
+    }
     if (b.rate == 0) {
         return SA_OK;
-    }
-    if (!b.world.room_for_parts(count, bytes)) {
-        return SA_ERR_FULL;
     }
     for (uint32_t i = 0; i < count; i++) {
         pc::MeshView mesh;
@@ -1531,6 +1820,8 @@ sa_result sa_scene_ended(sa_engine *engine, uint32_t scene)
     Backend &b = backend(*engine);
 
     b.scene_stays = false;
+    b.parts.clear();
+    b.lamps.forget();
     if (b.rate != 0) {
         b.world.scene_ended();
     }
@@ -1638,6 +1929,30 @@ sa_result sa_pc_retire(sa_engine *engine)
             r.serial = r.serial > b.opened ? b.opened : r.serial;
         }
         collect(*engine);
+    }
+    return SA_OK;
+}
+
+sa_result sa_pc_rays(sa_engine *engine, uint32_t rays)
+{
+    if (engine == nullptr || backend(*engine).picture != nullptr ||
+        rays > SA_PC_PIXEL_RAYS) {
+        return SA_ERR_INVALID;
+    }
+    Backend &b = backend(*engine);
+
+    /* what the display has yet to show of the last picture shows as that
+     * picture was made */
+    if (!b.traces || !show_due(*engine, UINT64_MAX)) {
+        return SA_ERR_UNSUPPORTED;
+    }
+    if (rays != 0) {
+        b.rays_asked = rays;
+    }
+    /* the count already in force changes nothing, so the next traced
+     * picture still pairs with the one before it */
+    if (rays != b.rays) {
+        take_rays(b, rays);
     }
     return SA_OK;
 }

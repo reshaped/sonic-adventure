@@ -23,7 +23,9 @@ extern "C" {
  * retires. it draws only resources and payloads. under sa_pc_options.rate,
  * the render-owned scene keeps the draws across pictures. it keeps the parts
  * sa_scene_part gives and the scene's lights too. no picture is lit by those
- * lights */
+ * lights. under sa_pc_options.rays, on a device that traces, the backend
+ * keeps each part's draw too, whatever the rate, and gives a traced picture
+ * the parts it leaves out */
 #define SA_BORROW_PICTURE
 /* the game's adapter gives this out of line. at the call it copies what the
  * game's drawer would read into resources and payloads */
@@ -93,8 +95,28 @@ typedef struct sa_pc_options {
     /* where the engine can't open its window or device, sa_engine_create
      * writes why here, to SA_PC_WHY bytes. null prints it on stderr */
     char *why;
+    /* the rays a pixel for ray tracing, or 0 for none. with rays, the
+     * backend traces each picture's meshes and computes their lighting, in
+     * place of the lighting the game's draws carry. on a device without ray
+     * queries it rasterizes as under 0, and says so on stderr. an engine
+     * created with 0 is created without ray tracing, and sa_pc_rays then
+     * fails. sa_engine_create fails with SA_ERR_INVALID above
+     * SA_PC_PIXEL_RAYS */
+    uint32_t rays;
+    /* a traced picture's meshes are traced at this share of the picture's
+     * width and height, from SA_PC_RENDER_SCALE_LEAST to 1, or 0 for 1, and
+     * rays counts rays a pixel of that. the picture keeps its own size: the
+     * antialiasing fills it from the traced pixels and from the pictures
+     * before, whose camera rays each crossed their pixels at a new point,
+     * and the game's 2D draws are drawn at it. sa_engine_create fails with
+     * SA_ERR_INVALID for another share */
+    float render_scale;
 } sa_pc_options;
+/* the least sa_pc_options.render_scale but 0 */
+#define SA_PC_RENDER_SCALE_LEAST 0.5F
 #define SA_PC_WHY 256U
+/* the most rays a pixel that sa_pc_options.rays and sa_pc_rays accept */
+#define SA_PC_PIXEL_RAYS 256U
 
 /* show a player words in a box on the desktop, and return as it closes. a
  * game opened from a menu has no terminal for them. without a display or
@@ -173,6 +195,15 @@ typedef struct sa_pc_stats {
     uint32_t lights;
     uint32_t fragments_cut; /* as fragments_lost's note says */
     uint64_t between_ns; /* the host's time to draw the pictures between */
+    /* for a traced picture: the instances its rays could hit, those among
+     * them that the picture itself didn't draw, and its lamps. each is 0
+     * for a rasterized picture */
+    uint32_t traced;
+    uint32_t hidden;
+    uint32_t lamps;
+    /* the rays a pixel the picture was traced with, or 0 for a rasterized
+     * picture */
+    uint32_t rays;
 } sa_pc_stats;
 
 /* under SA_PC_READBACK, wait for the picture last ended and copy it to rgba.
@@ -202,6 +233,16 @@ sa_result sa_pc_stats_read(sa_engine *engine, sa_pc_stats *stats);
  * device refused a picture. the scene's pictures then stay, as does each
  * release that waits on one */
 sa_result sa_pc_retire(sa_engine *engine);
+/* between pictures: ray trace each picture from the next one with rays rays
+ * a pixel, or with 0 rasterize each with the game's own lighting. a window's
+ * F10 turns ray tracing off, and back on at the count last given. the first
+ * traced picture after a change reuses nothing of the pictures before it,
+ * and the count already in force changes nothing. SA_ERR_INVALID with a
+ * picture open, or with rays above SA_PC_PIXEL_RAYS. SA_ERR_UNSUPPORTED
+ * where the engine was created with sa_pc_options.rays of 0, its device has
+ * no ray queries, or the device refused a picture the display had yet to
+ * show */
+sa_result sa_pc_rays(sa_engine *engine, uint32_t rays);
 /* the device's name, 0-terminated, cut to fit bytes */
 sa_result sa_pc_device(sa_engine *engine, char *name, uint32_t bytes);
 /* why the device draws no more, 0-terminated, to bytes of why. SA_OK says

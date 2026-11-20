@@ -164,6 +164,7 @@ void sa1_fast_on(void);
  * without play.c leaves them 0 */
 struct sa1_figures {
     uint64_t waited_ns, device_ns, late, lost;
+    int traced; /* whether the last picture the backend timed was traced */
 };
 extern struct sa1_figures sa1_figures;
 /* write the pictures of the run's stage to path, as sa_capture.h's records */

@@ -257,16 +257,49 @@ void __wrap_njDrawTriangle3D(NJS_POINT3COL *p, Int n, Uint32 attr)
     __real_njDrawTriangle3D(p, n, attr);
 }
 
-/* the screen's polygons, as fades draw them. the record follows the call,
- * since it reads the header words the call leaves in Kamui's context. each
- * 2D draw asks present_record first, as the Dreamcast's layer does */
+/* a polygon on the screen. the record follows the call, since it reads the
+ * header words the call leaves in Kamui's context */
+static void polygon_2d(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
+{
+    __real_njDrawPolygon2D(p, n, pri, attr);
+    sa1_record_polygon_2d(p, n, pri, attr);
+}
+
+/* the screen's polygons, as fades draw them. each 2D draw asks
+ * present_record first, as the Dreamcast's layer does */
 void __wrap_njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
 {
     if (!present_record(PRESENT_POLYGON_2D, p, n, 0, pri, attr)) {
         return;
     }
-    __real_njDrawPolygon2D(p, n, pri, attr);
-    sa1_record_polygon_2d(p, n, pri, attr);
+    polygon_2d(p, n, pri, attr);
+}
+
+/* the overlay's band. it asks present_record nothing, so a split frame keeps
+ * no band among its 2D. the overlay draws over each picture itself, and its
+ * last draw of a frame comes as frame_wait begins, while the frame still
+ * keeps its later 2D for the next first picture. a kept band would lie there
+ * under that picture's own */
+void port_band(Float x0, Float y0, Float x1, Float y1, Uint32 color, Float pri,
+               Uint32 attr)
+{
+    NJS_POINT2 points[4];
+    NJS_COLOR colors[4];
+    NJS_POINT2COL band;
+    int i;
+
+    points[0].x = points[3].x = x0;
+    points[1].x = points[2].x = x1;
+    points[0].y = points[1].y = y0;
+    points[2].y = points[3].y = y1;
+    for (i = 0; i < 4; i++) {
+        colors[i].color = color;
+    }
+    band.p = points;
+    band.col = colors;
+    band.tex = NULL;
+    band.num = 4;
+    polygon_2d(&band, 4, pri, attr);
 }
 
 /* njDrawLine3D's lines, as sparks and Chaos 0's rain draw them. this record

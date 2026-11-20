@@ -33,11 +33,21 @@ $(GLSLANG_FETCHED): $(GLSLANG)
 	$(Q)$(call receipt,tools/glslang,$(GLSLANG_PIN))
 
 # Each shader becomes a header of its SPIR-V words, draw.vert's draw_vert,
-# which the raster compiles in
-REPLAY_SHADERS := $(patsubst engine/pc/shaders/%,build/engine/replay/%.h,$(wildcard engine/pc/shaders/*))
-build/engine/replay/%.h: engine/pc/shaders/% $(GLSLANG_FETCHED)
+# which the raster compiles in. A .glsl file is no shader but text that
+# shaders include, as the ray tracing shaders include rays.glsl, and each
+# shader is built again where one changes
+REPLAY_GLSL := $(wildcard engine/pc/shaders/*.glsl)
+REPLAY_SOURCES := $(filter-out %.glsl,$(wildcard engine/pc/shaders/*))
+REPLAY_SHADERS := $(patsubst engine/pc/shaders/%,build/engine/replay/%.h,$(REPLAY_SOURCES))
+# A shader is built for a Vulkan 1.0 device, which every raster has. The
+# two that follow rays are built for a 1.2 device: ray queries, and the
+# addresses the trace reads a mesh by, need one, and only such a device runs
+# them
+SHADER_DEVICE := vulkan1.0
+build/engine/replay/trace.comp.h build/engine/replay/enclosure.comp.h: SHADER_DEVICE := vulkan1.2
+build/engine/replay/%.h: engine/pc/shaders/% $(REPLAY_GLSL) $(GLSLANG_FETCHED)
 	$(Q)mkdir -p $(@D)
-	$(Q)$(GLSLANG) --quiet -V --target-env vulkan1.0 --vn $(subst .,_,$*) -o $@ $<
+	$(Q)$(GLSLANG) --quiet -V --target-env $(SHADER_DEVICE) --vn $(subst .,_,$*) -o $@ $<
 # make before 4.4 takes a file that only pattern rules name for an
 # intermediate one, and removes it once it has built what reads it. The
 # backend's objects read these by a pattern rule, so this line names each
@@ -53,14 +63,14 @@ $(REPLAY_SHADERS):
 SDL3_LIBS := $(shell pkg-config --libs sdl3 2>/dev/null)
 SDL3_CFLAGS := $(shell pkg-config --cflags sdl3 2>/dev/null)
 PC_WINDOW := $(if $(SDL3_LIBS),window,window_none)
-PC_SOURCES := backend storage scene world raster disc pvr ninja png sound dsp $(PC_WINDOW) \
+PC_SOURCES := backend storage scene world raster rays disc pvr ninja png sound dsp $(PC_WINDOW) \
 	$(if $(SDL3_LIBS),input)
 PC_OBJ := $(PC_SOURCES:%=build/engine/replay/%.o) $(ENGINE_RUNTIME_OBJ)
 PC_LIBS := $(SDL3_LIBS) -ldl
 REPLAY_HOST := build/engine/replay/sdl3.txt
 $(call record,$(REPLAY_HOST),$(SDL3_CFLAGS) $(SDL3_LIBS))
 REPLAY_DEPS := $(wildcard engine/pc/*.h) $(wildcard engine/include/*.h) engine/sa1/sa_sa1.h \
-	engine/sa1/sa_capture.h engine/sa1/sa_client.h engine/sa1/client.h engine/sa1/basic.h engine/sa1/rules.h \
+	engine/sa1/sa_capture.h engine/sa1/sa_client.h engine/sa1/client.h engine/sa1/basic.h engine/sa1/rules.h engine/sa1/emissive.h \
 	engine/runtime/runtime.h engine/engine.mk engine/mk/replay.mk $(ENGINE_CXX)
 build/engine/replay/%.o: engine/pc/%.cpp $(REPLAY_DEPS) $(VULKAN) $(VULKAN_FETCHED) $(REPLAY_SHADERS)
 	$(Q)mkdir -p $(@D)
@@ -101,7 +111,7 @@ build/engine/tests/pictures: engine/tests/pictures.cpp $(PICTURES_TESTED) $(REPL
 # headers and no Vulkan. The device reads no shader, so here each shader is
 # one word, and the test needs no glslang
 DEVICE_LOADER := build/engine/tests/vulkan/libvulkan.so.1
-DEVICE_WORDS := $(patsubst engine/pc/shaders/%,build/engine/tests/words/%.h,$(wildcard engine/pc/shaders/*))
+DEVICE_WORDS := $(patsubst engine/pc/shaders/%,build/engine/tests/words/%.h,$(REPLAY_SOURCES))
 DEVICE_RUN := LD_LIBRARY_PATH=$(dir $(DEVICE_LOADER))$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH} \
 	DYLD_LIBRARY_PATH=$(dir $(DEVICE_LOADER))
 build/engine/tests/words/%.h: engine/mk/replay.mk
@@ -111,11 +121,11 @@ $(DEVICE_LOADER): engine/tests/vulkan.cpp engine/tests/vulkan.h $(VULKAN) $(VULK
 		engine/mk/replay.mk $(ENGINE_CXX)
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CXX) $(ENGINE_CXXFLAGS) -fPIC -shared -Itools/vulkan/include -o $@ $<
-build/engine/tests/device: engine/tests/device.cpp engine/pc/raster.cpp engine/tests/vulkan.h $(DEVICE_LOADER) \
-		$(DEVICE_WORDS) $(REPLAY_DEPS) $(VULKAN) $(VULKAN_FETCHED)
+build/engine/tests/device: engine/tests/device.cpp engine/pc/raster.cpp engine/pc/rays.cpp engine/tests/vulkan.h \
+		$(DEVICE_LOADER) $(DEVICE_WORDS) $(REPLAY_DEPS) $(VULKAN) $(VULKAN_FETCHED)
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CXX) $(ENGINE_CXXFLAGS) -I$(ENGINE_INCLUDE) -Iengine/pc -Itools/vulkan/include -Ibuild/engine/tests/words \
-		-o $@ $< engine/pc/raster.cpp -ldl
+		-o $@ $< engine/pc/raster.cpp engine/pc/rays.cpp -ldl
 # and the blend list's resolve on the host: the shader's own text, less the
 # line that names GLSL's version, which the test reads as C++ over GLSL's
 # types as far as the shader uses them. It needs no device and no glslang

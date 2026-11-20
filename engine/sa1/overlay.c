@@ -149,7 +149,8 @@ static const char *readout_mode(int asked, int applied)
  * 90 percent of the frame's budget, and red past it. the second gives the
  * modes. 60 fps is ON only where every frame showed both pictures. where it is
  * HELD, the last held frame's letter follows. the third gives the vsyncs
- * reached late and lost since the stage or act changed */
+ * reached late and lost since the stage or act changed, and RAYS where the
+ * picture last timed was traced */
 static void readout_measure(uint64_t now, uint64_t busy,
                             enum present_shown shown)
 {
@@ -198,9 +199,10 @@ static void readout_measure(uint64_t now, uint64_t busy,
         lines[1], "16:9 %s  60 FPS %s%s",
         readout_mode(port_toggles[TOGGLE_WIDE], wide_applied == WIDE_ON),
         readout_mode(port_toggles[TOGGLE_FAST], split), reason);
-    string_format(lines[2], "LATE %u LOST %u",
+    string_format(lines[2], "LATE %u LOST %u%s",
                   (Uint32)at_most(sa1_figures.late - act_late, 99999),
-                  (Uint32)at_most(sa1_figures.lost - act_lost, 99999));
+                  (Uint32)at_most(sa1_figures.lost - act_lost, 99999),
+                  sa1_figures.traced ? "  RAYS" : "");
     memset(&half, 0, sizeof(half));
     half.start = now;
     half.flips = _nj_vsync_count_;

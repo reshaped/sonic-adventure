@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <map>
 #include <set>
+#include <utility>
 
 namespace {
 
@@ -43,15 +45,18 @@ enum Kind {
     SET,
     SAMPLER,
     QUERIES,
-    SWAPCHAIN
+    SWAPCHAIN,
+    ACCELERATION
 };
 const char *const KINDS[] = {
-    "instance",        "physical device", "device",          "queue",
-    "command pool",    "command buffer",  "fence",           "semaphore",
-    "buffer",          "image",           "image view",      "memory",
-    "render pass",     "framebuffer",     "shader module",   "set layout",
-    "pipeline layout", "pipeline",        "descriptor pool", "descriptor set",
-    "sampler",         "query pool",      "swapchain"};
+    "instance",        "physical device", "device",
+    "queue",           "command pool",    "command buffer",
+    "fence",           "semaphore",       "buffer",
+    "image",           "image view",      "memory",
+    "render pass",     "framebuffer",     "shader module",
+    "set layout",      "pipeline layout", "pipeline",
+    "descriptor pool", "descriptor set",  "sampler",
+    "query pool",      "swapchain",       "ray tracing structure"};
 
 /* a command buffer's states */
 enum { INITIAL, RECORDING, EXECUTABLE, INVALID };
@@ -75,15 +80,17 @@ struct Object {
     Kind kind = INSTANCE;
     bool live = true;
     Object *owner = nullptr; /* a pool or a swapchain, whose end ends it */
-    /* an instance or a device with the window's extensions */
+    /* an instance or a device with the window's extensions, and a device
+     * with ray tracing's */
     bool shows = false;
+    bool traces = false;
     /* a command buffer: its state and bindings, the objects its commands
      * name and the ops a submission runs */
     int state = INITIAL;
     bool once = false;
     bool in_pass = false;
     Object *pipeline[2] = {};
-    Object *sets[2][2] = {};
+    Object *sets[2][3] = {};
     Object *vertices = nullptr;
     uint32_t push[2] = {};
     std::vector<Object *> names;
@@ -115,6 +122,22 @@ struct Object {
     uint32_t sampler_at = 0;
     bool compute = false; /* a pipeline */
     uint32_t family = 0; /* a command pool's queue family */
+    /* a pipeline layout's count of sets, which its pipelines take, and
+     * whether a graphics pipeline takes no vertex buffer */
+    uint32_t set_count = 0;
+    bool no_input = false;
+    /* a set layout with an array, or a binding past the raster's four, and a
+     * set of one. such a set keeps what its writes name in held, by binding
+     * and element. loose holds the layout's bindings that may be written
+     * while a submission that names the set runs */
+    bool wide = false;
+    std::set<uint32_t> loose;
+    std::map<std::pair<uint32_t, uint32_t>, Object *> held;
+    /* a buffer or memory made for a device address, a buffer's address once
+     * asked, and the buffer an acceleration structure lies in */
+    bool addressed = false;
+    VkDeviceAddress address = 0;
+    Object *within = nullptr;
     /* a swapchain's images, the one acquired and not shown or -1, and
      * whether it is retired */
     std::vector<Object *> images;
@@ -373,8 +396,14 @@ bool bound(Object *commands, int point, uint32_t count, const char *call)
             return false;
         }
         commands->names.push_back(set);
-        for (Object *each : {set->bound[0], set->bound[1], set->bound[2],
-                             set->bound[3], set->sampler}) {
+        std::vector<Object *> named = {set->bound[0], set->bound[1],
+                                       set->bound[2], set->bound[3],
+                                       set->sampler};
+
+        for (const auto &each : set->held) {
+            named.push_back(each.second);
+        }
+        for (Object *each : named) {
             if (each != nullptr && !each->live) {
                 fault("%s runs with a set that names a destroyed %s", call,
                       KINDS[each->kind]);
@@ -495,9 +524,132 @@ void turn(const VkSemaphore *semaphores, uint32_t count, bool to,
     }
 }
 
+/* the extensions a device that traces has, and the device's calls that
+ * only one made with them has */
+const char *const RAY_EXTENSIONS[3] = {
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+
+bool ray_extension(const char *name)
+{
+    for (const char *each : RAY_EXTENSIONS) {
+        if (strcmp(each, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ray_call(const char *name)
+{
+    return strstr(name, "AccelerationStructure") != nullptr ||
+           strcmp(name, "vkGetBufferDeviceAddress") == 0;
+}
+
 bool window_call(const char *name)
 {
-    return strstr(name, "KHR") != nullptr;
+    return strstr(name, "KHR") != nullptr && !ray_call(name);
+}
+
+/* the alignment a build's scratch address must have */
+constexpr VkDeviceSize SCRATCH_ALIGN = 128;
+
+/* whether a running submission names object */
+bool named_running(const Object *object)
+{
+    for (const void *each : made) {
+        auto *commands = static_cast<const Object *>(each);
+
+        if (lost || commands->kind != COMMANDS || !commands->live ||
+            !commands->running) {
+            continue;
+        }
+        for (const Object *named : commands->names) {
+            if (named == object) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* a write to a wide set, which holds each descriptor by its binding and
+ * element. only a loose binding may be written while a submission that names
+ * the set runs */
+void wide_write(Object *set, const VkWriteDescriptorSet &write,
+                const char *call)
+{
+    const VkWriteDescriptorSetAccelerationStructureKHR *structures = nullptr;
+
+    if (set->loose.count(write.dstBinding) == 0 && named_running(set)) {
+        fault("%s writes a set the device may still read", call);
+    }
+    for (auto *next = static_cast<const VkBaseInStructure *>(write.pNext);
+         next != nullptr; next = next->pNext) {
+        if (next->sType ==
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR) {
+            structures = reinterpret_cast<
+                const VkWriteDescriptorSetAccelerationStructureKHR *>(next);
+        }
+    }
+    for (uint32_t k = 0; k < write.descriptorCount; k++) {
+        Object *one = nullptr;
+
+        switch (write.descriptorType) {
+        case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+            one = use(write.pBufferInfo[k].buffer, BUFFER, call);
+            if (one != nullptr && one->memory == nullptr) {
+                fault("%s writes a buffer with no memory", call);
+            }
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLER:
+            one = use(write.pImageInfo[k].sampler, SAMPLER, call);
+            break;
+        case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+            if (structures == nullptr ||
+                k >= structures->accelerationStructureCount) {
+                fault("%s writes a binding no acceleration structure", call);
+            } else {
+                one = use(structures->pAccelerationStructures[k], ACCELERATION,
+                          call);
+            }
+            break;
+        default:
+            one = use(write.pImageInfo[k].imageView, VIEW, call);
+            break;
+        }
+        set->held[{write.dstBinding, write.dstArrayElement + k}] = one;
+    }
+}
+
+/* the live buffer whose device address range holds address, or null */
+Object *buffer_at(VkDeviceAddress address)
+{
+    for (const void *each : made) {
+        auto *object = static_cast<Object *>(const_cast<void *>(each));
+
+        if (object->kind == BUFFER && object->live && object->address != 0 &&
+            address >= object->address &&
+            address < object->address + object->size) {
+            return object;
+        }
+    }
+    return nullptr;
+}
+
+/* a command reads or writes a buffer through a device address */
+void addressed(Object *commands, VkDeviceAddress address, const char *what,
+               const char *call)
+{
+    Object *buffer = buffer_at(address);
+
+    if (buffer == nullptr) {
+        fault("%s takes for %s an address no live buffer holds", call, what);
+    } else {
+        commands->names.push_back(buffer);
+    }
 }
 
 } // namespace
@@ -570,7 +722,17 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(
                                     physical.data());
 
     memset(properties, 0, sizeof *properties);
-    properties->apiVersion = VK_API_VERSION_1_1;
+    properties->apiVersion =
+        control.traces ? VK_API_VERSION_1_2 : VK_API_VERSION_1_1;
+    if (control.traces) {
+        properties->limits.maxPerStageDescriptorSampledImages = 1U << 20;
+        properties->limits.maxDescriptorSetSampledImages = 1U << 20;
+        properties->limits.maxPerStageDescriptorSamplers = 4000;
+        properties->limits.maxDescriptorSetSamplers = 4000;
+        properties->limits.maxPerStageDescriptorStorageImages = 1U << 20;
+        properties->limits.maxPerStageDescriptorStorageBuffers = 1U << 20;
+        properties->limits.maxPerStageResources = 1U << 24;
+    }
     snprintf(properties->deviceName, sizeof properties->deviceName, "%s",
              at < control.names.size() ? control.names[at]
                                        : "a device of the test's own");
@@ -637,9 +799,74 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(VkPhysicalDevice,
     }
     Object *one = make(DEVICE);
 
-    one->shows = info->enabledExtensionCount != 0;
+    for (uint32_t i = 0; i < info->enabledExtensionCount; i++) {
+        bool ray = ray_extension(info->ppEnabledExtensionNames[i]);
+
+        if (ray && !control.traces) {
+            fault("%s enables an extension the device lacks", __func__);
+        }
+        one->traces = one->traces || ray;
+        one->shows = one->shows || !ray;
+    }
+    for (auto *next = static_cast<const VkBaseInStructure *>(info->pNext);
+         next != nullptr; next = next->pNext) {
+        if (!control.traces) {
+            fault("%s asks for features the device lacks", __func__);
+        }
+    }
     *device = reinterpret_cast<VkDevice>(one);
     return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures2(
+    VkPhysicalDevice device, VkPhysicalDeviceFeatures2 *features)
+{
+    vkGetPhysicalDeviceFeatures(device, &features->features);
+    if (!control.traces) {
+        return;
+    }
+    features->features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+    for (auto *next = static_cast<VkBaseOutStructure *>(features->pNext);
+         next != nullptr; next = next->pNext) {
+        if (next->sType ==
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR) {
+            reinterpret_cast<VkPhysicalDeviceRayQueryFeaturesKHR *>(next)
+                ->rayQuery = VK_TRUE;
+        } else if (
+            next->sType ==
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR) {
+            reinterpret_cast<
+                VkPhysicalDeviceAccelerationStructureFeaturesKHR *>(next)
+                ->accelerationStructure = VK_TRUE;
+        } else if (next->sType ==
+                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES) {
+            auto *core =
+                reinterpret_cast<VkPhysicalDeviceVulkan12Features *>(next);
+
+            core->bufferDeviceAddress = VK_TRUE;
+            core->descriptorIndexing = VK_TRUE;
+            core->runtimeDescriptorArray = VK_TRUE;
+            core->shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+            core->descriptorBindingPartiallyBound = VK_TRUE;
+            core->descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+        }
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties2(
+    VkPhysicalDevice device, VkPhysicalDeviceProperties2 *properties)
+{
+    vkGetPhysicalDeviceProperties(device, &properties->properties);
+    for (auto *next = static_cast<VkBaseOutStructure *>(properties->pNext);
+         next != nullptr; next = next->pNext) {
+        if (next->sType ==
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR) {
+            reinterpret_cast<
+                VkPhysicalDeviceAccelerationStructurePropertiesKHR *>(next)
+                ->minAccelerationStructureScratchOffsetAlignment =
+                SCRATCH_ALIGN;
+        }
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(VkDevice device,
@@ -662,9 +889,17 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(VkDevice device,
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(
-    VkPhysicalDevice, const char *, uint32_t *count, VkExtensionProperties *)
+    VkPhysicalDevice, const char *, uint32_t *count,
+    VkExtensionProperties *listed)
 {
-    *count = 0;
+    uint32_t has = control.traces ? 3 : 0;
+
+    for (uint32_t i = 0; listed != nullptr && i < *count && i < has; i++) {
+        listed[i] = VkExtensionProperties{};
+        snprintf(listed[i].extensionName, sizeof listed[i].extensionName, "%s",
+                 RAY_EXTENSIONS[i]);
+    }
+    *count = has;
     return VK_SUCCESS;
 }
 
@@ -1003,6 +1238,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateBuffer(VkDevice device,
 
     if (result == VK_SUCCESS) {
         one->size = info->size;
+        one->addressed =
+            (info->usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) != 0;
     }
     return result;
 }
@@ -1010,7 +1247,133 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateBuffer(VkDevice device,
 VKAPI_ATTR void VKAPI_CALL vkDestroyBuffer(VkDevice device, VkBuffer buffer,
                                            const VkAllocationCallbacks *)
 {
+    for (const void *each : made) {
+        auto *object = static_cast<const Object *>(each);
+
+        if (buffer != VK_NULL_HANDLE && object->kind == ACCELERATION &&
+            object->live &&
+            object->within == reinterpret_cast<Object *>(buffer)) {
+            fault("%s ends a buffer a live acceleration structure lies in",
+                  __func__);
+        }
+    }
     destroy(device, buffer, BUFFER, __func__);
+}
+
+/* a buffer's address, the same each time it is asked. each buffer has a
+ * range of its own, at a multiple of every alignment the raster asks */
+VKAPI_ATTR VkDeviceAddress VKAPI_CALL
+vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo *info)
+{
+    static VkDeviceAddress next = VkDeviceAddress{1} << 32;
+    Object *one = use(info->buffer, BUFFER, __func__);
+
+    use(device, DEVICE, __func__);
+    if (one == nullptr) {
+        return 0;
+    }
+    if (!one->addressed) {
+        fault("%s takes a buffer not made for an address", __func__);
+    } else if (one->memory == nullptr || !one->memory->addressed) {
+        fault("%s takes a buffer whose memory has no address", __func__);
+    }
+    if (one->address == 0) {
+        one->address = next;
+        next += VkDeviceAddress{1} << 32;
+    }
+    return one->address;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateAccelerationStructureKHR(
+    VkDevice device, const VkAccelerationStructureCreateInfoKHR *info,
+    const VkAllocationCallbacks *, VkAccelerationStructureKHR *structure)
+{
+    Object *buffer = use(info->buffer, BUFFER, __func__);
+    Object *one = nullptr;
+
+    if (buffer != nullptr && buffer->memory == nullptr) {
+        fault("%s takes a buffer with no memory", __func__);
+    }
+    if (buffer != nullptr && info->offset + info->size > buffer->size) {
+        fault("%s lies past the end of its buffer", __func__);
+    }
+    VkResult result = create(device, __func__, ACCELERATION, structure, &one);
+
+    if (result == VK_SUCCESS) {
+        one->within = buffer;
+        one->size = info->size;
+    } else {
+        *structure = VK_NULL_HANDLE;
+    }
+    return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyAccelerationStructureKHR(
+    VkDevice device, VkAccelerationStructureKHR structure,
+    const VkAllocationCallbacks *)
+{
+    destroy(device, structure, ACCELERATION, __func__);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetAccelerationStructureBuildSizesKHR(
+    VkDevice device, VkAccelerationStructureBuildTypeKHR,
+    const VkAccelerationStructureBuildGeometryInfoKHR *, const uint32_t *counts,
+    VkAccelerationStructureBuildSizesInfoKHR *sizes)
+{
+    use(device, DEVICE, __func__);
+    sizes->accelerationStructureSize = 1024 + VkDeviceSize{64} * counts[0];
+    sizes->updateScratchSize = 0;
+    sizes->buildScratchSize = 2048 + VkDeviceSize{16} * counts[0];
+}
+
+VKAPI_ATTR VkDeviceAddress VKAPI_CALL
+vkGetAccelerationStructureDeviceAddressKHR(
+    VkDevice device, const VkAccelerationStructureDeviceAddressInfoKHR *info)
+{
+    Object *one = use(info->accelerationStructure, ACCELERATION, __func__);
+
+    use(device, DEVICE, __func__);
+    return one != nullptr ? reinterpret_cast<VkDeviceAddress>(one) : 0;
+}
+
+/* a build names its structure, the buffer the structure lies in, and each
+ * buffer it reads or writes through an address */
+VKAPI_ATTR void VKAPI_CALL vkCmdBuildAccelerationStructuresKHR(
+    VkCommandBuffer commands, uint32_t count,
+    const VkAccelerationStructureBuildGeometryInfoKHR *infos,
+    const VkAccelerationStructureBuildRangeInfoKHR *const *)
+{
+    Object *c = recording(commands, 0, __func__);
+
+    for (uint32_t i = 0; c != nullptr && i < count; i++) {
+        const VkAccelerationStructureBuildGeometryInfoKHR &info = infos[i];
+        Object *to =
+            name(c, info.dstAccelerationStructure, ACCELERATION, __func__);
+
+        if (to != nullptr && to->within != nullptr) {
+            c->names.push_back(to->within);
+        }
+        if (info.scratchData.deviceAddress % SCRATCH_ALIGN != 0) {
+            fault("%s takes scratch at no multiple of its alignment", __func__);
+        }
+        addressed(c, info.scratchData.deviceAddress, "its scratch", __func__);
+        for (uint32_t k = 0; k < info.geometryCount; k++) {
+            const VkAccelerationStructureGeometryKHR &geometry =
+                info.pGeometries[k];
+
+            if (geometry.geometryType == VK_GEOMETRY_TYPE_TRIANGLES_KHR) {
+                addressed(c,
+                          geometry.geometry.triangles.vertexData.deviceAddress,
+                          "its points", __func__);
+                addressed(c,
+                          geometry.geometry.triangles.indexData.deviceAddress,
+                          "its indices", __func__);
+            } else {
+                addressed(c, geometry.geometry.instances.data.deviceAddress,
+                          "its instances", __func__);
+            }
+        }
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetBufferMemoryRequirements(
@@ -1059,6 +1422,15 @@ vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo *info,
         one->size = info->allocationSize;
         one->type = info->memoryTypeIndex;
         one->bytes = static_cast<uint8_t *>(calloc(1, info->allocationSize));
+        for (auto *next = static_cast<const VkBaseInStructure *>(info->pNext);
+             next != nullptr; next = next->pNext) {
+            if (next->sType == VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO) {
+                one->addressed =
+                    (reinterpret_cast<const VkMemoryAllocateFlagsInfo *>(next)
+                         ->flags &
+                     VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT) != 0;
+            }
+        }
     }
     return result;
 }
@@ -1160,10 +1532,37 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyShaderModule(VkDevice device,
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDescriptorSetLayout(
-    VkDevice device, const VkDescriptorSetLayoutCreateInfo *,
+    VkDevice device, const VkDescriptorSetLayoutCreateInfo *info,
     const VkAllocationCallbacks *, VkDescriptorSetLayout *layout)
 {
-    return create(device, __func__, SET_LAYOUT, layout);
+    Object *one = nullptr;
+    VkResult result = create(device, __func__, SET_LAYOUT, layout, &one);
+
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+    for (uint32_t i = 0; i < info->bindingCount; i++) {
+        one->wide = one->wide || info->pBindings[i].descriptorCount > 1 ||
+                    info->pBindings[i].binding >= 4;
+    }
+    for (auto *next = static_cast<const VkBaseInStructure *>(info->pNext);
+         next != nullptr; next = next->pNext) {
+        auto *flags = reinterpret_cast<
+            const VkDescriptorSetLayoutBindingFlagsCreateInfo *>(next);
+
+        if (next->sType !=
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO) {
+            continue;
+        }
+        for (uint32_t i = 0; i < flags->bindingCount && i < info->bindingCount;
+             i++) {
+            if (flags->pBindingFlags[i] &
+                VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT) {
+                one->loose.insert(info->pBindings[i].binding);
+            }
+        }
+    }
+    return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1177,10 +1576,17 @@ VKAPI_ATTR VkResult VKAPI_CALL
 vkCreatePipelineLayout(VkDevice device, const VkPipelineLayoutCreateInfo *info,
                        const VkAllocationCallbacks *, VkPipelineLayout *layout)
 {
+    Object *one = nullptr;
+
     for (uint32_t i = 0; i < info->setLayoutCount; i++) {
         use(info->pSetLayouts[i], SET_LAYOUT, __func__);
     }
-    return create(device, __func__, LAYOUT, layout);
+    VkResult result = create(device, __func__, LAYOUT, layout, &one);
+
+    if (result == VK_SUCCESS) {
+        one->set_count = info->setLayoutCount;
+    }
+    return result;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyPipelineLayout(
@@ -1194,16 +1600,23 @@ vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache, uint32_t,
                           const VkGraphicsPipelineCreateInfo *info,
                           const VkAllocationCallbacks *, VkPipeline *pipeline)
 {
-    use(info->layout, LAYOUT, __func__);
+    Object *layout = use(info->layout, LAYOUT, __func__);
+    Object *one = nullptr;
+
     use(info->renderPass, PASS, __func__);
     for (uint32_t i = 0; i < info->stageCount; i++) {
         use(info->pStages[i].module, MODULE, __func__);
     }
-    VkResult result = create(device, __func__, PIPELINE, pipeline);
+    VkResult result = create(device, __func__, PIPELINE, pipeline, &one);
 
     /* a pipeline that isn't made is null */
     if (result != VK_SUCCESS) {
         *pipeline = VK_NULL_HANDLE;
+    } else {
+        one->set_count = layout != nullptr ? layout->set_count : 0;
+        one->no_input =
+            info->pVertexInputState == nullptr ||
+            info->pVertexInputState->vertexBindingDescriptionCount == 0;
     }
     return result;
 }
@@ -1214,8 +1627,8 @@ vkCreateComputePipelines(VkDevice device, VkPipelineCache, uint32_t,
                          const VkAllocationCallbacks *, VkPipeline *pipeline)
 {
     Object *one = nullptr;
+    Object *layout = use(info->layout, LAYOUT, __func__);
 
-    use(info->layout, LAYOUT, __func__);
     use(info->stage.module, MODULE, __func__);
     VkResult result = create(device, __func__, PIPELINE, pipeline, &one);
 
@@ -1223,6 +1636,7 @@ vkCreateComputePipelines(VkDevice device, VkPipelineCache, uint32_t,
         *pipeline = VK_NULL_HANDLE;
     } else {
         one->compute = true;
+        one->set_count = layout != nullptr ? layout->set_count : 0;
     }
     return result;
 }
@@ -1270,7 +1684,15 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateDescriptorSets(
         return result;
     }
     for (uint32_t i = 0; i < info->descriptorSetCount; i++) {
-        sets[i] = reinterpret_cast<VkDescriptorSet>(make(SET, pool));
+        Object *set = make(SET, pool);
+        auto *layout = static_cast<const Object *>(
+            reinterpret_cast<const void *>(info->pSetLayouts[i]));
+
+        if (made.count(layout) != 0 && layout->kind == SET_LAYOUT) {
+            set->wide = layout->wide;
+            set->loose = layout->loose;
+        }
+        sets[i] = reinterpret_cast<VkDescriptorSet>(set);
     }
     return VK_SUCCESS;
 }
@@ -1304,6 +1726,10 @@ VKAPI_ATTR void VKAPI_CALL vkUpdateDescriptorSets(
         const VkWriteDescriptorSet &write = writes[i];
         Object *set = use(write.dstSet, SET, __func__);
 
+        if (set != nullptr && set->wide) {
+            wide_write(set, write, __func__);
+            continue;
+        }
         for (uint32_t k = 0; set != nullptr && k < write.descriptorCount; k++) {
             uint32_t binding = write.dstBinding + k;
             bool buffer =
@@ -1413,7 +1839,7 @@ vkCmdBindDescriptorSets(VkCommandBuffer commands, VkPipelineBindPoint point,
         return;
     }
     name(c, layout, LAYOUT, __func__);
-    for (uint32_t i = 0; i < count && first + i < 2; i++) {
+    for (uint32_t i = 0; i < count && first + i < 3; i++) {
         c->sets[point == VK_PIPELINE_BIND_POINT_COMPUTE][first + i] =
             name(c, sets[i], SET, __func__);
     }
@@ -1454,6 +1880,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDraw(VkCommandBuffer commands, uint32_t count,
     }
     if (c->pipeline[0] == nullptr || !c->pipeline[0]->live) {
         fault("%s runs with no pipeline bound", __func__);
+        return;
+    }
+    /* a pipeline that takes no vertex buffer is no batch's: its draw reads
+     * its sets alone */
+    if (c->pipeline[0]->no_input) {
+        bound(c, 0, c->pipeline[0]->set_count, __func__);
         return;
     }
     if (c->vertices == nullptr || !c->vertices->live) {
@@ -1581,6 +2013,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDispatch(VkCommandBuffer commands, uint32_t,
     if (!(FAMILIES[c->owner->family].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
         fault("%s takes a command buffer whose queue family can't compute",
               __func__);
+        return;
+    }
+    /* a pipeline of three sets is a ray tracing pass, which reads its sets
+     * alone. the raster's own compute pipelines take fewer */
+    if (c->pipeline[1]->set_count >= 3) {
+        bound(c, 1, c->pipeline[1]->set_count, __func__);
         return;
     }
     if (!bound(c, 1, 1, __func__)) {
@@ -2024,6 +2462,14 @@ const struct {
     ENTRY(vkGetSwapchainImagesKHR),
     ENTRY(vkAcquireNextImageKHR),
     ENTRY(vkQueuePresentKHR),
+    ENTRY(vkGetPhysicalDeviceFeatures2),
+    ENTRY(vkGetPhysicalDeviceProperties2),
+    ENTRY(vkGetBufferDeviceAddress),
+    ENTRY(vkCreateAccelerationStructureKHR),
+    ENTRY(vkDestroyAccelerationStructureKHR),
+    ENTRY(vkGetAccelerationStructureBuildSizesKHR),
+    ENTRY(vkGetAccelerationStructureDeviceAddressKHR),
+    ENTRY(vkCmdBuildAccelerationStructuresKHR),
 };
 #undef ENTRY
 
@@ -2032,6 +2478,7 @@ const struct {
 PFN_vkVoidFunction entry(const char *name, const Object *of)
 {
     if ((window_call(name) && (of == nullptr || !of->shows)) ||
+        (ray_call(name) && (of == nullptr || !of->traces)) ||
         (control.lacks != nullptr && strcmp(control.lacks, name) == 0)) {
         return nullptr;
     }

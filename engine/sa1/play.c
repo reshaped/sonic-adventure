@@ -32,6 +32,16 @@
  *                    draws a window's at the size it shows and a headless
  *                    run's at 1. pictures and video take 640 by 480, and
  *                    the area filter reduces a larger one
+ *   rays N           ray trace each picture with N rays a pixel, up to 256,
+ *                    on a device with ray queries. below 64 the picture is
+ *                    denoised, and 1 to 4 suit play. 0, the default,
+ *                    rasterizes each with the game's own lighting. in a
+ *                    window, F10 turns ray tracing off and on, where rays
+ *                    was not 0 at the start
+ *   render-scale S   a ray traced picture's meshes traced at S of its width
+ *                    and height, from 0.5 to 1, 1 by default. the
+ *                    antialiasing fills the picture's own size from them
+ *                    and from the pictures before
  *   rate HZ          the display's pictures a second, which the backend
  *                    fills with pictures between the game's, from the scene
  *                    it keeps across pictures. they show as their time
@@ -131,6 +141,8 @@ static uint64_t vsyncs, late_vsyncs, lost_vsyncs;
 /* the most a picture took of the backend's bounds */
 static uint32_t most_arena, most_shades, most_triangles, most_lost, most_cut,
     most_events;
+/* the most of each that a traced picture had */
+static uint32_t most_traced, most_hidden, most_lamps;
 /* under a rate, the pictures shown that repeat the game's own for want of room
  * in the scene. last_full is the SA_PC_FULL_* store that last had no room */
 static uint64_t repeated;
@@ -185,6 +197,19 @@ static int setting(const char *name, const char *value)
     }
     if (!strcmp(name, "resolution")) {
         return whole(value, 16, &options.resolution) ? 1 : -1;
+    }
+    if (!strcmp(name, "rays")) {
+        return whole(value, SA_PC_PIXEL_RAYS, &options.rays) ? 1 : -1;
+    }
+    if (!strcmp(name, "render-scale")) {
+        char *end;
+        double scale = strtod(value, &end);
+
+        options.render_scale = (float)scale;
+        return value[0] && !*end && scale >= SA_PC_RENDER_SCALE_LEAST &&
+                       scale <= 1.0
+                   ? 1
+                   : -1;
     }
     if (!strcmp(name, "fullscreen")) {
         if (!whole(value, 2, &n)) {
@@ -402,6 +427,12 @@ void native_play_close(void)
             "its lists had no room for and %u its pixels held past %u\n",
             most_arena, SA_PC_ARENA, most_shades, most_triangles, most_lost,
             most_cut, SA_PC_PIXEL_FRAGMENTS);
+    if (most_traced != 0) {
+        fprintf(stderr,
+                "sa1: a traced picture had at most %u instances, %u of them "
+                "outside the picture, and at most %u lamps\n",
+                most_traced, most_hidden, most_lamps);
+    }
     if (options.rate != 0) {
         fprintf(stderr,
                 "sa1: %llu pictures shown were the game's own again for want "
@@ -447,21 +478,26 @@ static void take_stats(void)
         stats.fragments_lost > most_lost ? stats.fragments_lost : most_lost;
     most_cut = stats.fragments_cut > most_cut ? stats.fragments_cut : most_cut;
     most_events = stats.events;
+    most_traced = stats.traced > most_traced ? stats.traced : most_traced;
+    most_hidden = stats.hidden > most_hidden ? stats.hidden : most_hidden;
+    most_lamps = stats.lamps > most_lamps ? stats.lamps : most_lamps;
     repeated += stats.repeated;
     last_full = stats.full != 0 ? stats.full : last_full;
     t->cpu_ns = stats.cpu_ns;
     t->gpu_ns = stats.gpu_ns;
     sa1_figures.device_ns = stats.gpu_ns;
+    sa1_figures.traced = stats.rays != 0;
     if (times) {
         fprintf(times,
                 "%u\t%llu\t%llu\t%llu\t%llu\t%llu\t%u\t%u\t%u\t%u\t%u\t"
-                "%llu\t%llu\n",
+                "%llu\t%llu\t%u\t%u\t%u\t%u\n",
                 pictures - 1, (unsigned long long)native_vsyncs,
                 (unsigned long long)t->give_ns, (unsigned long long)t->end_ns,
                 (unsigned long long)t->cpu_ns, (unsigned long long)t->gpu_ns,
                 stats.draws, stats.triangles, t->meshes, t->mesh_bytes,
                 t->textures, (unsigned long long)late_vsyncs,
-                (unsigned long long)lost_vsyncs);
+                (unsigned long long)lost_vsyncs, stats.rays, stats.traced,
+                stats.hidden, stats.lamps);
     }
 }
 

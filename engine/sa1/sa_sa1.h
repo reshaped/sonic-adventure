@@ -103,6 +103,28 @@ sa_result sa_present_palettes(sa_engine *engine, const sa_palettes *palettes);
  * SA_SHADE_PALETTE, and shades from the palettes of the picture that shows
  * it */
 
+/* SA1's hints, sa_draw's SA_DRAW_BACKDROP, _SHADOW and _LIQUID. the adapter
+ * sets a hint only where the game itself tells the draw apart, by a task or
+ * by a model. so a draw without a hint may still be such a thing.
+ *
+ * the backdrop is each mesh the stage's sky task draws, or a task under it:
+ * the sky, its clouds, and the far land and sea, most of them around the
+ * camera and with fog off. a liquid's surface, as below, is never the
+ * backdrop. a sky that another task or the land draws, as the Egg Carrier
+ * garden's, has no hint.
+ *
+ * a shadow is each draw of the game's one shadow model, shadow_object's,
+ * under any drawer: the disc under a character, a ring, an enemy or a
+ * person. a shadow modeled for one object, as the guillotine's, has no hint.
+ *
+ * a liquid's surface is a model the collision world holds as a liquid, under
+ * world.h's WORLD_WATER or WORLD_THICK_LIQUID. that is a land entry the land
+ * draws, as a part and as each draw of the part. it is also an object a task
+ * put in the world, whichever task draws it. most water a task draws is
+ * another model than the plane the task puts in the world, and has no hint.
+ * the adapter knows two such: Emerald Coast's sea, and the last boss's
+ * flood, which the stage's sky task draws */
+
 /* SA1's views, sa_present_view's. its camera sets Ninja's view at each step
  * of a frame. a draw names Ninja's view as it is made. a draw ahead of the
  * camera's first step finds the view the frame before ended under.

@@ -1,0 +1,113 @@
+#version 460
+#extension GL_EXT_ray_query : require
+#extension GL_GOOGLE_include_directive : require
+// the enclosure pass: how enclosed the eye is, from 0 in the open to 1
+//
+// the game lights a stage with one directional light, which passes through
+// roofs and walls. in the open that light is the sun, and a shadow ray can
+// test it. inside a building or a cave every shadow ray would be blocked,
+// though the game lit the place with the same light. so PROBES rays leave
+// the eye in all directions, and from each hit a shadow ray is cast toward
+// the sun. the smaller the share that reach it, the more enclosed the eye
+// is, and the less trace.comp lets a shadow ray toward the sun count. the
+// measure is eased over time, so the lighting changes over about a second as
+// the eye passes a doorway.
+//
+// the probes run in parallel. the pass is one work group: each invocation
+// traces its share of the probes and writes its counts to tally, and
+// invocation 0 sums them. 128 invocations is the largest work group that
+// every Vulkan device supports
+layout(local_size_x = 128) in;
+
+#include "rays.glsl"
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT world;
+layout(set = 2, binding = 10, std430) buffer Enclosure {
+    float enclosed; // from 0 in the open to 1 where sunlight reaches nothing near the eye
+} measured;
+
+// the probe rays, which are a multiple of GROUP, the work group's size, and the
+// distance within which a probe's hit counts
+const int PROBES = 256;
+const int GROUP = 128;
+const float AROUND = 800.0;
+// with fewer hits than this the eye is in the open, and not enclosed
+const float FEWEST = 12.0;
+// the sunlit share of the hits at or below which the eye is fully enclosed, and
+// at or above which it is not enclosed at all
+const float NONE = 0.03;
+const float OPEN = 0.3;
+// the time constant, in seconds, of the measure's exponential easing toward
+// what the probes find. easing by time gives the same change at any number of
+// pictures a second
+const float EASE = 0.54;
+// the instances a probe hits: all but backdrops and those whose every material
+// blends, as glass's and water's do
+const uint MASK_SOLID = 8u;
+const float FAR = 1.0e7;
+
+// whether a ray hits a solid instance before far, and at what distance
+bool met(vec3 o, vec3 d, float far, out float t)
+{
+    rayQueryEXT q;
+
+    rayQueryInitializeEXT(q, world, gl_RayFlagsOpaqueEXT, MASK_SOLID, o, 0.0, d, far);
+    while (rayQueryProceedEXT(q)) {
+    }
+    if (rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+        return false;
+    }
+    t = rayQueryGetIntersectionTEXT(q, true);
+    return true;
+}
+
+// each invocation's count of hits in the low 16 bits, and of sunlit hits above
+// them
+shared uint tally[GROUP];
+
+void main()
+{
+    vec3 eye = vec3(rays.eye[0].w, rays.eye[1].w, rays.eye[2].w);
+    uint met_here = 0u;
+    uint reached_here = 0u;
+
+    for (int i = int(gl_LocalInvocationIndex); i < PROBES; i += GROUP) {
+        // the same directions each picture, spread evenly over the sphere (a
+        // Fibonacci lattice)
+        float y = 1.0 - 2.0 * (float(i) + 0.5) / float(PROBES);
+        float r = sqrt(max(1.0 - y * y, 0.0));
+        float turn = float(i) * 2.39996323;
+        vec3 way = vec3(r * cos(turn), y, r * sin(turn));
+        float t, beyond;
+
+        if (!met(eye, way, AROUND, t)) {
+            continue;
+        }
+        // a point just short of the hit, on the eye's side
+        vec3 at = eye + way * (t - max(0.5, 0.01 * t));
+
+        met_here += 1u;
+        reached_here += met(at, rays.to_sun.xyz, FAR, beyond) ? 0u : 1u;
+    }
+    tally[gl_LocalInvocationIndex] = met_here | reached_here << 16;
+    memoryBarrierShared();
+    barrier();
+    if (gl_LocalInvocationIndex != 0u) {
+        return;
+    }
+    float surfaces = 0.0;
+    float reached = 0.0;
+
+    for (int i = 0; i < GROUP; i++) {
+        surfaces += float(tally[i] & 0xffffu);
+        reached += float(tally[i] >> 16);
+    }
+    float share = surfaces >= FEWEST ? reached / surfaces : 1.0;
+    float wanted = 1.0 - smoothstep(NONE, OPEN, share);
+
+    // rays.clock.y is the time since the traced picture before. after a cut the
+    // measure takes the probes' value at once
+    float eased = 1.0 - exp(-max(rays.clock.y, 0.0) / EASE);
+
+    measured.enclosed = rays.counts.w != 0u ? wanted : mix(measured.enclosed, wanted, eased);
+}

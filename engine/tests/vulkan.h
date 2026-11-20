@@ -56,6 +56,10 @@ struct TestDevice {
     /* the names of the devices the next open finds listed, in order. with
      * none, it finds the one device, under a name of the test's own */
     std::vector<const char *> names;
+    /* the device is of Vulkan 1.2 and has ray queries, with the features,
+     * the extensions and the limits the raster asks of a device that traces.
+     * it traces nothing: it checks what the ray tracing calls are given */
+    bool traces = false;
     /* fail_nth fails the nth call from now that returns a result, or the
      * nth named fail_name, with fail_result. 0 fails none.
      * vkEnumerateDeviceExtensionProperties and vkFreeDescriptorSets never

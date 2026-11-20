@@ -1,0 +1,161 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// one iteration of the denoiser's a-trous wavelet filter (after Schied et
+// al., "Spatiotemporal Variance-Guided Filtering")
+//
+// a pixel takes a weighted mean of its noisy terms at 5 by 5 pixels stride
+// apart. a neighbor's weight falls with its distance from the pixel's plane
+// and with the angle between the two normals. for the added light it also
+// falls with the difference of the two luminances against the pixel's
+// standard error. for the occlusion it falls with the distance between the
+// two surface points against a radius: a share of the distance to the
+// pixel's nearest occluder, as a shadow's penumbra widens with the distance
+// to what casts it, so the shade where a character's foot meets the floor
+// stays sharp and the shade of a far wall is smoothed widely. a pixel that
+// has seen few pictures filters more widely. the host runs the iterations
+// with the stride doubling each time
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#include "rays.glsl"
+
+// each pixel's view-space z at full precision. the G-buffer's 16-bit z is too
+// coarse for the plane test at a large target
+layout(set = 2, binding = 4, r32f) uniform readonly image2D depth;
+layout(set = 2, binding = 5, rgba16f) uniform readonly image2D gbuffer[2];
+layout(set = 2, binding = 7, rgba16f) uniform readonly image2D moments[2];
+layout(set = 2, binding = 8, rgba16f) uniform image2D filtered[2];
+layout(push_constant) uniform Pass {
+    int stride;
+    int turn; // 0 reads filtered[0] and writes filtered[1], and 1 the reverse
+} pass;
+
+// the distance from the pixel's plane, in the pixel's widths a stride, over
+// which a neighbor's weight falls by e, and the exponent on the cosine between
+// the two normals
+const float PLANE = 1.0;
+const float FACING = 32.0;
+// the luminance difference, in the pixel's standard errors, over which a
+// neighbor's weight falls by e
+const float DEVIATIONS = 4.0;
+// a pixel that has seen fewer pictures than this has no reliable variance, and
+// is given a large one
+const float SETTLED = 4.0;
+// the radius over which a pixel's occlusion is filtered, as a share of the
+// distance to its nearest occluder, and how many times wider a pixel that has
+// seen one picture filters than one that has seen many
+const float PENUMBRA = 0.3;
+const float WIDENS = 2.0;
+
+vec4 taken(ivec2 p)
+{
+    return pass.turn == 0 ? imageLoad(filtered[0], p) : imageLoad(filtered[1], p);
+}
+
+vec4 surface(ivec2 p)
+{
+    return (rays.counts.x & 1u) != 0u ? imageLoad(gbuffer[1], p) : imageLoad(gbuffer[0], p);
+}
+
+// what the temporal pass kept of a pixel: the two moments of its added light's
+// luminance, the pictures it has seen, and its nearest occluder's distance
+vec4 kept(ivec2 p)
+{
+    return (rays.counts.x & 1u) != 0u ? imageLoad(moments[1], p) : imageLoad(moments[0], p);
+}
+
+// the variance of the mean of a pixel's added light, by luminance
+float variance(vec4 k, float bright)
+{
+    float unsure = 0.5 * (bright + 0.1);
+
+    return k.z < SETTLED ? unsure * unsure : max(k.y - k.x * k.x, 0.0) / k.z;
+}
+
+// the radius over which a pixel's occlusion is filtered, no less than width
+float radius(vec4 k, float width)
+{
+    return max(k.w * PENUMBRA, width) * (1.0 + WIDENS / max(k.z, 1.0));
+}
+
+// the point of a pixel that its camera ray crossed, at depth z, in view space
+vec3 point(ivec2 p, float z)
+{
+    vec2 screen = (vec2(p) + 0.5 + rays.jitter.xy) * rays.size.zw;
+
+    return vec3((screen - picture.project.zw) / picture.project.xy * z, z);
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(filtered[0]);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+    const float share[3] = float[3](3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0);
+    vec4 center = taken(pixel);
+    vec4 here = surface(pixel);
+    vec4 result = center;
+
+    if (here.w > 0.5) {
+        vec3 normal = unfolded(here.xy);
+        vec3 facing = rotate(picture.view, normal);
+        vec3 at = point(pixel, imageLoad(depth, pixel).r);
+        float bright = brightness(center.rgb);
+        float pixel_width = here.z * rays.size.z / picture.project.x;
+        float reach = pixel_width * float(pass.stride) * PLANE + 1.0e-6;
+        float within = radius(kept(pixel), pixel_width);
+        // the variance, prefiltered by a 3 by 3 Gaussian
+        float spread = 0.0;
+        float counted = 0.0;
+
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                ivec2 q = clamp(pixel + ivec2(x, y), ivec2(0), size - 1);
+                float w = share[abs(x)] * share[abs(y)];
+
+                spread += w * variance(kept(q), brightness(taken(q).rgb));
+                counted += w;
+            }
+        }
+        float allowed = DEVIATIONS * sqrt(max(spread / counted, 0.0)) + 1.0e-3;
+        float first = share[0] * share[0];
+        vec4 sum = center * first;
+        vec2 weight = vec2(first);
+
+        for (int y = -2; y <= 2; y++) {
+            for (int x = -2; x <= 2; x++) {
+                ivec2 q = pixel + ivec2(x, y) * pass.stride;
+
+                if ((x == 0 && y == 0) || q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) {
+                    continue;
+                }
+                vec4 there = surface(q);
+
+                if (there.w < 0.5) {
+                    continue;
+                }
+                vec4 terms = taken(q);
+                vec3 to = point(q, imageLoad(depth, q).r) - at;
+                float on = share[abs(x)] * share[abs(y)] * exp(-abs(dot(facing, to)) / reach) *
+                           pow(max(dot(normal, unfolded(there.xy)), 0.0), FACING);
+                // the two pixels' occlusion mixes over the smaller of their
+                // radii, so a pixel in the open takes nothing from the sharp
+                // shade beside it
+                float r = min(within, radius(kept(q), pixel_width));
+                vec2 w = on * vec2(exp(-abs(brightness(terms.rgb) - bright) / allowed),
+                                   exp(-dot(to, to) / (2.0 * r * r)));
+
+                sum += vec4(terms.rgb * w.x, terms.a * w.y);
+                weight += w;
+            }
+        }
+        result = vec4(sum.rgb / weight.x, sum.a / weight.y);
+    }
+    if (pass.turn == 0) {
+        imageStore(filtered[1], pixel, result);
+    } else {
+        imageStore(filtered[0], pixel, result);
+    }
+}

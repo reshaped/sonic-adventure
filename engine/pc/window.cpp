@@ -21,6 +21,7 @@ struct Window {
     SoundRender render;
     void *user;
     bool exclusive; /* fullscreen at the display's own mode */
+    bool rays_key; /* F10 was pressed, and window_rays_key has yet to report */
 };
 
 namespace {
@@ -83,7 +84,8 @@ Window *window_open(const char *title, uint32_t width, uint32_t height,
         }
     }
     auto *window = new Window{made,    input,   nullptr,
-                              nullptr, nullptr, (flags & SA_PC_EXCLUSIVE) != 0};
+                              nullptr, nullptr, (flags & SA_PC_EXCLUSIVE) != 0,
+                              false};
     if (flags & SA_PC_FULLSCREEN) {
         fullscreen(window, true);
     }
@@ -157,10 +159,30 @@ bool window_pump(Window *window)
                      (event.key.mod & SDL_KMOD_ALT) != 0))) {
             fullscreen(window, (SDL_GetWindowFlags(window->window) &
                                 SDL_WINDOW_FULLSCREEN) == 0);
+        } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                   event.key.key == SDLK_F10) {
+            window->rays_key = true;
         }
     }
     input_update(window->input, SDL_GetTicksNS());
     return quit;
+}
+
+void window_title(Window *window, const char *title)
+{
+    if (window != nullptr) {
+        SDL_SetWindowTitle(window->window, title);
+    }
+}
+
+bool window_rays_key(Window *window)
+{
+    bool down = window != nullptr && window->rays_key;
+
+    if (down) {
+        window->rays_key = false;
+    }
+    return down;
 }
 
 sa_result window_pad(Window *window, uint32_t port, sa_pad &pad)

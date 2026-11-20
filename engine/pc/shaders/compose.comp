@@ -1,0 +1,63 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// the compose pass: a traced pixel as display values, for the antialiasing
+// pass
+//
+//   layer_adds + layer_keeps *
+//       fog(displayed(direct + ambient * open + albedo * added) + highlight)
+//
+// added and open are the denoiser's result, or from UNFILTERED rays a pixel
+// the trace pass's own, each the mean of the pixel's rays. the game's
+// palettes set a stage's brightness, so there is no exposure: the light is
+// tone mapped and gamma-encoded as it stands. the highlight is added to the
+// display value, as the game adds a point's offset color to its pixel, and
+// the picture's fog table then applies as it does to a rasterized pixel
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#include "rays.glsl"
+
+layout(set = 2, binding = 0, rgba16f) uniform readonly image2D direct;
+layout(set = 2, binding = 1, rgba16f) uniform readonly image2D albedo;
+layout(set = 2, binding = 2, rgba16f) uniform readonly image2D indirect;
+layout(set = 2, binding = 4, r32f) uniform readonly image2D depth;
+layout(set = 2, binding = 8, rgba16f) uniform readonly image2D filtered[2];
+layout(set = 2, binding = 11, rgba16f) uniform readonly image2D highlight;
+// what the translucent surfaces in front of the pixel's opaque surface add to
+// it and keep of it, as display values
+layout(set = 2, binding = 12, rgba16f) uniform readonly image2D layer_adds;
+layout(set = 2, binding = 13, rgba16f) uniform readonly image2D layer_keeps;
+layout(set = 2, binding = 14, rgba16f) uniform readonly image2D ambient;
+layout(set = 2, binding = 15, rgba16f) uniform writeonly image2D composed;
+
+// from this many rays a pixel nothing is denoised
+const uint UNFILTERED = 64u;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(composed);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+    vec4 light = imageLoad(direct, pixel);
+    vec3 reaches = imageLoad(albedo, pixel).rgb;
+    vec3 around = imageLoad(ambient, pixel).rgb;
+    float z = imageLoad(depth, pixel).r;
+
+    // where both are 0 the pixel has no indirect light, and filtered holds no
+    // value for it
+    if (reaches != vec3(0.0) || around != vec3(0.0)) {
+        vec4 terms = rays.counts.z >= UNFILTERED ? imageLoad(indirect, pixel)
+                                                 : imageLoad(filtered[0], pixel);
+
+        light.rgb += around * terms.a + reaches * terms.rgb;
+    }
+    vec3 c = min(displayed(light.rgb) + imageLoad(highlight, pixel).rgb, 1.0);
+
+    if (light.a > 0.5 && z > 0.0) {
+        c = mix(c, picture.fog_color.rgb, fog_alpha(1.0 / z));
+    }
+    c = clamp(imageLoad(layer_adds, pixel).rgb + imageLoad(layer_keeps, pixel).rgb * c, 0.0, 1.0);
+    imageStore(composed, pixel, vec4(c, 1.0));
+}

@@ -7,6 +7,7 @@
  * /tmp and removes. it returns 0, or prints the line of the first check that
  * fails and returns 1. given the path of the capture the adapter's test
  * wrote, it checks the client's reading of that alone */
+#include <ctype.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
@@ -18,10 +19,12 @@
 
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include <string>
 #include <vector>
 
 #include "client.h"
+#include "emissive.h"
 #include "raster.h"
 #include "sa_capture.h"
 #include "sa_client.h"
@@ -60,6 +63,23 @@ struct Fake {
     uint32_t refuses = 0;
     const char *broken = nullptr;
     bool window = false; /* whether an engine that asks a window opens one */
+    /* the title its window was last given, and whether F10 went down since
+     * the backend last asked */
+    std::string title;
+    bool rays_key = false;
+    /* whether the device traces. where it does, add_mesh gives the next
+     * mesh, or none under refuse_meshes. it counts the meshes asked of it
+     * and keeps the last, less its points. free_mesh notes the mesh freed.
+     * submit keeps each traced picture as it was given, or counts a picture
+     * that is rasterized alone */
+    bool traces = false;
+    bool refuse_meshes = false;
+    uint32_t next_mesh = 1;
+    uint32_t meshes_asked = 0;
+    pc::RayMesh mesh;
+    std::vector<uint32_t> freed_meshes;
+    std::vector<pc::RayPicture> traced;
+    uint32_t untraced = 0;
 } fake;
 
 } // namespace
@@ -91,9 +111,32 @@ void Raster::free_texture(uint32_t texture)
     fake.freed.push_back(texture);
 }
 
+bool Raster::traces() const
+{
+    return fake.traces;
+}
+
+uint32_t Raster::add_mesh(const RayMesh &mesh, std::string &why)
+{
+    fake.meshes_asked++;
+    fake.mesh = mesh;
+    fake.mesh.points = fake.mesh.normals = nullptr;
+    if (!fake.traces || fake.refuse_meshes || mesh.corners.empty()) {
+        why = "the test's device refuses the mesh";
+        return 0;
+    }
+    return fake.next_mesh++;
+}
+
+void Raster::free_mesh(uint32_t mesh)
+{
+    fake.freed_meshes.push_back(mesh);
+}
+
 bool Raster::submit(uint32_t frame, const PictureUniform &picture, uint32_t,
                     const std::vector<Vertex> &vertices,
-                    const std::vector<Batch> &batches, bool, std::string &why)
+                    const std::vector<Batch> &batches, bool,
+                    const RayPicture *rays, std::string &why)
 {
     if (fake.broken != nullptr) {
         why = fake.broken;
@@ -105,6 +148,11 @@ bool Raster::submit(uint32_t frame, const PictureUniform &picture, uint32_t,
         fake.refuses--;
         why = "the test's device refuses the picture";
         return false;
+    }
+    if (rays != nullptr) {
+        fake.traced.push_back(*rays);
+    } else {
+        fake.untraced++;
     }
     fake.busy[frame] = true;
     fake.vertices = static_cast<uint32_t>(vertices.size());
@@ -204,6 +252,21 @@ void window_alert(const char *, const char *)
 bool window_pump(Window *)
 {
     return false;
+}
+
+void window_title(Window *window, const char *title)
+{
+    if (window != nullptr) {
+        fake.title = title;
+    }
+}
+
+bool window_rays_key(Window *window)
+{
+    bool down = window != nullptr && fake.rays_key;
+
+    fake.rays_key = false;
+    return down;
 }
 
 sa_result window_pad(Window *, uint32_t, sa_pad &)
@@ -628,7 +691,7 @@ int client_scene()
  * latest version alone, so it holds one version's bytes however many came.
  * each picture shades from the version it names, even one naming the latest
  * again with no new record. a draw in a picture that names an ended version
- * is refused */
+ * is refused. a draw under one of the adapter's hints is drawn as any other */
 int palette_versions()
 {
     const char *const no_roots[] = {nullptr};
@@ -735,6 +798,15 @@ int palette_versions()
           color == as_raster(colors[(given - 1) % 3]));
     CHECK(held->names.palettes.bytes() == sizeof(sa_palettes) &&
           held->totals.palettes_given == given);
+    /* the picture of what the game showed reads none of the hints. the draw
+     * shows under each as it did under none */
+    for (int hint : {SA_DRAW_BACKDROP, SA_DRAW_SHADOW, SA_DRAW_LIQUID}) {
+        draw.flags = static_cast<uint16_t>(hint);
+        CHECK(show(pictures + 2 + static_cast<uint32_t>(hint), given - 1,
+                   &color) &&
+              color == as_raster(colors[(given - 1) % 3]));
+    }
+    CHECK(held->failures.size() == 1 && held->totals.refused == 1);
     for (bool &b : fake.busy) {
         b = false;
     }
@@ -4716,6 +4788,1793 @@ int client_refused()
     return 0;
 }
 
+/* a picture whose view looks along z from eye on the world's x axis, with x
+ * right and y down. its matrix has an inverse, so a traced picture has an
+ * eye of its own */
+sa_picture looking_from(uint32_t tick, float eye)
+{
+    sa_picture made = picture_at(tick);
+
+    made.view.world_to_view[0] = made.view.world_to_view[5] =
+        made.view.world_to_view[10] = 1;
+    made.view.world_to_view[3] = -eye;
+    made.view.focal[0] = made.view.focal[1] = 320;
+    made.view.center[0] = 320;
+    made.view.center[1] = 240;
+    made.view.near_z = 1;
+    return made;
+}
+
+/* SA_FORMAT_MESH's bytes for a mesh of three points with normals along z,
+ * and one triangle over them for each of materials, in order */
+std::vector<uint8_t> mesh_of_sets(const std::vector<uint16_t> &materials)
+{
+    const float points[9] = {0, 0, 1, 1, 0, 1, 0, 1, 1};
+    const float normals[9] = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+    const uint16_t corners[4] = {0, 1, 2, 0};
+    sa_mesh head = {3, 3, static_cast<uint32_t>(materials.size()), 0};
+    std::vector<uint8_t> bytes;
+    auto put = [&bytes](const void *from, size_t size) {
+        const auto *b = static_cast<const uint8_t *>(from);
+
+        bytes.insert(bytes.end(), b, b + size);
+    };
+
+    for (uint16_t m : materials) {
+        head.materials = std::max(head.materials, m + 1U);
+    }
+    put(&head, sizeof head);
+    put(points, sizeof points);
+    put(normals, sizeof normals);
+    for (uint16_t m : materials) {
+        sa_meshset set = {m, 0, 3};
+
+        put(&set, sizeof set);
+        put(corners, sizeof corners);
+    }
+    return bytes;
+}
+
+/* the palettes the tests of ray tracing shade from. the first palette's
+ * first entry is white, and the rest are black */
+sa_palettes ray_palettes;
+
+/* an engine over a device that traces, and what the tests of ray tracing
+ * draw with it: a mesh of one triangle that a task draws, another that is
+ * a part of the act's scene, a texture of one texel, a list of one plain
+ * material, and a shade whose light runs along x at twice a unit's length.
+ * each test makes its own */
+struct Traced {
+    sa_pc_options options{};
+    sa_engine_desc desc{};
+    sa_engine *engine = nullptr;
+    Triangle triangle;
+    Triangle land;
+    Pixel pixel;
+    sa_material material{};
+    sa_handle mesh = SA_NULL;
+    sa_handle land_mesh = SA_NULL;
+    sa_handle texture = SA_NULL;
+    sa_handle plain = SA_NULL;
+    /* each picture's shades, which its draws name by their ids */
+    std::vector<sa_shade> shades;
+    sa_draw draw{}; /* a task's, of thing 5 */
+    sa_draw part{}; /* part 3 of the act's scene, given at x 50 */
+    sa_pc_stats stats{};
+
+    /* make the engine, at rate, with rays through a pixel, over a device
+     * that traces or not, in a window or headless */
+    bool open(uint32_t rate, uint32_t rays, bool traces = true,
+              bool window = false)
+    {
+        uint32_t bytes = 0;
+        sa_shade shade{};
+
+        fake = Fake{};
+        fake.traces = traces;
+        fake.window = window;
+        options.flags = window ? SA_PC_WINDOW : 0;
+        desc.abi = SA_ENGINE_ABI_VERSION;
+        desc.size = sizeof desc;
+        desc.game = SA_GAME_SA1;
+        desc.arena = 65536;
+        desc.pictures = 2;
+        desc.resources = 32;
+        desc.events = 64;
+        desc.platform = &options;
+        options.rate = rate;
+        options.rays = rays;
+        pixel.rgba[0] = 200;
+        pixel.rgba[1] = 100;
+        pixel.rgba[2] = 50;
+        ray_palettes = sa_palettes{};
+        ray_palettes.words[0] = 0xffffffff;
+        shade.head = {SA_REC_SHADE, sizeof shade};
+        shade.light[0] = 2;
+        shades.assign(1, shade);
+        if (sa_engine_memory(&desc, &bytes) != SA_OK || bytes > sizeof block ||
+            sa_engine_create(&desc, block, bytes, &engine) != SA_OK ||
+            make(engine, SA_KIND_MESH, SA_FORMAT_MESH, &triangle,
+                 sizeof triangle, &mesh) != SA_OK ||
+            make(engine, SA_KIND_MESH, SA_FORMAT_MESH, &land, sizeof land,
+                 &land_mesh) != SA_OK ||
+            make(engine, SA_KIND_TEXTURE, SA_FORMAT_PIXELS, &pixel,
+                 sizeof pixel, &texture) != SA_OK ||
+            make(engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, &material,
+                 sizeof material, &plain) != SA_OK) {
+            return false;
+        }
+        draw.head = {SA_REC_DRAW, sizeof draw};
+        draw.mesh = mesh;
+        draw.materials = plain;
+        draw.payload = SA_NO_PAYLOAD;
+        draw.instance = 8;
+        draw.thing = 5;
+        draw.object_to_world[0] = draw.object_to_world[5] =
+            draw.object_to_world[10] = 1;
+        part = draw;
+        part.mesh = land_mesh;
+        part.instance = SA_INSTANCE_SCENE | 3;
+        part.thing = 0;
+        part.object_to_world[3] = 50;
+        return true;
+    }
+    /* the task's draw at x, under flags */
+    sa_draw at(float x, uint16_t flags = 0) const
+    {
+        sa_draw d = draw;
+
+        d.object_to_world[3] = x;
+        d.flags = flags;
+        return d;
+    }
+    /* give the act's scene, of count parts */
+    bool scene(const sa_draw *parts, uint32_t count)
+    {
+        sa_scene s{};
+
+        s.head = {SA_REC_SCENE, sizeof s};
+        s.scene = 0x100;
+        return sa_scene_begin(engine, &s) == SA_OK &&
+               sa_scene_shade(engine, &shades[0]) == SA_OK &&
+               sa_scene_part(engine, parts, count) == SA_OK &&
+               sa_scene_end(engine) == SA_OK;
+    }
+    /* begin picture, with its shades and palettes. fake.traced then takes
+     * each traced picture the device is sent for it, the game's own last */
+    bool begin(const sa_picture &picture)
+    {
+        fake.traced.clear();
+        fake.untraced = 0;
+        for (bool &b : fake.busy) {
+            b = false;
+        }
+        if (sa_present_begin(engine, &picture) != SA_OK) {
+            return false;
+        }
+        for (const sa_shade &s : shades) {
+            if (sa_present_shade(engine, &s) != SA_OK) {
+                return false;
+            }
+        }
+        return sa_present_palettes(engine, &ray_palettes) == SA_OK;
+    }
+    /* end the picture, and read its figures to stats */
+    bool end()
+    {
+        return sa_present_end(engine) == SA_OK &&
+               sa_pc_stats_read(engine, &stats) == SA_OK;
+    }
+    /* a picture of count draws, then of sprite where one is given */
+    bool show(const sa_picture &picture, const sa_draw *draws, uint32_t count,
+              const sa_sprite *sprite = nullptr)
+    {
+        return begin(picture) &&
+               (count == 0 || sa_present_draw(engine, draws, count) == SA_OK) &&
+               (sprite == nullptr ||
+                sa_present_sprite(engine, sprite, 1) == SA_OK) &&
+               end();
+    }
+    bool show(const sa_picture &picture, const sa_draw &d,
+              const sa_sprite *sprite = nullptr)
+    {
+        return show(picture, &d, 1, sprite);
+    }
+    void close()
+    {
+        for (bool &b : fake.busy) {
+            b = false;
+        }
+        sa_engine_destroy(engine);
+        fake = Fake{};
+    }
+};
+
+/* a sprite in the world at x, 8 across, that adds its light to what lies
+ * behind it */
+sa_sprite glare_at(float x)
+{
+    sa_sprite glare{};
+
+    glare.head = {SA_REC_SPRITE, sizeof glare};
+    glare.object_to_world[0] = glare.object_to_world[5] =
+        glare.object_to_world[10] = 1;
+    glare.object_to_world[3] = x;
+    glare.scale[0] = glare.scale[1] = 1;
+    glare.corner[0][0] = glare.corner[0][1] = -4;
+    glare.corner[1][0] = glare.corner[1][1] = 4;
+    glare.flags = SA_SPRITE_ALPHA | SA_SPRITE_SCALE;
+    glare.depth = SA_DEPTH_GEQUAL;
+    glare.src = SA_BLEND_ONE;
+    glare.dst = SA_BLEND_ONE;
+    return glare;
+}
+
+/* what a traced picture takes of a mesh's draw: an instance of a mesh the
+ * raster took once, with its flags, its light and its name. a draw under
+ * another view is carried into the picture's own, and its light with it.
+ * the picture carries its time, its eye and its background, and takes its
+ * sun from the first draw it shows whose shade has a light. a name pairs an
+ * instance with the picture before */
+int ray_instances()
+{
+    Traced t;
+    sa_draw d;
+
+    /* a device with no ray queries rasterizes, and refuses the setting */
+    CHECK(t.open(0, 2, false));
+    CHECK(sa_pc_rays(t.engine, 1) == SA_ERR_UNSUPPORTED);
+    CHECK(t.show(picture_at(10), t.at(1)) && fake.traced.empty() &&
+          fake.untraced == 1 && fake.vertices == 3 && t.stats.rays == 0);
+    t.close();
+    CHECK(t.open(0, 2));
+    /* the draw is an instance of its mesh, which the raster took once. it
+     * goes to no batch. it names its palette for its light, and carries
+     * its shade's light as the game gave it */
+    sa_picture first = looking_from(10, 30);
+
+    first.back[0] = 0xff112233;
+    first.back[1] = 0xff445566;
+    first.back[2] = 0xff778899;
+    t.shades[0].palette = 3;
+    ray_palettes.words[3 * SA_PALETTE_ENTRIES * 2] = 0xff808080;
+    ray_palettes.words[3 * SA_PALETTE_ENTRIES * 2 + 1] = 0xff010203;
+    CHECK(t.show(first, t.at(1)) && fake.traced.size() == 1 &&
+          fake.vertices == 0);
+    const pc::RayPicture *given = &fake.traced[0];
+
+    CHECK(given->samples == 2 && given->instances.size() == 1 &&
+          given->materials.size() == 1 && given->lamps.empty());
+    CHECK(given->instances[0].mesh == 1 && fake.next_mesh == 2 &&
+          given->instances[0].materials == 0 &&
+          given->instances[0].flags ==
+              (pc::RAY_SEEN | pc::RAY_NEW | pc::RAY_NORMALS | pc::RAY_OPAQUE |
+               pc::RAY_FOG) &&
+          given->instances[0].object_to_world[3] == 1 &&
+          given->instances[0].object_to_world[0] == 1);
+    CHECK(given->instances[0].light == 3 &&
+          given->instances[0].light_way[0] == 2 &&
+          given->instances[0].light_way[1] == 0 &&
+          given->instances[0].light_way[2] == 0);
+    /* the sun's direction is opposite the draw's light, at unit length */
+    CHECK(given->to_sun[0] == -1 && given->to_sun[1] == 0 &&
+          given->to_sun[2] == 0);
+    /* the palettes are the lights' ramps, a shade's two colors an entry */
+    CHECK(given->ramps[0] == 0xffffffff && given->ramps[2] == 0 &&
+          given->ramps[pc::RAY_RAMP * 2] == 0 &&
+          given->ramps[3 * pc::RAY_RAMP * 2] == 0xff808080 &&
+          given->ramps[3 * pc::RAY_RAMP * 2 + 1] == 0xff010203);
+    /* the picture's time in seconds, its eye and its background. the first
+     * traced picture is cut, and no time has passed */
+    CHECK(fabs(given->time - 10 * 1001.0 / 60000.0) < 1e-9 && given->cut &&
+          given->step == 0);
+    CHECK(given->eye[0] == 1 && given->eye[5] == 1 && given->eye[10] == 1 &&
+          given->eye[3] == 30 && given->eye[7] == 0 && given->eye[11] == 0);
+    CHECK(given->back[0] == 0xff112233 && given->back[1] == 0xff445566 &&
+          given->back[2] == 0xff778899);
+    CHECK(t.stats.traced == 1 && t.stats.hidden == 0 && t.stats.lamps == 0 &&
+          t.stats.triangles == 1 && t.stats.rays == 2);
+    /* the next picture finds the instance by its name, where it stood, and
+     * takes the view and the time of the picture before */
+    sa_picture second = looking_from(12, 34);
+
+    second.view.focal[0] = 300;
+    CHECK(t.show(second, t.at(3)) && fake.traced.size() == 1 &&
+          fake.next_mesh == 2);
+    given = &fake.traced[0];
+    CHECK(!given->cut && !(given->instances[0].flags & pc::RAY_NEW) &&
+          given->instances[0].before[3] == 1 &&
+          given->instances[0].object_to_world[3] == 3);
+    CHECK(given->before_view[0] == 1 && given->before_view[3] == -30 &&
+          given->before_project[0] == 320 && given->before_project[1] == 320 &&
+          given->before_project[2] == 320 && given->before_project[3] == 240 &&
+          fabsf(given->step - 2 * 1001.0F / 60000.0F) < 1e-6F);
+    /* out of the game's view, no camera ray hits it */
+    CHECK(t.show(looking_from(14, 38), t.at(4, SA_DRAW_OUT)) &&
+          fake.traced.size() == 1);
+    given = &fake.traced[0];
+    CHECK(given->instances.size() == 1 &&
+          !(given->instances[0].flags & pc::RAY_SEEN) &&
+          given->instances[0].before[3] == 3 && t.stats.traced == 1 &&
+          t.stats.hidden == 1 && t.stats.triangles == 0);
+    CHECK(given->before_view[3] == -34 && given->before_project[0] == 300);
+    /* the draws no task owns are one drawer's, whatever number each
+     * carries */
+    d = t.at(4);
+    d.instance = SA_INSTANCE_UNOWNED | 5;
+    CHECK(t.show(picture_at(16), d) &&
+          (fake.traced[0].instances[0].flags & pc::RAY_NEW));
+    d = t.at(6);
+    d.instance = SA_INSTANCE_UNOWNED | 9;
+    CHECK(t.show(picture_at(18), d) &&
+          !(fake.traced[0].instances[0].flags & pc::RAY_NEW) &&
+          fake.traced[0].instances[0].before[3] == 4);
+    /* such a draw is no part of the act's scene, whatever its number's
+     * bits. with no thing it has no name */
+    d.instance = SA_INSTANCE_UNOWNED | SA_INSTANCE_SCENE | 3;
+    d.thing = 0;
+    CHECK(t.show(picture_at(20), d) &&
+          !(fake.traced[0].instances[0].flags & pc::RAY_SCENERY) &&
+          fake.traced[0].instances[0].name == 0);
+    /* a draw no part of the scene is an object, which casts an overhead
+     * shadow, until it is as large as a place: its mesh's extent, half the
+     * diagonal of its points' box, under the largest scale of its matrix.
+     * the triangle's is half of root 2 */
+    {
+        pc::MeshView view;
+        Triangle triangle;
+        sa_draw large = d;
+
+        CHECK(pc::mesh_view(&triangle, sizeof triangle, view) &&
+              fabsf(view.extent - sqrtf(2.0F) / 2) < 1e-6F);
+        large.object_to_world[5] = 70;
+        CHECK(t.show(picture_at(21), large) &&
+              !(fake.traced[0].instances[0].flags & pc::RAY_SCENERY));
+        large.object_to_world[5] = 71;
+        CHECK(t.show(picture_at(21), large) &&
+              (fake.traced[0].instances[0].flags & pc::RAY_SCENERY) &&
+              fake.traced[0].instances[0].name == 0);
+    }
+    CHECK(t.show(picture_at(22), d) &&
+          (fake.traced[0].instances[0].flags & pc::RAY_NEW));
+    /* two draws of one thing by one drawer are told apart by their nth */
+    sa_draw two[2] = {t.at(1), t.at(2)};
+
+    two[1].nth = 1;
+    CHECK(t.show(picture_at(24), two, 2));
+    two[0].object_to_world[3] = 11;
+    two[1].object_to_world[3] = 12;
+    CHECK(t.show(picture_at(26), two, 2) &&
+          fake.traced[0].instances.size() == 2 &&
+          fake.traced[0].instances[0].before[3] == 1 &&
+          fake.traced[0].instances[1].before[3] == 2 &&
+          !(fake.traced[0].instances[1].flags & pc::RAY_NEW));
+    /* the game's stand-in for a shadow is left out, as a traced picture
+     * casts its own. a backdrop and a liquid's surface carry their flags */
+    CHECK(t.show(picture_at(28), t.at(4, SA_DRAW_SHADOW)) &&
+          fake.traced.size() == 1 && fake.traced[0].instances.empty() &&
+          t.stats.traced == 0);
+    CHECK(t.show(picture_at(30), t.at(4, SA_DRAW_BACKDROP)) &&
+          (fake.traced[0].instances[0].flags &
+           (pc::RAY_BACKDROP | pc::RAY_LIQUID)) == pc::RAY_BACKDROP);
+    CHECK(t.show(picture_at(32), t.at(4, SA_DRAW_LIQUID)) &&
+          (fake.traced[0].instances[0].flags &
+           (pc::RAY_BACKDROP | pc::RAY_LIQUID)) == pc::RAY_LIQUID);
+    /* the sun comes from the first draw the picture shows whose shade has a
+     * light, whatever the shade's mode. a draw out of view, a backdrop and
+     * a draw whose shade has no light give none. each instance carries its
+     * own shade's light */
+    sa_shade other = t.shades[0];
+    sa_shade dark = t.shades[0];
+    sa_shade ramp = t.shades[0];
+    sa_draw four[4] = {t.at(1, SA_DRAW_OUT), t.at(2, SA_DRAW_BACKDROP), t.at(3),
+                       t.at(4)};
+
+    other.shade = 1;
+    other.light[0] = 0;
+    other.light[2] = 5;
+    dark.shade = 2;
+    dark.light[0] = 0;
+    ramp.shade = 3;
+    ramp.mode = SA_SHADE_RAMP;
+    ramp.light[0] = 0;
+    ramp.light[2] = -4;
+    t.shades = {t.shades[0], other, dark, ramp};
+    for (uint32_t i = 1; i < 4; i++) {
+        four[i].shade = i;
+        four[i].thing = 5 + i;
+    }
+    CHECK(t.show(picture_at(34), four, 4) &&
+          fake.traced[0].instances.size() == 4);
+    given = &fake.traced[0];
+    CHECK(given->to_sun[0] == 0 && given->to_sun[1] == 0 &&
+          given->to_sun[2] == 1);
+    CHECK(given->instances[0].light_way[0] == 2 &&
+          given->instances[1].light_way[2] == 5 &&
+          given->instances[2].light_way[0] == 0 &&
+          given->instances[2].light_way[1] == 0 &&
+          given->instances[2].light_way[2] == 0 &&
+          given->instances[3].light_way[2] == -4 &&
+          given->instances[3].light == 0);
+    /* a picture that shows no such draw has its sun straight up */
+    CHECK(t.show(picture_at(36), four, 3) && fake.traced[0].to_sun[0] == 0 &&
+          fake.traced[0].to_sun[1] == 1 && fake.traced[0].to_sun[2] == 0);
+    /* a draw under another view is carried into the picture's own, and its
+     * light is turned as its matrix is. view 1 is the picture's own view after
+     * a quarter turn about y, so x under it is -z under the picture's own: the
+     * draw at 5 along x is at -5 along z, and its light along x points along
+     * -z */
+    sa_picture picture = looking_from(38, 0);
+    sa_picture_view turned{};
+    sa_draw carried = t.at(5);
+
+    t.shades.resize(1);
+    turned.head = {SA_REC_VIEW, sizeof turned};
+    turned.view = 1;
+    turned.value = picture.view;
+    memset(turned.value.world_to_view, 0, sizeof turned.value.world_to_view);
+    turned.value.world_to_view[2] = 1;
+    turned.value.world_to_view[5] = 1;
+    turned.value.world_to_view[8] = -1;
+    carried.view = 1;
+    CHECK(t.begin(picture) && sa_present_view(t.engine, &turned) == SA_OK &&
+          sa_present_draw(t.engine, &carried, 1) == SA_OK && t.end() &&
+          fake.traced[0].instances.size() == 1);
+    given = &fake.traced[0];
+    CHECK(given->instances[0].object_to_world[3] == 0 &&
+          given->instances[0].object_to_world[11] == -5);
+    CHECK(given->instances[0].light_way[0] == 0 &&
+          given->instances[0].light_way[1] == 0 &&
+          given->instances[0].light_way[2] == -2);
+    CHECK(given->to_sun[0] == 0 && given->to_sun[1] == 0 &&
+          given->to_sun[2] == 1);
+    /* a light whose square passes what a float holds still gives a unit
+     * sun. one that is not finite gives no sun, and its instance no light */
+    t.shades[0].light[0] = 1e30F;
+    CHECK(t.show(picture_at(40), t.at(1)) && fake.traced[0].to_sun[0] == -1 &&
+          fake.traced[0].instances[0].light_way[0] == 1e30F);
+    t.shades[0].light[0] = INFINITY;
+    t.shades[0].light[1] = 1;
+    CHECK(t.show(picture_at(42), t.at(1)) && fake.traced[0].to_sun[0] == 0 &&
+          fake.traced[0].to_sun[1] == 1 &&
+          fake.traced[0].instances[0].light_way[0] == 0 &&
+          fake.traced[0].instances[0].light_way[1] == 0);
+    t.close();
+    return 0;
+}
+
+/* a mesh of two meshsets over three points. the first has uv. the second
+ * has none, and takes the points the other way about */
+struct UvSets {
+    sa_mesh mesh = {3, 3, 2, 2};
+    float points[9] = {0, 0, 1, 1, 0, 1, 0, 1, 1};
+    float normals[9] = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+    sa_meshset first = {0, SA_MESHSET_UV, 3};
+    uint16_t first_corners[4] = {0, 1, 2, 0};
+    float uv[6] = {0.25F, 0.5F, 0.75F, 1, 0, 0.125F};
+    sa_meshset second = {1, 0, 3};
+    uint16_t second_corners[4] = {2, 1, 0, 0};
+};
+
+/* the mesh the raster holds for ray tracing: each meshset's corners, their
+ * uv and its material, a triangle at a time. the raster takes a mesh the
+ * first time a draw names it. a mesh it refuses is asked of it once, and is
+ * rasterized. a mesh's release ends the raster's once the last picture that
+ * could trace it has retired */
+int ray_meshes()
+{
+    Traced t;
+    UvSets sets;
+    sa_material pair[2] = {};
+    sa_handle sets_mesh = SA_NULL;
+    sa_handle list = SA_NULL;
+    sa_handle spare = SA_NULL;
+    Triangle unheld;
+
+    CHECK(t.open(0, 1));
+    CHECK(make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, &sets, sizeof sets,
+               &sets_mesh) == SA_OK &&
+          make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, pair,
+               sizeof pair, &list) == SA_OK);
+    sa_draw d = t.at(1);
+
+    d.mesh = sets_mesh;
+    d.materials = list;
+    CHECK(fake.meshes_asked == 0 && t.show(picture_at(10), d) &&
+          fake.meshes_asked == 1 && fake.traced[0].instances[0].mesh == 1 &&
+          fake.traced[0].materials.size() == 2);
+    CHECK(fake.mesh.count == 3 &&
+          fake.mesh.corners == std::vector<uint32_t>({0, 1, 2, 2, 1, 0}) &&
+          fake.mesh.uv == std::vector<float>({0.25F, 0.5F, 0.75F, 1, 0, 0.125F,
+                                              0, 0, 0, 0, 0, 0}) &&
+          fake.mesh.materials == std::vector<uint16_t>({0, 1}));
+    /* a later draw of it adds none */
+    CHECK(t.show(picture_at(12), d) && fake.meshes_asked == 1 &&
+          fake.traced[0].instances[0].mesh == 1);
+    /* a mesh the device refuses is asked of it once. each draw of it goes
+     * to batches, in a picture that is traced all the same */
+    CHECK(make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, &unheld, sizeof unheld,
+               &spare) == SA_OK);
+    fake.refuse_meshes = true;
+    d = t.at(1);
+    d.mesh = spare;
+    CHECK(t.show(picture_at(14), d) && fake.meshes_asked == 2 &&
+          fake.traced.size() == 1 && fake.traced[0].instances.empty() &&
+          fake.vertices == 3);
+    fake.refuse_meshes = false;
+    CHECK(t.show(picture_at(16), d) && fake.meshes_asked == 2 &&
+          fake.traced[0].instances.empty() && fake.vertices == 3);
+    /* a mesh's release ends the raster's mesh once the picture that could
+     * trace it has retired, and no sooner */
+    sa_picture last = picture_at(18);
+
+    d.mesh = sets_mesh;
+    d.materials = list;
+    CHECK(sa_present_begin(t.engine, &last) == SA_OK &&
+          sa_present_shade(t.engine, &t.shades[0]) == SA_OK &&
+          sa_present_palettes(t.engine, &ray_palettes) == SA_OK &&
+          sa_present_draw(t.engine, &d, 1) == SA_OK &&
+          sa_present_end(t.engine) == SA_OK);
+    CHECK(sa_resource_release(t.engine, sets_mesh) == SA_OK &&
+          fake.freed_meshes.empty());
+    CHECK(sa_pc_stats_read(t.engine, &t.stats) == SA_OK &&
+          fake.freed_meshes.size() == 1 && fake.freed_meshes[0] == 1);
+    t.close();
+    return 0;
+}
+
+/* the act's parts in a traced picture. a part the picture leaves out is hidden
+ * where its last draw put it, in the game's view or out of it, or where it was
+ * given. a part the picture draws is seen there. a traced picture's home is its
+ * own view, whatever view its first record names, so a part is in one place
+ * whether it is drawn or left out */
+int ray_parts()
+{
+    Traced t;
+    const pc::RayPicture *given = nullptr;
+
+    CHECK(t.open(0, 2));
+    CHECK(t.scene(&t.part, 1));
+    CHECK(t.show(picture_at(16), t.at(5)) && fake.traced.size() == 1);
+    given = &fake.traced[0];
+    CHECK(given->instances.size() == 2 && t.stats.traced == 2 &&
+          t.stats.hidden == 1 && fake.next_mesh == 3);
+    CHECK((given->instances[0].flags & pc::RAY_SEEN) &&
+          !(given->instances[1].flags & pc::RAY_SEEN) &&
+          given->instances[1].mesh == 2 &&
+          given->instances[1].object_to_world[3] == 50);
+    /* the part says it is one, and the draw a task brought doesn't */
+    CHECK(!(given->instances[0].flags & pc::RAY_SCENERY) &&
+          (given->instances[1].flags & pc::RAY_SCENERY));
+    /* a picture's draw of the part is the part as ray tracing keeps it:
+     * seen there, and hidden there once a picture leaves it out again */
+    sa_draw both[2] = {t.at(5), t.part};
+
+    both[1].object_to_world[3] = 60;
+    CHECK(t.show(picture_at(18), both, 2) && fake.traced.size() == 1 &&
+          fake.traced[0].instances.size() == 2 && t.stats.hidden == 0 &&
+          (fake.traced[0].instances[1].flags & pc::RAY_SEEN) &&
+          fake.traced[0].instances[1].object_to_world[3] == 60);
+    CHECK(t.show(picture_at(20), t.at(5)) &&
+          fake.traced[0].instances.size() == 2 && t.stats.hidden == 1 &&
+          !(fake.traced[0].instances[1].flags & pc::RAY_SEEN) &&
+          fake.traced[0].instances[1].object_to_world[3] == 60);
+    /* a draw of the part out of the game's view is the part too. the
+     * picture holds it once, where that draw put it, and so does the next
+     * that leaves it out */
+    both[1].object_to_world[3] = 70;
+    both[1].flags = SA_DRAW_OUT;
+    CHECK(t.show(picture_at(22), both, 2) &&
+          fake.traced[0].instances.size() == 2 && t.stats.hidden == 1 &&
+          !(fake.traced[0].instances[1].flags & pc::RAY_SEEN) &&
+          fake.traced[0].instances[1].object_to_world[3] == 70);
+    CHECK(t.show(picture_at(24), t.at(5)) &&
+          fake.traced[0].instances.size() == 2 && t.stats.hidden == 1 &&
+          fake.traced[0].instances[1].object_to_world[3] == 70);
+    /* a picture the device refuses and takes when given again has each part
+     * once, and is paired with the picture before it, not with itself */
+    fake.refuses = 1;
+    CHECK(t.begin(picture_at(26)) &&
+          sa_present_draw(t.engine, &t.draw, 1) == SA_OK);
+    CHECK(sa_present_end(t.engine) == SA_ERR_UNSUPPORTED && t.end());
+    CHECK(fake.traced.size() == 1 && fake.traced[0].instances.size() == 2 &&
+          t.stats.hidden == 1 && fake.traced[0].instances[0].before[3] == 5 &&
+          fake.traced[0].instances[0].object_to_world[3] == 0);
+    /* the parts stay while ray tracing is off, and take their draws then
+     * too, for a traced picture to find */
+    both[1].object_to_world[3] = 80;
+    CHECK(sa_pc_rays(t.engine, 0) == SA_OK && t.show(picture_at(28), both, 2) &&
+          fake.traced.empty());
+    CHECK(sa_pc_rays(t.engine, 2) == SA_OK && t.show(picture_at(30), t.at(5)) &&
+          fake.traced.size() == 1 && fake.traced[0].instances.size() == 2 &&
+          t.stats.hidden == 1 &&
+          fake.traced[0].instances[1].object_to_world[3] == 80);
+    /* a traced picture's home is its own view. a screen triangle drawn
+     * first, under the view the frame before ended under, moves neither a
+     * part the picture draws nor one it leaves out. a draw under that view
+     * is carried into the picture's own */
+    for (int pass = 0; pass < 2; pass++) {
+        sa_picture picture = looking_from(32 + 2 * pass, 0);
+        sa_picture_view earlier{};
+        sa_triangles fade{};
+        sa_point points[3] = {};
+        sa_draw carried = t.at(5);
+
+        earlier.head = {SA_REC_VIEW, sizeof earlier};
+        earlier.view = 1;
+        earlier.value = picture.view;
+        earlier.value.world_to_view[3] = 10;
+        fade.head = {SA_REC_TRIANGLES, sizeof fade};
+        fade.count = 1;
+        fade.form = SA_TRIANGLES_LIST;
+        fade.flags = SA_TRIANGLES_SCREEN;
+        fade.view = 1;
+        fade.depth = SA_DEPTH_ALWAYS;
+        carried.view = 1;
+        both[1] = t.part;
+        CHECK(t.begin(picture) &&
+              sa_present_view(t.engine, &earlier) == SA_OK &&
+              sa_present_triangles(t.engine, &fade, points) == SA_OK &&
+              sa_present_draw(t.engine, &carried, 1) == SA_OK &&
+              (pass == 1 || sa_present_draw(t.engine, &both[1], 1) == SA_OK) &&
+              t.end());
+        given = &fake.traced[0];
+        CHECK(given->instances.size() == 2 && given->eye[3] == 0 &&
+              fake.uniform.view[3] == 0);
+        CHECK(given->instances[0].object_to_world[3] == 15 &&
+              (given->instances[1].flags & pc::RAY_SCENERY) &&
+              given->instances[1].object_to_world[3] == 50 &&
+              ((given->instances[1].flags & pc::RAY_SEEN) != 0) == (pass == 0));
+    }
+    /* where the picture's own view has no inverse, the scene carries no
+     * draw under another view into it. such a draw is refused, even as the
+     * picture's first record. a draw under the picture's own view is taken */
+    sa_picture_view other{};
+    sa_draw under = t.at(5);
+
+    other.head = {SA_REC_VIEW, sizeof other};
+    other.view = 1;
+    other.value = looking_from(36, 0).view;
+    under.view = 1;
+    CHECK(t.begin(picture_at(36)) &&
+          sa_present_view(t.engine, &other) == SA_OK &&
+          sa_present_draw(t.engine, &under, 1) == SA_ERR_INVALID);
+    under.view = 0;
+    CHECK(sa_present_draw(t.engine, &under, 1) == SA_OK && t.end() &&
+          fake.traced[0].instances.size() == 2);
+    /* the scene's end takes its parts from the traced pictures */
+    CHECK(sa_scene_ended(t.engine, 0x100) == SA_OK);
+    CHECK(t.show(picture_at(38), t.at(5)) &&
+          fake.traced[0].instances.size() == 1);
+    t.close();
+    /* parts the render-owned scene has no room for are refused together,
+     * and no traced picture holds one of them */
+    CHECK(t.open(STEP_RATE, 2));
+    std::vector<sa_draw> crowd(65537, t.part);
+    sa_scene scene{};
+
+    for (uint32_t i = 0; i < crowd.size(); i++) {
+        crowd[i].instance = SA_INSTANCE_SCENE | i;
+    }
+    scene.head = {SA_REC_SCENE, sizeof scene};
+    scene.scene = 0x100;
+    CHECK(sa_scene_begin(t.engine, &scene) == SA_OK &&
+          sa_scene_shade(t.engine, &t.shades[0]) == SA_OK &&
+          sa_scene_part(t.engine, crowd.data(), 65537) == SA_ERR_FULL &&
+          sa_scene_end(t.engine) == SA_OK);
+    CHECK(t.show(picture_at(10), t.at(5)) && !fake.traced.empty() &&
+          fake.traced.back().instances.size() == 1 && t.stats.hidden == 0);
+    t.close();
+    return 0;
+}
+
+/* what a traced picture takes of a draw's materials: each one's texture,
+ * sampling, blend and color, the palette its highlights come from, and
+ * whether the game computes lighting for it. an instance says whether any
+ * of its materials needs a ray to test a texel or a facing */
+int ray_materials()
+{
+    Traced t;
+    sa_material each[8] = {};
+    sa_handle lists[8] = {};
+    struct Texels {
+        sa_pixels size = {2, 1};
+        uint8_t rgba[8] = {200, 100, 50, 255, 100, 200, 250, 0};
+    } texels;
+    sa_handle uneven = SA_NULL;
+    const pc::RayMaterial *m = nullptr;
+    sa_draw d;
+
+    CHECK(t.open(0, 1));
+    CHECK(make(t.engine, SA_KIND_TEXTURE, SA_FORMAT_PIXELS, &texels,
+               sizeof texels, &uneven) == SA_OK);
+    /* 0: plain, half clear */
+    each[0].alpha = 0x80;
+    each[0].diffuse = 0xff204060;
+    /* 1: it takes the draw's tint */
+    each[1].flags = SA_MAT_CONSTANT;
+    each[1].alpha = 0xff;
+    /* 2: textured, blended over the destination, with its own sampling */
+    each[2].texture = t.texture;
+    each[2].flags = SA_MAT_TEXTURE | SA_MAT_BLEND | SA_MAT_OFFSET |
+                    SA_MAT_CLAMP_U | SA_MAT_FLIP_V;
+    each[2].filter = SA_FILTER_BILINEAR;
+    each[2].mip_bias = 6;
+    each[2].src = SA_BLEND_SRC_ALPHA;
+    each[2].dst = SA_BLEND_INV_SRC_ALPHA;
+    /* 3: the same with a highlight of the palette after the shade's */
+    each[3] = each[2];
+    each[3].flags |= SA_MAT_SPECULAR;
+    /* 4: an environment map, of the texture of two texels */
+    each[4].texture = uneven;
+    each[4].flags = SA_MAT_TEXTURE | SA_MAT_ENV;
+    /* 5: its texel alone */
+    each[5].texture = t.texture;
+    each[5].flags = SA_MAT_TEXTURE | SA_MAT_DECAL;
+    /* 6: unlit and additive */
+    each[6].texture = t.texture;
+    each[6].flags = SA_MAT_TEXTURE | SA_MAT_BLEND | SA_MAT_UNLIT;
+    each[6].src = each[6].dst = SA_BLEND_ONE;
+    /* 7: unlit and opaque, one side shown */
+    each[7].flags = SA_MAT_UNLIT | SA_MAT_CULL;
+    for (int i = 0; i < 8; i++) {
+        CHECK(make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, &each[i],
+                   sizeof each[i], &lists[i]) == SA_OK);
+    }
+    /* the material at place of the list the draw shows next */
+    auto shown = [&](uint32_t tick, int list, uint32_t place = 0) {
+        d.materials = lists[list];
+        m = t.show(picture_at(tick), d) && fake.traced.size() == 1 &&
+                    fake.traced[0].materials.size() > place
+                ? &fake.traced[0].materials[place]
+                : nullptr;
+        return m != nullptr;
+    };
+    auto unshaded = [&]() {
+        return m->flags & (pc::RAY_MAT_PRELIT | pc::RAY_MAT_GLOW);
+    };
+    auto opacity = [&]() {
+        return fake.traced[0].instances[0].flags &
+               (pc::RAY_OPAQUE | pc::RAY_TRANSLUCENT);
+    };
+
+    d = t.at(1);
+    d.tint = 0xff336699;
+    t.shades[0].palette = 3;
+    /* under a palette the light alone colors a point, so the texel shows as
+     * it is, at the material's alpha */
+    CHECK(shown(10, 0) && m->color == 0x80ffffff && m->texture == 0 &&
+          m->flags == 0 && m->gloss == 0 && m->specular == 0 &&
+          opacity() == pc::RAY_OPAQUE);
+    /* the draw's tint colors it, and the game computes no lighting for it */
+    CHECK(shown(12, 1) && m->color == 0xff336699 &&
+          m->flags ==
+              (SA_MAT_CONSTANT | pc::RAY_MAT_COLOR | pc::RAY_MAT_PRELIT));
+    /* its texture, its blend and how it samples. its highlights come from
+     * the shade's palette */
+    CHECK(shown(14, 2) && m->texture == 1 && m->src == SA_BLEND_SRC_ALPHA &&
+          m->dst == SA_BLEND_INV_SRC_ALPHA &&
+          m->sample == (pc::sample_of(SA_FILTER_BILINEAR, 6) |
+                        pc::SAMPLE_CLAMP_U | pc::SAMPLE_FLIP_V) &&
+          m->gloss == 4 && unshaded() == 0 && opacity() == pc::RAY_TRANSLUCENT);
+    /* or from the palette after it, and from none past the last */
+    CHECK(shown(16, 3) && m->gloss == 5);
+    t.shades[0].palette = 7;
+    CHECK(shown(18, 3) && m->gloss == 0);
+    t.shades[0].palette = 3;
+    /* an environment map tints its reflection by its mean color, each
+     * texel counted by its alpha */
+    CHECK(shown(20, 4) && m->specular == 0x7fc86432);
+    /* the game computes no lighting for a material that shows its texel
+     * alone. its lighting is in its texel */
+    CHECK(shown(22, 5) && unshaded() == pc::RAY_MAT_PRELIT &&
+          opacity() == pc::RAY_OPAQUE);
+    /* nor for one that is unlit and blends. one that adds to what lies
+     * behind it lights what a bounce ray leaves */
+    CHECK(shown(24, 6) && unshaded() == pc::RAY_MAT_GLOW &&
+          opacity() == pc::RAY_TRANSLUCENT);
+    /* an opaque unlit material under a palette is lit. one under
+     * SA_MAT_CULL keeps the flag and is opaque like any other: a ray hits
+     * both sides of a triangle */
+    CHECK(shown(26, 7) && unshaded() == 0 && opacity() == pc::RAY_OPAQUE &&
+          (m->flags & SA_MAT_CULL));
+    /* under Ninja's ramp the material's color scales the texel, and
+     * SA_MAT_UNLIT changes nothing. under its simple drawer the game
+     * computes no lighting for an unlit material */
+    /* the instance carries the mode and its shade's ambient and diffuse
+     * levels, which the trace pass scales the color by as the drawer does.
+     * a palette's instance carries neither mode */
+    const uint32_t modes = pc::RAY_SHADE_RAMP | pc::RAY_SHADE_LINEAR;
+
+    CHECK(shown(27, 0) && !(fake.traced[0].instances[0].flags & modes));
+    t.shades[0].mode = SA_SHADE_RAMP;
+    t.shades[0].ambient = 0.25F;
+    t.shades[0].diffuse = 0.5F;
+    CHECK(shown(28, 0) && m->color == 0xff204060 &&
+          m->flags == pc::RAY_MAT_COLOR);
+    CHECK((fake.traced[0].instances[0].flags & modes) == pc::RAY_SHADE_RAMP &&
+          fake.traced[0].instances[0].ambient == 0.25F &&
+          fake.traced[0].instances[0].diffuse == 0.5F);
+    CHECK(shown(30, 7) && unshaded() == 0);
+    t.shades[0].mode = SA_SHADE_LINEAR;
+    CHECK(shown(32, 7) && unshaded() == pc::RAY_MAT_PRELIT &&
+          (fake.traced[0].instances[0].flags & modes) == pc::RAY_SHADE_LINEAR);
+    t.shades[0].mode = SA_SHADE_PALETTE;
+    /* SA1's white carries on: a meshset after the one under SA_MAT_WHITE
+     * takes white whatever its material, so the game computes no lighting
+     * for that material either. a material that a meshset before the white
+     * one names too counts as white for both. one that only an earlier
+     * meshset names is lit */
+    std::vector<uint8_t> after = mesh_of_sets({0, 1, 2});
+    std::vector<uint8_t> around = mesh_of_sets({1, 0, 1});
+    std::vector<uint8_t> before = mesh_of_sets({1, 0});
+    sa_material whitened[3] = {};
+    sa_handle after_mesh = SA_NULL;
+    sa_handle around_mesh = SA_NULL;
+    sa_handle before_mesh = SA_NULL;
+    sa_handle whitened_list = SA_NULL;
+
+    whitened[0].texture = t.texture;
+    whitened[0].flags =
+        SA_MAT_TEXTURE | SA_MAT_BLEND | SA_MAT_UNLIT | SA_MAT_WHITE;
+    whitened[0].src = SA_BLEND_SRC_ALPHA;
+    whitened[0].dst = SA_BLEND_INV_SRC_ALPHA;
+    whitened[1].texture = t.texture;
+    whitened[1].flags = SA_MAT_TEXTURE;
+    whitened[2].texture = t.texture;
+    whitened[2].flags = SA_MAT_TEXTURE | SA_MAT_BLEND;
+    whitened[2].src = whitened[2].dst = SA_BLEND_ONE;
+    CHECK(make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, after.data(),
+               static_cast<uint32_t>(after.size()), &after_mesh) == SA_OK &&
+          make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, around.data(),
+               static_cast<uint32_t>(around.size()), &around_mesh) == SA_OK &&
+          make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, before.data(),
+               static_cast<uint32_t>(before.size()), &before_mesh) == SA_OK &&
+          make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, whitened,
+               sizeof whitened, &whitened_list) == SA_OK);
+    lists[0] = whitened_list;
+    d.mesh = after_mesh;
+    CHECK(shown(34, 0, 0) && unshaded() == pc::RAY_MAT_PRELIT);
+    CHECK(shown(36, 0, 1) && unshaded() == pc::RAY_MAT_PRELIT);
+    CHECK(shown(38, 0, 2) && unshaded() == pc::RAY_MAT_GLOW);
+    d.mesh = around_mesh;
+    CHECK(shown(40, 0, 1) && unshaded() == pc::RAY_MAT_PRELIT);
+    d.mesh = before_mesh;
+    CHECK(shown(42, 0, 1) && unshaded() == 0);
+    /* under another mode no white carries */
+    t.shades[0].mode = SA_SHADE_RAMP;
+    d.mesh = after_mesh;
+    CHECK(shown(44, 0, 1) && unshaded() == 0);
+    t.close();
+    return 0;
+}
+
+/* a strip of ten quads along x, 1000 long and 10 wide, in one meshset */
+struct Strip {
+    sa_mesh mesh = {22, 0, 1, 1};
+    float points[66] = {};
+    sa_meshset set = {0, 0, 60};
+    uint16_t corners[60] = {};
+
+    Strip()
+    {
+        for (int i = 0; i < 11; i++) {
+            points[i * 6] = points[i * 6 + 3] = static_cast<float>(i * 100);
+            points[i * 6 + 4] = 10;
+        }
+        for (int i = 0; i < 10; i++) {
+            const int quad[6] = {0, 1, 2, 2, 1, 3};
+
+            for (int k = 0; k < 6; k++) {
+                corners[i * 6 + k] = static_cast<uint16_t>(i * 2 + quad[k]);
+            }
+        }
+    }
+};
+
+/* a traced picture's lamps. the triangles of an emissive material are lamps, a
+ * cell of them at a time, with the color of the texture's bright texels. an
+ * additive sprite in the world is one too. a picture that makes more lamps than
+ * it holds keeps the nearest to the eye */
+int ray_lamps()
+{
+    Traced t;
+    sa_material neon_material{};
+    sa_material tube_material{};
+    sa_handle neon = SA_NULL;
+    sa_handle tube = SA_NULL;
+    sa_handle strip_mesh = SA_NULL;
+    sa_handle bright = SA_NULL;
+    Strip strip;
+    /* one bright red texel, one of middling gray, one too dim to emit, and
+     * one bright but clear */
+    struct Texels {
+        sa_pixels size = {2, 2};
+        uint8_t rgba[16] = {255, 0,  0,  255, 140, 140, 140, 255,
+                            80,  80, 80, 255, 255, 255, 255, 0};
+    } texels;
+    sa_draw d;
+
+    CHECK(t.open(0, 1));
+    neon_material.texture = t.texture;
+    neon_material.flags = SA_MAT_TEXTURE | SA_MAT_EMISSIVE;
+    CHECK(make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, &neon_material,
+               sizeof neon_material, &neon) == SA_OK);
+    CHECK(make(t.engine, SA_KIND_TEXTURE, SA_FORMAT_PIXELS, &texels,
+               sizeof texels, &bright) == SA_OK);
+    tube_material.texture = bright;
+    tube_material.flags = SA_MAT_TEXTURE | SA_MAT_EMISSIVE;
+    CHECK(make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, &tube_material,
+               sizeof tube_material, &tube) == SA_OK);
+    CHECK(make(t.engine, SA_KIND_MESH, SA_FORMAT_MESH, &strip, sizeof strip,
+               &strip_mesh) == SA_OK);
+    /* the triangle of an emissive material is a lamp at its centroid, with
+     * the radius of a disc of its area. its color is twice the emission of
+     * the texture, whose one texel is bright enough to emit its whole
+     * color. the lamp holds the triangle, which its light leaves from, and
+     * reaches as far from its center as the triangle's farthest corner. a
+     * ray tests the texels of its instance */
+    d = t.at(5);
+    d.materials = neon;
+    CHECK(t.show(picture_at(20), d) && fake.traced[0].lamps.size() == 1 &&
+          t.stats.lamps == 1 &&
+          (fake.traced[0].materials[0].flags & SA_MAT_EMISSIVE) &&
+          !(fake.traced[0].instances[0].flags &
+            (pc::RAY_OPAQUE | pc::RAY_TRANSLUCENT)));
+    const pc::RayLamp *lit = &fake.traced[0].lamps[0];
+
+    CHECK(fabsf(lit->at[0] - (5 + 1.0F / 3)) < 1e-5F &&
+          fabsf(lit->at[1] - 1.0F / 3) < 1e-5F && lit->at[2] == 1 &&
+          fabsf(lit->radius - sqrtf(0.5F / 3.14159265F)) < 1e-5F &&
+          fabsf(lit->color[0] - 2 * powf(200 / 255.0F, 2.2F)) < 1e-4F &&
+          fabsf(lit->color[2] - 2 * powf(50 / 255.0F, 2.2F)) < 1e-4F);
+    CHECK(lit->count == 1 && fake.traced[0].patches.size() == 1 &&
+          fabsf(lit->extent - sqrtf(5.0F) / 3) < 1e-5F);
+    {
+        const pc::RayPatch &patch = fake.traced[0].patches[lit->first];
+        const float corner[3] = {5, 0, 1};
+        const float edges[2][3] = {{1, 0, 0}, {0, 1, 0}};
+
+        CHECK(memcmp(patch.a, corner, sizeof corner) == 0 &&
+              memcmp(patch.ab, edges[0], sizeof edges[0]) == 0 &&
+              memcmp(patch.ac, edges[1], sizeof edges[1]) == 0 &&
+              patch.area == 0.5F);
+    }
+    /* a draw out of the game's view lights what the picture shows. a
+     * backdrop lights nothing */
+    d.flags = SA_DRAW_OUT;
+    CHECK(t.show(picture_at(22), d) && fake.traced[0].lamps.size() == 1);
+    d.flags = SA_DRAW_BACKDROP;
+    CHECK(t.show(picture_at(24), d) && fake.traced[0].lamps.empty());
+    /* a texture's emission is the mean color of its bright texels, each
+     * counted by how bright it is and by its alpha, times the share of the
+     * texture they cover. the red texel counts whole and the gray one by
+     * 0.4963, for a color of 216, 46, 46 over 95 of 255 */
+    d = t.at(5);
+    d.materials = tube;
+    CHECK(t.show(picture_at(26), d) && fake.traced[0].lamps.size() == 1);
+    lit = &fake.traced[0].lamps[0];
+    CHECK(fabsf(lit->color[0] -
+                2 * powf(216 / 255.0F, 2.2F) * (95 / 255.0F)) < 1e-4F &&
+          fabsf(lit->color[1] -
+                2 * powf(46 / 255.0F, 2.2F) * (95 / 255.0F)) < 1e-4F &&
+          fabsf(lit->color[2] - lit->color[1]) < 1e-6F);
+    /* an emissive material's triangles are lamps a cell at a time. the
+     * strip's centroids span 933, past four cells of 40, so it makes four
+     * lamps along it, each at the centroid of its cell's triangles, which
+     * it holds: runs of the picture's patches, one after another, whose
+     * areas are the lamp's */
+    d.mesh = strip_mesh;
+    d.object_to_world[3] = 0;
+    CHECK(t.show(picture_at(28), d) && fake.traced[0].lamps.size() == 4);
+    {
+        const float along[4] = {150, 400, 626.667F, 873.333F};
+        const float areas[4] = {3000, 2000, 2500, 2500};
+
+        uint32_t held = 0;
+
+        for (int i = 0; i < 4; i++) {
+            float area = 0;
+
+            lit = &fake.traced[0].lamps[i];
+            CHECK(fabsf(lit->at[0] - along[i]) < 0.01F &&
+                  fabsf(lit->radius - sqrtf(areas[i] / 3.14159265F)) < 0.01F);
+            CHECK(lit->first == held && lit->count != 0 &&
+                  lit->extent > lit->radius);
+            for (uint32_t k = 0; k < lit->count; k++) {
+                area += fake.traced[0].patches[lit->first + k].area;
+            }
+            CHECK(fabsf(area - areas[i]) < 0.01F);
+            held += lit->count;
+        }
+        CHECK(held == fake.traced[0].patches.size());
+    }
+    /* drawn 1e9 times as long, the strip spans more cells of 40 than an int
+     * holds, and still makes four lamps */
+    d.object_to_world[0] = 1e9F;
+    CHECK(t.show(picture_at(30), d) && fake.traced[0].lamps.size() == 4);
+    /* a draw whose matrix takes its triangles past what a float holds makes
+     * no lamp whose position or radius is not finite */
+    d.mesh = t.mesh;
+    d.materials = neon;
+    d.object_to_world[0] = 1e30F;
+    d.object_to_world[5] = 3e38F;
+    CHECK(t.show(picture_at(32), d) && fake.traced[0].instances.size() == 1);
+    for (const pc::RayLamp &lamp : fake.traced[0].lamps) {
+        CHECK(isfinite(lamp.at[0]) && isfinite(lamp.at[1]) &&
+              isfinite(lamp.at[2]) && isfinite(lamp.radius));
+    }
+    /* an additive sprite in the world is a lamp at its point, and a batch too.
+     * the lamp's color is eight times the sprite's */
+    sa_sprite glare = glare_at(7);
+
+    glare.at[2] = 10;
+    CHECK(t.show(picture_at(34), t.at(5), &glare) &&
+          fake.traced[0].lamps.size() == 1 && t.stats.lamps == 1 &&
+          fake.vertices == 6);
+    /* it is a sphere, with no triangles */
+    CHECK(fake.traced[0].lamps[0].at[0] == 7 &&
+          fake.traced[0].lamps[0].at[2] == 10 &&
+          fake.traced[0].lamps[0].radius == 4 &&
+          fake.traced[0].lamps[0].color[0] == 8 &&
+          fake.traced[0].lamps[0].count == 0 &&
+          fake.traced[0].lamps[0].extent == 0 &&
+          fake.traced[0].patches.empty());
+    /* a sprite that blends over the destination is no lamp */
+    glare.dst = SA_BLEND_INV_SRC_ALPHA;
+    CHECK(t.show(picture_at(36), t.at(5), &glare) &&
+          fake.traced[0].lamps.empty());
+    /* one that adds by its alpha sends by its color's alpha and its
+     * texture's too. one the view does not size is as wide as its matrix
+     * makes it */
+    glare.src = SA_BLEND_SRC_ALPHA;
+    glare.dst = SA_BLEND_ONE;
+    glare.flags = SA_SPRITE_ALPHA | SA_SPRITE_COLOR;
+    glare.color = 0x80ffffff;
+    glare.texture = t.texture;
+    glare.object_to_world[0] = glare.object_to_world[5] =
+        glare.object_to_world[10] = 2;
+    CHECK(t.show(picture_at(38), t.at(5), &glare) &&
+          fake.traced[0].lamps.size() == 1);
+    lit = &fake.traced[0].lamps[0];
+    CHECK(lit->radius == 8 && lit->at[2] == 20 &&
+          fabsf(lit->color[0] - 8 * powf(200 / 255.0F, 2.2F) * (128 / 255.0F)) <
+              1e-4F);
+    /* a picture holds every lamp it makes, whole, up to RAY_LAMPS. past that it
+     * keeps the nearest to the eye, which is at the world's origin */
+    static sa_sprite glares[pc::RAY_LAMPS + 1];
+    const std::vector<pc::RayLamp> *kept = nullptr;
+    auto lamps_of = [&](uint32_t tick, uint32_t count) {
+        kept = t.begin(picture_at(tick)) &&
+                       sa_present_sprite(t.engine, glares, count) == SA_OK &&
+                       t.end() && fake.traced.size() == 1
+                   ? &fake.traced[0].lamps
+                   : nullptr;
+        return kept != nullptr;
+    };
+    auto whole = [&]() {
+        return std::all_of(
+            kept->begin(), kept->end(),
+            [](const pc::RayLamp &l) { return l.color[0] == 8; });
+    };
+    const float farthest = static_cast<float>(10 * (pc::RAY_LAMPS + 1));
+
+    for (uint32_t i = 0; i < pc::RAY_LAMPS + 1; i++) {
+        /* the farthest first */
+        glares[i] = glare_at(static_cast<float>(10 * (pc::RAY_LAMPS + 1 - i)));
+    }
+    CHECK(lamps_of(40, 65) && kept->size() == 65 && whole());
+    CHECK(lamps_of(42, pc::RAY_LAMPS + 1) && kept->size() == pc::RAY_LAMPS &&
+          whole() &&
+          std::none_of(kept->begin(), kept->end(),
+                       [farthest](const pc::RayLamp &l) {
+                           return l.at[0] == farthest;
+                       }));
+    /* a named draw's lamp is kept for the pictures that lack the draw, as
+     * where the game draws nothing of an object outside its view. away
+     * looks from 100 ahead of the lamp, which lies behind it. toward shows
+     * the lamp's position at 490, 250 of the screen */
+    sa_picture away = picture_at(50);
+    sa_draw other = t.at(7);
+
+    away.view.world_to_view[0] = away.view.world_to_view[5] =
+        away.view.world_to_view[10] = 1;
+    away.view.focal[0] = away.view.focal[1] = 320;
+    away.view.center[0] = 320;
+    away.view.center[1] = 240;
+    sa_picture toward = away;
+
+    away.view.world_to_view[11] = -100;
+    d = t.at(5);
+    d.materials = neon;
+    d.object_to_world[11] = 9;
+    other.thing = d.thing + 1;
+    CHECK(t.show(away, d) && fake.traced[0].lamps.size() == 1);
+    lit = &fake.traced[0].lamps[0];
+    const float kept_at = lit->at[0];
+    const float kept_color = lit->color[0];
+
+    const pc::RayPatch kept_patch = fake.traced[0].patches[lit->first];
+
+    /* with its triangle, after the triangles of the picture's own lamps */
+    away.tick = 52;
+    other.materials = neon;
+    CHECK(t.show(away, other) && fake.traced[0].lamps.size() == 2 &&
+          fake.traced[0].lamps[1].at[0] == kept_at &&
+          fake.traced[0].lamps[1].color[0] == kept_color &&
+          fake.traced[0].lamps[1].count == 1 &&
+          fake.traced[0].lamps[1].first == 1 &&
+          fake.traced[0].patches.size() == 2 &&
+          memcmp(&fake.traced[0].patches[1], &kept_patch,
+                 sizeof kept_patch) == 0);
+    /* and through a second picture that lacks the draw */
+    away.tick = 53;
+    other.materials = t.at(7).materials;
+    CHECK(t.show(away, other) && fake.traced[0].lamps.size() == 1 &&
+          fake.traced[0].lamps[0].at[0] == kept_at &&
+          fake.traced[0].lamps[0].color[0] == kept_color &&
+          fake.traced[0].lamps[0].count == 1 &&
+          fake.traced[0].lamps[0].first == 0 &&
+          memcmp(&fake.traced[0].patches[0], &kept_patch,
+                 sizeof kept_patch) == 0);
+    /* a draw of the same name that makes no lamp ends the kept one */
+    away.tick = 54;
+    d.materials = t.at(5).materials;
+    CHECK(t.show(away, d) && fake.traced[0].lamps.empty());
+    away.tick = 56;
+    CHECK(t.show(away, other) && fake.traced[0].lamps.empty());
+    /* a picture that would show a kept lamp, and has no draw of it, forgets
+     * it: its object has gone. it stays forgotten out of view */
+    away.tick = 58;
+    d.materials = neon;
+    CHECK(t.show(away, d) && fake.traced[0].lamps.size() == 1);
+    toward.tick = 60;
+    CHECK(t.show(toward, other) && fake.traced[0].lamps.empty());
+    away.tick = 62;
+    CHECK(t.show(away, other) && fake.traced[0].lamps.empty());
+    /* near the screen's edge a position says nothing, and the lamp is
+     * held: the game may drop an object that still reaches into the edge */
+    away.tick = 64;
+    CHECK(t.show(away, d) && fake.traced[0].lamps.size() == 1);
+    toward.tick = 66;
+    toward.view.world_to_view[3] = 5;
+    CHECK(t.show(toward, other) && fake.traced[0].lamps.size() == 1);
+    t.close();
+    return 0;
+}
+
+/* lamp_table() lays a picture's lamps in a grid that gives each cell the
+ * lamps whose light reaches into it. the lamps it gives for a point's cell
+ * hold every lamp whose reach covers the point, so the trace pass, which
+ * tests those alone, leaves none out */
+int lamp_grid()
+{
+    std::vector<pc::RayLamp> lamps;
+    std::vector<pc::RayPatch> patches;
+    std::vector<uint32_t> words;
+    uint32_t seed = 1;
+    auto next = [&seed]() {
+        seed = seed * 1664525U + 1013904223U;
+        return static_cast<float>(seed >> 8) / 16777216.0F;
+    };
+    /* the lamps of a point's cell, as trace.comp finds them */
+    auto listed = [&words](const float *p,
+                           uint32_t &count) -> const uint32_t * {
+        uint32_t slots = words[0];
+        float inverse;
+        int32_t cell[3];
+
+        count = 0;
+        if (slots == 0) {
+            return nullptr;
+        }
+        memcpy(&inverse, &words[2], sizeof inverse);
+        for (int k = 0; k < 3; k++) {
+            cell[k] = static_cast<int32_t>(floorf(p[k] * inverse));
+        }
+        uint32_t slot = pc::lamp_slot(cell[0], cell[1], cell[2], slots);
+
+        for (uint32_t probe = 0; probe < slots; probe++) {
+            const uint32_t *at =
+                &words[pc::LAMP_HEAD +
+                       ((slot + probe) & (slots - 1)) * pc::LAMP_SLOT];
+
+            if (at[3] == pc::LAMP_EMPTY) {
+                break;
+            }
+            if (memcmp(at, cell, sizeof cell) == 0) {
+                count = at[3] & 4095;
+                return &words[pc::LAMP_HEAD + slots * pc::LAMP_SLOT +
+                              (at[3] >> 12)];
+            }
+        }
+        return nullptr;
+    };
+
+    /* no lamps: no table */
+    pc::lamp_table(lamps, patches, words);
+    CHECK(words.size() == pc::LAMP_HEAD && words[0] == 0 && words[1] == 0);
+    for (int i = 0; i < 300; i++) {
+        pc::RayLamp lamp;
+
+        lamp.at[0] = next() * 2000 - 1000;
+        lamp.at[1] = next() * 400 - 200;
+        lamp.at[2] = next() * 2000 - 1000;
+        lamp.radius = 1 + next() * 20;
+        for (float &channel : lamp.color) {
+            channel = next() * 3;
+        }
+        /* every third lamp has triangles, which reach past its radius */
+        if (i % 3 == 0) {
+            lamp.extent = lamp.radius * (1 + next() * 3);
+            lamp.first = static_cast<uint32_t>(patches.size());
+            lamp.count = 1 + static_cast<uint32_t>(i % 4);
+            for (uint32_t k = 0; k < lamp.count; k++) {
+                pc::RayPatch patch;
+
+                for (int j = 0; j < 3; j++) {
+                    patch.a[j] = next();
+                    patch.ab[j] = next();
+                    patch.ac[j] = next();
+                }
+                patch.area = 0.5F + next();
+                patches.push_back(patch);
+            }
+        }
+        lamps.push_back(lamp);
+    }
+    /* one too dim to light anything, which no cell holds */
+    lamps[7].color[0] = lamps[7].color[1] = lamps[7].color[2] =
+        pc::LAMP_FLOOR / 2;
+    CHECK(pc::lamp_reach(lamps[7]) == 0);
+    /* a bright lamp lights nothing past LAMP_REACH from its shape, which a
+     * lamp with triangles extends past a disc of their area */
+    lamps[9].color[0] = 1000;
+    lamps[9].radius = 10;
+    lamps[9].extent = 25;
+    CHECK(pc::lamp_slack(lamps[9]) == 15 &&
+          pc::lamp_reach(lamps[9]) == 15 + pc::LAMP_REACH &&
+          pc::lamp_slack(lamps[8]) == 0 &&
+          pc::lamp_reach(lamps[8]) <= pc::LAMP_REACH);
+    pc::lamp_table(lamps, patches, words);
+    CHECK(words[0] != 0 && (words[0] & (words[0] - 1)) == 0 &&
+          words[1] == lamps.size());
+    const uint32_t first = pc::LAMP_HEAD + words[0] * pc::LAMP_SLOT + words[3];
+
+    const uint32_t shapes =
+        first + static_cast<uint32_t>(lamps.size()) * pc::LAMP_WORDS;
+
+    CHECK(words.size() == shapes + patches.size() * pc::PATCH_WORDS);
+    for (size_t i = 0; i < lamps.size(); i++) {
+        const uint32_t *lamp = &words[first + i * pc::LAMP_WORDS];
+        const float square = lamps[i].radius * lamps[i].radius;
+        const float slack = pc::lamp_slack(lamps[i]);
+        float sum = 0;
+        float whole = 0;
+
+        CHECK(memcmp(lamp, lamps[i].at, sizeof lamps[i].at) == 0 &&
+              memcmp(lamp + 3, &square, sizeof square) == 0 &&
+              memcmp(lamp + 4, lamps[i].color, sizeof lamps[i].color) == 0 &&
+              memcmp(lamp + 7, &slack, sizeof slack) == 0 &&
+              lamp[8] == lamps[i].first && lamp[9] == lamps[i].count);
+        /* a lamp's patches follow in its run, each with the share of the
+         * lamp's area that the run holds up to it, which ends at 1 */
+        for (uint32_t k = 0; k < lamps[i].count; k++) {
+            whole += patches[lamps[i].first + k].area;
+        }
+        for (uint32_t k = 0; k < lamps[i].count; k++) {
+            const pc::RayPatch &patch = patches[lamps[i].first + k];
+            const uint32_t *held =
+                &words[shapes + (lamps[i].first + k) * pc::PATCH_WORDS];
+            float share;
+
+            sum += patch.area;
+            memcpy(&share, held + 3, sizeof share);
+            CHECK(memcmp(held, patch.a, sizeof patch.a) == 0 &&
+                  memcmp(held + 4, patch.ab, sizeof patch.ab) == 0 &&
+                  memcmp(held + 8, patch.ac, sizeof patch.ac) == 0 &&
+                  fabsf(share - sum / whole) < 1e-5F &&
+                  (k + 1 < lamps[i].count || share == 1));
+        }
+    }
+    uint32_t reached = 0;
+
+    for (int n = 0; n < 4000; n++) {
+        /* a point of the lamps' space, and every other one near a lamp,
+         * since a lamp's reach is short */
+        float p[3] = {next() * 2400 - 1200, next() * 600 - 300,
+                      next() * 2400 - 1200};
+
+        if (n % 2 == 1) {
+            const pc::RayLamp &near = lamps[static_cast<size_t>(n) / 2 % 300];
+
+            for (int k = 0; k < 3; k++) {
+                p[k] = near.at[k] +
+                       (next() * 2 - 1) * (pc::lamp_reach(near) + 10);
+            }
+        }
+        uint32_t count = 0;
+        const uint32_t *list = listed(p, count);
+
+        for (uint32_t k = 0; k < count; k++) {
+            CHECK(list[k] < lamps.size() && list[k] != 7 &&
+                  (k == 0 || list[k] > list[k - 1]));
+        }
+        for (uint32_t i = 0; i < lamps.size(); i++) {
+            const float to[3] = {p[0] - lamps[i].at[0], p[1] - lamps[i].at[1],
+                                 p[2] - lamps[i].at[2]};
+            const float reach = pc::lamp_reach(lamps[i]);
+
+            if ((to[0] * to[0]) + (to[1] * to[1]) + (to[2] * to[2]) <
+                reach * reach) {
+                CHECK(std::find(list, list + count, i) != list + count);
+                reached++;
+            }
+        }
+    }
+    /* the points did fall within lamps' reach */
+    CHECK(reached > 300);
+    return 0;
+}
+
+/* the count of rays through a pixel: sa_pc_rays changes it between
+ * pictures, to no more than SA_PC_PIXEL_RAYS, and a window's F10 turns ray
+ * tracing off and on. a traced picture after a change takes nothing from
+ * the pictures before it */
+int ray_setting()
+{
+    Traced t;
+    sa_engine *refused = nullptr;
+    uint32_t bytes = 0;
+
+    /* an engine is made with no more rays than the most */
+    CHECK(t.open(0, SA_PC_PIXEL_RAYS));
+    CHECK(t.show(picture_at(10), t.at(5)) &&
+          fake.traced[0].samples == SA_PC_PIXEL_RAYS);
+    t.close();
+    t.options.rays = SA_PC_PIXEL_RAYS + 1;
+    CHECK(sa_engine_memory(&t.desc, &bytes) == SA_OK &&
+          sa_engine_create(&t.desc, block, bytes, &refused) == SA_ERR_INVALID);
+    /* nor with a render scale under the least or over 1. 0 is 1 */
+    t.options.rays = 1;
+    for (float scale : {0.49F, 1.01F, -1.0F}) {
+        t.options.render_scale = scale;
+        CHECK(sa_engine_create(&t.desc, block, bytes, &refused) ==
+              SA_ERR_INVALID);
+    }
+    for (float scale : {0.0F, SA_PC_RENDER_SCALE_LEAST, 1.0F}) {
+        t.options.render_scale = scale;
+        CHECK(t.open(0, 1));
+        t.close();
+    }
+    t.options.render_scale = 0;
+    CHECK(t.open(0, 2));
+    CHECK(t.show(picture_at(10), t.at(5)) && fake.traced[0].cut);
+    /* nor set to more. the count in force changes nothing: the next
+     * picture is paired with the one before it */
+    CHECK(sa_pc_rays(t.engine, SA_PC_PIXEL_RAYS + 1) == SA_ERR_INVALID &&
+          sa_pc_rays(t.engine, 2) == SA_OK);
+    CHECK(t.show(picture_at(12), t.at(5)) && fake.traced[0].samples == 2 &&
+          !fake.traced[0].cut &&
+          !(fake.traced[0].instances[0].flags & pc::RAY_NEW));
+    /* without rays the picture is the game's own, rasterized. with them
+     * again, nothing is kept from before */
+    CHECK(sa_pc_rays(t.engine, 0) == SA_OK);
+    CHECK(t.show(picture_at(14), t.at(5)) && fake.traced.empty() &&
+          fake.untraced == 1 && fake.vertices == 3 && t.stats.traced == 0 &&
+          t.stats.rays == 0);
+    CHECK(sa_pc_rays(t.engine, 3) == SA_OK);
+    CHECK(t.show(picture_at(16), t.at(6)) && fake.traced.size() == 1 &&
+          fake.traced[0].samples == 3 && fake.traced[0].cut &&
+          fake.traced[0].step == 0 &&
+          (fake.traced[0].instances[0].flags & pc::RAY_NEW));
+    t.close();
+    /* in a window, F10 turns ray tracing off, and back on to the count last
+     * given. the window's title says which. the key counts once */
+    CHECK(t.open(0, 2, true, true));
+    CHECK(fake.title == "Sonic Adventure (rays on)");
+    CHECK(t.show(picture_at(10), t.at(5)) && fake.traced.size() == 1);
+    CHECK(sa_pc_rays(t.engine, 5) == SA_OK);
+    fake.rays_key = true;
+    CHECK(t.show(picture_at(12), t.at(5)) && fake.traced.empty() &&
+          fake.untraced == 1 && fake.title == "Sonic Adventure (rays off)");
+    CHECK(t.show(picture_at(14), t.at(5)) && fake.traced.empty());
+    fake.rays_key = true;
+    CHECK(t.show(picture_at(16), t.at(5)) && fake.traced.size() == 1 &&
+          fake.traced[0].samples == 5 && fake.traced[0].cut &&
+          fake.title == "Sonic Adventure (rays on)");
+    t.close();
+    return 0;
+}
+
+/* the one instance of p's that is at x along the world's x axis, or null where
+ * none or several are */
+const pc::RayInstance *only_at(const pc::RayPicture &p, float x)
+{
+    const pc::RayInstance *found = nullptr;
+
+    for (const pc::RayInstance &instance : p.instances) {
+        if (instance.object_to_world[3] == x) {
+            if (found != nullptr) {
+                return nullptr;
+            }
+            found = &instance;
+        }
+    }
+    return found;
+}
+
+/* traced pictures under a display rate, four shown for each of the game's.
+ * a picture between holds each of the act's parts once: seen where the
+ * nearer picture drew it, and hidden where that picture left it out. it
+ * takes its lamps from all of them. it carries a time of its own, between
+ * its two pictures', and only the first picture shown for a cut is cut. the
+ * overview stays rasterized */
+int ray_between()
+{
+    Traced t;
+    sa_material neon_material{};
+    sa_handle neon = SA_NULL;
+    sa_draw parts[2];
+    static sa_sprite glares[8];
+    const double tick = 1001.0 / 60000.0;
+    const float quarter = 0.5F * 1001.0F / 60000.0F;
+
+    CHECK(t.open(STEP_RATE * 2, 1));
+    neon_material.texture = t.texture;
+    neon_material.flags = SA_MAT_TEXTURE | SA_MAT_EMISSIVE;
+    CHECK(make(t.engine, SA_KIND_MATERIAL, SA_FORMAT_MATERIALS, &neon_material,
+               sizeof neon_material, &neon) == SA_OK);
+    /* part 3 at 50, and part 4 at 1, an emissive one no picture draws, whose
+     * lamp each picture holds beside the glares' */
+    parts[0] = t.part;
+    parts[1] = t.part;
+    parts[1].instance = SA_INSTANCE_SCENE | 4;
+    parts[1].object_to_world[3] = 1;
+    parts[1].materials = neon;
+    CHECK(t.scene(parts, 2));
+    for (uint32_t i = 0; i < 8; i++) {
+        glares[i] = glare_at(static_cast<float>(100 + 10 * i));
+        glares[i].instance = 20;
+        glares[i].at[2] = 10;
+    }
+    /* a game's picture of the task's draw, of part 3 where drawn says, and
+     * of the glares. a screen triangle under another view comes first */
+    auto show = [&](sa_picture picture, const sa_draw &d, bool drawn) {
+        sa_picture_view earlier{};
+        sa_triangles fade{};
+        sa_point points[3] = {};
+
+        earlier.head = {SA_REC_VIEW, sizeof earlier};
+        earlier.view = 1;
+        earlier.value = picture.view;
+        earlier.value.world_to_view[3] = 10;
+        fade.head = {SA_REC_TRIANGLES, sizeof fade};
+        fade.count = 1;
+        fade.form = SA_TRIANGLES_LIST;
+        fade.flags = SA_TRIANGLES_SCREEN;
+        fade.view = 1;
+        fade.depth = SA_DEPTH_ALWAYS;
+        return t.begin(picture) &&
+               sa_present_view(t.engine, &earlier) == SA_OK &&
+               sa_present_triangles(t.engine, &fade, points) == SA_OK &&
+               sa_present_draw(t.engine, &d, 1) == SA_OK &&
+               (!drawn || sa_present_draw(t.engine, &parts[0], 1) == SA_OK) &&
+               sa_present_sprite(t.engine, glares, 8) == SA_OK && t.end() &&
+               t.stats.shown == 4 && fake.traced.size() == 4;
+    };
+    /* whether p holds part 3 once, seen or not, part 4 once and hidden, and
+     * the glares' lamps with part 4's one */
+    auto whole = [&](const pc::RayPicture &p, bool seen) {
+        const pc::RayInstance *land = only_at(p, 50);
+        const pc::RayInstance *lit = only_at(p, 1);
+
+        return land != nullptr && (land->flags & pc::RAY_SCENERY) &&
+               ((land->flags & pc::RAY_SEEN) != 0) == seen && lit != nullptr &&
+               !(lit->flags & pc::RAY_SEEN) && p.lamps.size() == 9 &&
+               std::count_if(
+                   p.lamps.begin(), p.lamps.end(),
+                   [](const pc::RayLamp &l) { return l.at[0] < 50; }) == 1;
+    };
+
+    /* the first picture: each shown for it is the picture whole, through
+     * its own view. the first is cut, and none after it */
+    CHECK(show(looking_from(10, 0), t.at(5), true));
+    for (uint32_t i = 0; i < 4; i++) {
+        const pc::RayPicture &p = fake.traced[i];
+
+        CHECK(whole(p, true) && p.eye[3] == 0 && only_at(p, 5) != nullptr);
+        CHECK(p.cut == (i == 0) && p.step == 0 &&
+              fabs(p.time - 10 * tick) < 1e-9);
+    }
+    /* the next leaves part 3 out, and its draw is out of the game's view.
+     * to the half, a picture between shows part 3 as the older picture drew
+     * it, once. past the half the part is hidden, and so is the draw, where
+     * the newer picture put it. each picture's time is its own */
+    CHECK(show(looking_from(12, 0), t.at(7, SA_DRAW_OUT), false));
+    for (uint32_t i = 0; i < 4; i++) {
+        const pc::RayPicture &p = fake.traced[i];
+        const pc::RayInstance *out = only_at(p, 7);
+
+        CHECK(whole(p, i < 2));
+        CHECK(i < 2 ? out == nullptr
+                    : out != nullptr && !(out->flags & pc::RAY_SEEN));
+        CHECK(!p.cut && fabsf(p.step - quarter) < 1e-6F &&
+              fabs(p.time - (10.5 + 0.5 * i) * tick) < 1e-9);
+    }
+    /* the next draws part 3 again. to the half, where the older picture is
+     * the nearer, the part is hidden where its last draw put it */
+    CHECK(show(looking_from(14, 0), t.at(9), true));
+    for (uint32_t i = 0; i < 4; i++) {
+        CHECK(whole(fake.traced[i], i >= 2) && !fake.traced[i].cut);
+    }
+    /* a cut: the first picture shown for it is cut, and the rest are that
+     * picture again, with no time between them */
+    sa_picture cut = looking_from(16, 0);
+
+    cut.flags = SA_PICTURE_CUT;
+    CHECK(show(cut, t.at(9), true));
+    for (uint32_t i = 0; i < 4; i++) {
+        const pc::RayPicture &p = fake.traced[i];
+
+        CHECK(whole(p, true) && p.cut == (i == 0) && p.step == 0 &&
+              fabs(p.time - 16 * tick) < 1e-9);
+    }
+    /* the overview is rasterized under ray tracing too: its meshes go to
+     * batches, and the picture after it is traced as before */
+    static uint8_t rgba[SA_PC_WIDTH * SA_PC_HEIGHT * 4];
+    sa_picture above = looking_from(16, 0);
+    uint32_t drawn = 0;
+
+    fake.traced.clear();
+    fake.untraced = 0;
+    CHECK(sa_pc_read_overview(t.engine, &above, rgba, sizeof rgba, &drawn) ==
+              SA_ERR_UNSUPPORTED &&
+          drawn == 3 && fake.vertices == 9 && fake.traced.empty() &&
+          fake.untraced == 1);
+    CHECK(show(looking_from(18, 0), t.at(9), true) &&
+          whole(fake.traced[3], true));
+    t.close();
+    return 0;
+}
+
+/* RayPast pairs a traced picture with the one the device took before it.
+ * with none kept the picture is cut. one paired again, as a picture the
+ * display repeats is, is not. its step is the time since the picture kept,
+ * and 0 where time ran back */
+int ray_past()
+{
+    pc::RayPast past;
+    pc::RayPicture p;
+    const float view[12] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+    const float project[4] = {320, 320, 320, 240};
+
+    p.clear();
+    p.time = 1.0;
+    past.pair(p, view, project);
+    CHECK(p.cut && p.step == 0);
+    /* a picture the device refused is paired again, to the same end */
+    past.pair(p, view, project);
+    CHECK(p.cut && p.step == 0);
+    past.keep();
+    past.pair(p, view, project);
+    CHECK(!p.cut && p.step == 0);
+    p.time = 1.5;
+    past.pair(p, view, project);
+    CHECK(!p.cut && p.step == 0.5F);
+    past.keep();
+    p.time = 1.25;
+    past.pair(p, view, project);
+    CHECK(!p.cut && p.step == 0);
+    past.forget();
+    past.pair(p, view, project);
+    CHECK(p.cut && p.step == 0);
+    return 0;
+}
+
+/* emissive.h's lists are as client.cpp searches them: each strictly
+ * ascending in strcmp's order, with no upper case and no .pvr, which the
+ * client takes from a name before it searches. no name is in both */
+int emissive_lists()
+{
+    auto ordered = [](const char *const *list, size_t count) {
+        for (size_t i = 0; i < count; i++) {
+            size_t length = strlen(list[i]);
+
+            for (size_t c = 0; c < length; c++) {
+                if (isupper(static_cast<unsigned char>(list[i][c]))) {
+                    return false;
+                }
+            }
+            if (length == 0 ||
+                (length > 4 && strcmp(list[i] + length - 4, ".pvr") == 0) ||
+                (i != 0 && strcmp(list[i - 1], list[i]) >= 0)) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    CHECK(ordered(EMISSIVE, std::size(EMISSIVE)));
+    CHECK(ordered(EMISSIVE_UNLIT, std::size(EMISSIVE_UNLIT)));
+    /* both ascend, so one walk meets each name they share */
+    for (size_t i = 0, j = 0;
+         i < std::size(EMISSIVE) && j < std::size(EMISSIVE_UNLIT);) {
+        int order = strcmp(EMISSIVE[i], EMISSIVE_UNLIT[j]);
+
+        CHECK(order != 0);
+        if (order < 0) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+    return 0;
+}
+
+/* the client sets SA_MAT_EMISSIVE on a material whose texture emissive.h
+ * lists. a name of EMISSIVE counts under any material, and one of
+ * EMISSIVE_UNLIT under SA_MAT_UNLIT alone. a name counts in any case, and
+ * with .pvr after it */
+int client_emissive()
+{
+    const char *const no_roots[] = {nullptr};
+    sa_pc_options options{};
+    sa_engine *engine = engine_under(options);
+    std::string names[3] = {EMISSIVE[0],
+                            std::string(EMISSIVE_UNLIT[0]) + ".pvr", "plain"};
+    sa_cap_materials list{};
+    std::vector<uint8_t> ids(6 * sizeof(uint32_t));
+
+    CHECK(engine != nullptr);
+    sa_pc_client *client = sa_pc_client_create(engine, no_roots);
+    auto *held = reinterpret_cast<pc::Client *>(client);
+
+    /* each texture under a lit material, then under an unlit one */
+    for (uint32_t i = 0; i < 3; i++) {
+        sa_cap_texture texture{};
+
+        for (char &c : names[i]) {
+            c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
+        }
+        CHECK(names[i].size() <= sizeof texture.name);
+        texture.texture = i;
+        memcpy(texture.name, names[i].data(), names[i].size());
+        CHECK(sa_pc_client_record(
+                  client, record(SA_CAP_TEXTURE, texture).data()) == SA_OK);
+        for (uint32_t unlit = 0; unlit < 2; unlit++) {
+            sa_cap_material material{};
+            uint32_t id = i * 2 + unlit;
+
+            material.material = id;
+            material.texture = i;
+            material.flags = static_cast<uint16_t>(
+                SA_MAT_TEXTURE | (unlit != 0 ? SA_MAT_UNLIT : 0));
+            memcpy(&ids[id * sizeof id], &id, sizeof id);
+            CHECK(sa_pc_client_record(
+                      client, record(SA_CAP_MATERIAL, material).data()) ==
+                  SA_OK);
+        }
+    }
+    list.count = 6;
+    CHECK(sa_pc_client_record(
+              client, record(SA_CAP_MATERIALS, list, ids).data()) == SA_OK);
+    sa_handle made = held->materials(0);
+
+    CHECK(made != SA_NULL &&
+          held->lent[made].size() == 6 * sizeof(sa_material));
+    for (uint32_t i = 0; i < 6; i++) {
+        sa_material m;
+
+        memcpy(&m, &held->lent[made][i * sizeof m], sizeof m);
+        CHECK(((m.flags & SA_MAT_EMISSIVE) != 0) == (i < 2 || i == 3));
+    }
+    CHECK(sa_pc_client_destroy(client) == SA_OK);
+    sa_engine_destroy(engine);
+    fake = Fake{};
+    return 0;
+}
+
+/* the client keeps the mesh a part of the scene that stays reads, however
+ * long no picture draws the part, so a backend that keeps the scene keeps
+ * the part. a mesh no part reads goes once it has been undrawn long enough,
+ * and so does the part's once the scene has ended */
+int client_part_meshes()
+{
+    const char *const no_roots[] = {nullptr};
+    sa_pc_options options{};
+    sa_pc_stats stats{};
+    sa_cap_mesh mesh{};
+    sa_cap_material material{};
+    sa_cap_materials list{};
+    uint32_t material_id = 0;
+    std::vector<uint8_t> ids(sizeof material_id, 0);
+    sa_shade shade{};
+    static sa_cap_palettes palettes;
+    sa_cap_picture picture{};
+    sa_scene scene{};
+    sa_cap_scene_end whole{};
+    sa_draw part{};
+    sa_draw draw{};
+    sa_cap_end end{};
+
+    options.rate = STEP_RATE;
+    sa_engine *engine = engine_under(options);
+
+    CHECK(engine != nullptr);
+    sa_pc_client *client = sa_pc_client_create(engine, no_roots);
+    auto *held = reinterpret_cast<pc::Client *>(client);
+    /* count pictures of no draw, the first numbered from. it returns false
+     * where the client refuses one */
+    auto pass = [&](uint32_t from, uint32_t count) {
+        for (uint32_t n = from; n < from + count; n++) {
+            picture.picture = n;
+            picture.tick = 2 * n;
+            end.picture = n;
+            for (bool &b : fake.busy) {
+                b = false;
+            }
+            if (sa_pc_client_record(
+                    client, record(SA_CAP_PICTURE, picture).data()) != SA_OK ||
+                sa_pc_client_record(client, record(SA_CAP_END, end).data()) !=
+                    SA_PC_ENDED) {
+                return false;
+            }
+        }
+        return sa_pc_stats_read(engine, &stats) == SA_OK;
+    };
+
+    mesh.format = SA_MESH_NINJA_INLINE;
+    material.texture = SA_CAP_NONE;
+    list.count = 1;
+    scene.scene = 0x0100;
+    whole.scene = scene.scene;
+    whole.parts = 1;
+    part.payload = SA_NO_PAYLOAD;
+    part.instance = SA_INSTANCE_SCENE | 0;
+    draw.payload = SA_NO_PAYLOAD;
+    draw.mesh = 1;
+    draw.instance = 8;
+    for (int i = 0; i < 12; i += 5) {
+        picture.view.world_to_view[i] = 1;
+        part.object_to_world[i] = 1;
+        draw.object_to_world[i] = 1;
+    }
+    /* mesh 0 is the part's, and mesh 1 a task's draw's */
+    CHECK(sa_pc_client_record(
+              client, record(SA_CAP_MESH, mesh, inline_model()).data()) ==
+          SA_OK);
+    mesh.mesh = 1;
+    for (const std::vector<uint8_t> &r :
+         {record(SA_CAP_MESH, mesh, inline_model()),
+          record(SA_CAP_MATERIAL, material),
+          record(SA_CAP_MATERIALS, list, ids), record(SA_REC_SHADE, shade),
+          record(SA_CAP_PALETTES, palettes), record(SA_CAP_PICTURE, picture),
+          record(SA_CAP_SCENE, scene), record(SA_REC_DRAW, part),
+          record(SA_CAP_SCENE_END, whole), record(SA_REC_DRAW, draw)}) {
+        CHECK(sa_pc_client_record(client, r.data()) == SA_OK);
+    }
+    CHECK(sa_pc_client_record(client, record(SA_CAP_END, end).data()) ==
+          SA_PC_ENDED);
+    CHECK(held->names.meshes[0].handle != SA_NULL &&
+          held->names.meshes[1].handle != SA_NULL &&
+          held->part_meshes.size() == 1);
+    /* 64 pictures draw neither. the task's mesh goes, and the part's stays,
+     * as the part does */
+    CHECK(pass(1, 64) && held->names.meshes[0].handle != SA_NULL &&
+          held->names.meshes[1].handle == SA_NULL && stats.parts == 1);
+    /* the act goes, and the mesh its part read after it */
+    CHECK(sa_pc_client_record(
+              client, record(SA_CAP_SCENE_ENDED, scene).data()) == SA_OK &&
+          held->part_meshes.empty());
+    CHECK(pass(65, 64) && held->names.meshes[0].handle == SA_NULL &&
+          stats.parts == 0);
+    CHECK(sa_pc_client_destroy(client) == SA_OK);
+    sa_engine_destroy(engine);
+    fake = Fake{};
+    return 0;
+}
+
 /* run a test whose device refuses pictures, with stderr on /dev/null. the
  * backend prints each refusal there */
 int unheard(int (*test)())
@@ -4817,6 +6676,14 @@ int main(int argc, char **argv)
     }
     if (line == 0) {
         line = unheard(client_refused);
+    }
+    for (int (*test)() :
+         {ray_instances, ray_meshes, ray_parts, ray_materials, ray_lamps,
+          lamp_grid, ray_setting, ray_between, ray_past, emissive_lists,
+          client_emissive, client_part_meshes}) {
+        if (line == 0) {
+            line = unheard(test);
+        }
     }
     if (line != 0) {
         fprintf(stderr, "pictures: line %d\n", line);

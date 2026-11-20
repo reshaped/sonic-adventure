@@ -38,7 +38,7 @@ constexpr double NEAR_DOT = 0.9995;
 constexpr float FULL_TURN = 6.28318531F;
 
 /* a store's entries hold no padding */
-static_assert(sizeof(MeshView) == (3 * sizeof(void *)) + 16, "MeshView");
+static_assert(sizeof(MeshView) == (3 * sizeof(void *)) + 24, "MeshView");
 static_assert(sizeof(KeptMesh) == sizeof(MeshView) + sizeof(void *) + 8,
               "KeptMesh");
 static_assert(sizeof(KeptDraw) == 20, "KeptDraw");
@@ -81,13 +81,6 @@ bool written(sa_handle mesh, uint32_t flags)
 uint32_t owner(uint32_t instance)
 {
     return instance & SA_INSTANCE_UNOWNED ? SA_INSTANCE_UNOWNED : instance;
-}
-
-/* whether instance names a scene's part */
-bool of_scene(uint32_t instance)
-{
-    return (instance & (SA_INSTANCE_UNOWNED | SA_INSTANCE_SCENE)) ==
-           SA_INSTANCE_SCENE;
 }
 
 /* whether key's asset and part are the thing and nth a mesh's draw gave.
@@ -1105,7 +1098,7 @@ uint32_t World::overview(const sa_picture &view, Scene &out)
 {
     uint32_t drawn = 0;
 
-    out.begin(view);
+    out.begin(view, view.tick * TICK_SECONDS);
     out.palettes(now_.palettes);
     for (const Resident &r : residents_) {
         MeshView mesh = r.lent;
@@ -1272,8 +1265,11 @@ void World::put(const Snapshot &s, uint32_t i, uint32_t from, float alpha,
             /* a writer's mesh drawn again with the same shape moves its
              * points between the two. its normals keep the newer length. a
              * resource's bytes don't change while lent, so one drawn in both
-             * pictures stays as it is */
-            if (written(s.store.draws[s.kept[i].state].mesh, s.kept[i].attr) &&
+             * pictures stays as it is. a traced picture reads the mesh the
+             * raster holds for ray tracing, as the nearer picture gave it,
+             * and none of these points */
+            if ((!out.traces() || mesh.rays == 0) &&
+                written(s.store.draws[s.kept[i].state].mesh, s.kept[i].attr) &&
                 a.count == b.count && a.count <= MESH_POINTS &&
                 a.meshsets == b.meshsets && a.triangles == b.triangles &&
                 (a.normals == nullptr) == (b.normals == nullptr) &&
@@ -1398,6 +1394,7 @@ bool World::joins(uint32_t from, uint32_t to) const
 bool World::between(float alpha, Scene &out)
 {
     sa_picture picture = now_.picture;
+    double time = now_.picture.tick * TICK_SECONDS;
     bool joined_now = joined();
 
     counts_ = BetweenCounts{};
@@ -1405,9 +1402,29 @@ bool World::between(float alpha, Scene &out)
     if (now_.full != 0) {
         return false;
     }
+    /* a traced picture takes what the game's view test left out of s, the
+     * nearer picture, where that picture's draw put it, for shadow, bounce
+     * and reflection rays to hit */
+    auto hide = [this, &out, &picture](const Snapshot &s) {
+        if (!out.traces()) {
+            return;
+        }
+        for (uint32_t i = 0; i < s.kept.size(); i++) {
+            if (shows(s, i)) {
+                continue;
+            }
+            const sa_draw_kept &k = s.kept[i];
+            const KeptMesh &m = s.store.meshes[k.geometry];
+
+            out.hidden(
+                draw_of(s, i), m.mesh, m.materials,
+                s.store.textures.data() + m.textures,
+                s.store.shades[k.shade].shade,
+                lens(s, i, NONE, &s == &now_ ? 1.0F : 0.0F, picture.view, out));
+        }
+    };
     /* a picture short of a draw is no picture between, and counts as none */
-    auto whole = [this, &out]() {
-        out.finish();
+    auto whole = [this]() {
         if (unplaced_ != 0) {
             counts_ = BetweenCounts{};
         }
@@ -1424,15 +1441,21 @@ bool World::between(float alpha, Scene &out)
             picture.view.focal[i] = lerp(a.focal[i], b.focal[i], alpha);
             picture.view.center[i] = lerp(a.center[i], b.center[i], alpha);
         }
+        /* its time lies between the two pictures' as its draws do */
+        time = (before_.picture.tick +
+                (static_cast<double>(alpha) *
+                 (now_.picture.tick - before_.picture.tick))) *
+               TICK_SECONDS;
     }
-    out.begin(picture);
+    out.begin(picture, time);
     out.fog(now_.fog);
     std::fill(std::begin(lenses_), std::end(lenses_), NONE);
     if (!joined_now) {
         counts_.cut = 1;
         /* the newer picture is drawn whole, as the game draws it, in its
-         * first draw's view */
-        if (!now_.kept.empty() &&
+         * first draw's view. a traced picture keeps its own view for its
+         * home, as the game's traced picture does */
+        if (!out.traces() && !now_.kept.empty() &&
             !same_matrix(now_.views[now_.kept[0].view], picture.view)) {
             out.home(out.view(now_.views[now_.kept[0].view]));
         }
@@ -1442,6 +1465,7 @@ bool World::between(float alpha, Scene &out)
                     lens(now_, i, NONE, 1.0F, picture.view, out), out);
             }
         }
+        hide(now_);
         return whole();
     }
     /* what has no way from one picture to the other shows as the nearer
@@ -1498,6 +1522,7 @@ bool World::between(float alpha, Scene &out)
             }
         }
     }
+    hide(newer ? now_ : before_);
     return whole();
 }
 

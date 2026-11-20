@@ -178,7 +178,7 @@ A run starts from the disc, with a VMU image for its card. The PC stores the pla
 
 ## PC rendering
 
-[`engine/pc/`](engine/pc) supplies a Vulkan raster renderer, with SDL3 for the window, pads and sound. Without SDL3 it builds for headless rendering.
+[`engine/pc/`](engine/pc) supplies a Vulkan raster renderer, with SDL3 for the window, pads and sound. Without SDL3 it builds for headless rendering. On a device with ray queries it can [ray trace](#ray-tracing) each picture instead.
 
 Headless and windowed modes use the same picture path. The window shows the latest completed picture at the display's refresh without changing the game's clock. A picture may render above 640 by 480 and be filtered down to the display's resolution.
 
@@ -199,6 +199,8 @@ The adapter keeps the differences between the game's drawers:
 
 A model the game's view test rejects is still recorded, with `SA_DRAW_OUT`, so the renderer knows its state while the faithful picture leaves it out.
 
+A draw may also carry a hint of what it is, where the game's own data tells: the stage's backdrop (`SA_DRAW_BACKDROP`), the game's stand-in for a shadow (`SA_DRAW_SHADOW`) or a liquid's surface (`SA_DRAW_LIQUID`). The faithful picture ignores the hints; they're for a renderer that computes the scene's lighting itself. [`sa_sa1.h`](engine/sa1/sa_sa1.h) gives the rule behind each.
+
 SA1's shared rules and constants live in [`rules.h`](engine/sa1/rules.h), which both the Dreamcast drawers and the native adapter use. [`test_rules.py`](tests/test_rules.py) keeps copies of those rules from diverging.
 
 ### Transparency
@@ -218,6 +220,35 @@ Scene parts outlive individual pictures and end with the act. Releasing a resour
 At a requested display rate, the PC draws pictures between the game's own. It interpolates paired instances' positions, scale and rotations, along with procedural geometry and views. Texture frames, HUD text, some colors and visibility have no useful midpoint, so they come from the nearer game picture. Each draw shades from the last palettes supplied before it in its own game picture. Without a requested rate, the game's pictures draw unchanged.
 
 The scene keeps a game picture whole or not at all. If its stores fill, that game picture still draws complete in place of interpolated pictures; the next starts afresh, as after a cut. If an interpolated picture runs out of room for a draw, the game picture replaces it and each later interpolated picture. `sa_pc_stats` names the store that filled and counts the pictures shown this way.
+
+### Ray tracing
+
+With `sa_pc_options.rays` set, the backend ray traces each picture's meshes instead of rasterizing them with the game's vertex lighting. It needs a Vulkan 1.2 device with ray queries and acceleration structures, among other features; without them it rasterizes and says so at startup. `rays` is the number of rays a pixel. `sa_pc_rays` changes it between pictures, and in a window F10 switches ray tracing off and on, which the title shows. `sa_pc_options.render_scale` traces the meshes at a share of the picture's width and height, from 0.5 to 1, and `rays` counts rays a pixel of that: at two thirds, a picture takes the GPU about half the time.
+
+Each mesh becomes an acceleration structure when it is first drawn, and every picture builds a top-level structure over its instances. Those include models the game's view test rejected (`SA_DRAW_OUT`) and scene parts the game left out of its draw list: camera rays don't hit them, but shadow, bounce and reflection rays do, so the lighting doesn't change as the camera turns. Sprites, effect triangles and screen draws stay rasterized, over the traced picture and depth-tested against it. [Pictures between](#pictures-between-game-frames) are traced too, with the nearer game picture's meshes at interpolated transforms.
+
+Lighting is hybrid: the game's shading is the base, and rays decide how much of it a surface receives. The game shades a point from a palette, indexed by the angle between the point's normal and the draw's light. A traced picture splits that shade in two: the palette's entry for a normal perpendicular to the light is ambient light, and what a normal facing the light holds above it is the sun's.
+
+- A shadow ray toward the sun scales the sun's part.
+- A bounce ray scales the ambient part by nearby occlusion, and adds the color of a sunlit or unlit surface it hits.
+- Where sunlight is missing, an object casts a soft shadow straight down. An object is a draw that is no part of the act's scene and is under 50 units from its middle to its farthest corner: a larger one, as a cave a task draws, is a place and not a thing that stands in one. The game's blob shadows (`SA_DRAW_SHADOW`) are left out.
+- A material flagged `SA_MAT_EMISSIVE` has a texture that shows a light source; SA1's client sets the flag from the texture names in [`engine/sa1/emissive.h`](engine/sa1/emissive.h). Its bright texels are shown unshaded, and its triangles are lamps: they light what is near them from where they are, at twice the color the texture shows, and what stands between casts a shadow. Additive sprites in the world are lamps too, as spheres. A lamp lights nothing more than 30 units from its shape, since the palettes already hold a room's general lighting.
+- A liquid's surface (`SA_DRAW_LIQUID`) reflects. So does an environment-mapped material, except where it curves too tightly for one ray to sample the reflection: there it keeps its environment map alone. A backdrop (`SA_DRAW_BACKDROP`) is shown as the game drew it.
+
+The stage's light is not a sun everywhere: indoors it shines through the roof. So probe rays from the camera measure how much of the nearby geometry the sun reaches. The more enclosed the camera is, the less the sun's shadow ray counts, and a fully enclosed picture keeps the sun's part of each shade as the game computed it.
+
+One camera ray finds each pixel's surface, and the rays a pixel sample two things there: how much of its ambient light the surfaces around it block, and the light that bounces and lamps add to it. Below 64 rays both are denoised: accumulated over time by reprojection, then filtered across each surface. The occlusion is filtered over a distance that grows with the distance to what blocks the light, so the shade where a foot meets the floor stays sharp, and it follows a character who moves. Shadows are computed exactly and aren't filtered. From 64 rays nothing is denoised. Translucent surfaces are composed along the camera ray as the PowerVR blends them.
+
+A traced picture is then antialiased over time. Each picture's camera rays cross their pixels at a new point of a Halton sequence, and the picture is joined with the pictures before it, where the picture before showed a surface at a depth the pixel's neighbors show now, once that history is clipped to the colors about the pixel. Under a render scale the same pass fills the picture's own size: each of its pixels takes the traced pixels whose rays crossed nearest its center, and over the pictures it gathers its own detail. Textures take the mip level the picture's own pixels ask for. Standing still, a traced picture changes from one to the next no more than the game's own does.
+
+The model has limits:
+
+- Enclosure is one number for a picture, measured at the camera, so a sunlit exterior seen from indoors is lit as the interior is.
+- A sky, a blob shadow or a liquid without its [hint](engine/sa1/sa_sa1.h) is traced as an ordinary surface.
+- A model the game's code writes for a single draw is rasterized with the game's lighting, and casts no shadow.
+- A single-sided material is traced from both sides, and a draw under Ninja's full drawer (`SA_SHADE_LIGHTS`) takes its texel as its shade.
+- A traced translucent surface writes no depth, so a rasterized sprite behind it draws over it.
+- In a picture between, a model that changes shape steps at the midpoint.
 
 ## Sound and services
 

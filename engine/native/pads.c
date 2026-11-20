@@ -8,6 +8,10 @@
 
 #include "native.h"
 
+/* Shinobi's PDD_DGT_TL and PDD_DGT_TR */
+#define TRIGGER_L (1U << 17)
+#define TRIGGER_R (1U << 16)
+
 void __real_pad_scan(void);
 
 int native_scripted;
@@ -22,7 +26,9 @@ void native_pad_record(void *pad)
 /* open the script of keys at path. each line holds a vsync in decimal and the
  * buttons held from it, Shinobi's PDD_DGT bits in hex. a line may go on
  * with the stick's x and y, from -128 to 127. both are 0 where it doesn't. a
- * line of any other form ends the script, and its last pad stays held */
+ * held trigger's bit pulls its trigger all the way, as the game reads the
+ * camera's turn from the triggers' own values. a line of any other form ends
+ * the script, and its last pad stays held */
 void native_keys_open(const char *path)
 {
     if (!(keys = fopen(path, "r"))) {
@@ -53,6 +59,8 @@ static void next_keys(void)
     }
     pad_record->x1 = (int16_t)x;
     pad_record->y1 = (int16_t)y;
+    pad_record->l = held & TRIGGER_L ? 255 : 0;
+    pad_record->r = held & TRIGGER_R ? 255 : 0;
     pad_record->on = held;
     pad_record->off = ~held;
     pad_record->press = held & ~last;

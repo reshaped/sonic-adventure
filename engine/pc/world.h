@@ -267,7 +267,8 @@ public:
     /* draw into out the picture alpha of the way from the older to the
      * newer. it returns false, with every count 0, where out had no room for
      * a draw. so it does where the newer picture is kept as none, and leaves
-     * out as it was */
+     * out as it was. the picture it draws is left for the caller to
+     * finish(), which may add to it first */
     bool between(float alpha, Scene &out);
 
     const BetweenCounts &counts() const { return counts_; }

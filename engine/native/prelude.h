@@ -61,6 +61,12 @@ struct land_table;
 void native_land_loaded(const struct land_table *land, unsigned int name,
                         float gray);
 void native_land_released(void);
+/* the stage has made its sky task, or none where it had no task free. the
+ * meshes the game draws from native_liquid_begin to native_liquid_end are a
+ * liquid's surface */
+void native_sky_created(struct task *task);
+void native_liquid_begin(void);
+void native_liquid_end(void);
 /* the hooks whose calls marks.py writes into the game's C. native.h declares
  * them to the host's C, which defines them, and bare.c's bodies do nothing.
  * these stand at stage_start's entry, after each stage step, and either side

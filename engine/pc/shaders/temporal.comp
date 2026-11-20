@@ -1,0 +1,168 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// the denoiser's temporal pass: each pixel's noisy terms accumulated over
+// pictures. the terms are the light added to the pixel's surface and the
+// share of its ambient light its surroundings leave it, its occlusion
+//
+// the motion vector says where the pixel's surface point was in the picture
+// before. the history there is reprojected by bilinear interpolation over
+// the pixels that held a surface at the same depth with the same normal. a
+// pixel keeps the mean of what it has seen over up to LONGEST pictures, and
+// an exponential moving average from then on. it also keeps the first two
+// moments of the added light's luminance, which give the a-trous pass a
+// variance, and how near its occluders have been, which sets how widely
+// that pass filters its occlusion.
+//
+// the history is first held to this picture's terms around the pixel, on the
+// pixel's own surface: to within HELD_WITHIN standard errors of their mean.
+// what a pixel kept is its own mean over many pictures, and what lies around
+// it is the mean of one picture over many pixels. where the two differ by
+// more than chance allows, the light or the occlusion has changed, as where
+// a character has walked up, and the history gives way at once. such a pixel
+// counts as having seen few pictures
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#include "rays.glsl"
+
+layout(set = 2, binding = 2, rgba16f) uniform readonly image2D indirect;
+layout(set = 2, binding = 3, rgba16f) uniform readonly image2D motion;
+layout(set = 2, binding = 5, rgba16f) uniform readonly image2D gbuffer[2];
+// the accumulated terms, as indirect holds them
+layout(set = 2, binding = 6, rgba16f) uniform image2D history[2];
+// the means of the added light's luminance and of its square, the count of
+// pictures the history is the mean of, and how near the pixel's occluders
+// have been, as ambient's alpha gives it for one picture
+layout(set = 2, binding = 7, rgba16f) uniform image2D moments[2];
+// the terms for the a-trous pass to filter
+layout(set = 2, binding = 8, rgba16f) uniform writeonly image2D filtered[2];
+layout(set = 2, binding = 14, rgba16f) uniform readonly image2D ambient;
+
+const float LONGEST = 32.0;
+// the radius in pixels of the neighborhood the history is held to, and the
+// standard errors from the neighborhood's mean within which it is held
+const int AROUND = 2;
+const float HELD_WITHIN = 2.0;
+// a history that is held back by more than this share of the added light's
+// luminance, or this much of the occlusion, is stale, and its pixel counts as
+// having seen FRESH pictures at most
+const float MOVED = 0.25;
+const float FRESH = 3.0;
+// the share of the way that a pixel's nearness goes, each picture, toward a
+// picture's own where that is farther. it goes to a nearer one at once, so
+// that the shade under a character who has just arrived stays sharp
+const float RELEASED = 0.1;
+// a spread that holds nothing
+const float FAR_OFF = 1.0e6;
+
+// whether a G-buffer pixel is on the surface at depth z with the given normal:
+// it holds a shaded surface, its depth is within a tenth of z, and its normal
+// is within 26 degrees
+bool same_surface(vec4 g, float z, vec3 normal)
+{
+    return !(g.w < 0.5 || abs(g.z - z) > 0.1 * z || dot(unfolded(g.xy), normal) < 0.9);
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(indirect);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+    bool turn = (rays.counts.x & 1u) != 0u;
+    vec4 here = turn ? imageLoad(gbuffer[1], pixel) : imageLoad(gbuffer[0], pixel);
+    vec4 now = imageLoad(indirect, pixel);
+    float near = imageLoad(ambient, pixel).a;
+    float bright = brightness(now.rgb);
+    vec4 held = now;
+    vec4 moment = vec4(bright, bright * bright, 1.0, near);
+    vec4 back = imageLoad(motion, pixel);
+
+    if (here.w > 0.5 && back.w > 0.5 && rays.counts.w == 0u) {
+        // a pixel of the history holds the point its camera ray crossed, at
+        // that picture's jitter from its center
+        vec2 there = vec2(pixel) + back.xy + rays.jitter.xy - rays.jitter.zw;
+        ivec2 corner = ivec2(floor(there));
+        vec2 part = there - vec2(corner);
+        vec3 normal = unfolded(here.xy);
+        vec4 sum = vec4(0.0);
+        vec4 sum_moments = vec4(0.0);
+        float weight = 0.0;
+
+        for (int i = 0; i < 4; i++) {
+            ivec2 q = corner + ivec2(i & 1, i >> 1);
+
+            if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) {
+                continue;
+            }
+            vec4 was = turn ? imageLoad(gbuffer[0], q) : imageLoad(gbuffer[1], q);
+
+            if (!same_surface(was, back.z, normal)) {
+                continue;
+            }
+            float across = (i & 1) != 0 ? part.x : 1.0 - part.x;
+            float down = (i >> 1) != 0 ? part.y : 1.0 - part.y;
+            float w = across * down;
+
+            sum += w * (turn ? imageLoad(history[0], q) : imageLoad(history[1], q));
+            sum_moments += w * (turn ? imageLoad(moments[0], q) : imageLoad(moments[1], q));
+            weight += w;
+        }
+        if (weight > 0.01) {
+            // the mean and variance of this picture's terms around the pixel,
+            // on its surface
+            vec4 mean = vec4(0.0);
+            vec4 square = vec4(0.0);
+            float count = 0.0;
+
+            for (int y = -AROUND; y <= AROUND; y++) {
+                for (int x = -AROUND; x <= AROUND; x++) {
+                    ivec2 q = pixel + ivec2(x, y);
+
+                    if (q.x < 0 || q.y < 0 || q.x >= size.x || q.y >= size.y) {
+                        continue;
+                    }
+                    vec4 there_met = turn ? imageLoad(gbuffer[1], q) : imageLoad(gbuffer[0], q);
+
+                    if (!same_surface(there_met, here.z, normal)) {
+                        continue;
+                    }
+                    vec4 found = imageLoad(indirect, q);
+
+                    mean += found;
+                    square += found * found;
+                    count += 1.0;
+                }
+            }
+            mean /= count;
+            // the mean's standard error. a lone pixel has none to give, and
+            // holds nothing
+            vec4 spread = count > 1.5 ? HELD_WITHIN * sqrt(max(square / count - mean * mean, 0.0) /
+                                                             (count - 1.0))
+                                      : vec4(FAR_OFF);
+            vec4 was_kept = sum / weight;
+            vec4 was_moments = sum_moments / weight;
+            vec4 now_kept = clamp(was_kept, mean - spread, mean + spread);
+            float seen = was_moments.z;
+
+            if (brightness(abs(now_kept.rgb - was_kept.rgb)) >
+                    MOVED * (brightness(was_kept.rgb) + 0.05) ||
+                abs(now_kept.a - was_kept.a) > MOVED) {
+                seen = min(seen, FRESH);
+            }
+            seen = min(seen + 1.0, LONGEST);
+            held = mix(now_kept, now, 1.0 / seen);
+            moment = vec4(mix(was_moments.xy, moment.xy, 1.0 / seen), seen,
+                          min(near, mix(was_moments.w, near, RELEASED)));
+        }
+    }
+    if (turn) {
+        imageStore(history[1], pixel, held);
+        imageStore(moments[1], pixel, moment);
+    } else {
+        imageStore(history[0], pixel, held);
+        imageStore(moments[0], pixel, moment);
+    }
+    imageStore(filtered[0], pixel, held);
+}
