@@ -178,6 +178,11 @@ static void beach_school_scatter(struct task *task)
         fish->target_pitch = 0;
         fish->yaw = 0;
         fish->target_yaw = 0;
+#ifdef NONMATCHING
+        /* repairs the unset heading the tag in beach_school_draw names: each
+         * fish starts unturned, its heading 0 */
+        fish->heading = 0;
+#endif
     }
 }
 

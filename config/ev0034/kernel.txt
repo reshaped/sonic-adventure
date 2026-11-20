@@ -1,0 +1,10 @@
+# EV0034.PRS's kernel table. Its load area has no room for the starts of
+# its .rodata, its .data and its .bss on the 16 KB of the SH-4's operand
+# cache, which config/dreamcast.mk's DC_STARTS names, so tools/ld.py lays
+# it packed: each output section where the one before it ends. Without the
+# row its link fails, and names the room and each row of fewer starts that
+# fits.
+#
+# A row is as in config/1st_read/kernel.txt.
+
+packed

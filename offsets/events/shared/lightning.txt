@@ -1,0 +1,2 @@
+datum  event_lightning_sprite  D  0x00000000  32
+datum  event_lightning_task  D  0x00000020  4

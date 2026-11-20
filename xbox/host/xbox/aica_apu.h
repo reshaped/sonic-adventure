@@ -15,6 +15,9 @@ void aica_apu_silence(void);
  * samples from the sound pack, where there is one. from a host call, where
  * a file may be read */
 void aica_apu_preload(const char *name);
+/* HOST_STREAM_PROBE=1: each blank, the streams' rings the game writes as
+ * they play, against where their voices play, logged once a second */
+void aica_apu_probe(int on);
 
 #ifdef __cplusplus
 }

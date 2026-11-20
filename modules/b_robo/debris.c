@@ -22,6 +22,15 @@
 /* added to a flying piece's upward speed each step */
 #define GRAVITY (-0.02F)
 
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* this side's Ninja moves a matrix with paired FMOVs, which fault off an
+ * 8-byte boundary. pack(8), as for NJS_VIEW, aligns a piece to 8 and moves
+ * no member. the pieces are an array from heap_alloc, whose blocks start on
+ * 16 bytes. so each piece's matrix lies on 8 while the assert below holds */
+#pragma pack(push, 8)
+#endif
+#endif
 struct debris_piece {
     NJS_MATRIX matrix; /* its node's, as posed */
     NJS_POINT3 offset; /* how far it has flown */
@@ -32,6 +41,14 @@ struct debris_piece {
     Angle spin_z;
     int steps; /* the steps since it took off, below 0 while it waits */
 };
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma pack(pop)
+_Static_assert(__builtin_offsetof(struct debris_piece, matrix) % 8 == 0 &&
+                   sizeof(struct debris_piece) % 8 == 0,
+               "a piece's matrix lies off the 8-byte boundary");
+#endif
+#endif
 
 /* the debris's record, at its task's extra */
 struct debris {

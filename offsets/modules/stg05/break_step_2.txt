@@ -1,0 +1,9 @@
+datum  break_step_2_textures  D  0x00000000  48
+datum  break_step_2_texlist  D  0x00000030  8
+datum  break_step_2_pieces  D  0x00000038  192
+datum  break_step_2_block_shape  D  0x000000f8  52
+datum  break_step_2_block_spec  D  0x0000012c  72
+datum  break_step_2_run_spec  D  0x00000174  72
+datum  break_step_2_pattern_offset  D  0x000001bc  12
+datum  break_step_2_no_push  D  0x000001c8  12
+text  TEXT_1  C  0x0000002c  11

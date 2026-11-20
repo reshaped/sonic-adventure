@@ -1,0 +1,8 @@
+datum  dat_0ca3cb18  D  0x00000000  20
+datum  dat_0ca3cb2c  D  0x00000014  24
+datum  dat_0ca3cb44  D  0x0000002c  40
+datum  dat_0ca3cb6c  D  0x00000054  24
+datum  dat_0ca3cb84  D  0x0000006c  84
+datum  dat_0ca3cbd8  D  0x000000c0  84
+datum  dat_0ca3cc2c  D  0x00000114  40
+datum  cart_big_wheel_a_object  D  0x0000013c  52

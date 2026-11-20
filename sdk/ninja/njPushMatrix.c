@@ -5,7 +5,8 @@
  * which is stored in the new slot too. otherwise XMTRX takes m, and the new
  * slot is left as it was. returns TRUE, or FALSE, pushing nothing, when the
  * stack is full */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* ninja_zam.h defines no njPushMatrix macro, so every call reaches this
  * definition */
 Bool njPushMatrix(NJS_MATRIX *m)
@@ -14,7 +15,6 @@ Bool njPushMatrix(NJS_MATRIX *m)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c628bd0 follows the
  * body's own return at 0x8c628bcc */
 #pragma inline_asm(njPushMatrix)
@@ -78,6 +78,6 @@ Bool njPushMatrix(NJS_MATRIX *m)
         RTS
         MOV         #1,R0
 }
-#endif
 /* clang-format on */
+#endif
 #endif

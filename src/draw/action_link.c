@@ -452,7 +452,8 @@ static Float action_link_sample_shape(NJS_MKEY_P *keys, Uint32 index,
 /* NOLINTNEXTLINE(clang-diagnostic-undefined-internal) */
 static Float squared_length(Float x, Float y, Float z, Float fourth);
 
-#ifdef GCC
+#if defined(DREAMCAST) || defined(XBOX)
+#ifdef NONMATCHING
 ALWAYS_INLINE Float squared_length(Float x, Float y, Float z, Float fourth)
 {
 #ifdef XBOX
@@ -464,7 +465,6 @@ ALWAYS_INLINE Float squared_length(Float x, Float y, Float z, Float fourth)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* the squared length of (x, y, z, fourth), in FR0. SHC expands the body at
  * the call. size=4 gives the body's length in bytes. without it, SHC 5.0
  * R10 can place a literal pool ahead of the expansion, with a BRA over the
@@ -477,8 +477,8 @@ static Float squared_length(Float x, Float y, Float z, Float fourth)
         FIPR        FV4,FV4
         FMOV.S      FR7,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif
 
 /* blend first toward second by weight into out, and scale the blend to unit

@@ -1,25 +1,42 @@
 /* Ninja's types and constants, built on sg_xpt.h's: include sg_xpt.h first.
  *
  * this header must include nothing. a source that includes src/vmu/draw.h
- * opens it fifth, through vmu/screen.h, main.h and ninja.h, so an #include
- * here would be made inside five open headers. SHC's releases R10 and R32 stop
- * with error 2500 (E) two lines past such an #include.
+ * opens it fifth, through vmu/screen.h, main.h and ninja.h. an #include here
+ * would nest deeper than SHC can (TOOLCHAIN.md#running-shc).
  *
- * it must declare no object either. R10 lays out bss in the order of each
- * name's first declaration, and njGlobal.c includes this header, not ninja.h,
- * so that its own definitions set that order */
+ * it must declare no object either. SHC's release R10 lays out bss in the
+ * order of each name's first declaration. njGlobal.c includes this header,
+ * not ninja.h, so that its own definitions set that order */
 #ifndef NJTYPES_H
 #define NJTYPES_H
 
 typedef Sint32 Angle; /* 65536 to a full turn */
-#ifdef GCC
-/* an FMOV with FPSCR.SZ set moves 8 bytes, and takes an address error at an
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* an FMOV with FPSCR.SZ set moves 8 bytes. it takes an address error at an
  * address that isn't 8-byte aligned. some of Ninja's and SH4ZAM's routines
- * move a matrix that way. GCC would align a Float[16] to 4, so NJS_MATRIX
- * takes 8. inside a structure, config/gcc.mk's -fpack-struct=4 still aligns
- * a matrix to 4, so each layout stays SHC's. NJS_VIEW and NJS_LIGHT align
- * theirs to 8, below */
-typedef Float NJS_MATRIX[16] __attribute__((aligned(8)));
+ * move a matrix that way. ninja_zam.h hands SH4ZAM a caller's matrix as an
+ * shz_mat4x4_t, which aligns to 8. GCC would align a Float[16] to 4, so
+ * NJS_MATRIX takes 8. an object or an array's element lies on 8 by the type.
+ * a heap record lies there by its block, which starts on 16.
+ *
+ * config/gcc.mk's -fpack-struct=4 still aligns a matrix in a structure to 4,
+ * as SHC does. #pragma pack(8) lifts that cap where it wraps the structure.
+ * so warn_if_not_aligned has GCC warn of a structure or union that holds a
+ * matrix and aligns under 8. it warns of a matrix off a multiple of 8 too.
+ * make dc fails on a warning. pack(8) wraps NJS_VIEW and NJS_LIGHT, below,
+ * and the game's structures outside modules/stg09 that hold a matrix. each
+ * asserts where its matrix lies, since the warning reads only a structure's
+ * own members. NJS_VIEW's and NJS_LIGHT's layouts stay SHC's. on this side,
+ * struct lockon_target's matrix moves, so its layout differs from SHC's
+ * (src/player/lockon.h). local structures in modules/stg09 hold room for a
+ * matrix on 4, with the warning off. their functions round the address they
+ * hand Ninja down to 8 */
+typedef Float NJS_MATRIX[16]
+    __attribute__((aligned(8), warn_if_not_aligned(8)));
+#else
+typedef Float NJS_MATRIX[16];
+#endif
 #else
 typedef Float NJS_MATRIX[16];
 #endif
@@ -352,13 +369,15 @@ typedef struct {
     Float cx, cy;
 } NJS_SCREEN;
 
-#ifdef GCC
-/* njSetView passes a view's matrix to njTranslate. GCC's njTranslate passes
- * it to SH4ZAM as an shz_mat4x4_t, which must be 8-byte aligned. pack(8)
- * lifts -fpack-struct=4's cap, so NJS_MATRIX's aligned(8) aligns the
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* njSetView passes a view's matrix to njTranslate. this side's njTranslate
+ * passes it to SH4ZAM as an shz_mat4x4_t, which must be 8-byte aligned.
+ * pack(8) lifts -fpack-struct=4's cap, so NJS_MATRIX's aligned(8) aligns the
  * structure, and the matrix at its start, to 8. no other member aligns past
- * 4, and the size is a multiple of 8, so no offset or size changes */
+ * 4, and the size is a multiple of 8. so no offset or size changes */
 #pragma pack(push, 8)
+#endif
 #endif
 /* a view: its matrix; its position, direction and roll; and its absolute
  * position, direction and roll, from which njRotateViewXAbsolute,
@@ -373,8 +392,13 @@ typedef struct {
     Float avx, avy, avz;
     Angle aroll;
 } NJS_VIEW;
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #pragma pack(pop)
+_Static_assert(__builtin_offsetof(NJS_VIEW, m) % 8 == 0 &&
+                   _Alignof(NJS_VIEW) % 8 == 0,
+               "an NJS_VIEW's matrix lies off the 8-byte boundary");
+#endif
 #endif
 
 typedef struct {
@@ -400,10 +424,12 @@ typedef struct {
     Angle iang, oang;
     NJS_ARGB argb;
 } NJS_LIGHT_ATTR;
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* pack(8), as for NJS_VIEW: njTranslateLight passes a light's matrix to
  * njTranslate */
 #pragma pack(push, 8)
+#endif
 #endif
 typedef struct {
     NJS_MATRIX mtrx;
@@ -414,8 +440,13 @@ typedef struct {
     NJS_LIGHT_CAL ltcal; /* values Ninja derives */
     NJS_LIGHT_ATTR attr; /* values the caller sets */
 } NJS_LIGHT;
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #pragma pack(pop)
+_Static_assert(__builtin_offsetof(NJS_LIGHT, mtrx) % 8 == 0 &&
+                   _Alignof(NJS_LIGHT) % 8 == 0,
+               "an NJS_LIGHT's matrix lies off the 8-byte boundary");
+#endif
 #endif
 
 typedef struct {

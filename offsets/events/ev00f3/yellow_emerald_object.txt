@@ -1,0 +1,3 @@
+datum  ev00f3_yellow_emerald_object  D  0x00000000  52
+datum  event_chaos0_water_textures  D  0x00000034  12
+text  TEXT_1  C  0x00000000  12

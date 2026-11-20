@@ -1,0 +1,16 @@
+datum  fish_kind_counts  D  0x00000000  16
+datum  beach_fish_kinds  D  0x00000010  32
+datum  twinkle_fish_kinds  D  0x00000030  12
+datum  icecap_fish_kinds  D  0x0000003c  24
+datum  shelter_fish_kinds  D  0x00000054  24
+datum  fish_texlists  D  0x0000006c  64
+datum  fish_objects  D  0x000000ac  64
+datum  fish_swim_actions  D  0x000000ec  64
+datum  fish_hooked_actions  D  0x0000012c  64
+datum  fish_bite_actions  D  0x0000016c  64
+datum  fish_model_offsets  D  0x000001ac  192
+datum  fish_held_small  D  0x0000026c  192
+datum  fish_held_medium  D  0x0000032c  192
+datum  fish_held_large  D  0x000003ec  192
+datum  fish_sizes  D  0x000004ac  256
+datum  fish_shapes  D  0x000005ac  52

@@ -10,6 +10,9 @@
 #include "player/player.h"
 #include "sound/sound.h"
 #include "stg07/aoki_switch.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#endif
 #include "system/task.h"
 #include "system/texture.h"
 #include "system/util.h"
@@ -148,7 +151,17 @@ void aoki_switch_step(struct task *task)
             aoki_switch_init(task);
             break;
         case MODE_RUN:
+#ifdef NONMATCHING
+            /* the switch draws before it runs, so the second picture's pass
+             * would draw it a step ahead. in a split frame, which shows two
+             * pictures, a step draws it only where port.h's FRAME_DRAWS
+             * says */
+            if (!frame_split || FRAME_DRAWS()) {
+                aoki_switch_draw(task);
+            }
+#else
             aoki_switch_draw(task);
+#endif
             aoki_switch_run(task);
             break;
         }
@@ -254,6 +267,14 @@ static void aoki_switch_draw(struct task *task)
     Angle ang;
     int glow;
 
+#ifdef NONMATCHING
+    /* njEasyDrawModel and njDrawModel never call present_record, so nothing
+     * marks the switch for the pass to skip. where step 1 drew it, the pass
+     * draws none: a second draw would blend the lamp twice */
+    if (frame_redrawing && frame_later_draws) {
+        return;
+    }
+#endif
     /* @hack spelling: the range compared with 0, which SHC tests with
      * CMP/EQ #0 (0x0c90b1b4); as a !, 1 of 104 words differ */
     if (player_in_range(&work->pos, DRAW_REACH) == 0) {

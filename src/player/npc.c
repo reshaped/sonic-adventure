@@ -665,7 +665,7 @@ static enum npc_lost npc_watch(struct task *task, struct task_work *leader,
     }
     njCalcPoint(NULL, &follower->pos, &view);
     point_project_centered(&view, &screen);
-#ifdef GCC
+#ifdef NONMATCHING
     /* x as port.h's window holds it, so that 16:9 widens the test */
     screen.x *= port_view_aspect;
 #endif

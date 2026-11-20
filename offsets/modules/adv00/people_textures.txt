@@ -1,0 +1,8 @@
+datum  ss_people_textures  D  0x00000000  876
+datum  ss_people_texlist  D  0x0000036c  8
+datum  ss_ekiin_textures  D  0x00000374  96
+datum  dat_0cb2c994  D  0x000003d4  8
+datum  ss_mizugi_textures  D  0x000003dc  84
+datum  dat_0cb2c9f0  D  0x00000430  8
+datum  ss_burger_textures  D  0x00000438  204
+datum  dat_0cb2cac4  D  0x00000504  8

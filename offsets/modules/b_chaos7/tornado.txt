@@ -1,0 +1,11 @@
+datum  tornado_speed  DHEAD  0x00000000  4
+datum  tornado_stay  DHEAD  0x00000004  4
+datum  tornado_sway  DHEAD  0x00000008  4
+datum  tornado_sway_turn  DHEAD  0x0000000c  4
+datum  tornado_keys_0  D  0x00000000  480
+datum  tornado_keys_1  D  0x000001e0  480
+datum  tornado_keys_2  D  0x000003c0  480
+datum  tornado_mdata  D  0x000005a0  96
+datum  tornado_motion  D  0x00000600  12
+datum  tornado_action  D  0x0000060c  8
+datum  tornado_shape  D  0x00000614  52

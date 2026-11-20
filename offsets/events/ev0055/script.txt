@@ -1,0 +1,6 @@
+datum  ev0055_light_points  D  0x00000000  7344
+datum  ev0055_light_path  D  0x00001cb0  8
+datum  ev0055_frog  D  0x00001cb8  4
+datum  ev0055_light  D  0x00001cbc  4
+datum  ev0055_textures  D  0x00001cc0  16
+text  TEXT_1  C  0x0000000c  13

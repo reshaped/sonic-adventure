@@ -1,0 +1,10 @@
+datum  event_clouds_speed  D  0x00000000  4
+datum  event_clouds_scale  D  0x00000004  4
+datum  event_clouds_count  D  0x00000008  4
+datum  event_clouds_0  D  0x0000000c  4
+datum  event_clouds_1  D  0x00000010  4
+datum  event_clouds_stream_0  D  0x00000014  48
+datum  event_clouds_stream_1  D  0x00000044  48
+datum  event_clouds_anim  D  0x00000074  60
+datum  event_clouds_sprite  D  0x000000b0  32
+datum  event_clouds  D  0x000000d0  4

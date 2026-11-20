@@ -10,6 +10,40 @@ Sint32 njSearchTexList2(NJS_TEXMEMLIST *list, Uint32 n, NJS_TEXMEMLIST *tex);
  * free, they search from record 0 */
 static Uint32 texmem_next_free = 0;
 
+#ifdef NONMATCHING
+/* a draw by global index has njSearchTexList walk _nj_texmemlist from
+ * record 0. each record the walk passes costs a cache line. so this side's
+ * njSearchTexList keeps the answer of its last search of _nj_texmemlist in
+ * slot globalIndex % SEARCH_SLOTS. a slot holds a global index and the walk's
+ * answer for it, -1 included. a slot whose index is SEARCH_EMPTY holds no
+ * answer. an answer depends only on _nj_texmemlist, _nj_texmemsize and the
+ * records' globalIndex words. njInitTexMemList, njEntryTexMemList and
+ * njFreeTexMemList alone write them, and each empties every slot. the slots
+ * start as zeros, but none is read before njInitTexMemList empties them.
+ * until then _nj_texmemlist is NULL, so every search takes the walk */
+/* ZERO's fence chains draw six textures by global index, and E-101 mkII's
+ * fight draws five. sixteen slots give each texture its own. eight would put
+ * two of the fight's textures in one slot */
+#define SEARCH_SLOTS 16
+#define SEARCH_EMPTY (-2)
+
+struct search_slot {
+    Uint32 globalIndex;
+    Sint32 index;
+};
+
+static struct search_slot search_slots[SEARCH_SLOTS];
+
+static void search_slots_clear(void)
+{
+    Uint32 i;
+
+    for (i = 0; i < SEARCH_SLOTS; i++) {
+        search_slots[i].index = SEARCH_EMPTY;
+    }
+}
+#endif
+
 void njInitTexMemList(NJS_TEXMEMLIST *addr, Uint32 n)
 {
     Uint32 i;
@@ -23,6 +57,9 @@ void njInitTexMemList(NJS_TEXMEMLIST *addr, Uint32 n)
     }
     texmem_next_free = 0;
     _nj_tex_count = 0;
+#ifdef NONMATCHING
+    search_slots_clear();
+#endif
 }
 
 void njEntryTexMemList(Uint32 *handle, NJS_TEXINFO *info, Uint32 globalIndex,
@@ -88,6 +125,9 @@ void njEntryTexMemList(Uint32 *handle, NJS_TEXINFO *info, Uint32 globalIndex,
     if ((Uint32)_nj_tex_count <= i) {
         _nj_tex_count++;
     }
+#ifdef NONMATCHING
+    search_slots_clear();
+#endif
 }
 
 void njFreeTexMemList(NJS_TEXMEMLIST *tex)
@@ -121,9 +161,19 @@ void njFreeTexMemList(NJS_TEXMEMLIST *tex)
     } else {
         texmem_next_free = 0;
     }
+#ifdef NONMATCHING
+    search_slots_clear();
+#endif
 }
 
+#ifdef NONMATCHING
+/* the walk from record 0. njSearchTexList below calls it where no slot
+ * answers */
+static Sint32 search_tex_list(NJS_TEXMEMLIST *list, Uint32 n,
+                              Uint32 globalIndex)
+#else
 Sint32 njSearchTexList(NJS_TEXMEMLIST *list, Uint32 n, Uint32 globalIndex)
+#endif
 {
     Uint32 i;
 
@@ -137,6 +187,22 @@ Sint32 njSearchTexList(NJS_TEXMEMLIST *list, Uint32 n, Uint32 globalIndex)
     }
     return -1;
 }
+
+#ifdef NONMATCHING
+Sint32 njSearchTexList(NJS_TEXMEMLIST *list, Uint32 n, Uint32 globalIndex)
+{
+    struct search_slot *slot = &search_slots[globalIndex % SEARCH_SLOTS];
+
+    if (list == NULL || list != _nj_texmemlist || n != _nj_texmemsize) {
+        return search_tex_list(list, n, globalIndex);
+    }
+    if (slot->index == SEARCH_EMPTY || slot->globalIndex != globalIndex) {
+        slot->globalIndex = globalIndex;
+        slot->index = search_tex_list(list, n, globalIndex);
+    }
+    return slot->index;
+}
+#endif
 
 /* the index in list of the record at tex. it returns -1 for a null tex or
  * list, and for an address that is not one of list's n records */

@@ -87,8 +87,8 @@ void debris_drag(struct task_work *work, struct debris_motion *motion)
     /* @bug uninitialized: no path sets drag, and the image reads it from the
      * FR15 the caller left (FMOV FR15,FR0 at 0x0c909bf6 in STG10). no code
      * calls debris_drag, so the read never runs */
-#ifdef GCC
-    /* repairs the unset drag the tag names: GCC's is the body's drag
+#ifdef NONMATCHING
+    /* repairs the unset drag the tag names: this side's is the body's drag
      * negated, as debris_move takes it */
     drag = -motion->body->drag;
 #endif

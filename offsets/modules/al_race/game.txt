@@ -1,0 +1,2 @@
+datum  race_voice_list  C  0x00000000  36
+datum  race_voice_groups  C  0x00000024  48

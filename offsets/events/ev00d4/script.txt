@@ -1,0 +1,12 @@
+datum  ev00d4_e102_walk_keys  C  0x00000000  219
+datum  ev00d4_e102_walk  C  0x000000dc  8
+datum  ev00d4_e102_leave_keys  C  0x000000e4  429
+datum  ev00d4_e102_leave  C  0x00000294  8
+datum  ev00d4_big_run_keys  C  0x0000029c  627
+datum  ev00d4_big_run  C  0x00000510  8
+datum  ev00d4_frog  D  0x00000000  4
+datum  ev00d4_textures  D  0x00000004  16
+text  TEXT_1  C  0x00000524  14
+text  TEXT_2  C  0x00000534  10
+text  TEXT_3  C  0x00000540  36
+text  TEXT_4  C  0x00000564  38

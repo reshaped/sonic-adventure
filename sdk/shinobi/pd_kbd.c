@@ -12,7 +12,7 @@
 
 /* each connector's keyboard, by the connector's number from 1, so
  * pdgKbdData[0] goes unused */
-#ifdef GCC
+#ifdef NONMATCHING
 /* room for connector 4's record as well, which pdSetKbdData's tag says the
  * image writes past the array's end. in 1ST_READ.BIN that record covers
  * the start of isrPool[0], which syChain.c never hands out, so the extra

@@ -1,0 +1,7 @@
+datum  streamer_strip  D  0x00000000  16
+datum  streamer_palettes  D  0x00000010  16
+datum  streamer_red  B  0x00000000  80
+datum  streamer_green  B  0x00000050  80
+datum  streamer_blue  B  0x000000a0  80
+datum  streamer_yellow  B  0x000000f0  80
+datum  streamer_points  B  0x00000140  240

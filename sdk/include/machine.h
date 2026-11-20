@@ -2,13 +2,16 @@
 #ifndef MACHINE_H
 #define MACHINE_H
 
-#ifdef GCC
-#ifndef XBOX
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* under -m4-single-only, the FPU model config/gcc.mk's GCC_TARGET gives,
- * GCC's code takes FPSCR's PR and SZ clear. FR is clear as the CPU's reset
- * leaves it. GCC's side of set_fpscr and st_ext below relies on all three */
+ * GCC's code takes FPSCR's PR and SZ clear. this side's set_fpscr and st_ext
+ * below rely on both. FR may be set or clear, since SH4ZAM's XMTRX products
+ * end on one FRCHG, which swaps the banks. GCC's code names no bank, and
+ * set_fpscr keeps FR. st_ext stores XMTRX through XD, which names the back
+ * bank either way */
 #ifndef __SH4_SINGLE_ONLY__
-#error "GCC's side of the code takes -m4-single-only"
+#error "the non-matching code takes -m4-single-only"
 #endif
 #endif
 #endif
@@ -16,12 +19,6 @@
 /* set_imask and get_imask write and read SR's interrupt mask. IMASK_ALL masks
  * every interrupt, and 0 masks none. get_vbr returns VBR, the base address of
  * the exception and interrupt handlers */
-#ifdef __clang__
-void _builtin_set_imask(int mask);
-int _builtin_get_imask(void);
-void *_builtin_get_vbr(void);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* the Xbox port's SDK layer defines the three: x86 has no SR or VBR. the
  * mask it keeps orders the game's threads and callbacks as the console's
@@ -29,7 +26,9 @@ void *_builtin_get_vbr(void);
 void _builtin_set_imask(int mask);
 int _builtin_get_imask(void);
 void *_builtin_get_vbr(void);
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* SHC writes the three in place, and GCC always does: code that runs
  * uncached through P2, as mwsfd.c's switches of the cache do, can't call out
  * to P1. set_imask's LDC writes all of SR, T among it. no load or store moves
@@ -67,21 +66,19 @@ __attribute__((always_inline)) static inline void *_builtin_get_vbr(void)
 
 /* set_fpscr and get_fpscr write and read FPSCR, the FPU mode and status
  * register */
-#ifdef __clang__
-void _builtin_set_fpscr(int cr);
-int _builtin_get_fpscr(void);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* the port's SDK layer defines the two, over SSE's MXCSR: its rounding mode
  * as FPSCR's RM, and flushing denormals as its DN */
 void _builtin_set_fpscr(int cr);
 int _builtin_get_fpscr(void);
-#else
-/* GCC's set_fpscr keeps FPSCR's PR, SZ and FR as they are, where SHC's
- * writes them from cr. the two agree, since each cr the sources pass holds
- * the three clear. rfiber's FIBER_FPSCR clears them, and every other cr is
- * FPSCR as get_fpscr read it, _fmtout's less PR */
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+/* this side's set_fpscr keeps FPSCR's PR, SZ and FR as they are, where SHC's
+ * writes them from cr. the two agree on PR and SZ, which each cr the sources
+ * pass holds clear. rfiber's FIBER_FPSCR clears them. every other cr is FPSCR
+ * as get_fpscr read it, with PR cleared in _fmtout's. this side must keep FR,
+ * which tells which bank is XMTRX. a cr may hold it either way */
 #define _builtin_set_fpscr __builtin_sh_set_fpscr
 #define _builtin_get_fpscr __builtin_sh_get_fpscr
 #endif
@@ -91,17 +88,15 @@ int _builtin_get_fpscr(void);
 
 /* TAS.B: in one indivisible operation, set bit 7 of the byte at addr and
  * return whether the byte was 0 */
-#ifdef __clang__
-int _builtin_tas(char *addr);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* an atomic OR of bit 7, which x86's LOCK OR or XCHG gives */
 static inline int _builtin_tas(char *addr)
 {
     return __atomic_fetch_or(addr, (char)0x80, __ATOMIC_SEQ_CST) == 0;
 }
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 static inline int _builtin_tas(char *addr)
 {
     int was_zero;
@@ -118,10 +113,6 @@ static inline int _builtin_tas(char *addr)
 
 /* PREF: prefetch the cache line at p. at a store queue address, write that
  * store queue to memory */
-#ifdef __clang__
-void _builtin_prefetch(void *p);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* x86 has no store queues: the port's stand-in for them writes memory
  * directly, so a flush need only keep the stores before it in order */
@@ -130,7 +121,9 @@ static inline void _builtin_prefetch(void *p)
     (void)p;
     __asm__ volatile("" : : : "memory");
 }
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* PREF at a store queue address writes out the stores before it, so no load
  * or store moves across it. GCC's __builtin_prefetch lets them move */
 static inline void _builtin_prefetch(void *p)
@@ -143,14 +136,12 @@ static inline void _builtin_prefetch(void *p)
 
 /* store XMTRX at m: XF0 to XF15 in its 16 floats, in order, as eight pair
  * stores between two FSCHGs */
-#ifdef __clang__
-void _builtin_st_ext(float (*m)[4]);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* XMTRX is the port's (xbox/include/sh4.h), which defines the store over it */
 void _builtin_st_ext(float (*m)[4]);
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* the pair stores run from m's end down, XD14 first, as SHC writes them */
 static inline void _builtin_st_ext(float (*m)[4])
 {
@@ -173,14 +164,12 @@ static inline void _builtin_st_ext(float (*m)[4])
 #define st_ext(m) _builtin_st_ext(m)
 
 /* TRAPA #trap_no: trap unconditionally, with trap_no << 2 in TRA */
-#ifdef __clang__
-void _builtin_trapa(int trap_no);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* every trap the tree takes stops the game, as the console's handlers do */
 #define _builtin_trapa(trap_no) __builtin_trap()
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #define _builtin_trapa(trap_no)                                                \
     __asm__ volatile("trapa %0" : : "i"(trap_no) : "memory")
 #endif
@@ -189,11 +178,6 @@ void _builtin_trapa(int trap_no);
 
 /* the string intrinsics, which SHC compiles to calls to the C runtime's
  * _slow_strcpy and _slow_strcmp1 */
-#ifdef __clang__
-char *_builtin_strcpy(char *s1, const char *s2);
-int _builtin_strcmp(const char *s1, const char *s2);
-#endif
-#ifdef GCC
 #ifdef XBOX
 /* C's loops, where the console's runtime takes R0 and R1 outside C's
  * calling convention. sdk/runtime/strcpy.c's strcpy calls _builtin_strcpy,
@@ -215,7 +199,9 @@ static inline int _builtin_strcmp(const char *s1, const char *s2)
     }
     return (int)*(const unsigned char *)s1 - (int)*(const unsigned char *)s2;
 }
-#else
+#endif
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* _slow_strcpy takes s1 in R0 and s2 in R1, outside C's calling convention.
  * it returns s1 in R0 and changes R1 and T alone. the asm moves s1 and s2
  * into R0 and R1 itself. a register variable bound to R0 would hold s1 there

@@ -1,0 +1,2 @@
+datum  sign_s_lamps  D  0x00000000  180
+datum  sign_s_post  D  0x000000b4  52

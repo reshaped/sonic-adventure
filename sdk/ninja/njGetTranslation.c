@@ -2,7 +2,8 @@
 
 /* set *p to the translation of m, its last row. a null m selects the current
  * matrix, in XMTRX */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njGetTranslation
 void njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
 {
@@ -10,7 +11,6 @@ void njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c61749c follows the
  * body's own return at 0x8c617498 */
 #pragma inline_asm(njGetTranslation)
@@ -35,6 +35,6 @@ void njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
         RTS
         FMOV.S      FR0,@-R5
 }
-#endif
 /* clang-format on */
+#endif
 #endif

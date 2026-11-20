@@ -1,0 +1,14 @@
+datum  zap_width  C  0x00000000  8
+datum  glow_task  D  0x00000000  4
+datum  sparkles_task  D  0x00000004  4
+datum  beams  D  0x00000008  32
+datum  dust  D  0x00000028  60
+datum  zap_frames  D  0x00000064  64
+datum  zap_texture  D  0x000000a4  44
+datum  sparkles_frames  D  0x000000d0  396
+datum  chain_width_from  D  0x0000025c  4
+datum  chain_width_to  D  0x00000260  4
+datum  chain_frames  D  0x00000264  48
+datum  chain_halves  D  0x00000294  88
+datum  spark_frames  D  0x000002ec  308
+datum  spark  D  0x00000420  40

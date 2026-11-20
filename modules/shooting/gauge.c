@@ -47,8 +47,8 @@ NJS_TEXLIST gauge_texlist = {
  * address in R11 and PIECE_SIZE in R12 in the draw (0x0c908f8a,
  * 0x0c908fca); as one array, the two trade registers and 15 of 190 words
  * differ */
-#ifdef GCC
-/* keeps the read the tag names: GCC's six are one array */
+#ifdef NONMATCHING
+/* keeps the sprite's read from the cap: this side's six are one array */
 static NJS_TEXANIM gauge_pieces[PIECES] = {
     {
 #include "shooting/gauge/gauge_cap.inc"

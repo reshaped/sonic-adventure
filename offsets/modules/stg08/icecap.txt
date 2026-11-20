@@ -1,0 +1,7 @@
+datum  icecap_light_spec  D  0x00000000  72
+datum  icecap_breath  D  0x00000048  60
+datum  icecap_fog_table  D  0x00000084  512
+datum  icecap_look_point  C  0x00000000  12
+datum  icecap_act0_exit  C  0x00000024  12
+datum  icecap_act1_exit  C  0x00000030  12
+datum  icecap_sky_light  B  0x00000000  344

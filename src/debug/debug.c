@@ -42,9 +42,18 @@ static Sint16 debug_flag = 0;
 static NJS_POINT3 debug_axis_points[6] = {
 #include "debug/debug/debug_axis_points.inc"
 };
+#ifdef NONMATCHING
+/* debug_axes points its col here, and a line's draw reads each color as one
+ * longword, which faults on an address off 4. GCC aligns this array only to
+ * its bytes */
+static NJS_BGRA debug_axis_colors[6] __attribute__((aligned(4))) = {
+#include "debug/debug/debug_axis_colors.inc"
+};
+#else
 static NJS_BGRA debug_axis_colors[6] = {
 #include "debug/debug/debug_axis_colors.inc"
 };
+#endif
 static NJS_POINT3COL debug_axes = {
 #include "debug/debug/debug_axes.inc"
 };

@@ -14,7 +14,7 @@ extern NJS_OBJECT ideacap_object_1;
 extern NJS_OBJECT ideacap_object_2;
 extern NJS_OBJECT ideacap_object_3;
 extern NJS_MOTION ideacap_motion;
-#ifdef GCC
+#ifdef NONMATCHING
 /* Idea's first piece */
 extern NJS_OBJECT idea_object_0;
 #endif
@@ -58,7 +58,7 @@ static void ideacap_draw(struct task *task)
     /* @bug memory: with every piece in place, this reads the word past
      * ideacap_objects, at 0x0c907508. in the image, that is idea_objects[0],
      * so it draws Idea's first piece */
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the shipped play the tag names: with every piece in place, the
      * cap draws idea_object_0, which idea_objects[0] at 0x0caf2ad8 points
      * at */

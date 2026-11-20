@@ -1,0 +1,14 @@
+datum  ev0035_jump_keys  C  0x00000000  216
+datum  ev0035_jump  C  0x000000d8  8
+datum  ev0035_emerald  D  0x00000000  4
+datum  ev0035_beam  D  0x00000004  4
+datum  ev0035_fade  D  0x00000008  4
+datum  ev0035_textures  D  0x0000000c  40
+text  TEXT_1  C  0x000000ec  10
+text  TEXT_2  C  0x000000fc  22
+text  TEXT_3  C  0x00000114  10
+text  TEXT_4  C  0x00000120  14
+text  TEXT_5  C  0x00000130  26
+text  TEXT_6  C  0x00000168  18
+text  TEXT_7  C  0x000000f8  3
+text  TEXT_8  C  0x0000014c  25

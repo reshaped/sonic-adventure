@@ -1,0 +1,2 @@
+datum  ev00b2_e102_motion_0  D  0x00000000  12
+datum  ev00b2_e102_action_0  D  0x0000000c  8

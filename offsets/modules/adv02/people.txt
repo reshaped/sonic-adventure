@@ -1,0 +1,4 @@
+datum  mystic_ruins_emerald_action  D  0x00000000  8
+datum  people_count  D  0x00000008  4
+datum  people_kinds  C  0x00000000  640
+datum  people  B  0x00000000  12

@@ -980,7 +980,13 @@ static void tile_glow(Float x, Float y, Float z)
      * glow_draw is meant, so while the game is paused a glow draws the board
      * at the tile and no glow. the MOV.L at 0x0c924d48 loads tarai_draw's
      * address, and the MOV.L at 0x0c924d6a stores it into task->draw */
+#ifdef NONMATCHING
+    /* repairs the draw the tag names. the glow's callback runs while the game
+     * is paused and in the second picture's pass */
+    task->draw = glow_draw;
+#else
     task->draw = tarai_draw;
+#endif
 }
 
 static void glow_step(struct task *task)

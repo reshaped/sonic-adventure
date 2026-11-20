@@ -1,0 +1,5 @@
+datum  box_switch_models  D  0x00000000  32
+datum  box_switch_plates  D  0x00000020  32
+datum  box_switch_places  D  0x00000040  96
+datum  box_switch_shape  D  0x000000a0  52
+datum  box_switch_on  D  0x000000d4  32

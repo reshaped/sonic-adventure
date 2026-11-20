@@ -43,7 +43,7 @@ A --contract names a function as C spells it. It names a .src function by
 the label below its tag, where the source exports that label or the tables
 name it, and otherwise by the first such label of the tag's run. A tag's
 run is the labels, with no statement between them, that start the code
-below it. A --contract without --abi fails. make gcc runs --abi on each
+below it. A --contract without --abi fails. make dc runs --abi on each
 source it assembles or splits, with a --contract for each name in its
 object's CONTRACTS, in config/gcc.mk. Each names a function whose GCC
 callers meet its contract, or one that no GCC code calls.
@@ -91,16 +91,16 @@ then reads. It misses a store to a pushed slot through a copy of R15.
 - an instruction that no path reaches;
 - two paths that meet with FR, SZ or R15 apart.
 
-An inline body on the shipped side of a GCC guard, under #ifndef GCC or
-under the #else or an #elif of #ifdef GCC, makes no function: GCC compiles
-the guard's other side in its place. --abi reads no such body, and a
+An inline body on the matching side of a guard, under the #else of #ifdef
+NONMATCHING, makes no function: GCC compiles the guard's other side in its
+place. --abi reads no such body, and a
 --contract can't name it. Nor does --abi read a C function there for its
 calls of a body's function.
 
 --inline checks no tag. It names each C source that holds a #pragma
 inline_asm or #pragma asm, a directory standing for each .c file under it,
-for the Makefile's INLINE_C and UNSETTLED. A pragma on the shipped side of
-a GCC guard counts, since SHC compiles that side.
+for the Makefile's INLINE_C and UNSETTLED. A pragma on the matching side of
+a guard counts, since SHC compiles that side.
 """
 
 import argparse
@@ -112,7 +112,7 @@ from collections import namedtuple
 from itertools import chain
 
 from config import Config, configs
-from csource import blanked, bodies, inline_sites, macro_directives, pairs, parse, pragma, regions, shipped_side
+from csource import blanked, bodies, inline_sites, macro_directives, matching_side, pairs, parse, pragma, regions
 from images import CONFIG, images
 from tables import hexa, named, table
 from tool import content, fail
@@ -219,7 +219,7 @@ class Tables:
 
     def __init__(self, sources=None):
         """Read every image's tables, or where sources is given, only the rows that place those sources, from the images
-        whose splits.txt places one of them. make gcc runs --abi on one source at a time, and reading every image's
+        whose splits.txt places one of them. make dc runs --abi on one source at a time, and reading every image's
         tables would take most of each run."""
         wanted = None if sources is None else set(sources)
         self.places = {}
@@ -750,14 +750,14 @@ def check_c(path, text, tables, problems, abi=None):
         if below not in hacks:
             problems.append(f'{path}:{line}: {test} has no @hack redundant tag above it')
     if abi is not None:
-        shipped = shipped_side(lines)
-        # the functions and macros GCC compiles: one on a guard's shipped side calls no body's function
-        functions, macros = definitions('\n'.join('' if i in shipped else each for i, each in enumerate(lines)))
+        matching = matching_side(lines)
+        # the functions and macros GCC compiles: one on a guard's matching side calls no body's function
+        functions, macros = definitions('\n'.join('' if i in matching else each for i, each in enumerate(lines)))
         problems.extend(f'{path}:{line}: a #pragma asm block whose @asm tag is abi, which GCC compiles and no '
                         '--contract can name' for line in assembly
-                        if line - 1 not in shipped and tagged.get(line, [None])[0] == 'abi')
+                        if line - 1 not in matching and tagged.get(line, [None])[0] == 'abi')
         for at, name, _, opening, closing in inline_bodies:
-            if at in shipped:
+            if at in matching:
                 continue
             if tagged.get(at + 1, [None])[0] == 'abi':
                 abi.append((at + 1, name, 'its @asm tag is abi'))

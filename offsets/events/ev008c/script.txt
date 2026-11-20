@@ -1,0 +1,15 @@
+datum  ev008c_beam  D  0x00000000  4
+datum  ev008c_textures  D  0x00000004  48
+text  TEXT_1  C  0x0000000c  46
+text  TEXT_2  C  0x0000003c  45
+text  TEXT_3  C  0x0000006c  32
+text  TEXT_4  C  0x00000094  26
+text  TEXT_5  C  0x000000b0  53
+text  TEXT_6  C  0x000000e8  8
+text  TEXT_7  C  0x000000f0  12
+text  TEXT_8  C  0x000000fc  57
+text  TEXT_9  C  0x00000138  10
+text  TEXT_10  C  0x0000014c  57
+text  TEXT_11  C  0x00000188  26
+text  TEXT_12  C  0x0000008c  5
+text  TEXT_13  C  0x00000144  5

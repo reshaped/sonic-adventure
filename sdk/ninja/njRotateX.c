@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set m to R * m, where R rotates by ang about x. a null m selects the
  * current matrix, in XMTRX */
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c628e38 follows the

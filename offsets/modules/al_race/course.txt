@@ -1,0 +1,7 @@
+datum  course_starts  C  0x00000000  480
+datum  course_distances  C  0x000001e0  20
+datum  course_segments  C  0x000001f4  272
+datum  course_targets  C  0x00000304  240
+datum  race_course  C  0x000003f4  20
+datum  race_origin  C  0x00000408  12
+datum  dat_0cb9a6e4  C  0x00000414  36

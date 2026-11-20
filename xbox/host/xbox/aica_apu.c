@@ -61,6 +61,9 @@ struct voice {
     uint32_t update_rate;
     uint32_t att_left, att_right;
     int bytes_per_sample;
+    /* the part of the pool its sample plays from, at to end, or 0 to 0 where
+     * it plays from sound RAM */
+    uint32_t pool_at, pool_end;
 };
 
 static void pack_open(void);
@@ -72,6 +75,9 @@ static uint32_t pool_used;
 static unsigned pool_wraps; /* the pool's turns: each overwrites what it held */
 static int ready;
 static unsigned starts, stops, failures;
+/* the pool's turns that stepped past a playing voice's sample, and the
+ * voices stopped because their channel's model had ended without a stop */
+static unsigned pool_skips, orphans;
 
 int aica_apu_open(const void *ram)
 {
@@ -355,11 +361,37 @@ static int16_t *pool_take(uint32_t count)
     if (bytes > POOL_SIZE) {
         return NULL;
     }
-    if (pool_used + bytes > POOL_SIZE) {
-        pool_used = 0;
-        pool_wraps++;
+    /* the pool is a ring: the next room past what it gave last, but never a
+     * sample a voice still plays from. writing over one had a looping voice
+     * play the new sample's bytes, as the 1-up's, at its loop points */
+    for (k = 0;; k++) {
+        uint32_t busy_end = 0;
+        int n;
+
+        if (pool_used + bytes > POOL_SIZE) {
+            pool_used = 0;
+            pool_wraps++;
+        }
+        at = pool_used;
+        for (n = 0; n < CHANNELS; n++) {
+            const struct voice *v = &voices[n];
+
+            if ((v->playing || v->stopping) && v->pool_end > at && v->pool_at < at + bytes && v->pool_end > busy_end) {
+                busy_end = v->pool_end;
+            }
+        }
+        if (busy_end == 0) {
+            break;
+        }
+        if (k == 2 * CHANNELS) {
+            return NULL;
+        }
+        if (pool_skips++ < 8) {
+            host_log_line("host: audio: the pool's room at %lu KB holds a playing voice's sample: past it, to %lu KB\n",
+                          (unsigned long)(at >> 10), (unsigned long)(((busy_end + 4095) & ~4095u) >> 10));
+        }
+        pool_used = (busy_end + 4095) & ~4095u;
     }
-    at = pool_used;
     pool_used += bytes;
     for (k = 0; k < COPIES; k++) {
         if (copies[k].used && copies[k].at < at + bytes && at < copies[k].at + copies[k].bytes) {
@@ -446,6 +478,12 @@ static void start(int k)
         nxAudioVoiceSetFormat(&v->voice, &format);
         v->bytes_per_sample = format.bytes_per_sample;
     }
+    if ((const uint8_t *)data >= (const uint8_t *)pool && (const uint8_t *)data < (const uint8_t *)pool + POOL_SIZE) {
+        v->pool_at = (uint32_t)((const uint8_t *)data - (const uint8_t *)pool);
+        v->pool_end = v->pool_at + count * (uint32_t)format.bytes_per_sample;
+    } else {
+        v->pool_at = v->pool_end = 0;
+    }
     v->which ^= 1;
     if (!nxAudioBufferInitialize(&v->buffers[v->which], data, count * (uint32_t)format.bytes_per_sample) ||
         !nxAudioBufferSubmit(&v->voice, &v->buffers[v->which])) {
@@ -467,6 +505,148 @@ static void start(int k)
     }
     v->playing = 1;
     starts++;
+}
+
+/* HOST_STREAM_PROBE: a stream is a long loop of PCM16 that plays from sound
+ * RAM while the game rewrites it ahead of the voice (aica_apu_position). for
+ * each, the probe keeps a copy of the ring, finds the chunks the game wrote
+ * since the last blank, and stamps each chunk with the blank it was last
+ * written and last played in. a chunk the voice plays again with no write
+ * since it last played is stale, the old audio a second time, which clicks:
+ * the game's writes fell behind, as while a load blocks it. a chunk written
+ * in the stretch the voice played this blank is late: mostly the game's
+ * refill just behind the voice, which is harmless. the lead is how far
+ * ahead of the voice the nearest write landed, in samples */
+#define PROBE_STREAMS 4
+#define PROBE_CHUNK 64
+#define PROBE_MOST 0x20000
+
+struct probe {
+    int used;
+    int channel;
+    uint32_t sa, lsa, lea;
+    int16_t *shadow;
+    uint32_t *written, *played;
+    int last;
+    unsigned stale, late, writes, wraps;
+    uint32_t lead_min, lead_max;
+};
+
+static int probe_on;
+static unsigned probe_blank;
+static struct probe probes[PROBE_STREAMS];
+
+void aica_apu_probe(int on)
+{
+    probe_on = on;
+    probe_blank = 1;
+    host_log_line("host: audio: the stream probe is %s\n", on ? "on" : "off");
+}
+
+static struct probe *probe_for(int channel, const struct aica_channel *c)
+{
+    struct probe *free_slot = NULL;
+    uint32_t chunks = (c->lea - c->lsa) / PROBE_CHUNK;
+    int k;
+
+    for (k = 0; k < PROBE_STREAMS; k++) {
+        struct probe *p = &probes[k];
+
+        if (p->used && p->channel == channel && p->sa == c->sa && p->lsa == c->lsa && p->lea == c->lea) {
+            return p;
+        }
+        if (free_slot == NULL && (!p->used || p->channel == channel)) {
+            free_slot = p;
+        }
+    }
+    if (free_slot == NULL || chunks == 0 || c->lea - c->lsa > PROBE_MOST) {
+        return NULL;
+    }
+    free(free_slot->shadow);
+    free(free_slot->written);
+    free(free_slot->played);
+    memset(free_slot, 0, sizeof *free_slot);
+    free_slot->shadow = malloc((c->lea - c->lsa) * 2);
+    free_slot->written = calloc(chunks, sizeof(uint32_t));
+    free_slot->played = calloc(chunks, sizeof(uint32_t));
+    if (free_slot->shadow == NULL || free_slot->written == NULL || free_slot->played == NULL) {
+        return NULL;
+    }
+    free_slot->used = 1;
+    free_slot->channel = channel;
+    free_slot->sa = c->sa;
+    free_slot->lsa = c->lsa;
+    free_slot->lea = c->lea;
+    free_slot->last = -1;
+    free_slot->lead_min = 0xffffffffu;
+    memcpy(free_slot->shadow, sound_ram + ((c->sa + c->lsa * 2) & 0x1ffffe), (c->lea - c->lsa) * 2);
+    host_log_line("host: audio: probe: channel %d's ring at 0x%06lx, %lu samples\n", channel,
+                  (unsigned long)(c->sa + c->lsa * 2), (unsigned long)(c->lea - c->lsa));
+    return free_slot;
+}
+
+static void probe_stream(int channel, struct voice *v, const struct aica_channel *c)
+{
+    struct probe *p = probe_for(channel, c);
+    uint32_t len, chunks, at, i;
+    int pos;
+    const int16_t *ring;
+
+    if (p == NULL) {
+        return;
+    }
+    len = c->lea - c->lsa;
+    chunks = len / PROBE_CHUNK;
+    ring = (const int16_t *)(sound_ram + ((c->sa + c->lsa * 2) & 0x1ffffe));
+    pos = (int)(nxAudioVoiceGetPlaybackOffset(&v->voice) / 2) - (int)c->lsa;
+    if (pos < 0 || (uint32_t)pos >= len) {
+        return;
+    }
+    /* the chunks the voice played since the last blank, last to pos */
+    if (p->last >= 0) {
+        uint32_t from = (uint32_t)p->last / PROBE_CHUNK, to = (uint32_t)pos / PROBE_CHUNK;
+
+        if ((uint32_t)pos < (uint32_t)p->last) {
+            p->wraps++;
+        }
+        for (i = from; i != to; i = (i + 1) % chunks) {
+            if (p->played[i] != 0 && p->written[i] < p->played[i]) {
+                p->stale++;
+            }
+            p->played[i] = probe_blank;
+        }
+    }
+    /* the chunks the game wrote since the last blank */
+    for (i = 0; i < chunks; i++) {
+        at = i * PROBE_CHUNK;
+        if (memcmp(ring + at, p->shadow + at, PROBE_CHUNK * 2) != 0) {
+            uint32_t lead = (at + len - (uint32_t)pos) % len;
+
+            memcpy(p->shadow + at, ring + at, PROBE_CHUNK * 2);
+            p->written[i] = probe_blank;
+            p->writes++;
+            if (p->played[i] == probe_blank) {
+                p->late++;
+            }
+            if (lead < p->lead_min) {
+                p->lead_min = lead;
+            }
+            if (lead > p->lead_max) {
+                p->lead_max = lead;
+            }
+        }
+    }
+    p->last = pos;
+    if (probe_blank % 60 == 0) {
+        host_log_line("host: audio: probe: channel %d at %d of %lu: %u stale, %u late, %u chunks written, "
+                      "lead %lu to %lu, %u wraps\n",
+                      channel, pos, (unsigned long)len, p->stale, p->late, p->writes,
+                      (unsigned long)(p->lead_min == 0xffffffffu ? 0 : p->lead_min), (unsigned long)p->lead_max,
+                      p->wraps);
+        p->stale = p->late = p->writes = p->wraps = 0;
+        p->lead_min = 0xffffffffu;
+        p->lead_max = 0;
+    }
 }
 
 void aica_apu_blank(void)
@@ -503,6 +683,17 @@ void aica_apu_blank(void)
             struct aica_channel c;
 
             aica_channel_get(k, &c);
+            if (!c.enabled) {
+                /* the model ended the channel without a stop: a looping
+                 * voice would play on at its last gains */
+                if (orphans++ < 8) {
+                    host_log_line("host: audio: channel %d's voice played on past its channel's end (sa 0x%06lx, "
+                                  "pcms %d, loop %d): stopped\n",
+                                  k, (unsigned long)c.sa, c.pcms, c.lpctl);
+                }
+                aica_apu_stop(k);
+                continue;
+            }
             if (c.update_rate != v->update_rate) {
                 v->update_rate = c.update_rate;
                 nxAudioVoiceSetPitch(&v->voice, (float)c.update_rate / 1024.0F);
@@ -512,7 +703,13 @@ void aica_apu_blank(void)
                 v->att_right = c.att_right;
                 nxAudioVoiceSetChannelGain(&v->voice, gain(c.att_left), gain(c.att_right), 0.0F, 0.0F, 0.0F, 0.0F);
             }
+            if (probe_on && c.pcms == 0 && c.lpctl && c.lea > c.lsa && c.lea - c.lsa >= 4096) {
+                probe_stream(k, v, &c);
+            }
         }
+    }
+    if (probe_on) {
+        probe_blank++;
     }
 }
 
@@ -545,7 +742,8 @@ void aica_apu_report_memory(void)
     for (k = 0; k < COPIES; k++) {
         cached += copies[k].used;
     }
-    host_log_line("report: sound pool: at %u KB of %u, %u turns so far; %d of %d conversions cached; %d voices "
-                  "made, %d playing, of %d\n",
-                  pool_used >> 10, (unsigned)(POOL_SIZE >> 10), pool_wraps, cached, COPIES, created, playing, CHANNELS);
+    host_log_line("report: sound pool: at %u KB of %u, %u turns so far, %u steps past a playing sample; %d of %d "
+                  "conversions cached; %d voices made, %d playing, of %d; %u orphans stopped\n",
+                  pool_used >> 10, (unsigned)(POOL_SIZE >> 10), pool_wraps, pool_skips, cached, COPIES, created,
+                  playing, CHANNELS, orphans);
 }

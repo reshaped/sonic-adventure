@@ -1,0 +1,11 @@
+datum  ev002b_police_motion_10  D  0x00000000  12
+datum  ev002b_police_action_10  D  0x0000000c  8
+datum  ev002b_bullet_textures  D  0x00000014  48
+datum  ev002b_bullet_texlist  D  0x00000044  8
+datum  dat_0cbacb8c  D  0x0000004c  80
+datum  dat_0cbacbdc  D  0x0000009c  30
+datum  dat_0cbacbfa  D  0x000000ba  14
+text  TEXT_1  C  0x00000000  6
+text  TEXT_2  C  0x00000008  6
+text  TEXT_3  C  0x00000010  6
+text  TEXT_4  C  0x00000018  6

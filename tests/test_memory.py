@@ -387,8 +387,8 @@ class Contract(unittest.TestCase):
     def test_fails_on_a_prs_file_whose_sectors_overrun_the_work_area(self):
         extents = table_extents(self.terms)
         for packed, problems in ((0x200000, []), (0x200800, ['stg01: its PRS file takes 0x200800 bytes in whole '
-                                                             'sectors, and the work area loader_read_prs reads it to '
-                                                             'holds 0x200000'])):
+                                                             'sectors, and loader_read_prs reads it to a work area '
+                                                             'of 0x200000'])):
             with self.subTest(packed=hex(packed)):
                 extents['stg01'] = extents['stg01']._replace(packed=packed)
                 self.assertEqual(memory.check(self.terms, extents), problems)
@@ -560,23 +560,24 @@ class Tree(unittest.TestCase):
             memory.contract(images())
 
     def test_fails_on_a_texture_room_gcc_doesn_t_take_in_whole_sectors(self):
-        # the cast's read ends at WORK_AREA, and texture_load_pvm's at WORK_AREA_END, only where GCC's FILE_ROOM takes a
-        # file's whole sectors. GCC's side rounding the file to 256 bytes, as the shipped side does, fails.
+        # the cast's read ends at WORK_AREA, and texture_load_pvm's at WORK_AREA_END, only where the non-matching
+        # FILE_ROOM takes a file's whole sectors. The non-matching side rounding the file to 256 bytes, as the shipped
+        # side does, fails.
         texture = GAME_TREE['src/system/texture.c'].replace('(SECTORS(size) * SECTOR_SIZE)', '(((size) + 255) & ~255)',
                                                              1)
         with tree({**GAME_TREE, 'src/system/texture.c': texture}), self.assertRaisesRegex(
-                SystemExit, r': src/system/texture.c: defines FILE_ROOM for GCC other than once, as #define '
-                            r'FILE_ROOM\(size\) \(SECTORS\(size\) \* SECTOR_SIZE\), on the GCC side of an #ifdef GCC: '
+                SystemExit, r': src/system/texture.c: defines FILE_ROOM other than once, as #define FILE_ROOM\(size\) '
+                            r'\(SECTORS\(size\) \* SECTOR_SIZE\), on the non-matching side of an #ifdef NONMATCHING: '
                             r"the room the memory contract gives a texture's read$"):
             memory.contract(images())
 
     def test_takes_no_definition_or_read_from_a_comment_a_conditional_or_a_redefinition(self):
         # each of these fails:
-        # - ROOM_DEFINITION in a comment on GCC's side, a FILE_ROOM redefined past the guard, or ROOM_DEFINITION past an
-        #   #elifdef;
+        # - ROOM_DEFINITION in a comment on the non-matching side, a FILE_ROOM redefined past the guard, or
+        #   ROOM_DEFINITION past an #elifdef;
         # - a WORK_AREA under #if 0, under a second #ifndef in an include guard's form, or in a // comment a splice
         #   runs on to its line;
-        # - a read of a recording under #ifdef GCC;
+        # - a read of a recording under #ifdef NONMATCHING;
         # - a loader_read_stage_files, demos[] or clear_events[] under a conditional, ahead of the one past its #else.
         texture, loader = GAME_TREE['src/system/texture.c'], GAME_TREE['src/system/loader.h']
         function, clear = 'void loader_read_stage_files(void)\n', 'static struct stage_event clear_events[] = {\n'
@@ -591,12 +592,12 @@ class Tree(unittest.TestCase):
         guarded = ('#ifndef LOADER_H\n#define LOADER_H\n'
                    + loader.replace(work, f'#ifndef OPT\n#define OPT\n{work}#endif\n') + '#endif\n')
         apart = ", whose sides the memory contract doesn't tell apart"
-        room = 'defines FILE_ROOM for GCC other than once, as #define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)'
+        room = 'defines FILE_ROOM other than once, as #define FILE_ROOM(size) (SECTORS(size) * SECTOR_SIZE)'
         for path, text, problem in (
-                ('src/system/texture.c', texture.replace('#ifdef GCC\n', '#ifdef GCC\n/*\n').replace(
+                ('src/system/texture.c', texture.replace('#ifdef NONMATCHING\n', '#ifdef NONMATCHING\n/*\n').replace(
                     '#else\n', '*/\n#define FILE_ROOM(size) (size)\n#else\n'), room),
                 ('src/system/texture.c', texture + '#undef FILE_ROOM\n#define FILE_ROOM(size) (size)\n', room),
-                ('src/system/texture.c', texture.replace('#ifdef GCC\n', '#ifdef GCC\n#elifdef NEVER\n'), room),
+                ('src/system/texture.c', texture.replace('#ifdef NONMATCHING\n', '#ifdef NONMATCHING\n#elifdef NEVER\n'), room),
                 ('src/system/loader.h', loader + '#if 0\n#define WORK_AREA ((Uint8 *)0x0cc80000)\n#endif\n',
                  'gives no number for WORK_AREA, which the memory contract reads'),
                 ('src/system/loader.h', guarded, 'gives no number for WORK_AREA, which the memory contract reads'),
@@ -604,8 +605,8 @@ class Tree(unittest.TestCase):
                  'gives no number for WORK_AREA, which the memory contract reads'),
                 ('src/progress/demo.c', GAME_TREE['src/progress/demo.c'].replace(
                     '    loader_read_file("K_SONIC.bin", DEMO_RECORDING);\n',
-                    '#ifdef GCC\n    loader_read_file("K_SONIC.bin", DEMO_RECORDING);\n#endif\n'),
-                 '8: loader_read_file("K_SONIC.bin", DEMO_RECORDING), a call of loader_read_file under #ifdef GCC, '
+                    '#ifdef NONMATCHING\n    loader_read_file("K_SONIC.bin", DEMO_RECORDING);\n#endif\n'),
+                 '8: loader_read_file("K_SONIC.bin", DEMO_RECORDING), a call of loader_read_file under #ifdef NONMATCHING, '
                  "whose sides the memory contract doesn't tell apart"),
                 ('src/system/loader.c', staged, f'6: loader_read_stage_files lies under #if 0{apart}'),
                 ('src/progress/demo.c', demos, f'2: demos[] lies under #if 0{apart}'),
@@ -747,8 +748,8 @@ class Tree(unittest.TestCase):
                 (returning, returning.replace('        return;\n', '        if (x)\n            goto tail;\n'
                                                                 '        return;\n'),
                  '11: loader_read_stage_files jumps to tail, a label no case holds'),
-                (read, read + '#ifdef GCC\n        loader_read_prs("lcd.PRS", SET_AREA_1);\n#endif\n',
-                 "13: loader_read_stage_files holds #ifdef GCC, whose sides the memory contract doesn't tell apart"),
+                (read, read + '#ifdef NONMATCHING\n        loader_read_prs("lcd.PRS", SET_AREA_1);\n#endif\n',
+                 "13: loader_read_stage_files holds #ifdef NONMATCHING, whose sides the memory contract doesn't tell apart"),
                 (read, read + '    tail:\n        loader_read_prs("lcd.PRS", SET_AREA_1);\n',
                  '14: loader_read_stage_files reads lcd.PRS past a label, which a goto can reach from a case whose '
                  "state the memory contract doesn't give the read"),

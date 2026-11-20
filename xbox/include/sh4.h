@@ -161,4 +161,11 @@ static inline void _builtin_fsca(Angle ang, Float *sin, Float *cos)
     *cos = pair.cos;
 }
 
+/* ninja_zam.h's helpers that the Dreamcast engine's drawers call, on the
+ * models above, which they come after. as ninja.h takes ninja_zam.h, only
+ * the non-matching side takes them: the shipped side's size_t is SHC's */
+#ifdef NONMATCHING
+#include "zam_xbox.h"
+#endif
+
 #endif

@@ -1,13 +1,13 @@
-# make pc's rules: Clang's objects for 32-bit x86, stage 0 of the port to
+# make xbox-pc-test's rules: Clang's objects for 32-bit x86, stage 0 of the port to
 # the Xbox (XBOX.md#how-the-port-was-made). Run it beside the Makefile, as
 #
-#   make -f Makefile -f pc.mk pc
+#   make -f Makefile -f pc.mk xbox-pc-test
 #
 # The Makefile doesn't include it yet: every SHC object depends on the
 # Makefile, so a hook there would rebuild the matching build. No SHC or GCC
 # object depends on this file.
 #
-# make pc compiles the C make gcc compiles, by the same routes, include
+# make xbox-pc-test compiles the C make dc compiles, by the same routes, include
 # directories and float pass, to build/pc/ at each source's path. It
 # assembles no SH-4 assembly: a .src file, or the inline assembly a source
 # holds, compiles to nothing yet, and what it defines stays unresolved, for
@@ -16,7 +16,7 @@
 
 # tools/floats.py takes the port's models of the SH-4's instructions
 # (xbox/include/, which ninja.h includes under XBOX), which only x86
-# compiles, as system headers: as the compiler reads them. Where make gcc's
+# compiles, as system headers: as the compiler reads them. Where make dc's
 # C runs SH-4 code, XBOX takes the original's bodies as native C
 include config/pc.mk
 $(call check_host,$(PC_CC))
@@ -29,7 +29,7 @@ $(PC_COMPILERS): config/compilers.mk tools/pcflags.py
 	$(Q)mkdir -p $(@D) && python3 tools/pcflags.py $< $@.tmp && mv $@.tmp $@
 include $(PC_COMPILERS)
 
-# build/pc/hot.mk holds config/gcc.mk's GCC_HOT, the sources make gcc
+# build/pc/hot.mk holds config/gcc.mk's GCC_HOT, the sources make dc
 # compiles at -O2, which config/pc.mk's PC_OPTIMIZE reads
 PC_HOT := build/pc/hot.mk
 $(PC_HOT): config/gcc.mk
@@ -44,35 +44,62 @@ include $(PC_HOT)
 pc_of = $(filter-out $(PC_XBOX_OBJ),$(patsubst build/%.obj,build/pc/%.o,$(filter-out $(INLINE_C:%.c=build/%.obj),$1)))
 PC_C_OBJ := $(call pc_of,$(C_SOURCE_OBJ))
 PC_INLINE_OBJ := $(patsubst %.c,build/pc/%.o,$(filter-out $(DONOR_C),$(INLINE_C)))
-PC_PORT_C := $(filter %.c,$(PORT_FILES))
-PC_PORT_OBJ := $(PC_PORT_C:gcc/%.c=build/pc/%.o)
+# make dc's composition, config/dreamcast.mk, which make reads through dc.mk
+# for dc's goals alone: DC_REPLACED's P:C, the C make dc links in place of a
+# source, compiles to build/pc/P.o, P less its suffix, and DC_ADDED's
+# IMAGE:C, the C an image adds, to build/pc/C.o. PC_DC_LEFT is the added C
+# the port leaves out: the SH-4's crash report, whose handlers the port's
+# exceptions take the place of, and the frame owner, which drives the
+# PowerVR's registers in Kamui's place, where the port's Kamui
+# (xbox/port/kamui.c) hands the lists to its renderer
+ifeq ($(origin DC_REPLACED),undefined)
+include config/dreamcast.mk
+endif
+PC_DC_LEFT := engine/dc/crash.c engine/dc/owner.c
+pc_dc_from = $(word 1,$(subst :, ,$1))
+pc_dc_to = $(word 2,$(subst :, ,$1))
+PC_DC_PAIRS := $(foreach r,$(DC_REPLACED),$(patsubst %.c,build/pc/%.o,$(patsubst %.src,%.c,$(call \
+	pc_dc_from,$r))):$(call pc_dc_to,$r)) $(foreach a,$(filter-out $(PC_DC_LEFT),$(foreach a,$(DC_ADDED),$(call \
+	pc_dc_to,$a))),build/pc/$(a:.c=.o):$a)
+PC_DC_OBJ := $(foreach p,$(PC_DC_PAIRS),$(call pc_dc_from,$p))
+PC_DC_ADDED_C := $(filter-out $(PC_DC_LEFT),$(foreach a,$(DC_ADDED),$(call pc_dc_to,$a)))
 PC_CONTENT_OBJ := $(GEN_CONF:%=build/pc/gen/%/content.o)
-# xbox/ holds C that only make pc compiles, as gcc/ holds C that only make gcc
-# compiles. xbox/P.c compiles to build/pc/P.o, in place of what any rule
-# above would build there: P.src's assembly, which make pc can't build, a C
-# source P.c whose SH-4 assembly it can't, or gcc/P.c. the tests, the port
+# xbox/ holds C that only make xbox-pc-test compiles. xbox/P.c compiles to
+# build/pc/P.o, in place of what any rule above would build there: P.src's
+# assembly, which make xbox-pc-test can't build, a C source P.c whose SH-4 assembly it
+# can't, or the C make dc's composition puts there. the tests, the port
 # layer, the hosts and xbox/third_party's vendored libraries have rules of
 # their own
-PC_XBOX_C := $(shell find xbox \( -path xbox/test -o -path xbox/port -o -path xbox/host -o -path xbox/third_party \) -prune -o -name '*.c' \
+PC_XBOX_C := $(shell find xbox \( -path xbox/test -o -path xbox/port -o -path xbox/host -o -path xbox/third_party \
+	-o -path xbox/engine \) -prune -o -name '*.c' \
 	-print 2> /dev/null)
 PC_XBOX_OBJ := $(PC_XBOX_C:xbox/%.c=build/pc/%.o)
 PC_C_OBJ := $(filter-out $(PC_XBOX_OBJ),$(PC_C_OBJ))
 PC_INLINE_OBJ := $(filter-out $(PC_XBOX_OBJ),$(PC_INLINE_OBJ))
-PC_PORT_OBJ := $(filter-out $(PC_XBOX_OBJ),$(PC_PORT_OBJ))
+PC_DC_OBJ := $(filter-out $(PC_XBOX_OBJ),$(PC_DC_OBJ))
 # Stop on a source in xbox/ that replaces nothing and that PC_ADDED doesn't
 # name: its object would be no image's
 PC_UNREPLACED := $(filter-out $(ASM_SRC:%.src=xbox/%.c) $(INLINE_C:%=xbox/%) $(C_SOURCE_OBJ:build/%.obj=xbox/%.c) \
-	$(PC_PORT_C:gcc/%=xbox/%) $(foreach a,$(PC_ADDED),$(lastword $(subst :, ,$a))),$(PC_XBOX_C))
+	$(PC_DC_ADDED_C:%=xbox/%) $(foreach a,$(PC_ADDED),$(lastword $(subst :, ,$a))),$(PC_XBOX_C))
 ifneq ($(PC_UNREPLACED),)
-$(error $(PC_UNREPLACED): replaces no .src file, C source or source in gcc/)
+$(error $(PC_UNREPLACED): replaces no .src file, C source or C make dc adds)
 endif
-PC_OBJ := $(PC_C_OBJ) $(PC_INLINE_OBJ) $(PC_PORT_OBJ) $(PC_XBOX_OBJ) $(PC_CONTENT_OBJ)
+PC_OBJ := $(PC_C_OBJ) $(PC_INLINE_OBJ) $(PC_DC_OBJ) $(PC_XBOX_OBJ) $(PC_CONTENT_OBJ)
 
-# The root, searched last, lets a source in gcc/ name a header by its path
-# from the root, as gcc.mk's PORT_INC does
+# The root, searched last, lets a source of xbox/ name a header by its path
+# from the root, as dc.mk's DC_INC does
 PORT_INC := sdk/include,src,.
+# make dc's composition, and the sources of the game whose non-matching side
+# calls the Dreamcast engine, find the engine's core, SA1's and the backend's
+# headers by name, as config/gcc.mk gives them (ENGINE.md#drawing). the
+# port's own backend, xbox/engine/, comes first: a header or walk there
+# takes the place of engine/dc/'s of its name, as xbox/engine/sa1/model.c,
+# the model walk, does. the rest of engine/dc/ is the port's too: its
+# drawers write Kamui's lists, the port's renderer's input
+PC_ENGINE_INC := xbox/engine,engine/include,engine/sa1,engine/dc
+PC_DC_INC := sdk/include,src,$(PC_ENGINE_INC),.
 
-# $(call pc,INCLUDES,FLAGS,RELEASE[,C]) compiles a source to $@ as gcc.mk's
+# $(call pc,INCLUDES,FLAGS,RELEASE[,C]) compiles a source to $@ as dc.mk's
 # gcc macro does, with Clang and PCFLAGS: the preprocessor writes the .i, the
 # float pass gives its constants SHC's values for RELEASE and FLAGS, and
 # Clang compiles the .i. Where -optimize=0 is among FLAGS, Clang compiles at
@@ -80,17 +107,17 @@ PORT_INC := sdk/include,src,.
 # object, and the run goes on: build/pc/report.txt gathers the failures
 # double is float where SHC's flags make it so, -fpu=single for the game and
 # the runtime and -double=float for the Ninja sources that take it, and in
-# the sources of gcc/ and xbox/, which take no SHC flags and keep make gcc's
-# -m4-single-only, whose double is float. the rest of the SDK keeps SHC's
+# the C of make dc's composition and xbox/, which take no SHC flags and keep
+# make dc's -m4-single-only, whose double is float. the rest of the SDK keeps SHC's
 # 64-bit double, as njLtMath's light math does
 pc_double = $(if $(or $(filter -fpu=single -double=float,$1),$(if $(strip $1),,none)),-Ddouble=float)
 pc_flags = $(PCFLAGS) $(if $(filter -optimize=0,$1),-O0) $(call pc_double,$1)
-pc = mkdir -p $(@D) && rm -f $@.failed && (LC_ALL=C $(PC_CC) $(call pc_flags,$2) $(if $4,-iquote $(<D)) \
+pc = mkdir -p $(@D) && rm -f $@.failed && (LC_ALL=C $(PC_CC) $(call pc_flags,$2) $(if $(or $4,$(PC_FROM)),-iquote $(<D)) \
 	$(addprefix -I,$(subst $(comma), ,$1)) -fno-color-diagnostics -fno-caret-diagnostics -MD -MP -MT $@ \
-	-MF $(@:.o=.d) $(if $3,-E $(or $4,$<) > $(@:.o=.i) && python3 tools/floats.py \
-	$(strip --shc $3 $(filter -fpu=single -double=float -aggressive=2,$2)) --system xbox/include $(@:.o=.i) && \
+	-MF $(@:.o=.d) $(if $3,-E $(or $4,$(PC_FROM),$<) > $(@:.o=.i) && python3 tools/floats.py \
+	$(strip --shc $3 $(filter -fpu=single -double=float -aggressive=2,$2)) --system xbox/include --system tools/sh4zam/include $(@:.o=.i) && \
 	LC_ALL=C $(PC_CC) $(call pc_flags,$2) -fno-color-diagnostics -fno-caret-diagnostics -c -o $@ $(@:.o=.i), \
-	-c -o $@ $(or $4,$<))) > $@.log 2>&1 || (mv $@.log $@.failed; rm -f $@; true)
+	-c -o $@ $(or $4,$(PC_FROM),$<))) > $@.log 2>&1 || (mv $@.log $@.failed; rm -f $@; true)
 
 $(PC_OBJ): Makefile config/compilers.mk pc.mk config/pc.mk
 $(PC_C_OBJ) $(PC_INLINE_OBJ) $(PC_CONTENT_OBJ): tools/floats.py $(wildcard tools/float_*.py) tools/csource.py \
@@ -122,17 +149,54 @@ $(call pc_of,$(R32_SDK_OBJ)): build/pc/%.o: %.c
 	@$(call status,clang,$<)
 	$(Q)$(call pc,$(R32_SDK_INC),$(SDK),r32)
 
-$(PC_PORT_OBJ): build/pc/%.o: gcc/%.c
-	@$(call status,clang,$<)
-	$(Q)$(call pc,$(PORT_INC))
+# the C of make dc's composition takes no SHC flags or float pass, as under
+# make dc, each object from its own C
+define pc_dc_rule
+$1: $2
+	@$$(call status,clang,$2)
+	$$(Q)$$(call pc,$$(PC_DC_INC))
+endef
+$(foreach p,$(filter $(addsuffix :%,$(PC_DC_OBJ)),$(PC_DC_PAIRS)),$(eval $(call pc_dc_rule,$(call \
+	pc_dc_from,$p),$(call pc_dc_to,$p))))
+# the layer's object holds the port's walk, which it includes: a change to
+# xbox/engine/ remakes it, with or without its .d file
+build/pc/src/draw/model.o: $(wildcard xbox/engine/sa1/*.c xbox/engine/sa1/*.h)
 
-# A source in xbox/ takes no SHC flags or float pass, as gcc/'s don't, and
-# finds headers as gcc/'s do
+# the game's sources whose non-matching side calls the Dreamcast engine, as
+# config/gcc.mk lists them, find its headers too, the port's first
+# (xbox/engine/sa1/, and xbox/engine/batch.h for the easy models' kernel).
+# PC_SHIPPED_SIDE would name a source that takes its shipped side, as
+# upstream's native game does (engine/mk/native.mk), where the engine's
+# sends aren't the port's: none now
+PC_SHIPPED_SIDE :=
+$(addprefix build/pc/,$(addsuffix .o,sdk/ninja/njDraw sdk/ninja/njDebug sdk/ninja/njDrawPolygon2D \
+	sdk/ninja/njDrawLine2D sdk/ninja/njDrawLine3D sdk/ninja/njModelE $(PC_SHIPPED_SIDE))): \
+	SDK_INC := $(SDK_INC),$(PC_ENGINE_INC)
+$(addprefix build/pc/,$(addsuffix .o,sdk/ninja/njDraw sdk/ninja/njDebug sdk/ninja/njDrawPolygon2D \
+	sdk/ninja/njDrawLine2D sdk/ninja/njDrawLine3D sdk/ninja/njModelE $(PC_SHIPPED_SIDE))): \
+	PC_INC = $(ASMCODE_INC),$(PC_ENGINE_INC)
+# SHC's float intrinsics, which ninja.h defines on the non-matching side, as
+# upstream's native prelude does (engine/native/intrinsics.h)
+$(addprefix build/pc/,$(addsuffix .o,$(PC_SHIPPED_SIDE))): PCFLAGS += -UNONMATCHING \
+	-D_builtin_fabsf=__builtin_fabsf -D_builtin_sqrtf=__builtin_sqrtf
+
+# the console's rewrites of shipped C in the SH-4's own instructions, which
+# keep a matching side: the port takes that side, as upstream's native game
+# does, from a copy engine/tools/marks.py's CONSOLE guards are taken in
+# (tools/pcconsole.py)
+PC_CONSOLE_C := src/collision/polygon.c
+$(PC_CONSOLE_C:%=build/pc/console/%): build/pc/console/%: % tools/pcconsole.py engine/tools/marks.py
+	$(Q)mkdir -p $(@D) && python3 tools/pcconsole.py $< $@
+$(PC_CONSOLE_C:%.c=build/pc/%.o): build/pc/%.o: build/pc/console/%.c
+$(PC_CONSOLE_C:%.c=build/pc/%.o): PC_FROM = build/pc/console/$(@:build/pc/%.o=%.c)
+
+# A source in xbox/ takes no SHC flags or float pass, as make dc's
+# composition doesn't, and finds headers as dc.mk's DC_INC does
 $(PC_XBOX_OBJ): build/pc/%.o: xbox/%.c
 	@$(call status,clang,$<)
 	$(Q)$(call pc,$(PORT_INC))
 
-# A source with inline assembly splits as under make gcc, and its C compiles
+# A source with inline assembly splits as under make dc, and its C compiles
 # without the file-scope asm the split ends in, which includes SH-4
 # assembly: each function an inline body defines stays undefined, unless
 # config/pc.mk's PC_SH2C names the source, whose bodies tools/sh2c.py
@@ -149,7 +213,7 @@ $(PC_INLINE_OBJ): build/pc/%.o: %.c tools/inline.py tools/sh2c.py
 		cat build/pc/$*.sh2c >> build/pc/$*.c)
 	$(Q)$(call pc,$(PC_INC),$(SDK),r10,build/pc/$*.c)
 
-# the objects make gcc gives sections of their own for their data, as
+# the objects make dc gives sections of their own for their data, as
 # config/gcc.mk says: an image's content keeps its definitions in the
 # image's order, each in a section of its own, so a read past one meets the
 # next, and the link's head rows place gdfs.o's and summary.o's by name.
@@ -158,7 +222,7 @@ $(PC_INLINE_OBJ): build/pc/%.o: %.c tools/inline.py tools/sh2c.py
 $(PC_CONTENT_OBJ): PCFLAGS += -fdata-sections
 build/pc/sdk/shinobi/gdfs.o build/pc/loader/sdk/gdfs.o build/pc/modules/summary/summary.o: PCFLAGS += -fdata-sections
 
-# An image's content compiles under the game's flags, as under make gcc
+# An image's content compiles under the game's flags, as under make dc
 $(PC_CONTENT_OBJ): build/pc/%/content.o: build/%/content.c
 	@$(call status,clang,build/$*/content.c)
 	$(Q)$(call pc,$(GAME_INC),$(GAME),r32)
@@ -174,7 +238,7 @@ build/pc/report.txt: $(PC_OBJ)
 		for f in $(wildcard $(PC_FAILED)); do echo "$${f%.failed}: $$(grep -m1 -E 'error:' $$f)"; done; } > $@
 	@head -1 $@
 
-pc: build/pc/report.txt
+xbox-pc-test: build/pc/report.txt
 
 # the port layer, xbox/port/, which takes the place of the SDK's hardware
 # layers, PC_DROPPED, and links into 1ST_READ.BIN's image
@@ -185,25 +249,25 @@ $(PC_PORT_OBJ): build/pc/port/%.o: xbox/port/%.c xbox/port/host.h xbox/port/port
 	$(Q)$(call pc,$(PORT_INC))
 -include $(PC_PORT_OBJ:.o=.d)
 
-# make pc-link links every image for x86 by make gcc's spec, with
+# make xbox-pc-test-link links every image for x86 by make dc's spec, with
 # tools/pclink.py, under build/pc/link/, which build/pc/link/report.txt
 # sums up: config/pc.mk's PC_DROPPED out, the port layer into 1st_read, and
-# stubs for what nothing defines yet. make gcc must have written the spec
-build/pc/link/report.txt: $(PC_OBJ) $(PC_PORT_OBJ) build/gcc/link/spec.txt tools/pclink.py
+# stubs for what nothing defines yet. make dc must have written the spec
+build/pc/link/report.txt: $(PC_OBJ) $(PC_PORT_OBJ) build/dc/link/spec.txt tools/pclink.py
 	@$(call status,link,build/pc/link/)
-	$(Q)python3 tools/pclink.py build/gcc/link/spec.txt build/pc/link $(PC_DROPPED:%=--drop '%') \
+	$(Q)python3 tools/pclink.py build/dc/link/spec.txt build/pc/link $(PC_DROPPED:%=--drop '%') \
 		$(PC_SKIPPED:%=--skip %) $(PC_PORT_OBJ:%=--add 1st_read=%) $(PC_STUBBED:%=--stubs %)
-pc-link: build/pc/link/report.txt
+xbox-pc-test-link: build/pc/link/report.txt
 
-# make pc-disc writes the x86 images as the disc's files, by tools/pcdisc.py,
-# under build/pc/disc/, for the host to read in the disc's place. make pc-host
-# builds the PC's host, a 32-bit Linux program, with the system's C compiler.
+# build/pc/disc/: the x86 images as the disc's files, by tools/pcdisc.py,
+# which make xbox packs into modules.pak and the PC test host reads in the
+# disc's place. no goal of its own: make xbox, make xbox-disc and make
+# xbox-pc-test-run write it first. make xbox-pc-test-host builds the PC's host, a 32-bit Linux program, with the system's C compiler.
 # the game calls it with the 4-byte stack alignment config/pc.mk builds for,
 # so each of its functions aligns its own stack
 build/pc/disc/images.txt: build/pc/link/report.txt tools/pcdisc.py tools/images.py build/prskit
 	@$(call status,disc,build/pc/disc/)
 	$(Q)python3 tools/pcdisc.py build/pc/link build/pc/disc
-pc-disc: build/pc/disc/images.txt
 # the host's sound: Flycast's AICA, DSP and ARM7 (xbox/third_party/flycast,
 # GPL-2.0), with the DSP's recompiler for 32-bit x86 and Xbyak (BSD-3), and
 # sound.cpp, its glue, in C++. -DFLYCAST_AICA_ONLY leaves out the SH-4's
@@ -229,7 +293,7 @@ build/pc/host: xbox/host/pc/host.c xbox/host/pc/video.c xbox/host/pc/video.h xbo
 	$(Q)$(PC_CC) -m32 -fno-pie -mstackrealign -O1 -g -Wall -c -o build/pc/host_sound/video.o xbox/host/pc/video.c
 	$(Q)$(PC_CXX) -m32 -fno-pie -no-pie -o $@ build/pc/host_sound/host.o build/pc/host_sound/video.o \
 		$(PC_FLYCAST_OBJECTS) -lSDL2 -lGL -lrt -lpthread
-pc-host: build/pc/host
+xbox-pc-test-host: build/pc/host
 
 # make sndreplay builds the sound core's test, xbox/host/pc/sndreplay.cpp:
 # the core as the Xbox host builds it (FLYCAST_APU), run against a recording
@@ -247,9 +311,9 @@ build/pc/sndreplay$(SNDREPLAY_NAME): $(SNDREPLAY_SOURCES) xbox/host/xbox/aica_ch
 		-Ixbox/host/pc -Ixbox/host/xbox -o $@ $(SNDREPLAY_SOURCES)
 sndreplay: build/pc/sndreplay$(SNDREPLAY_NAME)
 
-# make pc-run runs the game on the PC, from build/disc/, the disc's files,
+# make xbox-pc-test-run runs the game on the PC, from build/disc/, the disc's files,
 # which make extracts from the .gdi in orig/
-pc-run: build/pc/disc/images.txt build/pc/host
+xbox-pc-test-run: build/pc/disc/images.txt build/pc/host
 	$(Q)build/pc/host build/pc/link build/pc/disc build/disc
 
 # make xbox builds the Xbox's host and the console's folder, build/xbox/iso/,
@@ -261,4 +325,4 @@ xbox: build/pc/disc/images.txt
 	$(Q)xbox/host/xbox/run.sh stage $(XBOX_SETTINGS)
 xbox-disc: build/pc/disc/images.txt
 	$(Q)xbox/host/xbox/run.sh iso $(XBOX_SETTINGS)
-.PHONY: pc pc-link pc-disc pc-host pc-run xbox xbox-disc sndreplay
+.PHONY: xbox-pc-test xbox-pc-test-link xbox-pc-test-host xbox-pc-test-run xbox xbox-disc sndreplay

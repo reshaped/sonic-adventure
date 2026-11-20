@@ -158,7 +158,10 @@ void event_motions_add(struct task_work *work, NJS_OBJECT *object,
  * frame 0 if the previous motion repeats. the blend then frees the previous
  * motion. with a player's work, the player's welds follow the motion drawn,
  * or the previous one for the first half of a blend. the draw shades with
- * DRAW_PLAYER_PALETTE, and leaves palette 0 set */
+ * DRAW_PLAYER_PALETTE, and leaves palette 0 set. since the draw advances the
+ * motion, a frame must make it once. the port's split frame, which draws a
+ * task twice, never comes in an event: event_enter sets its frames to one
+ * step, and the split takes two */
 void event_motions_draw(struct task_work *work);
 /* queue path behind the others, borrowing it until it ends or is cleared.
  * allocation failure is unchecked */

@@ -23,7 +23,7 @@
  * returns a Uint16. SHC then compares the result unextended (CMP/EQ R0,R8 at
  * 0x0c904b08). as stage.h declares it, 5 of windy_haze_step's 102 words
  * differ */
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #else
 extern int stage_get_stage_act(void);
@@ -145,7 +145,7 @@ void windy_tornado_debris_step(struct task *task)
          * (JSR at 0x0c904902). until the tornado's first run step, it leaves
          * target unwritten. only target.y is set (0x0c904912), so point_toward
          * reads target.x and z unset (JSR at 0x0c904924) */
-#ifdef GCC
+#ifdef NONMATCHING
         /* repairs the unset target the tag names: until the tornado's first
          * run step, the target's x and z are the debris's own, so the debris
          * moves in neither */

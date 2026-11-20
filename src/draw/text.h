@@ -37,4 +37,19 @@ void text_print_float(Int loc, Float value, Int digits);
  * must come to 127 characters at most */
 void text_printf(Int loc, const char *format, ...);
 
+#ifdef NONMATCHING
+/* a character a print sent, at the pixel x, y of its place's top left
+ * corner */
+struct text_cell {
+    Sint16 x;
+    Sint16 y;
+    Sint32 ch;
+};
+/* send count cells again in color, side pixels a side, as a print sent
+ * them. w holds the 1/w the print's vertices took. a picture's replay of a
+ * print draws its cells by this */
+void text_draw_cells(const struct text_cell *cells, Int count, Int side,
+                     Float w, Uint32 color);
+#endif
+
 #endif

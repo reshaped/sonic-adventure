@@ -1,0 +1,5 @@
+datum  glint_textures  C  0x00000000  28
+datum  sparkle_texlist  D  0x00000000  8
+datum  sparkle_frames  D  0x00000008  80
+datum  sparkle_anim  D  0x00000058  20
+datum  sparkle_pool  D  0x0000006c  16

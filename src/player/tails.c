@@ -330,11 +330,10 @@ enum tails_action_index {
  * Sint8, so the number MOV.B sign-extends goes to it as it is (MOV R0,R4
  * at 0x8c0c7750); through player.h's Uint8 prototype, SHC adds an EXTU.B,
  * the function runs 2 bytes long and 81 of 91 words differ */
-#ifdef GCC
-/* keeps the shipped play: GCC calls player_get through player.h's
- * prototype, and the board's player number is always 0, which the two
- * types pass alike. heap_calloc zeroes the work, and nothing sets the
- * number */
+#ifdef NONMATCHING
+/* keeps the shipped play: this side calls player_get through player.h's
+ * prototype. the board's player number is always 0, which the two types
+ * pass alike. heap_calloc zeroes the work, and nothing sets the number */
 #define BOARD_PLAYER(work) (player_get(BOARD_VARS(work)->player))
 #else
 #define BOARD_PLAYER(work)                                                     \
@@ -451,7 +450,7 @@ extern NJS_MODEL tails_tail0_wave_model[];
 extern NJS_MODEL tails_tail1_wave_model[];
 extern NJS_MODEL tails_tail0_blend_model[];
 extern NJS_MODEL tails_tail1_blend_model[];
-#ifdef GCC
+#ifdef NONMATCHING
 /* the face normals model_calc_face_normals writes for the two waving copies
  * and the two blends: tails_tail1_wave_model's, tails_tail0_wave_model's,
  * tails_tail1_blend_model's, then tails_tail0_blend_model's. each model's
@@ -3285,7 +3284,7 @@ static void tails_draw(struct task *task)
                 njSetConstantMaterial(&color);
             }
         }
-#ifdef GCC
+#ifdef NONMATCHING
         /* the split frame's second picture draws the tails as step 0 left
          * them. it moves them no further, so that they turn and wave once a
          * frame, as at 30 fps */
@@ -3335,6 +3334,16 @@ static void tails_draw(struct task *task)
              * and 4 of 759 words differ */
             if (0.0F >= record->own.tails.spin) {
                 record->own.tails.spin = 0.0F;
+#ifdef NONMATCHING
+                /* tails_wave_tails makes the waving copies his tails' ends,
+                 * and only this arm keeps them so. the other arms give his
+                 * ends his flying tails, or blends that read the copies'
+                 * points alone. so the copies' normals are found here */
+                model_calc_face_normals(tails_tail1_wave_model);
+                model_calc_point_normals(tails_tail1_wave_model);
+                model_calc_face_normals(tails_tail0_wave_model);
+                model_calc_point_normals(tails_tail0_wave_model);
+#endif
                 if ((Uint16)tails_tail0->ang[0] < TAIL_SETTLE_ZONE) {
                     tails_tail0->ang[0] = 0;
                     tails_tail1->ang[0] = 0;
@@ -4196,9 +4205,9 @@ static Bool tails_try_request(struct task_work *work,
          * end, is one past tails_actions' last row (MOV.W @(0x8c0c3f08),R2
          * at 0x8c0c3ece), so player_anim_step reads his action's row from
          * tails_shapes' first bytes */
-#ifdef GCC
-        /* repairs the read the tag names: GCC takes the last row, his
-         * shower's end, which plays his stand once and goes to ACTION_STAND */
+#ifdef NONMATCHING
+        /* repairs the read the tag names: this side takes the last row, his
+         * shower's end. it plays his stand once and goes to ACTION_STAND */
         record->anim.action = ACTION_SHOWER_END;
 #else
         record->anim.action = ACTION_MUD_OUT;
@@ -5195,16 +5204,24 @@ static void tails_wave_tails(void)
     }
     tails_bend_points(tails_wave_blend, source_points, points,
                       tails_wave_phase & 0xff00, point_count);
+#ifdef NONMATCHING
+    /* tails_draw finds the copies' normals only where it keeps them as his
+     * tails' ends */
+#else
     model_calc_face_normals(model);
     model_calc_point_normals(model);
+#endif
     point_count = tails_tail_wave_shape[0].nbPoint;
     source_points = tails_tail_wave_shape[0].points;
     model = tails_tail0_wave_model;
     points = model->points;
     tails_bend_points(tails_wave_blend, source_points, points,
                       (tails_wave_phase + TAIL_LEAD) & 0xff00, point_count);
+#ifdef NONMATCHING
+#else
     model_calc_face_normals(model);
     model_calc_point_normals(model);
+#endif
     tails_tail1_end[0].model = tails_tail1_wave_model;
     tails_tail0_end[0].model = tails_tail0_wave_model;
 }
@@ -5331,7 +5348,14 @@ static Bool tails_look_create(Sint8 player, struct tails_look_nodes *nodes)
      * its delay slot (0x8c0c5d1a); as an early return, 16 of 46 words
      * differ */
     if ((task = task_create(TASK_WORK, 2, tails_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }
@@ -5346,8 +5370,9 @@ static Bool tails_look_create(Sint8 player, struct tails_look_nodes *nodes)
     /* @hack spelling: once the task is made, R0 keeps 96 from MOV #96,R0 at
      * 0x8c0c5d16. its one caller drops the result, so with return TRUE, 7 of 46
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is TRUE, for the task
+     * made */
     return TRUE;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -5361,7 +5386,14 @@ static Bool tails_fly_look_create(Sint8 player, struct tails_look_nodes *nodes)
     /* @hack spelling: the failure's return in an else, as in tails_look_create
      * (0x8c0c5d98); as an early return, 11 of 46 words differ */
     if ((task = task_create(TASK_WORK, 2, tails_fly_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }
@@ -5376,8 +5408,9 @@ static Bool tails_fly_look_create(Sint8 player, struct tails_look_nodes *nodes)
     /* @hack spelling: once the task is made, R0 keeps 96 from MOV #96,R0 at
      * 0x8c0c5d94. its one caller drops the result, so with return TRUE, 7 of 46
      * words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is TRUE, for the task
+     * made */
     return TRUE;
 #endif
     /* NOLINTNEXTLINE(clang-diagnostic-return-type) */
@@ -5506,7 +5539,7 @@ static void tails_look_step(struct task *task)
             break;
         case EVENT_LOOK_TASK:
             target = event->look_task->work;
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs the unset angles the tag below names: 0, as the
              * default case sets them, looks ahead */
             angles[1] = 0;
@@ -5822,7 +5855,7 @@ static void tails_attack_next(struct task_work *work, struct player *record)
         if (player_read_stick(work, NULL, NULL)) {
             PDS_PERIPHERAL *pad;
 
-#ifdef GCC
+#ifdef NONMATCHING
             /* sets pad first, as SHC evaluates the shipped arguments right to
              * left */
             pad = &pad_records[PLAYER_VARS(work)->player];

@@ -1,0 +1,3 @@
+datum  frog_shapes  D  0x00000000  52
+datum  frog_weld_pairs  D  0x00000034  16
+datum  frog_welds  D  0x00000044  16

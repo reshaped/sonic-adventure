@@ -10,7 +10,7 @@ static void create_light(NJS_LIGHT *l, Int type);
 /* NOLINTEND(clang-diagnostic-undefined-internal) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* light_power's body, which SHC expands into light_power. its label
  * _light_power names light_power's entry for create_light's BSR, since SHC
  * gives the static function an internal label */
@@ -95,11 +95,13 @@ _light_power:
 #endif
 /* clang-format on */
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* light_power_body's text defines _light_power, the label GCC would give
  * light_power. light_power takes another, so create_light's BSR
  * _light_power reaches the body */
 static Float light_power(Float value, Int step) __asm__("_light_power_c");
+#endif
 #endif
 
 /* value to the specular power that step stands for, as NJS_LIGHT_CAL.exp lists
@@ -109,7 +111,8 @@ static Float light_power(Float value, Int step)
     return light_power_body(value, step);
 }
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 /* create_light's body keeps &l->attr in R7 and &l->ltcal in R6 across each
  * BSR _light_scale_color, and GCC's code for light_scale_color may change
  * both. so light_scale_color takes the label _light_scale_color_c, and
@@ -139,6 +142,7 @@ __asm__("\t.pushsection\t.text._light_scale_color,\"ax\",@progbits\n"
         "\t.popsection\n"
         :
         : "i"(light_scale_color));
+#endif
 #endif
 
 /* output gets input's a, r, g and b times scale */
@@ -183,7 +187,7 @@ void light_scale_color(NJS_ARGB *output, const NJS_ARGB *input, Float scale)
 }
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* njCreateLight's body, which sets l up as ninja.h says. it keeps &l->attr in
  * R7 and &l->ltcal in R6 across its calls. the calling convention lets a
  * callee change R6 and R7, but light_power and light_scale_color write no

@@ -72,6 +72,15 @@ static Bool kk_door_pose(Float frame, NJS_POINT3 *first, NJS_POINT3 *second)
      * only to 4. matrix points at the boundary at or below shifted.matrix's
      * start. storage keeps that boundary, and a whole matrix after it, inside
      * the struct */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    /* GCC warns of this struct, which aligns only to 4 and holds an
+     * NJS_MATRIX (njtypes.h). only the address rounded down to 8 reaches
+     * Ninja, so the warning is off around the struct */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wif-not-aligned"
+#endif
+#endif
     struct {
         NJS_MATRIX *matrix;
         union {
@@ -82,6 +91,11 @@ static Bool kk_door_pose(Float frame, NJS_POINT3 *first, NJS_POINT3 *second)
             } shifted;
         } storage;
     } aligned;
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma GCC diagnostic pop
+#endif
+#endif
 
     aligned.matrix =
         (NJS_MATRIX *)((Uint32)&aligned.storage.shifted.matrix & ~7);

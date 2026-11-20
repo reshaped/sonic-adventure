@@ -49,8 +49,9 @@ void njtri_wiredpoly(Int n, NJS_POINT3COL *p, Float **vertex)
     register Float *sq;
     NJS_POINT3 *first;
 
-#ifdef GCC
-    /* the picture's aspect, which 16:9 sets in place of Ninja's (port.h) */
+#ifdef NONMATCHING
+    /* the picture's aspect, which 16:9 sets in place of Ninja's
+     * (dreamcast.h) */
     scale_x = _nj_screen_.dist * port_draw_aspect;
 #else
     scale_x = _nj_screen_.dist * _nj_scr_aspect_x_;

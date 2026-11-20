@@ -1,0 +1,9 @@
+datum  event_frog_textures  D  0x00000000  96
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  8
+text  TEXT_3  C  0x00000010  8
+text  TEXT_4  C  0x00000018  8
+text  TEXT_5  C  0x00000020  8
+text  TEXT_6  C  0x00000028  8
+text  TEXT_7  C  0x00000030  8
+text  TEXT_8  C  0x00000038  8

@@ -1,0 +1,4 @@
+datum  ev0047_tails_motion_4  D  0x00000000  12
+datum  ev0047_tails_action_4  D  0x0000000c  8
+datum  ev0047_emerald_textures  D  0x00000014  12
+text  TEXT_1  C  0x00000000  15

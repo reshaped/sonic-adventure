@@ -146,8 +146,8 @@ extern Sint32 egg_viper_energy_time;
  * left them. SHC lays out three objects in turn: nodes 0 to 46, node 47, and
  * nodes 48 on. the walk from egg_viper_matrices writes on past its end into the
  * other two */
-#ifdef GCC
-/* GCC's build defines nodes 0 to 50 as one array. egg_viper_tree_matrices'
+#ifdef NONMATCHING
+/* this side defines nodes 0 to 50 as one array. egg_viper_tree_matrices'
  * writes of nodes 47 to 50 and node_pos's read of node 48 then stay inside
  * it. egg_viper_node_matrices is a pointer, not an array of 16 */
 extern NJS_MATRIX egg_viper_matrices[51];

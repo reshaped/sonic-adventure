@@ -1,0 +1,15 @@
+datum  cart_land4_textures  D  0x00000000  120
+datum  cart_land4_texlist  D  0x00000078  8
+datum  cart_land4_entries  DHEAD  0x00000000  4068
+datum  cart_land4  DHEAD  0x00000fe4  36
+datum  cart_land4_pvm  CHEAD  0x00000000  12
+text  TEXT_1  C  0x00000000  7
+text  TEXT_2  C  0x00000008  7
+text  TEXT_3  C  0x00000010  6
+text  TEXT_4  C  0x00000018  7
+text  TEXT_5  C  0x00000020  6
+text  TEXT_6  C  0x00000028  7
+text  TEXT_7  C  0x00000030  7
+text  TEXT_8  C  0x00000038  6
+text  TEXT_9  C  0x00000040  7
+text  TEXT_10  C  0x00000048  6

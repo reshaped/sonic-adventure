@@ -120,6 +120,14 @@ static void twinkle_shutter_draw_face(struct task *task)
     Uint16 i;
     Sint16 rest;
 
+#ifdef NONMATCHING
+    /* a rising shutter's step sets the face's texture only around its own
+     * call of this. the second picture's pass sets it so */
+    if (frame_redrawing && work->mode == SHUTTER_RISING) {
+        VARS(work)->object->model->mats[FACE_MATERIAL].attr_texId =
+            FACE_RISING_TEXTURE;
+    }
+#endif
     for (i = 0; i < FACE_UVS; i++) {
         if (i < FACE_UVS / 2) {
             VARS(work)->object->model->meshsets[FACE_MESHSET].vertuv[i].tex.v -=
@@ -161,6 +169,12 @@ static void twinkle_shutter_draw_face(struct task *task)
         VARS(work)->object->model->meshsets[FACE_MESHSET].vertuv[i].tex.v =
             rest;
     }
+#ifdef NONMATCHING
+    if (frame_redrawing && work->mode == SHUTTER_RISING) {
+        VARS(work)->object->model->mats[FACE_MATERIAL].attr_texId =
+            FACE_STILL_TEXTURE;
+    }
+#endif
 }
 
 /* scroll the face until player 0 comes near or rides. the shutter then waits,

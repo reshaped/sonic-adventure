@@ -1,0 +1,5 @@
+datum  nozzle_offset  C  0x00000000  12
+datum  flame_shape  D  0x00000000  52
+datum  flame_texanims  D  0x00000034  320
+datum  last_flame_burns  B  0x00000000  1
+datum  flame_sprite  B  0x00000004  32

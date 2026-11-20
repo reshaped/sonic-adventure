@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set v->m from v's position, direction and roll, make v the current view,
  * and then call njClearMatrix. v->m starts as the unit matrix. njRotateZ
  * turns it by -roll, njRotateX by the pitch and njRotateY by the yaw, in that

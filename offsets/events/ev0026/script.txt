@@ -1,0 +1,15 @@
+datum  ev0026_run_keys  C  0x00000000  264
+datum  ev0026_run  C  0x00000108  8
+datum  ev0026_sonic_points  D  0x00000000  2736
+datum  ev0026_sonic_path  D  0x00000ab0  8
+datum  ev0026_tails_points_0  D  0x00000ab8  2512
+datum  ev0026_tails_path_0  D  0x00001488  8
+datum  ev0026_tails_points_1  D  0x00001490  2480
+datum  ev0026_tails_path_1  D  0x00001e40  8
+datum  ev0026_smoke  D  0x00001e48  4
+datum  ev0026_flash  D  0x00001e4c  4
+datum  ev0026_fade  D  0x00001e50  4
+datum  ev0026_textures  D  0x00001e54  32
+text  TEXT_1  C  0x00000110  2
+text  TEXT_2  C  0x00000114  2
+text  TEXT_3  C  0x00000118  8

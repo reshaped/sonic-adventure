@@ -55,7 +55,17 @@ struct sd_memblk {
     Sint32 size;
     SD_MEMBLK_CALLBACK_FUNC callback; /* called once the data arrives */
     void *callback_first_arg;
-    Bool done; /* set once a block sent with SDD_MEMBLK_SYNC_FUNC arrives */
+    /* set once a block sent with SDD_MEMBLK_SYNC_FUNC arrives */
+    /* @hack type: done isn't volatile, though a DMA's end interrupt sets it
+     * while sdMemBlkTransfer waits on it. each pass of the wait calls
+     * sdMemBlkWaitSync, so the image reads it again all the same. declared
+     * volatile, 22 of the 382 words of sdMemBlkTransfer, sdMemBlkCpuTransfer,
+     * sdMemBlkDmaTransfer and sdMemBlkExecuteCallback differ */
+#ifdef NONMATCHING
+    volatile Bool done;
+#else
+    Bool done;
+#endif
     Uint32 unk_1c;
 };
 #define SD_MEMBLK_MAX 64 /* blocks in the default table */

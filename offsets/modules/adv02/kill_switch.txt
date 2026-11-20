@@ -1,0 +1,9 @@
+datum  kill_switch_shapes  D  0x00000000  104
+datum  kill_switch_work  D  0x00000068  4
+datum  kill_switch_picked_up  D  0x0000006c  12
+datum  kill_switch_on  D  0x00000078  8
+datum  kill_switch_again  D  0x00000080  8
+datum  kill_switch_nothing  D  0x00000088  8
+text  TEXT_1  C  0x0000000c  56
+text  TEXT_2  C  0x00000044  15
+text  TEXT_3  C  0x00000054  37

@@ -17,6 +17,12 @@ enum { FIBER_FREE, FIBER_READY, FIBER_KILLED, FIBER_ENDED };
 /* jmp_buf word indices of the stack pointer and the return address */
 #define JMP_SP 0
 #define JMP_PC 2
+#ifdef NONMATCHING
+/* the jmp_buf word index of FPSCR, and FPSCR's FR, which picks the bank that
+ * FR0 to FR15 name */
+#define JMP_FPSCR 37
+#define FPSCR_FR 0x200000
+#endif
 
 /* the wake_tick of a fiber that sleeps until rfWakeupFiber */
 #define NEVER 0x7fffffff
@@ -253,7 +259,7 @@ void rfExecFiberServer(struct rf_server *server)
      * 0x8c11dc0a) when the setjmp at 0x8c11dc16 saves them. each longjmp
      * restores those values, so it restarts the pass at the first fiber. set
      * in the loop's head after the setjmp, 22 of 83 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
     /* each longjmp restarts the pass at the first fiber, as the image's
      * restored R12 and R14 do */
     fiber = server->fibers;
@@ -271,6 +277,18 @@ void rfExecFiberServer(struct rf_server *server)
             if (fiber->wake_tick > server->tick) {
                 break;
             }
+#ifdef NONMATCHING
+            /* longjmp loads FR0 to FR15 under the scheduler's FR, and only
+             * then loads the fiber's FPSCR. rfCreateFiber gives a fiber its
+             * caller's FR, which SH4ZAM's XMTRX products leave set or clear
+             * on this side. where the two differ, the fiber's registers load
+             * into its back bank. its sleep then leaves them in the
+             * scheduler's front bank. so each turn starts under the
+             * scheduler's FR */
+            fiber->context[JMP_FPSCR] =
+                (fiber->context[JMP_FPSCR] & ~FPSCR_FR) |
+                (server->scheduler[JMP_FPSCR] & FPSCR_FR);
+#endif
             longjmp(fiber->context, 1);
             break;
         case FIBER_KILLED:

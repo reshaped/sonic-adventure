@@ -1,0 +1,7 @@
+datum  shelter_lower_water_piece_materials  D  0x00000000  20
+datum  shelter_lower_water_piece_meshes  D  0x00000014  8
+datum  shelter_lower_water_piece_meshsets  D  0x0000001c  24
+datum  shelter_lower_water_piece_points  D  0x00000034  48
+datum  shelter_lower_water_piece_normals  D  0x00000064  48
+datum  shelter_lower_water_piece_model  D  0x00000094  40
+datum  shelter_lower_water_piece_object  D  0x000000bc  52

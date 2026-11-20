@@ -1,7 +1,8 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* scale v to unit length and return its former length */
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #undef njUnitVector
 Float njUnitVector(NJS_VECTOR *v)
 {
@@ -9,7 +10,6 @@ Float njUnitVector(NJS_VECTOR *v)
 }
 #else
 /* clang-format off */
-#ifndef __clang__
 /* @asm epilogue: dead-return, SHC's unreachable RTS at 0x8c62984c follows the
  * body's own return at 0x8c629848 */
 #pragma inline_asm(njUnitVector)
@@ -32,6 +32,6 @@ Float njUnitVector(NJS_VECTOR *v)
         RTS
         FMUL        FR3,FR0
 }
-#endif
 /* clang-format on */
+#endif
 #endif

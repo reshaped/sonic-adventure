@@ -49,7 +49,7 @@ extern NJS_COLOR cloud_uvs[];
 extern NJS_OBJECT dat_0ca754a8;
 extern NJS_TEXLIST dat_0caaeea0;
 extern NJS_ACTION dat_0caaed9c;
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC's link binds a name only where a definition starts, and each one
  * names a byte inside stage_clears */
 #define sonic_mountain_clear (stage_clears[CHARACTER_SONIC][STAGE_MOUNTAIN])

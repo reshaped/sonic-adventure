@@ -1,0 +1,17 @@
+datum  fire_smoke_speed  C  0x00000000  12
+datum  shot_texanims  D  0x00000000  40
+datum  shot_flash_texanims  D  0x00000028  40
+datum  shot_actions  D  0x00000050  24
+datum  shot_sprite  D  0x00000068  32
+datum  shot_flash_sprite  D  0x00000088  32
+datum  shot_material  D  0x000000a8  16
+datum  shot_shape  D  0x000000b8  52
+datum  shot_trail_material  D  0x000000ec  4
+datum  shot_trail_red  D  0x000000f0  4
+datum  shot_trail_green  D  0x000000f4  4
+datum  shot_trail_blue  D  0x000000f8  4
+datum  shot_flash_material  D  0x000000fc  16
+datum  shot_blast_material  D  0x0000010c  4
+datum  shot_blast_red  D  0x00000110  4
+datum  shot_blast_green  D  0x00000114  4
+datum  shot_blast_blue  D  0x00000118  4

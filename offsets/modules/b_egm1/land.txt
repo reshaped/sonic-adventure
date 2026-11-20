@@ -1,0 +1,3 @@
+datum  eggmobile1_land_entries  D  0x00000000  4752
+datum  eggmobile1_land  DHEAD  0x00000000  36
+datum  eggmobile1_land_pvm  CHEAD  0x00000000  9

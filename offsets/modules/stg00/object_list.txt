@@ -1,0 +1,5 @@
+datum  practice_ring_name  C  0x00000000  8
+datum  practice_mole_name  C  0x00000008  16
+datum  practice_box_name  C  0x00000018  7
+datum  practice_object_kinds  D  0x00000000  60
+datum  practice_object_list  DHEAD  0x00000000  8

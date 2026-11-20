@@ -130,7 +130,7 @@ void egg_hornet_barrier_draw(struct barrier *barrier)
         njRotateX(NULL, -0x4000);
         njScale(NULL, 2.0F, 2.0F, 2.0F);
         njSetTexture(&egm1barrier_texlist);
-#ifdef GCC
+#ifdef NONMATCHING
         /* the second picture's pass skips the boss's callback where step 1
          * drew the boss, so step 1 draws the barrier too, where port.h's
          * FRAME_DRAWS says */
@@ -146,7 +146,7 @@ void egg_hornet_barrier_draw(struct barrier *barrier)
 #endif
         njScale(NULL, 1.2F, 1.2F, 1.2F);
         njSetTexture(&egm1barrier_texlist);
-#ifdef GCC
+#ifdef NONMATCHING
         if (FRAME_DRAWS()) {
             present_untimed(TRUE);
             njSimpleDrawObject(&egg_hornet_barrier_object);

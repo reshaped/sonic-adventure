@@ -1,0 +1,9 @@
+datum  ev0068_chao_0  D  0x00000000  4
+datum  ev0068_chao_1  D  0x00000004  4
+datum  ev0068_chao_2  D  0x00000008  4
+datum  ev0068_chao_3  D  0x0000000c  4
+datum  ev0068_fade  D  0x00000010  4
+datum  ev0068_textures  D  0x00000014  56
+text  TEXT_1  C  0x0000000c  22
+text  TEXT_2  C  0x0000002c  35
+text  TEXT_3  C  0x00000024  8

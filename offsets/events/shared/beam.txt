@@ -1,0 +1,15 @@
+datum  event_beam_texnames  D  0x00000000  12
+datum  event_beam_texlist  D  0x0000000c  8
+datum  event_beam_materials  D  0x00000014  20
+datum  event_beam_meshes  D  0x00000028  176
+datum  event_beam_uvs  D  0x000000d8  320
+datum  event_beam_meshsets  D  0x00000218  24
+datum  event_beam_points  D  0x00000230  480
+datum  event_beam_normals  D  0x00000410  480
+datum  event_beam_cone_model  D  0x000005f0  40
+datum  event_beam_cone  D  0x00000618  52
+datum  event_beam_object  D  0x0000064c  52
+datum  event_beam_mdata  D  0x00000680  32
+datum  event_beam_motion  D  0x000006a0  12
+datum  event_beam_action  D  0x000006ac  8
+text  TEXT_1  C  0x00000000  12

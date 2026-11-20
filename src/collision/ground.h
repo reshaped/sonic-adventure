@@ -55,8 +55,7 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope);
 Float ground_find_first_floor(struct task_work *work, struct angles *slope);
 
 /* the shadow functions draw only while frame_step is 0, a frame's first
- * step. under GCC, port.h's present_shadow says when. those that return a
- * floor's height return it on every step */
+ * step. those that return a floor's height return it on every step */
 
 /* draw a shadow on a floor at height under the task, of size 1 right under
  * it, tilted by the task's x and z angles */
@@ -87,7 +86,10 @@ Float shadow_draw_slope(struct task_work *work, Float scale,
  * it draws the shadow on the surface below, when that is less than 20000
  * down */
 void shadow_update(struct task_work *work, struct shadow *shadow);
-#ifdef GCC
+#ifdef NONMATCHING
+/* here each shadow function hands its shadow to port.h's
+ * present_shadow, which says when it draws */
+
 /* how a shadow draws: shadow_object scaled by its width, or by its width
  * twice, as shadow_draw_at's is, or shadow_object's model alone, as
  * shadow_draw_at_height's is */

@@ -1,0 +1,7 @@
+datum  body_shapes  D  0x00000000  104
+datum  launcher_offset  D  0x00000068  12
+datum  modes  D  0x00000074  16
+datum  bob_objects  D  0x00000084  24
+datum  sensor_shape  D  0x0000009c  52
+datum  arena_center  C  0x00000000  12
+datum  boss_title  C  0x0000000c  6

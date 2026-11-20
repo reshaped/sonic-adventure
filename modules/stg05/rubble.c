@@ -303,7 +303,7 @@ void rubble_b_step(struct task *task)
                 /* @bug uninitialized: with no such O DYNAMITE, away keeps the
                  * stack's old bytes (FMOV.S at 0x0c910d46), and the piece flies
                  * away from the point they make */
-#ifdef GCC
+#ifdef NONMATCHING
                 /* repairs the unset away the tag names: with no such
                  * O DYNAMITE, the piece flies straight up, as from a blast
                  * just below it. the find never fails in play: only E-102's

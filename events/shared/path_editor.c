@@ -883,7 +883,7 @@ static void path_editor_edit_angles(union key_angles *values,
     Float right;
     Float graph_left;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that anchor and turns are set wherever they are read:
      * the loop reads them only while spanning is 1, and spanning becomes 1
      * only in its case 0, which sets both */

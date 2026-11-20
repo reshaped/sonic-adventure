@@ -1,0 +1,5 @@
+datum  chaos_emerald_texanim_count  C  0x00000000  4
+datum  chaos_emerald_texanims  D  0x00000000  420
+datum  chaos_emerald_sprite  D  0x000001a4  32
+datum  chaos_emerald_color  D  0x000001c4  16
+datum  chaos_emerald_slots  B  0x00000000  28

@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set m to R * m, where R rotates by ang about v: it turns v onto z, about x
  * and then y, rotates by ang about z, and undoes both turns. v must be unit
  * length. a null m selects the current matrix, in XMTRX */

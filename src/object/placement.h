@@ -119,6 +119,13 @@ void placement_manager_step(struct task *task);
 void placement_reset(void);
 /* step the act by change, and ask the manager to take that act's set file */
 void placement_change_act(Sint16 change);
+#ifdef NONMATCHING
+/* forget each placement's reach, the copy of its point and range that the
+ * scans test first. the next scan reads every placement in full. the manager
+ * calls it as it adds an act's placements. the set editor must call it each
+ * time it adds or takes a placement */
+void placement_forget_reaches(void);
+#endif
 
 /* the range checks. each compares the squared distance from the task's
  * position with a squared range. a _by function takes the range as its

@@ -1,0 +1,10 @@
+datum  ev0110_textures  D  0x00000000  8
+text  TEXT_1  C  0x00000020  49
+text  TEXT_2  C  0x00000054  52
+text  TEXT_3  C  0x0000009c  43
+text  TEXT_4  C  0x00000000  23
+text  TEXT_5  C  0x00000018  7
+text  TEXT_6  C  0x00000088  2
+text  TEXT_7  C  0x0000008c  2
+text  TEXT_8  C  0x00000090  9
+text  TEXT_9  C  0x000000c8  3

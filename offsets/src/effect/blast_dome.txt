@@ -1,0 +1,10 @@
+datum  blast_dome_texlist  D  0x00000000  8
+datum  dome_material  D  0x00000008  20
+datum  dome_meshset  D  0x0000001c  24
+datum  dome_model  D  0x00000034  40
+datum  dome_made  D  0x0000005c  4
+datum  dome_sides  B  0x00000000  64
+datum  dome_points  B  0x00000040  1536
+datum  dome_normals  B  0x00000640  1536
+datum  dome_strips  B  0x00000c40  304
+datum  dome_uvs  B  0x00000d70  576

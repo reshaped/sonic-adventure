@@ -1,0 +1,5 @@
+datum  ev006f_bird  D  0x00000000  4
+datum  ev006f_textures  D  0x00000004  16
+text  TEXT_1  C  0x00000028  22
+text  TEXT_2  C  0x0000000c  20
+text  TEXT_3  C  0x00000020  6

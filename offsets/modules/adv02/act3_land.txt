@@ -1,0 +1,1 @@
+datum  mystic_ruins_act3_land  DHEAD  0x00000000  36

@@ -1,6 +1,7 @@
 # 1ST_READ.BIN's census, which tools/census.py checks. Its rows explain the
 # numbers 1ST_READ.BIN holds for RAM past its image, which ends at
-# 0x8c8fd160, and those a GCC side holds at an address a table gives a name.
+# 0x8c8fd160, and those a non-matching build holds at an address a table
+# gives a name.
 # A row is FILE START [END] COUNT, then a disposition, then the reason. The
 # disposition is one of
 #
@@ -8,8 +9,8 @@
 #                        NAME is the macro, symbol or field the sources name
 #                        it by. Its extent runs from FROM up to TO, and the
 #                        row's numbers lie in it or at TO, its end
-#   placed SOURCE        a name symbols.txt gives, which SOURCE defines under
-#                        GCC, so that the link places it
+#   placed SOURCE        a name symbols.txt gives, which SOURCE defines on
+#                        the non-matching side, so that the link places it
 #   data                 no address, whatever its bits
 #
 # The row explains the COUNT numbers FILE holds that are START, or that lie
@@ -33,7 +34,7 @@ src/system/loader.c                              0x0cb80000                  1  
 # the game's other areas, buffers and bounds
 src/event/play.c                                 0x0cb80000                  1  anchor  EVENT_MODULE      0x0cb80000  0x0cc00000  an event, which event_load reads there once it zeroes EVENT_MODULE_SIZE bytes. Its extent ends at MOTION_AREA
 src/progress/recorder.h                          0x0cbe0000                  1  anchor  DEMO_RECORDING    0x0cbe0000  0x0cc00000  the 128 KB that recording_update records into, and that demo_advance reads a demo's recording file to
-src/progress/recorder.c                          0x0cbfffe8                  1  anchor  RECORD_LAST       0x0cbe0000  0x0cc00000  the last sample a recording fills from pad 0, in DEMO_RECORDING's 128 KB
+src/progress/recorder.c                          0x0cbfffe8                  1  anchor  RECORD_LAST       0x0cbe0000  0x0cc00000  the bound of the samples a recording fills from pad 0, 24 bytes short of DEMO_RECORDING's 128 KB end
 src/progress/recorder.c                          0x0cd60000                  1  anchor  PLAY_LAST         0x0cbe0000  0x0cd60000  the last sample a playback reads, past the recording's 128 KB
 src/stage/stage.c                                0x0cbc0000                  1  anchor  dat_8c751454      0x0cbc0000  0x0cbe0000  the 128 KB below DEMO_RECORDING. stage_reset_play points dat_8c751454 at it as play starts, and no code reads dat_8c751454
 src/sound/stream.c                               0x0cca8000                  1  anchor  STREAM_WORK       0x0cca8000  0x0cce2948  the music's stream work, MUSIC_WORK_SIZE bytes, then the voices', VOICE_WORK_SIZE bytes
@@ -50,7 +51,7 @@ sdk/ninja/internal_kamui_lib.c                   0xacc00000                  1  
 sdk/shinobi/mpapi.c                              0x0cff0000                  1  anchor  IDLE_MEMORY       0x0cff0000  0x0d000000  the last 64 KB of RAM, the DMA table address mpdrv_exit sets on the idle bus
 sdk/shinobi/sy_g2_sys_init.c                     0x0cffffff                  1  anchor  MEMORY_LAST       0x0c000000  0x0d000000  RAM's last byte, the end of what G2 DMA may reach
 sdk/shinobi/syhw.c                               0x0cff0000                  1  anchor  IDLE_MEMORY       0x0cff0000  0x0d000000  the last 64 KB of RAM, where syHwInit starts each idle DMA's address
-# the rows --gcc alone counts: numbers a GCC side holds at a name's
+# the rows --dc alone counts: numbers a non-matching build holds at a name's
 # address, in a file 1ST_READ.BIN's SHC build doesn't read or in its image
 events/ev0065/script.c                           0x0cb80008                  1  data  EVENT_SOUND_ID + 7, the id of a sound the script plays, which no code reads as an address
 events/ev00bf/script.c                           0x0cb80008                  1  data  EVENT_SOUND_ID + 7, the id of a sound the script plays, which no code reads as an address

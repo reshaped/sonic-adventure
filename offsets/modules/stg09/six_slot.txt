@@ -1,0 +1,2 @@
+datum  six_slot_shapes  D  0x00000000  104
+datum  six_slot_faces  D  0x00000068  60

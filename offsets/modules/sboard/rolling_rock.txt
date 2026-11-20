@@ -1,0 +1,11 @@
+datum  rolling_rock_a_points  C  0x00000000  2400
+datum  rolling_rock_b_points  C  0x00000960  2400
+datum  rolling_rock_c_points  C  0x000012c0  2400
+datum  rolling_rock_watch_desc  C  0x00001c20  24
+datum  rolling_rock_desc  C  0x00001c38  24
+datum  rolling_rock_falloff  C  0x00001c50  12
+datum  rolling_rock_a  D  0x00000000  28
+datum  rolling_rock_b  D  0x0000001c  28
+datum  rolling_rock_c  D  0x00000038  28
+datum  rolling_rock_roll  D  0x00000054  1
+datum  rolling_rock_rest  D  0x00000055  1

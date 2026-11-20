@@ -1,0 +1,10 @@
+datum  counter_roll  D  0x00000000  4
+datum  counter_lock  D  0x00000004  4
+datum  counter_reroll  D  0x00000008  4
+datum  counter_flash  D  0x0000000c  4
+datum  counter_flash_lit  D  0x00000010  4
+datum  counter_pulse  D  0x00000014  4
+datum  counter_lamp_shift  D  0x00000018  20
+datum  counter_digit_textures  D  0x0000002c  40
+datum  counter_shapes  D  0x00000054  260
+datum  counters  D  0x00000158  20

@@ -101,6 +101,16 @@ class Checks(test_ld.Fixture):
         finals = self.finals(linking(self.images, 'main', 'main.o', 'late.o'), values)
         self.assertEqual(verify.misbound(self.images, finals), [])
 
+    def test_an_import_its_provider_s_final_pass_doesn_t_export_fails_the_binding_check(self):
+        # ova's final pass, with ova_table renamed, exports no ova_table, and main imports it
+        finals = self.finals(self.images, ld.resolve(self.images, self.layouts(self.images)))
+        ova = finals['ova']
+        hidden = ova._replace(elf=ova.elf._replace(symbols=[
+            symbol._replace(name='_ova_hidden') if symbol.name == '_ova_table' else symbol
+            for symbol in ova.elf.symbols]))
+        self.assertEqual(verify.misbound(self.images, {**finals, 'ova': hidden}),
+                         [f"main: ova_table takes ova's ova_table, which {ova.elf.where} doesn't define"])
+
     def test_a_wrong_import_value_fails_the_binding_check_alone(self):
         layouts = self.layouts(self.images)
         values = ld.resolve(self.images, layouts)
@@ -190,6 +200,11 @@ class Checks(test_ld.Fixture):
         with mock.patch.object(gcclink, 'selected', objects_alone(gcclink.selected)):
             self.assertEqual(verify.unselected(self.images, finals),
                              ["ovb: its final pass takes libovb.a(helper.o), which selected() doesn't"])
+        # a final pass that leaves out an input selected() takes disagrees too
+        ovb = finals['ovb']
+        dropped = ovb._replace(placements=[placed for placed in ovb.placements if placed.file != 'libovb.a(helper.o)'])
+        self.assertEqual(verify.unselected(self.images, {**finals, 'ovb': dropped}),
+                         ["ovb: selected() takes libovb.a(helper.o), which its final pass doesn't"])
 
     def test_a_wrong_alias_or_constant_fails_the_binding_check(self):
         # the final pass binds main_count to main_counter and main_area to 0x8c0f0000, and the images the check reads

@@ -6,7 +6,7 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 #include <stdlib.h>
-#ifdef GCC
+#ifdef NONMATCHING
 #include <string.h>
 #endif
 
@@ -175,7 +175,7 @@ static const struct angles no_slope = {0, 0, 0};
 static struct wind_band wind_bands[WIND_BANDS];
 static struct wind_gust wind_gusts[WIND_GUSTS];
 
-#ifdef GCC
+#ifdef NONMATCHING
 void sky_deck_wind_clear(void)
 {
     memset(wind_bands, 0, sizeof wind_bands);
@@ -309,6 +309,10 @@ Float sky_deck_wind_strength(Float x, Float z)
     strength = 0.0F;
     x -= WIND_ORIGIN_X;
     z -= WIND_ORIGIN_Z;
+    /* @bug uninitialized: only act 0 starts the wind's task, whose first
+     * step clears the bands and the gusts. after a load into a later act,
+     * the two loops read both as RAM held them under STG06's bss (the bands'
+     * MOV.L @R3,R1 at 0x0c905cca, the gusts' MOV.L @R13,R3 at 0x0c905f06) */
     for (i = 0; i < WIND_BANDS; i++) {
         if (wind_bands[i].life) {
             left = wind_bands[i].x;

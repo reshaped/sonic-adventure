@@ -1,0 +1,12 @@
+datum  dat_8c1d4df8  D  0x00000000  4
+datum  screen_format_names  D  0x00000004  28
+datum  screen_box_textures  D  0x00000020  24
+datum  screen_box_texlist  D  0x00000038  8
+datum  screen_corners  B  0x00000000  96
+datum  screen_translucent  B  0x00000060  4
+datum  screen_tint  B  0x00000064  4
+datum  screen_cover_color  B  0x00000068  4
+datum  screen_cover_shown  B  0x0000006c  4
+datum  dat_8c7a13c8  B  0x00000070  4
+text  TEXT_1  C  0x00000094  10
+text  TEXT_2  C  0x000000a0  10

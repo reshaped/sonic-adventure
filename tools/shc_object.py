@@ -2,9 +2,9 @@
 the sections, definitions and external references those runs give.
 
 tools/link.py and tools/relink.py link the matching build's objects by what
-these read, and tools/progress.py reads each object's sections. make gcc's
-import check, tools/imports.py, reads the sections and definitions of the
-matching build's objects, which define what 1ST_READ.BIN imports.
+these read, and tools/progress.py reads each object's sections. make
+check's tools/imports.py --definitions reads the sections and definitions
+of the matching build's objects, which define what 1ST_READ.BIN imports.
 """
 
 from tool import content, fail

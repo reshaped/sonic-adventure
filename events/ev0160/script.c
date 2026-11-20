@@ -45,7 +45,7 @@ extern NJS_ACTION ev0160_chao_action_2;
  * &event_sprite_texlists[EVENT_SPRITE_JET], SHC keeps the address in a stack
  * slot it adds to the frame. ev0160_script then runs 8 bytes long, and 1736 of
  * 1781 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
 /* GCC's link binds a name only where a definition starts, and this one
  * names a texlist inside event_sprite_texlists */
 #define event_sprite_jet_texlist (event_sprite_texlists[EVENT_SPRITE_JET])

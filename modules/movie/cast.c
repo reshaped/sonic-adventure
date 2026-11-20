@@ -395,6 +395,11 @@ static struct cast_state *cast_alloc_states(int count)
     for (remaining = count; remaining != 0; remaining--) {
         state->active = FALSE;
         state->path_frame = 0.0F;
+#ifdef NONMATCHING
+        /* repairs the unset frame the tag in cast_draw names: each member's
+         * action starts at frame 0 */
+        state->action_frame = 0.0F;
+#endif
         /* @hack spelling: state stepped at the body's end, which lets SHC
          * count the loop down with DT R5 at 0x8ceb0764; stepped in the
          * loop's head, 10 of 26 words differ */

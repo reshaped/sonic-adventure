@@ -1,0 +1,12 @@
+datum  ev00c3_picture_textures  D  0x00000000  60
+datum  ev00c3_picture_texlist  D  0x0000003c  8
+datum  ev00c3_cloud_textures  D  0x00000044  36
+datum  event_clouds_texlist  D  0x00000068  8
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  11
+text  TEXT_3  C  0x00000014  9
+text  TEXT_4  C  0x00000020  9
+text  TEXT_5  C  0x0000002c  8
+text  TEXT_6  C  0x00000034  11
+text  TEXT_7  C  0x00000040  11
+text  TEXT_8  C  0x0000004c  11

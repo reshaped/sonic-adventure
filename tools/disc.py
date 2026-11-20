@@ -1,5 +1,5 @@
 """Build a disc from the original's .gdi and its tracks, with the files make
-gcc's link wrote in their originals' places, and check it.
+dc's link wrote in their originals' places, and check it.
 
     python3 tools/disc.py GDI MANIFEST DIR
 
@@ -9,7 +9,7 @@ directory the disc is written to.
 
 Each image's file takes its original's place on the disc: its .PRS file,
 which publish compressed from its image, or its .BIN, as the original is
-stored, under build/gcc/ at the original's path. Each event that repeats
+stored, under build/dc/ at the original's path. Each event that repeats
 another byte for byte, as EVENT_ALIASES in tools/images.py records, takes
 the file of the event it repeats. The manifest must give every image
 config/ describes: the disc would otherwise keep the image's original,
@@ -30,7 +30,7 @@ lines, names every problem it finds, and disc.py stops after the first
 group that finds one.
 
 - a DIR or DIR.partial that exists: disc.py removes nothing it didn't
-  write, and make gcc-disc removes both before it runs disc.py;
+  write, and make dc-disc removes both before it runs disc.py;
 
 - a manifest tools/manifest.py's recorded() refuses, for the problems it
   names;
@@ -76,8 +76,10 @@ removes after. Last it writes disc.txt in DIR.partial: the hash of the
 manifest's bytes it read, then for each file it replaced, its bytes,
 sectors and first sector, the bytes its loader reads in whole sectors
 against what holds them, the work area for a .PRS or the image's interval
-for a .BIN, and the image's bytes against its interval. Then it renames
-DIR.partial to DIR.
+for a .BIN, and the image's bytes against its interval. That hash is the
+whole manifest's, the rows of the host's own tools among them, so two
+hosts whose tools differ write disc.txt files that differ. The disc they
+write is the same. Then it renames DIR.partial to DIR.
 
 DIR appears only once every check passes. A failure removes DIR.partial,
 and where it can't, names the file it can't remove. A hangup, ^\\ or TERM
@@ -99,10 +101,10 @@ import memory
 from images import EVENT_ALIASES, files, images
 from manifest import digest, recorded
 from tables import aligned, hexa
-from tool import content, fail, save, stoppable
+from tool import content, fail, run_child, save, stoppable
 
 GDI = Path('build/gdi')
-OUT = Path('build/gcc')
+OUT = Path('build/dc')
 # the bytes of a sector of the disc, as build/gdi map counts them
 SECTOR = 2048
 # the two forms of a line of build/gdi map's. NAMED gives a file's or
@@ -305,8 +307,8 @@ def gdi(*argv):
     naming it, and a run that exits nonzero fails with what it printed, then
     a line naming its command."""
     try:
-        done = subprocess.run([str(GDI), *map(str, argv)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              encoding='utf-8', errors='replace')
+        done = run_child([str(GDI), *map(str, argv)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         encoding='utf-8', errors='replace')
     except OSError as error:
         fail(f"{GDI}: can't run it: {error.strerror}")
     if done.returncode:
@@ -429,7 +431,7 @@ def build(original, manifest, out):
 def main(argv):
     parser = argparse.ArgumentParser(prog='disc', description=__doc__.split('\n\n')[0])
     parser.add_argument('original', metavar='GDI', type=Path, help="the original disc's .gdi, its tracks beside it")
-    parser.add_argument('manifest', metavar='MANIFEST', type=Path, help="make gcc's manifest")
+    parser.add_argument('manifest', metavar='MANIFEST', type=Path, help="make dc's manifest")
     parser.add_argument('out', metavar='DIR', type=Path, help='where to write the disc')
     args = parser.parse_args(argv)
     build(args.original, args.manifest, args.out)

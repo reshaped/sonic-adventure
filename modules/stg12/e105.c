@@ -212,7 +212,15 @@ static void init(struct task *task)
 
     collision_init(task, body_shapes, COLLISION_ENEMY, 1, 2);
     work->collision->radius = 100.0F;
+#ifdef NONMATCHING
+    /* repairs the unset reads tagged in step_launchers and draw: heap_calloc
+     * clears the state. so flags holds no HEAD_DETACHED before intro's first
+     * run. a launcher's first missile holds a position and direction of 0
+     * until its first hold step */
+    task->extra = state = heap_calloc(1, sizeof(struct e105));
+#else
     task->extra = state = heap_alloc(sizeof(struct e105));
+#endif
     state->next_mode = E105_INTRO;
     state->previous_mode = E105_INTRO;
     work->mode = E105_INTRO;
@@ -480,7 +488,7 @@ static void step_launchers(struct task *task)
             /* @bug arithmetic: launcher i tests its heading every 10i steps.
              * launcher 0 takes steps % 0, which SHC's __modls answers with 0
              * (JSR at 0x0c9156bc), so it tests on every step */
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps the value the tag names, 0: for launcher 0 the test
              * holds */
             if (i == 0 || state->steps % (i * 10) == 0) {
@@ -707,7 +715,7 @@ static void defeat(struct task *task)
         /* @bug arithmetic: the divisor is 0 once timer is 23 or less, and
          * SHC's __modls answers timer % 0 with 0 (JSR at 0x0c915c8a). so a
          * blast goes off on each of the last 23 steps */
-#ifdef GCC
+#ifdef NONMATCHING
         /* keeps the value the tag names, 0: once timer is 23 or less the
          * test holds */
         if ((state->timer * 20) / SWEEP_STEPS == 0 ||
@@ -905,8 +913,9 @@ static struct task *sensor_create(void)
          * sensor_shape, which holds 1 (MOV #2,R3 at 0x0c9163b8, the call at
          * 0x0c9163c4). the second is the 52 bytes after it, camera_sweep.c's
          * data from 0x0ca92058 */
-#ifdef GCC
-        /* repairs the count the tag names: GCC's sensor has its one shape */
+#ifdef NONMATCHING
+        /* repairs the count the tag names: this side's sensor has its one
+         * shape */
         collision_init(task, &sensor_shape, COLLISION_ITEM, 1, 1);
 #else
         collision_init(task, &sensor_shape, COLLISION_ITEM, 1, 2);

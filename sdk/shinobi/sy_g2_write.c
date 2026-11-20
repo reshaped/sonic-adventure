@@ -17,11 +17,12 @@ SYE_G2_ERR syG2Write(void *buf_ptr, void *g2_adr, SYE_G2_DATA_WIDTH data_width,
     int i;
     Sint32 mask;
 
-#ifdef GCC
-    /* repairs the unset steps the tag below names: GCC steps a mode its
-     * switch doesn't name by 0, as SYE_G2_ADR_MODE_FIX. GCC can't see that
-     * every path that restores mask sets it: both run under one test of
-     * mask_interrupts, which nothing between changes */
+#ifdef NONMATCHING
+    /* repairs the unset steps the tag below names. this side steps by 0 for a
+     * mode its switch doesn't name, as for SYE_G2_ADR_MODE_FIX. GCC can't see
+     * that every path that restores mask sets it. get_imask and set_imask(mask)
+     * stand under two tests of mask_interrupts, which nothing between them
+     * changes */
     src_step = 0;
     dst_step = 0;
     mask = 0;

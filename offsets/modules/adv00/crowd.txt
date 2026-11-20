@@ -1,0 +1,10 @@
+datum  walker_kinds  D  0x00000000  720
+datum  message_files  D  0x000002d0  32
+datum  walker_shapes  D  0x000002f0  104
+datum  walker_models  C  0x00000000  312
+datum  office_walkers  C  0x00000138  60
+datum  casino_walkers  C  0x00000174  60
+datum  station_walkers  C  0x000001b0  60
+datum  walk_routes  C  0x000001ec  96
+datum  walker_move_steps  C  0x000002a0  28
+datum  message_file  B  0x00000000  4

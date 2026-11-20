@@ -54,3 +54,19 @@ void main(void)
     GD_LIBRARY = gd;
     ((void (*)(void))PASSPORT_AREA)();
 }
+
+#ifdef NONMATCHING
+/* LOADER.BIN's present_sprite, which port.h declares, keeps no sprite for
+ * a picture to come. each draws at its call */
+Int present_sprite(enum present_kind kind, const void *what, Int count, Int a,
+                   Float pri, Uint32 attr)
+{
+    (void)kind;
+    (void)what;
+    (void)count;
+    (void)a;
+    (void)pri;
+    (void)attr;
+    return TRUE;
+}
+#endif

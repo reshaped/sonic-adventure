@@ -1,7 +1,7 @@
 #include <ninja.h> /* NOLINT(misc-include-cleaner) */
 
 /* clang-format off */
-#ifndef __clang__
+#ifdef DREAMCAST
 /* set v's matrix to the unit matrix, its position and absolute position to the
  * origin, its direction and absolute direction to (0, 0, -1), and its roll and
  * absolute roll to 0 */

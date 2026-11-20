@@ -8,7 +8,7 @@ import floats
 from support import tree
 from test_float_value import GAME, R10, ROUTES, word
 
-# SH4ZAM's include directory, which make gcc names to the tool as a directory of system headers
+# SH4ZAM's include directory, which make dc names to the tool as a directory of system headers
 SYSTEM = ['tools/sh4zam/include']
 # the game's route under -aggressive=2, as curve.c and snow_door.c take it
 AGGRESSIVE = float_value.Route('r32', True, True)

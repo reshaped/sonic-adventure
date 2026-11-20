@@ -219,7 +219,7 @@ def respelled(number, route):
                 pass
         raise ValueError(f'a value GCC\'s {type} doesn\'t hold exactly and normally')
     parts = DECIMAL.fullmatch(number)
-    if not parts or not (parts[2] or parts[4]):
+    if not parts:
         raise ValueError('no floating constant C89 spells')
     whole, _, fraction, exponent, suffix = parts.groups()
     digits = (whole + fraction).lstrip('0')

@@ -27,6 +27,7 @@
 #include "stg08/sky_textures.h"
 #include "stg08/snow_slide.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/texture.h"
@@ -470,6 +471,13 @@ static void icecap_act_start(struct task *task)
     music->tick = MUSIC_DELAY;
     if (get_character() == CHARACTER_SONIC ||
         get_character() == CHARACTER_TAILS) {
+#ifdef NONMATCHING
+        /* Tails' board motions load over the image's fish models. some of
+         * the lists icecap_pvms loaded lie among those models. the original
+         * never releases those lists. this side releases each stage list as
+         * the stage ends, so it releases those first, while they stand */
+        texture_release_stage_within(TAILS_BOARD_AREA, CAMERA_AREA_0);
+#endif
         loader_read_prs("s_sbmot.PRS", SONIC_BOARD_AREA);
         loader_read_prs("m_sbmot.PRS", TAILS_BOARD_AREA);
     }

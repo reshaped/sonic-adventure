@@ -217,7 +217,7 @@ void egg_walker_blast_create(struct blast_params *params)
             collision_init(task, blast_shape, COLLISION_ENEMY, 1, 1);
             task->extra = blast;
             blast->steps = 0;
-#ifdef GCC
+#ifdef NONMATCHING
             /* keeps SHC's turn: the bombs, missiles and cars leave beam_start
              * and beam_end 0, and SHC's __divls answers the division by 0
              * with 0 (JSR at 0x0c90766e). no step reads the turn */

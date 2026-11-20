@@ -1,0 +1,3 @@
+datum  fire_sprite  D  0x00000000  32
+datum  fire_color  D  0x00000020  16
+datum  fire_no_color  D  0x00000030  16

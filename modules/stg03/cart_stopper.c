@@ -114,8 +114,8 @@ static struct collision_shape stopper_shape = {
  * then loads the last two from pool words of their own (0x0c90c380,
  * 0x0c90c38e). defined as one stopper_init_arg, the function loads its
  * address once, is 2 bytes longer, and 10 of 14 words differ */
-#ifdef GCC
-/* keeps the read the tag names: GCC's three are the members of one
+#ifdef NONMATCHING
+/* keeps the read the tag names: this side's three are the members of one
  * stopper_init_arg */
 static struct stopper_init_arg stopper_args = {
     {

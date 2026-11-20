@@ -1,0 +1,16 @@
+datum  egm2_effect_textures  D  0x00000000  36
+datum  egm2_effect_texlist  D  0x00000024  8
+datum  leg_glow_texanims  D  0x0000002c  60
+datum  stomp_shape  D  0x00000068  52
+datum  wall_points  D  0x0000009c  48
+datum  wall_base_colors  D  0x000000cc  16
+datum  wall_polygon  D  0x000000dc  16
+datum  glow_frames  B  0x00000000  4
+datum  pulse_alpha  B  0x00000004  4
+datum  pulse_frames  B  0x00000008  2
+datum  leg_glow_sprite  B  0x0000000c  32
+datum  leg_glow_sizes  B  0x0000002c  16
+datum  wall_colors  B  0x0000003c  16
+text  TEXT_1  C  0x00000000  13
+text  TEXT_2  C  0x00000010  13
+text  TEXT_3  C  0x00000020  13

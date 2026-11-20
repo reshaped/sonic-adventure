@@ -180,6 +180,12 @@ static void cart_run(struct task *task)
     case CART_START:
         cart_race_create();
         intro_camera_start();
+        /* @bug logic: cart_init has made a boost_watch (JSR at 0x0c90c552),
+         * and this makes a second (0x0c90c580). the two share boost_press
+         * and boost, and at the go the one that steps second takes the
+         * first's result for its press: no press at all earns the most boost
+         * and the afterimages, and a press 1 or 2 steps before the go shows
+         * its afterimages and leaves no boost */
         boost_start();
         pad_enable();
         pad_disable_player(0);

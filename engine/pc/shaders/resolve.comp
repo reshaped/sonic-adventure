@@ -1,0 +1,127 @@
+#version 450
+// the blend list as the PowerVR's autosort composes it: each pixel's
+// fragments from the farthest, by 1/z, to the nearest, ties in the order
+// the triangles came, each blended over what lies behind it by its own
+// instructions. a pixel composes MOST of them, the last of that order: the
+// nearest, and at one depth the latest drawn. each one before those is cut:
+// counted, and left out of the pixel, which shows without what it would
+// have added
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 1, r32ui) uniform uimage2D heads;
+struct Fragment {
+    uint color;
+    float depth;
+    uint next;
+    uint order;
+};
+layout(set = 0, binding = 2, std430) buffer Fragments {
+    uint count;
+    uint capacity;
+    uint lost; // fragments the list had no room for, which joined no pixel
+    uint cut; // fragments a pixel held past the MOST it composes
+    Fragment fragments[];
+} list;
+layout(set = 0, binding = 3, rgba8) uniform image2D target;
+
+const uint MOST = 64u; // the fragments a pixel composes
+const uint NONE = 0xffffffffu; // a head with no fragment, and the last one's next
+
+vec4 unpack(uint c)
+{
+    return vec4(c & 255u, (c >> 8) & 255u, (c >> 16) & 255u, c >> 24) / 255.0;
+}
+
+// a blend instruction's factor: the other side's color is the
+// destination's for the source, and the source's for the destination
+vec4 factor(uint instruction, vec4 src, vec4 dst, bool source)
+{
+    vec4 other = source ? dst : src;
+    switch (instruction) {
+    case 0u: return vec4(0.0);
+    case 1u: return vec4(1.0);
+    case 2u: return other;
+    case 3u: return vec4(1.0) - other;
+    case 4u: return vec4(src.a);
+    case 5u: return vec4(1.0 - src.a);
+    case 6u: return vec4(dst.a);
+    default: return vec4(1.0 - dst.a);
+    }
+}
+
+// true where a fragment of depth d and order o composes before fragment b:
+// it is the farther, by its smaller 1/z, or as far and of the earlier
+// triangle
+bool before(float d, uint o, uint b)
+{
+    float db = list.fragments[b].depth;
+    return d < db || (d == db && (o >> 6) < (list.fragments[b].order >> 6));
+}
+
+// the same of fragment a
+bool before(uint a, uint b)
+{
+    return before(list.fragments[a].depth, list.fragments[a].order, b);
+}
+
+void main()
+{
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    uint index[MOST];
+    uint n = 0u;
+    uint cut = 0u;
+
+    // a size not of eights leaves groups past the target's edge
+    if (any(greaterThanEqual(at, imageSize(target)))) {
+        return;
+    }
+    uint i = imageLoad(heads, at).r;
+
+    // keep the last MOST to compose, whatever order the list links them
+    // in. one more takes the place of the first of those kept where it
+    // composes after that one, and either way one of the two is cut
+    while (i != NONE) {
+        if (n < MOST) {
+            index[n++] = i;
+        } else {
+            uint first = 0u;
+            for (uint k = 1u; k < MOST; k++) {
+                if (before(index[k], index[first])) {
+                    first = k;
+                }
+            }
+            if (before(index[first], i)) {
+                index[first] = i;
+            }
+            cut++;
+        }
+        i = list.fragments[i].next;
+    }
+    if (cut != 0u) {
+        atomicAdd(list.cut, cut);
+    }
+    if (n == 0u) {
+        return;
+    }
+    // sort those kept into the order they compose in. the one on its way
+    // down is read once, for all it passes
+    for (uint a = 1u; a < n; a++) {
+        uint k = index[a];
+        float d = list.fragments[k].depth;
+        uint o = list.fragments[k].order;
+        uint b = a;
+        while (b > 0u && before(d, o, index[b - 1u])) {
+            index[b] = index[b - 1u];
+            b--;
+        }
+        index[b] = k;
+    }
+    vec4 dst = imageLoad(target, at);
+    for (uint k = 0u; k < n; k++) {
+        Fragment f = list.fragments[index[k]];
+        vec4 src = unpack(f.color);
+        dst = clamp(src * factor(f.order & 7u, src, dst, true) +
+                        dst * factor((f.order >> 3) & 7u, src, dst, false),
+                    0.0, 1.0);
+    }
+    imageStore(target, at, dst);
+}

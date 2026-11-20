@@ -1,0 +1,8 @@
+datum  carrier_arrived  D  0x00000000  4
+datum  carrier_blast_shape  D  0x00000004  52
+datum  carrier_hodai_places  D  0x00000038  72
+datum  shell_shape  D  0x00000080  52
+datum  shell_speed  D  0x000000b4  12
+datum  core_shape  D  0x000000c0  52
+datum  hodai_may_fire  B  0x00000000  4
+datum  carrier_steps  B  0x00000004  4

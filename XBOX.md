@@ -44,7 +44,7 @@ Checks that must keep passing:
 
 ## Architecture
 
-- **Images:** each image is linked for i386 at its console address by `tools/pclink.py` from make gcc's link spec. Data keeps its RAM address; code goes to code areas past `0x10000000`. An overlay's unbound name binds to 1ST_READ.BIN's, the port's XMTRX among them (`sh4_xmtrx`, one for the game, as the console's one register).
+- **Images:** each image is linked for i386 at its console address by `tools/pclink.py` from make dc's link spec. Data keeps its RAM address; code goes to code areas past `0x10000000`. An overlay's unbound name binds to 1ST_READ.BIN's, the port's XMTRX among them (`sh4_xmtrx`, one for the game, as the console's one register).
 - **Memory:** the port's RAM is area 3, the console's 16 MB then the port layer's own memory, visible at `0x0c000000`, `0x8c000000`, `0xac000000` and the store queues' `0xe0000000`.
 - **`struct host_api`** (`xbox/port/host.h`) is the line between the shared port and the two hosts: files, time, the blank, pads, cards, video, AICA registers, stats.
 - **Floats:** SSE single precision in the SH-4's mode (rounding toward zero, flush to zero, denormals as zero), set by each host before `main`; the x87 at 53 bits and rounding toward zero for FIPR's and FTRV's double sums, as Flycast computes them. FSRRA is exact here; FSCA uses the console's own table.
@@ -70,10 +70,8 @@ Features the Dreamcast version doesn't have:
 ## Known issues
 
 - **Scenery drawn wrong for a frame:** some scenery can flicker or appear in the wrong place for a single frame. This has been noted, and a fix is being worked on.
-- **Sound:** the sound engine is an early work in progress: it may play incorrectly (crackling in the music, for one), and DSP features such as reverb are missing.
 - **Movies** are off by default: untested on the console.
 - **The translucent sort** is per triangle, where the PowerVR's is per pixel: crossing triangles can sort wrong.
-- **make gcc's census** fails on `src/progress/movie.c`'s `XBOX` address `0x8ceb0000`; the rest of make gcc builds.
 
 ## Debug flags
 
@@ -89,6 +87,7 @@ Logging and reports:
 | `HOST_LOG_FILE=1` | writes the log every 10 seconds |
 | `HOST_PROFILE=1` | the profile every 600 blanks: frame rate, sampled functions, counts, the sound's cost |
 | `HOST_SOUND_PROFILE=1`, `HOST_SOUND_LOG=1`, `HOST_AICA_READS=1` | the sound's cost, its state once a second, the ARM7's register reads |
+| `HOST_STREAM_PROBE=1` | the music streams' rings once a second: chunks the voice played again unwritten (stale), the game's lead over the voice (Xbox) |
 | `HOST_WATCH=SYMBOL` | logs a 1ST_READ.BIN variable when it changes |
 | `HOST_BREAK=SYMBOL[+OFFSET]` | a hardware write watch on a variable (Xbox) |
 | `HOST_WHERE=1` | prints where the game is every five seconds (PC) |
@@ -101,7 +100,7 @@ Drawing checks:
 | `HOST_VIDEO_DUMP=FRAME`, `HOST_VIDEO_DUMP_LINES=N`, `HOST_VIDEO_DUMP_LIT=1` | logs the draws' state from that frame (Xbox) |
 | `HOST_VIDEO_DUMP_REPORT=1` | each report also dumps the next frame's draws (Xbox) |
 | `HOST_DUMP=1` / `2` | with `HOST_SHOT`, logs the next frame's strips / and vertices (PC) |
-| `HOST_GPU_MODELS=N` | which models the NV2A takes: bit 0 opaque, 1 translucent, 2 kept, 3 the box test, 4 lit by the NV2A (31 by default; 0 sends every model through the lists) |
+| `HOST_GPU_MODELS=N` | which draws the NV2A takes as the port's runs: bit 0 opaque models, 1 translucent, 2 kept, 3 the box test, 4 lit by the NV2A, 5 the walk's projected and clipped meshsets, 6 SA1's other live draws: sprites, screen polygons, 2D polygons and lines, 3D lines, Ninja's print and easy models (127 by default; 0 sends every model through the lists) |
 | `HOST_ARENA=N` | the models' arena in vertices, to test the drawer past its room (PC) |
 | `HOST_FOG_TABLE=0`, `HOST_DEPTH_BOTTOM=0`, `HOST_GUARD=N`, `HOST_CULL_FLIP=1` | the fog table, the depth's bottom piece, the guard band, the culled face (for tests) |
 | `HOST_NO_PACK=1`, `HOST_PACK=PATH`, `HOST_TEXTURE_KEYS=1` | textures without the pack, the pack to use (PC), the keys asked for |
@@ -150,15 +149,15 @@ The build runs on Linux; on Windows it runs under WSL2. Install what `dependenci
 
 ```sh
 make check              # downloads wibo and SHC, builds the matching images
-make gcc                # GCC 16.2 for SH-4 (long, first time), make gcc's images and link spec
+make dc                 # GCC 16.2 for SH-4 (long, first time), the Dreamcast port's images and link spec
 build/gdi extract "orig/sonic.gdi" build/disc
-make pc pc-link pc-disc pc-host   # the x86 images and the PC host
-make pc-run                 # the game on the PC
+make xbox-pc-test xbox-pc-test-link xbox-pc-test-host   # the x86 images and the PC test host
+make xbox-pc-test-run       # the game on the PC test host
 make xbox               # the Xbox host and the console's folder, build/xbox/iso/
 make xbox-disc          # and build/xbox/sonic.iso from it
 ```
 
-- Expected: `pc` reports `compiled 3353 of 3356 objects` (two `kmsurfac` sources and `syCache`, which the port replaces); `pc-link` reports `253 images linked; 0 over their areas`.
+- Expected: `xbox-pc-test` reports `compiled 3355 of 3357 objects` (the loader's `kmsurfac` workaround and `syCache`, which the port replaces); `xbox-pc-test-link` reports `253 images linked; 0 over their areas`.
 - The Xbox host builds with nxdk at `~/refs/nxdk` (`NXDK_DIR`). `xbox/host/xbox/run.sh` applies the port's two pbkit patches (`xbox/third_party/nxdk-pbkit-back-buffers.patch` and `xbox/third_party/nxdk-pbkit-lost-swap.patch`) to that checkout once. It clones nxdk-audio from https://github.com/Ryzee119/nxdk-audio to `~/refs/nxdk-audio` (`NXDK_AUDIO_DIR`) at the port's revision and applies `xbox/third_party/nxdk-audio-loop-start.patch` once.
 - On native Linux, run `build/xbox/sonic.iso` in a Linux build of xemu by hand: `run.sh`'s automated xemu runs drive the Windows xemu through PowerShell.
 - The PC host's keyboard: arrows the stick; I, J, K, L the d-pad; Z, X, A, S are A, B, X, Y; Q, W the triggers; Enter Start; Esc quits.
@@ -176,16 +175,25 @@ make xbox-disc          # and build/xbox/sonic.iso from it
 - **A renderer without the tile accelerator's lists:** runs handed straight to the host instead of written into Kamui's lists and read back.
 - **More work on the NV2A:** clipping by the NV2A instead of the drawer.
 - **Performance:** a profiled console run after the x87 FIPR and FTRV; packed SSE where the original's operations are separate floats; the push buffer (937 of 1,024 KB in Speed Highway's third act).
-- **Sound:** the sound engine is only in its early stages and needs more work.
 - **Memory:** account for the free pages; give the textures' pool and the arenas more room.
 - **Movies:** their room, and a run on the console.
 - **Tooling:** a set of frames compared on the PC by one command; the sound compared with Flycast again; an FTP push to the console.
 
+## Upstream
+
+The tree is upstream's 6e5a40e (reshaped/sonic-adventure), merged on 2026-11-20 into the port's first commit, deb4c2a, which forked from 25a3d31. The port follows upstream's Dreamcast port, `make dc`, not its native PC game: its C, guards and composition (`config/dreamcast.mk`), compiled for x86 under `NONMATCHING` and `XBOX`, never `DREAMCAST`. To take a newer upstream, apply `git diff 6e5a40e NEW` to the tree, then check `make check`, `make dc`, `make xbox-pc-test xbox-pc-test-link` and an xemu run.
+
+- **Shipped sides:** `polygon.c`'s console rewrites (`engine/tools/marks.py`'s `CONSOLE`, by `tools/pcconsole.py`) take their shipped side, as upstream's native game does.
+- **The drawer:** every one of upstream's live draws (`sa_present_live`'s formats) goes to the renderer as a run, the host's own vertices, rather than as the tile accelerator's in Kamui's lists; the lists keep each draw's header and the run's mark, in the draws' order (`xbox/engine/sa1/emit.h`). Models draw through upstream's layer, `src/draw/model.c`, into the port's walk, `xbox/engine/sa1/model.c`, the old make gcc drawer with its GPU path, which projects and clips on the CPU what the NV2A can't take whole. Sprites, screen polygons, 2D polygons and lines, 3D lines and easy models run upstream's sends unchanged, through thin wrappers in `xbox/engine/sa1/` and `xbox/engine/sa1/strip.h`, with small `XBOX` branches in `engine/dc/sa1/sprite.h`, `engine/dc/sa1/easy.h` and `engine/dc/njsprite.h`; the easy models' kernel is `xbox/engine/batch.h`'s C. Ninja's print is one run a print (`sdk/ninja/njDebug.c`). `xbox/engine/` comes before `engine/dc/` on the include path, so a header there takes the place of the Dreamcast's. Still in the lists: Ninja's own draws outside those formats, as `njDrawTriangle3D` and `njDrawPolygon3D`, a few dozen vertices a frame in the demos.
+- **SH4ZAM:** the Dreamcast engine's sprites and screen polygons run SH4ZAM's software back end, on the port's XMTRX (`xbox/port/xmtrx.c`), with `xbox/include/zam_xbox.h` in place of `ninja_zam.h`'s helpers.
+- **Left out:** `engine/dc/owner.c` (the port's Kamui owns the frame) and `engine/dc/crash.c` (`port_stop` logs and exits).
+- **Not yet re-applied:** the port's split-frame view fix (a far sai, the amenbo's start step) on upstream's reworked `present.c`; re-apply it if those return.
+
 ## How the port was made
 
-The port started from the GCC port, not the matching build: [GCC.md](GCC.md) already replaces three `.src` files with C and keeps SHC's results under guards. The port defines `XBOX` and compiles with `GCC` defined too.
+The port started from the GCC port, now upstream's Dreamcast port, not the matching build: [PORTS.md](PORTS.md) replaces `.src` files with C and keeps SHC's results under guards. The port defines `XBOX` and compiles with `NONMATCHING` defined too, never `DREAMCAST`.
 
-- **Stage 0, the PC build:** `make pc` compiles every C source for i386 with Clang, SSE math, the float pass and the guards.
+- **Stage 0, the PC build:** `make xbox-pc-test` (then `make pc`) compiles every C source for i386 with Clang, SSE math, the float pass and the guards.
 - **Stage 1, no SH-4 code:** every game `.src` file but the movie player's became C in `xbox/`, each checked by `xbox/test/run.sh` under `qemu-sh4` against the original assembly. Ninja's inline bodies became C by `tools/sh4lift.py` and `tools/sh2c.py`.
 - **Stage 2, the images on x86:** each image linked at its area and loaded as a file; the host and the port layer.
 - **Stage 3, graphics:** Ninja's interface kept, Kamui's lists drawn by the port's renderer; movies through pl_mpeg.

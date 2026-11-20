@@ -50,7 +50,15 @@ static NJS_POINT3 e102_sphere_points[BANDS * PAIRS * 2];
 static NJS_VECTOR e102_sphere_normals[BANDS * PAIRS * 2];
 /* one strip per band: its count of points, then their indexes */
 static Sint16 e102_sphere_strips[BANDS * (1 + STRIP_POINTS)];
+#ifdef NONMATCHING
+/* the sphere's meshset points its vertuv here, and model.c's strips read each
+ * u and v pair as one longword, which faults on an address off 4. GCC aligns
+ * this array only to its Sint16s */
+static Sint16 e102_sphere_uvs[BANDS * STRIP_POINTS * 2]
+    __attribute__((aligned(4)));
+#else
 static Sint16 e102_sphere_uvs[BANDS * STRIP_POINTS * 2];
+#endif
 
 static Float e102_sphere_size_max = 20.0F;
 

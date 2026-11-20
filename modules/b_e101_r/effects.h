@@ -15,8 +15,8 @@ void e101_mk2_lightning_near(NJS_POINT3 *pos, Float range);
  * give or take up to 1 along each axis */
 void e101_mk2_thrust_puff(NJS_POINT3 *pos, NJS_VECTOR *dir);
 /* a beam of light length long from pos, swinging at random. the beam keeps
- * pos, which must outlive it. when no task can be made, beam_create stores
- * through null */
+ * pos, which must outlive it. when no task can be made, the image's
+ * beam_create stores through null, and a port's makes no beam */
 void e101_mk2_light_burst(NJS_POINT3 *pos, Float length);
 /* a bomb's white puff up to range from pos along each axis. its scale is
  * random, from 0.3 to 0.7 */

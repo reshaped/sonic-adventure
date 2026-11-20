@@ -208,9 +208,9 @@ static void spring_launch(struct task *task, Uint8 along_angles)
      * player off the ground, and its FALSE goes unread. the test below then
      * reads speed's frame slot unwritten (FMOV.S @(R0,R15),FR3 at
      * 0x8c069306, R0 4) */
-#ifdef GCC
-    /* repairs the unset speed the tag names: GCC starts it at 0, a still
-     * player's speed, so the test below takes a player off the ground as
+#ifdef NONMATCHING
+    /* repairs the unset speed the tag names: this side starts it at 0, a still
+     * player's speed. the test below then takes a player off the ground as
      * slow */
     speed = 0.0F;
 #endif

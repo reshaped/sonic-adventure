@@ -1,0 +1,2 @@
+datum  event_eggmobile_motion  D  0x00000000  12
+datum  event_eggmobile_action  D  0x0000000c  8

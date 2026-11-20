@@ -51,11 +51,25 @@ static Bool arm_pose(Float frame, NJS_POINT3 *point, Angle *angle)
      * holds it on 4. matrix is room's address rounded down to 8: room itself,
      * or pad, the 4 bytes below it. the matrix fits from either. the struct
      * keeps matrix ahead of pad and room in the frame, as the image has it */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    /* GCC warns of this struct, which aligns only to 4 and holds an
+     * NJS_MATRIX (njtypes.h). only the address rounded down to 8 reaches
+     * Ninja, so the warning is off around the struct */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wif-not-aligned"
+#endif
+#endif
     struct {
         NJS_MATRIX *matrix;
         Float pad;
         NJS_MATRIX room;
     } pose;
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#pragma GCC diagnostic pop
+#endif
+#endif
     NJS_POINT3 center;
     NJS_VECTOR up;
     Float *at;

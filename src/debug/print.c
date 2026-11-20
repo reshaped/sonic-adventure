@@ -15,6 +15,7 @@ int debug_print(Int loc, const char *format, ...)
 
     va_start(args, format);
     count = vsprintf(debug_print_buffer, format, args);
+    va_end(args);
     njPrintC(loc, debug_print_buffer);
     return count;
 }

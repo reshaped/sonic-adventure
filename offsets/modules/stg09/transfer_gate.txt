@@ -1,0 +1,8 @@
+datum  transfer_gate_card_faces  D  0x00000000  180
+datum  transfer_gate_card_posts  D  0x000000b4  104
+datum  transfer_gate_card_lights  D  0x0000011c  32
+datum  transfer_gate_slot_faces  D  0x0000013c  120
+datum  transfer_gate_slot_posts  D  0x000001b4  104
+datum  transfer_gate_slot_lights  D  0x0000021c  16
+datum  transfer_gate_slot  D  0x0000022c  32
+datum  transfer_gate_card  D  0x0000024c  32

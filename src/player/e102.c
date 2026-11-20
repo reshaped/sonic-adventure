@@ -35,9 +35,6 @@
 #include "player/textures.h"
 #include "sound/sound.h"
 #include "stage/stage.h"
-#ifdef GCC
-#include "system/frame.h"
-#endif
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/texture.h"
@@ -530,11 +527,11 @@ static NJS_OBJECT *e102_arm_objects[] = {
 static Float e102_height_above_cannon = 15.0F;
 /* a point in a node's space. e102_draw passes it, with e102_node_point_z after
  * it, as the NJS_POINT3 it puts through the node's matrix */
-#ifdef GCC
-/* one NJS_POINT3 under GCC, so that z is the point's own. GCC inlines
+#ifdef NONMATCHING
+/* one NJS_POINT3 here, so that z is the point's own. GCC inlines
  * njCalcPoint, whose read of z lies past an NJS_POINT2. GCC may assume that
- * read touches no other object, and so move a store to e102_node_point_z
- * past it, or drop the store */
+ * read touches no other object. it may then move a store to
+ * e102_node_point_z past the read, or drop the store */
 static NJS_POINT3 e102_node_point = {0.0F, 0.0F, 0.0F};
 #define e102_node_point_z e102_node_point.z
 #else
@@ -2432,7 +2429,7 @@ static void e102_draw(struct task *task)
      * njCalcVector loads for each call, and 365 of 862 words differ */
     Bool (*push)(NJS_MATRIX *matrix);
     void (*calc_vector)(NJS_MATRIX *matrix, NJS_VECTOR *from, NJS_VECTOR *to);
-#ifdef GCC
+#ifdef NONMATCHING
     /* the split frame's second picture draws from a copy of his own record,
      * so that the cannon's turn, the draws left to aim and the phases of his
      * glow and bob stay as his steps left them */
@@ -3805,9 +3802,9 @@ static void e102_skate(struct task_work *work, struct task_motion *motion,
     Bool pushed;
 
     e102_turn(work, motion, record);
-#ifdef GCC
-    /* repairs the unset stroke the tag below names: GCC's stroke starts at
-     * 0, a let-go stick's, so a call that leaves it as it was leaves 0 */
+#ifdef NONMATCHING
+    /* repairs the unset stroke the tag below names: this side starts it at 0,
+     * a let-go stick's stroke */
     stroke = 0.0F;
 #endif
     pushed = player_read_stick(work, NULL, &stroke);

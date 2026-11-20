@@ -524,8 +524,9 @@ static void fruit_show(struct task *task, struct lockon_target *record)
      * alife_camera_distance_squared returns it in FR0 and never writes R0. R0
      * still holds 44, scl.x's offset, from MOV #44,R0 at 0x0c919958 before the
      * call at 0x0c91995e, so no fruit is culled for its distance */
-#ifdef GCC
-    /* keeps the play the tag names: GCC culls no fruit for its distance */
+#ifdef NONMATCHING
+    /* keeps the play the tag names: this side culls no fruit for its
+     * distance */
 #else
     if (alife_camera_distance_squared_int(&work->pos) > 10000.0F) {
         return;

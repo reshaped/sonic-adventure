@@ -1,5 +1,6 @@
 #include <string.h>
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
 #include <zam.h>
 #include <sh4zam/shz_mem.h>
 #include <stdbool.h>
@@ -73,18 +74,21 @@ static __attribute__((noinline)) void *set_pairs(void *s, int c, size_t n)
     return s;
 }
 #endif
+#endif
 
 void *memset(void *s, int c, size_t n)
 {
     size_t i;
     unsigned char *to = s;
 
-#ifdef GCC
+#ifdef DREAMCAST
+#ifdef NONMATCHING
     /* only a block in system RAM is set by pairs. shz_memset8's stores are
      * 64-bit, and a 32-bit register isn't known to take them */
     if (n >= SET_PAIRS_FROM && in_system_ram((uintptr_t)s)) {
         return set_pairs(s, c, n);
     }
+#endif
 #endif
     for (i = 0; i < n; ++i) {
         *to++ = (unsigned char)c;

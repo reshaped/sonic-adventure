@@ -1,0 +1,14 @@
+datum  program_table  D  0x00000000  48
+datum  row_texnames  D  0x00000030  48
+datum  menu_row_texlist  D  0x00000060  8
+datum  column_texnames  D  0x00000068  36
+datum  menu_column_texlist  D  0x0000008c  8
+datum  menu_default_sounds  C  0x00000018  20
+datum  menu_open_scales  C  0x0000002c  128
+datum  menu_close_scales  C  0x000000ac  128
+datum  menu_keys  C  0x0000012c  16
+datum  program_mode  B  0x00000000  4
+datum  program_count  B  0x00000004  4
+datum  program_cursor  B  0x00000008  4
+datum  program_selected  B  0x0000000c  4
+datum  menu_task  B  0x00000010  4

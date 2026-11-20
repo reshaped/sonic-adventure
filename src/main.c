@@ -28,6 +28,7 @@
 #include "system/frame.h"
 #include "system/history.h"
 #include "system/loader.h"
+#include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/sbinit.h"
 #include "system/texture.h"
@@ -52,19 +53,26 @@
 
 extern Sint8 texture_buffer[];
 extern NJS_MATRIX matrix_stack[];
-#ifdef GCC
+#ifdef NONMATCHING
 /* 1ST_READ.BIN's tables place the two in B32, the bss whose objects start
- * on a 32-byte boundary, where no source holds them. the port defines them
- * here, on a 32-byte boundary too */
+ * on a 32-byte boundary. no source of the image defines them. this side
+ * defines them here, on a 32-byte boundary too */
 Sint8 texture_buffer[TEXTURE_BUFFER_SIZE] __attribute__((aligned(32)));
+_Static_assert(DRAW_SCRATCH_SIZE <= TEXTURE_BUFFER_SIZE,
+               "the draws' scratch may run past texture_buffer");
 NJS_MATRIX matrix_stack[MATRIX_DEPTH] __attribute__((aligned(32)));
-/* draw_lights holds model.src's MOST_LIGHTS point lights of LT_SIZE bytes,
- * and draw_work its work, which ends with the three halfwords at ENV_INDEX,
- * byte 472. 1ST_READ.BIN's tables name both past its image, and
- * config/1st_read/census.txt places them in this source. GCC's renderer,
- * which replaces model.src, reads neither */
-Uint32 draw_lights[96];
-Uint32 draw_work[120];
+/* model.src's .EQUs, which C can't see */
+#define MOST_LIGHTS 16
+#define LT_SIZE 24
+#define ENV_INDEX 472
+/* draw_lights holds model.src's MOST_LIGHTS point lights of LT_SIZE bytes.
+ * draw_work holds its work, which ends with three halfwords at byte
+ * ENV_INDEX. 1ST_READ.BIN's tables name both past its image, and
+ * config/1st_read/census.txt places them in this source. on this side
+ * model.c replaces model.src, and nothing reads either */
+Uint32 draw_lights[MOST_LIGHTS * LT_SIZE / sizeof(Uint32)];
+Uint32 draw_work[(ENV_INDEX + (3 * sizeof(Uint16)) + sizeof(Uint32) - 1) /
+                 sizeof(Uint32)];
 #endif
 /* the address main reads LOADER.BIN to, and LOADER.BIN's entry */
 extern char loader_buffer[];
@@ -122,7 +130,7 @@ void main(void)
          * in R8 (0x8c056cd8 to 0x8c056ce6); read in the call, 24 of 113 words
          * differ */
         sectors = SECTORS(size);
-        gdFsRead(file, sectors, loader_buffer);
+        LOADER_MUST_READ(file, name, sectors, loader_buffer);
         gdFsClose(file);
         game_release_textures();
         sbExitSystem();
@@ -365,7 +373,7 @@ int game_mode_step(void)
              * never returns, so that SHC jumps to syBtExit last (0x8c057354);
              * with return 0, the jump becomes a call and 65 of 812 words
              * differ */
-#ifdef GCC
+#ifdef NONMATCHING
             return 0;
 #else
             return; /* NOLINT(clang-diagnostic-return-mismatch) */

@@ -1,0 +1,2 @@
+datum  big_star_frames  D  0x00000000  160
+datum  big_star_sprite  B  0x00000000  32

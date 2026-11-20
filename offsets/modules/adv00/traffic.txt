@@ -1,0 +1,16 @@
+datum  car_actions  D  0x00000000  16
+datum  car_colors  D  0x00000010  24
+datum  traffic_roads  D  0x00000028  8
+datum  car_shapes  D  0x00000030  208
+datum  car_kinds  D  0x00000100  96
+datum  office_cars  D  0x00000160  64
+datum  station_cars  D  0x000001a0  96
+datum  traffic_groups  D  0x00000200  32
+datum  dat_0cab3260  D  0x00000220  16
+datum  car_lookaheads  D  0x00000230  12
+datum  car_headlights  C  0x00000000  96
+datum  car_tail_lights  C  0x00000060  96
+datum  first_crossing_cars  B  0x00000000  4
+datum  second_crossing_cars  B  0x00000004  4
+datum  traffic_light  B  0x00000008  4
+datum  light_time  B  0x0000000c  4

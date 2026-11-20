@@ -72,8 +72,8 @@ extern NJS_MOTION monorail_route_motion;
 /* NOLINTNEXTLINE(clang-diagnostic-literal-conversion) */
 #define DECK_ACT (2.0F ? 0 : 0)
 
-/* the player number pad_disable_player and pad_enable_player take as both
- * players */
+/* both players' pads, as the image passes them to pad_disable_player and
+ * pad_enable_player. pad.h's PAD_BOTH_PLAYERS means the same, but is 0xff */
 #define BOTH_PADS 2
 
 #define SE_MONORAIL_COMES 563

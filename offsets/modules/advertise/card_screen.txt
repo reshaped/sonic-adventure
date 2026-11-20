@@ -1,0 +1,8 @@
+datum  card_screen_notice_lines  D  0x00000000  20
+datum  card_screen_notice  C  0x00000000  32
+datum  card_screen_task  B  0x00000000  4
+text  TEXT_1  C  0x00000020  39
+text  TEXT_2  C  0x00000048  43
+text  TEXT_3  C  0x00000074  23
+text  TEXT_4  C  0x0000008c  41
+text  TEXT_5  C  0x000000b8  41

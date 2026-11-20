@@ -1,0 +1,4 @@
+datum  knuckles_hint_pages  C  0x00000000  16
+datum  knuckles_hint_pick  C  0x00000010  12
+datum  knuckles_hint_modes  C  0x0000001c  12
+text  TEXT_1  C  0x00000028  12

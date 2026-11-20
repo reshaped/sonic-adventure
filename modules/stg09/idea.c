@@ -53,9 +53,9 @@ static void idea_draw(struct task *task)
     casino_set_texture(CASINO_TEXTURES_ACTS_34);
     if (pinball_idea_draws >= PINBALL_IDEA_DRAWS) {
         pinball_idea_draws = PINBALL_IDEA_DRAWS;
-#ifdef GCC
-        /* repairs the read the tag names: GCC draws no next piece once all
-         * PINBALL_IDEAS are in place */
+#ifdef NONMATCHING
+        /* repairs the read the tag names: this side draws no next piece once
+         * all PINBALL_IDEAS are in place */
         if (!(casino_flags & CASINO_IDEA_CARRIED) &&
             pinball_ideas < PINBALL_IDEAS) {
 #else

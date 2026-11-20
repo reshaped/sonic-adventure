@@ -962,7 +962,7 @@ static void icon_row_step(struct task *task)
     Float scale;
     int i;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* the port's 16:9 squeezes the row about the screen's right edge */
     port_wide_anchor = WIDE_RIGHT;
 #endif
@@ -1030,7 +1030,7 @@ static void icon_row_step(struct task *task)
         }
         break;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }
@@ -1089,7 +1089,7 @@ static void icon_row_release(struct task *task)
             }
             icon_count--;
         }
-#ifdef GCC
+#ifdef NONMATCHING
         port_wide_anchor = WIDE_RIGHT;
 #endif
         for (i = 0; i < icon_count; i++) {
@@ -1103,7 +1103,7 @@ static void icon_row_release(struct task *task)
                 njDrawSprite2D(&icon_sprite, kind, -1.0F, 0);
             }
         }
-#ifdef GCC
+#ifdef NONMATCHING
         port_wide_anchor = WIDE_MIDDLE;
 #endif
         break;

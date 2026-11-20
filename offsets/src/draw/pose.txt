@@ -1,0 +1,6 @@
+datum  axis_points  D  0x00000000  72
+datum  axis_colors  D  0x00000048  24
+datum  axes  D  0x00000060  16
+datum  pose_matrices  B  0x00000000  8192
+datum  pose_count  B  0x00002000  4
+datum  pose_limit  B  0x00002004  4

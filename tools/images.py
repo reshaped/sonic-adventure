@@ -32,6 +32,10 @@ from tool import fail
 # the directories that hold the game and SDK sources, as the Makefile's ROOTS
 # names them
 ROOTS = ('src', 'sdk', 'modules', 'events', 'loader')
+# the directories that hold a source of any build: ROOTS, and engine/, which
+# holds the engine's, the Dreamcast engine's C among them, which GCC compiles
+# in place of a .src file or after an image's own sources
+SOURCE_ROOTS = (*ROOTS, 'engine')
 CONFIG = Path('config')
 FIRST = CONFIG / '1st_read'
 # 1ST_READ.BIN's base, where it links and loads; the starts of P, C, PSG and

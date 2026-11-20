@@ -1,0 +1,14 @@
+datum  ev0087_emerald_textures  D  0x00000000  12
+datum  ev0087_emerald_texlist  D  0x0000000c  8
+datum  dat_0cba9104  D  0x00000014  32
+datum  dat_0cba9124  D  0x00000034  32
+datum  dat_0cba9144  D  0x00000054  32
+datum  dat_0cba9164  D  0x00000074  32
+datum  dat_0cba9184  D  0x00000094  32
+datum  dat_0cba91a4  D  0x000000b4  32
+datum  dat_0cba91c4  D  0x000000d4  32
+datum  dat_0cba91e4  D  0x000000f4  32
+datum  dat_0cba9204  D  0x00000114  32
+datum  dat_0cba9224  D  0x00000134  120
+datum  dat_0cba929c  D  0x000001ac  12
+text  TEXT_1  C  0x00000000  16

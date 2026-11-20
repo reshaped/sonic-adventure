@@ -1,0 +1,7 @@
+datum  eggmobile3_object_kinds  DHEAD  0x00000000  100
+datum  eggmobile3_object_list  DHEAD  0x00000064  8
+text  TEXT_1  CHEAD  0x00000000  8
+text  TEXT_2  CHEAD  0x00000008  9
+text  TEXT_3  CHEAD  0x00000014  10
+text  TEXT_4  CHEAD  0x00000020  9
+text  TEXT_5  CHEAD  0x0000002c  10

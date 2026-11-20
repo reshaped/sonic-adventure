@@ -161,6 +161,13 @@ static int reflect_draw(struct task *task)
 
 static void reflect_parent_draw(struct task *task)
 {
+#ifdef NONMATCHING
+    /* the second picture's pass calls no killed task's callback, so the
+     * mirrors draw no killed parent either */
+    if (frame_redrawing && task->parent->step == task_destroy) {
+        return;
+    }
+#endif
     reflect_draw(task->parent);
 }
 

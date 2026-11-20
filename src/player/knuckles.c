@@ -279,6 +279,9 @@ enum {
 #define HANG_FRAMES 64.0F
 #define LEDGE_FRAMES 32.0F
 #define HANG_PACE 2.0F
+/* his third punch's swing draws from frame SWING_START to below SWING_END */
+#define SWING_START 20.0F
+#define SWING_END 30.0F
 
 /* his task's work->vars. player_vars' player and character come first, and
  * depth shares the bytes of player_vars' arg */
@@ -3074,6 +3077,22 @@ static void knuckles_draw(struct task *task)
     int i;
     int timer;
 
+#ifdef NONMATCHING
+    /* knuckles_punch draws the swing on step 0 alone, before
+     * player_anim_step moves the frame on by the action's speed. a split
+     * frame is a frame of play shown as two pictures. its second draws the
+     * swing here, at the action's frame step 1 began with */
+    if (frame_redrawing && work->mode == KNUCKLES_PUNCH &&
+        record->anim.action == ACTION_PUNCH_3) {
+        Float swing =
+            record->anim.frame - record->anim.actions[ACTION_PUNCH_3].speed;
+
+        if (swing >= SWING_START && swing < SWING_END) {
+            knuckles_draw_swing(&work->collision->shapes->center, &work->ang,
+                                swing);
+        }
+    }
+#endif
     if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 20.0F)) {
         return;
     }
@@ -4958,7 +4977,7 @@ static void knuckles_punch_next(struct task_work *work,
 /* play the punch he throws. on the frames knuckles_punches gives it, his
  * fist's shape strikes, its wave sets out and his fist flashes. it sounds
  * as it starts to strike. his third punch drives him on from frame 15,
- * raising dust and a swing from frame 20 to 30 */
+ * raising dust and a swing from SWING_START to SWING_END */
 static void knuckles_punch(struct task_work *work, struct task_motion *motion,
                            struct player *record)
 {
@@ -4969,9 +4988,9 @@ static void knuckles_punch(struct task_work *work, struct task_motion *motion,
 
     if (record->anim.action == ACTION_PUNCH_3) {
         if (record->anim.frame >= 15.0F) {
-            if (record->anim.frame < 20.0F) {
+            if (record->anim.frame < SWING_START) {
                 record->speed.x = (record->anim.frame - 15.0F) * 0.8F;
-            } else if (record->anim.frame < 30.0F) {
+            } else if (record->anim.frame < SWING_END) {
                 record->speed.x = 4.0F;
                 pos = work->pos;
                 pos.y += 2.0F;
@@ -5670,7 +5689,14 @@ static Bool knuckles_look_create(Sint8 player, NJS_OBJECT **nodes)
      * success's BRA at 0x8c0d13ac skips). as an early return, SHC puts it
      * ahead of that path, and 16 of 46 words differ */
     if ((task = task_create(TASK_WORK, 2, knuckles_look_step)) != NULL) {
+#ifdef NONMATCHING
+        /* repairs the unset angles the tag in player_look_turn_head names.
+         * heap_calloc clears the look, so the first turn eases the head and
+         * eyes from 0, straight ahead */
+        if ((look = heap_calloc(1, sizeof(*look))) == NULL) {
+#else
         if ((look = heap_alloc(sizeof(*look))) == NULL) {
+#endif
             task_kill(task);
             return FALSE;
         }
@@ -5686,8 +5712,9 @@ static Bool knuckles_look_create(Sint8 player, NJS_OBJECT **nodes)
      * MOV #96,R0 at 0x8c0d13a8 loads as the last store's offset, so the
      * function returns 96. its one caller drops the result, so with return
      * TRUE, 7 of 46 words differ */
-#ifdef GCC
-    /* repairs the return the tag names: GCC's is TRUE, for the task made */
+#ifdef NONMATCHING
+    /* repairs the return the tag names: this side's is TRUE, for the task
+     * made */
     return TRUE;
 #endif
 }
@@ -5815,7 +5842,7 @@ static void knuckles_look_step(struct task *task)
             vector_get_angles(&direction, &facing, angles);
             break;
         case EVENT_LOOK_TASK:
-#ifdef GCC
+#ifdef NONMATCHING
             /* repairs angles[1] and [2], which the shipped code leaves
              * unset with no task, or a task with no work. the BRA at
              * 0x8c0d170c skips to the aims, which read them at 0x8c0d180c
@@ -6094,7 +6121,7 @@ static void knuckles_icon_step(struct task *task)
         return;
     }
     alpha = 1.0F;
-#ifdef GCC
+#ifdef NONMATCHING
     /* 16:9 squeezes the icon about the screen's right edge */
     port_wide_anchor = WIDE_RIGHT;
 #endif
@@ -6138,7 +6165,7 @@ static void knuckles_icon_step(struct task *task)
         }
         break;
     }
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }
@@ -6217,14 +6244,14 @@ static void knuckles_taken_icon_step(struct task *task)
     progress = TASK_TIMER(work) * ICON_FLIGHT_SHARE;
     work->scl.x = (progress * (ICON_ENTRY_X - work->pos.x)) + work->pos.x;
     work->scl.y = (progress * progress * (ICON_Y - work->pos.y)) + work->pos.y;
-#ifdef GCC
+#ifdef NONMATCHING
     /* 16:9 squeezes the sprite about a pivot that travels with it. the
      * pivot moves from the screen's middle, the radar's pivot, to the
      * screen's right edge, the pivot knuckles_icon_step gives the icon */
     port_wide_anchor = progress * WIDE_RIGHT;
 #endif
     knuckles_draw_radar_sprite(&work->scl, 3, 0.5F, 0.5F);
-#ifdef GCC
+#ifdef NONMATCHING
     port_wide_anchor = WIDE_MIDDLE;
 #endif
 }
@@ -6296,7 +6323,7 @@ static void knuckles_radar_step(struct task *task)
     }
     work->tick++;
     best = 800.0F;
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that best falls to 400 or below only where the loop
      * sets best_piece */
     best_piece = 0;

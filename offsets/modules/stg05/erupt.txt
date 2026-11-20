@@ -1,0 +1,8 @@
+datum  erupt_puff_origin  C  0x00000000  12
+datum  erupt_shapes  D  0x00000000  104
+datum  erupt_blast_shape  D  0x00000068  52
+datum  erupt_vents  D  0x0000009c  60
+datum  erupt_puff_params  D  0x000000d8  60
+datum  erupt_poses  D  0x00000114  396
+datum  erupt_rocks  D  0x000002a0  24
+datum  erupt_rock_flame  D  0x000002b8  60

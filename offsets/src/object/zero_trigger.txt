@@ -1,0 +1,5 @@
+datum  zero_trigger_colors  C  0x00000000  192
+datum  zero_trigger_names  D  0x00000000  32
+datum  zero_trigger_line_colors  D  0x00000020  8
+datum  zero_trigger_line  D  0x00000028  16
+datum  zero_trigger_line_points  B  0x00000000  24

@@ -17,6 +17,8 @@ Float sprite_get_depth(void);
  * attr the sprite faces the screen, and otherwise lies in the plane
  * z = sprite->p.z. NJD_SPRITE_ALPHA draws it translucent, and
  * NJD_SPRITE_COLOR colors it with the constant material in place of white.
+ * on the Dreamcast attr must hold NJD_SPRITE_ALPHA: the draw sends a strip's
+ * vertices ahead of its header, which only a list buffered in RAM takes.
  * NJD_SPRITE_ANGLE turns it by sprite->ang, and NJD_SPRITE_HFLIP and
  * NJD_SPRITE_VFLIP flip its texture. a facing sprite's height scales by
  * sprite->sx, not sprite->sy */

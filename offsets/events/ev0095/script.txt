@@ -1,0 +1,11 @@
+datum  ev0095_light_points  D  0x00000000  1776
+datum  ev0095_light_path  D  0x000006f0  8
+datum  ev0095_light  D  0x000006f8  4
+datum  ev0095_fade  D  0x000006fc  4
+datum  ev0095_textures  D  0x00000700  8
+text  TEXT_1  C  0x00000004  31
+text  TEXT_2  C  0x00000028  43
+text  TEXT_3  C  0x00000058  10
+text  TEXT_4  C  0x00000000  3
+text  TEXT_5  C  0x00000024  4
+text  TEXT_6  C  0x00000054  3

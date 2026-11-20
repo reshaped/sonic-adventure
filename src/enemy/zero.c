@@ -98,9 +98,11 @@ enum zero_mode {
 /* the lock lets go once Amy's middle is farther than LOCK_RANGE from Zero */
 #define LOCK_RANGE 200.0F
 
-/* the frames on which the stomp's foot lands and the hand leaves */
+/* the frames on which the stomp's foot lands, the hand leaves and the beam
+ * starts */
 #define STOMP_FRAME 8.0F
 #define THROW_FRAME 16.0F
+#define BEAM_FRAME 19.0F
 
 #define CHAIN_POINTS 16
 
@@ -392,6 +394,11 @@ static NJS_POINT3 zero_sweep_points[4];
 static NJS_POINT3 zero_scorch_points[2];
 static int zero_event_grab_state;
 static NJS_POINT3 zero_event_grab_pos;
+#ifdef NONMATCHING
+/* TRUE where step 1 drew Zero for the second picture, until zero_draw runs
+ * on step 0 */
+static Bool zero_drawn_late;
+#endif
 
 static struct player_action zero_actions[21] = {
     {&zero_hit_behind_action, 48, PLAYER_ANIM_ONCE_PACE, 1, 1.0F, 1.0F},
@@ -1033,7 +1040,7 @@ static void zero_step(struct task *task)
         case ZERO_ACT_BEAM:
             if (frame <= 1.0F) {
                 zero_beam_reset();
-            } else if (frame >= 19.0F) {
+            } else if (frame >= BEAM_FRAME) {
                 if (--VARS(work)->timer > 0) {
                     zero_beam(task);
                     if (zero_locked == TRUE && VARS(work)->timer > 60) {
@@ -1596,20 +1603,57 @@ static void zero_draw(struct task *task)
     Float red;
     Float green;
     Float blue;
-#ifdef GCC
-    /* the split frame's second picture puts the bob back once Zero is
-     * drawn, so that the bob, which zero_beam's and zero_find_arm_end's
-     * poses translate by, stays as the steps left it */
+#ifdef NONMATCHING
+    /* the second picture's pass, and step 1 where it draws Zero, restore
+     * the bob. zero_beam's and zero_find_arm_end's poses translate by it */
     Float bob = zero_bob_object.pos[1];
+    Uint32 bob_flags = zero_bob_object.evalflags;
+    Float alpha = ALPHA(task->work);
 #endif
 
+#ifdef NONMATCHING
+    /* step 1 draws the hand in ZERO_THROW and ZERO_REEL, where port.h's
+     * FRAME_DRAWS says. the second picture's pass then skips this callback,
+     * so step 1 draws Zero too. the pass's calls after that, Zero's own and
+     * its reflections', draw nothing. a fully hurt Zero draws through Ninja,
+     * which marks no task, so the pass still makes those calls */
+    if (frame_redrawing && zero_drawn_late) {
+        return;
+    }
+    if (frame_step != 0 &&
+        !(FRAME_DRAWS() &&
+          (task->work->mode == ZERO_THROW || task->work->mode == ZERO_REEL))) {
+        return;
+    }
+    zero_drawn_late = frame_step != 0;
+    present_untimed(TRUE);
+#else
     if (frame_step != 0) {
         return;
     }
+#endif
     /* @hack spelling: two statements as one comma expression, which puts 1.0F
      * in FR15 (FLDI1 FR15 at 0x8c1138fa); as two, FR14 takes it and 14 of
      * 195 words differ */
     work = task->work, zero_bob_object.evalflags |= NJD_EVAL_UNIT_POS;
+#ifdef NONMATCHING
+    /* Zero's reflections draw it opaque in zero_step, so the pass's calls
+     * for them do too */
+    if (frame_redrawing && !present_drawing(task)) {
+        ALPHA(work) = 1.0F;
+    }
+    /* zero_beam draws the beam on step 0 alone, under no mirror. so the
+     * second picture's pass draws it here, in Zero's own call, once the beam
+     * runs. it runs from ZERO_ACT_BEAM's BEAM_FRAME on, once its length passes
+     * the 0 zero_beam_reset leaves */
+    if (present_drawing(task) && work->mode == ZERO_BEAM &&
+        zero_anim.action == ZERO_ACT_BEAM && zero_anim.frame >= BEAM_FRAME &&
+        zero_beam_length > 0.0F) {
+        njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
+        njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_ONE);
+        njDrawLine3D(&zero_beam_line, 1, NJD_TRANSPARENT);
+    }
+#endif
     switch (zero_anim.action) {
     case ZERO_ACT_WALK:
     case ZERO_ACT_STAND:
@@ -1658,10 +1702,13 @@ static void zero_draw(struct task *task)
         draw_attr_restore();
         draw_set_material(0.0F, 0.0F, 0.0F, 0.0F);
     }
-#ifdef GCC
-    if (frame_redrawing) {
+#ifdef NONMATCHING
+    if (frame_redrawing || frame_step != 0) {
         zero_bob_object.pos[1] = bob;
+        zero_bob_object.evalflags = bob_flags;
+        ALPHA(work) = alpha;
     }
+    present_untimed(FALSE);
 #endif
 }
 
@@ -1907,9 +1954,18 @@ static void zero_sweep_step(struct task *task)
         task_kill(task);
         return;
     }
+#ifdef NONMATCHING
+    /* no callback draws the sweep for the second picture's pass. step 1
+     * draws it for that picture where port.h's FRAME_DRAWS says */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+    present_untimed(TRUE);
+#else
     if (frame_step != 0) {
         return;
     }
+#endif
     last_end.x = SWEEP_VARS(work)->last_end.x;
     last_end.y = SWEEP_VARS(work)->last_end.y;
     last_end.z = SWEEP_VARS(work)->last_end.z;
@@ -1932,6 +1988,13 @@ static void zero_sweep_step(struct task *task)
     njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
     njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_ONE);
     njDrawPolygon3D(&zero_sweep_quad, 4, NJD_FILL | NJD_TRANSPARENT);
+#ifdef NONMATCHING
+    present_untimed(FALSE);
+    /* step 0 alone tries to leave, as shipped */
+    if (frame_step != 0) {
+        return;
+    }
+#endif
     placement_try_leave(task);
 }
 
@@ -1946,9 +2009,18 @@ static void zero_scorch_step(struct task *task)
         task_kill(task);
         return;
     }
+#ifdef NONMATCHING
+    /* no callback draws the scorch for the second picture's pass. step 1
+     * draws it for that picture where port.h's FRAME_DRAWS says */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+    present_untimed(TRUE);
+#else
     if (frame_step != 0) {
         return;
     }
+#endif
     fade = (45 - TASK_TIMER(work)) * (1.0F / 45.0F);
     zero_scorch_colors[0].argb.a = fade * 255.0F;
     fade -= 1.0F / 45.0F;
@@ -1956,6 +2028,13 @@ static void zero_scorch_step(struct task *task)
     zero_scorch_points[0] = work->pos;
     zero_scorch_points[1] = work->scl;
     njDrawLine3D(&zero_scorch_line, 1, NJD_TRANSPARENT);
+#ifdef NONMATCHING
+    present_untimed(FALSE);
+    /* step 0 alone tries to leave, as shipped */
+    if (frame_step != 0) {
+        return;
+    }
+#endif
     placement_try_leave(task);
 }
 
@@ -1972,7 +2051,7 @@ static void zero_marker_step(struct task *task)
     int green;
     int blue;
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* GCC can't see that work->mode is always one of the cases: task_create
      * zeroes it to MARKER_START, and only this function sets it */
     alpha = red = green = blue = 0;
@@ -2044,9 +2123,18 @@ static void zero_marker_step(struct task *task)
         }
         break;
     }
+#ifdef NONMATCHING
+    /* no callback draws the marker for the second picture's pass. step 1
+     * draws it for that picture where port.h's FRAME_DRAWS says */
+    if (!FRAME_DRAWS()) {
+        return;
+    }
+    present_untimed(TRUE);
+#else
     if (frame_step != 0) {
         return;
     }
+#endif
     for (color = zero_marker_colors; color < &zero_marker_colors[5]; color++) {
         color->argb.a = alpha;
         color->argb.r = red;
@@ -2062,6 +2150,9 @@ static void zero_marker_step(struct task *task)
     njDrawTriangle3D(&zero_marker_faces, 3,
                      NJD_TRANSPARENT | NJD_DRAW_CONNECTED);
     njPopMatrix(1);
+#ifdef NONMATCHING
+    present_untimed(FALSE);
+#endif
 }
 
 /* set zero_arm_end to the end of Zero's arm, as its action poses it */

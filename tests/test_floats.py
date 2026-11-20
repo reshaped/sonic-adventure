@@ -199,12 +199,28 @@ class Runs(unittest.TestCase):
                 self.assertEqual(returned(expression), (spelled(expression), []))
 
 
-# the levels make gcc compiles the tree's C at, as flags after GCCFLAGS, whose -Os the last level given overrides: -Os,
-# GCC_HOT's -O2, and the -O0 of a source SHC builds under -optimize=0
-LEVELS = ([], ['-O2'], ['-O0'])
+# the levels make dc compiles the tree's C at, as flags after GCCFLAGS, whose -Os the last level given overrides: -Os,
+# GCC_HOT's -O2, the -O0 of a source SHC builds under -optimize=0, and the model walk's -O3
+LEVELS = ([], ['-O2'], ['-O0'], ['-O3', '-fno-unswitch-loops', '-fno-split-paths'])
 # the -ffp-contract=on the gcc macro gives an object R26 or R32 builds after GCCFLAGS' -ffp-contract=off, which an
 # object R10 builds keeps
 FUSING = ['-ffp-contract=on']
+# a constant that one function's call carries into another's arithmetic, each function in a source of its own: use()
+# gives scale() 3.0F, and scale() gives apply() its argument times 0x3dcccccd, 0.1F as GCC reads it. The product
+# rounds. To nearest it is FOLDED, and the console's FMUL, which rounds toward zero, gives a word less. No call is
+# inlined, so only a pass over the whole program can bring the two constants together. ONE_FILE is the same code as one
+# source, whose scale() and apply() no other file can call, where GCC's own compile of the file runs that pass
+CARRIED = {'use.c': 'extern float scale(float s);\n\nfloat use(void)\n{\n    return scale(3.0F);\n}\n',
+           'scale.c': ('extern float apply(float v);\n\n__attribute__((noinline)) float scale(float s)\n{\n'
+                       '    return apply(s * 0x1.99999ap-4F);\n}\n'),
+           'apply.c': 'float taken;\n\n__attribute__((noinline)) float apply(float v)\n{\n    taken = v;\n    return v;\n}\n'}
+ONE_FILE = 'float taken;\n\n' + '\n'.join(
+    CARRIED[name].split('\n\n', 1)[1].replace('__attribute__', 'static __attribute__')
+    for name in ('apply.c', 'scale.c', 'use.c'))
+FACTOR, FOLDED = 0x3DCCCCCD, 0x3E99999A
+# lto1, which compiles GCC's intermediate code at the link, and the plugin through which the linker hands it over, by
+# their paths in the toolchain, which hold GCC's version
+LINK_TIME = ('libexec/gcc/sh-elf/16.2.0/lto1', 'libexec/gcc/sh-elf/16.2.0/liblto_plugin.so')
 # the SH-4's floating arithmetic: a sum, a difference, a product, a quotient, a multiply-add, a negation, a square root,
 # and a conversion from an integer and to one
 ARITHMETIC = ('fadd', 'fsub', 'fmul', 'fdiv', 'fmac', 'fneg', 'fsqrt', 'float', 'ftrc')
@@ -249,18 +265,12 @@ class Gcc(unittest.TestCase):
     def compiled(self, files, more=(), code=False):
         """The words of a.c's .data, or where code is true, function()'s instructions of its f, which files hold, as
         GCC compiles a.i under GCCFLAGS and the flags more, as GCC's preprocessor writes it and then as the tool
-        respells and folds it, by case; and a.i, as written. GCC and the tool run from the checkout, as make gcc runs
+        respells and folds it, by case; and a.i, as written. GCC and the tool run from the checkout, as make dc runs
         them, where GCCFLAGS' paths resolve. They take the files by absolute path, which a.i's line markers name,
-        and a.i comes back with the files' directory taken out of those paths. The toolchain is test_ld.TOOLCHAIN.
-        Where it lacks sh-elf-gcc or sh-elf-objcopy, the test fails if SH_ELF names it, as test_ld's fixture does,
-        and skips otherwise."""
-        toolchain = test_ld.TOOLCHAIN
-        missing = [tool for tool in ('bin/sh-elf-gcc', 'bin/sh-elf-objcopy') if not (toolchain / tool).is_file()]
-        if missing and test_ld.GIVEN:
-            raise AssertionError(f'{toolchain}, which SH_ELF names, lacks {", ".join(missing)}')
-        if missing:
-            self.skipTest(f'{toolchain} lacks {", ".join(missing)}, which make gcc builds')
-        gcc, objcopy = toolchain / 'bin/sh-elf-gcc', toolchain / 'bin/sh-elf-objcopy'
+        and a.i comes back with the files' directory taken out of those paths. The toolchain is test_ld.TOOLCHAIN,
+        and the test fails or skips as test_ld.toolchain() does on sh-elf-gcc and sh-elf-objcopy."""
+        test_ld.toolchain(('bin/sh-elf-gcc', 'bin/sh-elf-objcopy'))
+        gcc, objcopy = test_ld.TOOLCHAIN / 'bin/sh-elf-gcc', test_ld.TOOLCHAIN / 'bin/sh-elf-objcopy'
         with tree(files) as root, cwd(ROOT):
             flags = [*self.gccflags, *more]
             c, i, s, o, raw = (str(root / name) for name in ('a.c', 'a.i', 'a.s', 'a.o', 'a.bin'))
@@ -403,6 +413,103 @@ class Gcc(unittest.TestCase):
                     found, _ = self.compiled({'a.c': c}, more, True)
                     self.assertEqual({case: arithmetic(found[case]) for case in found},
                                      {'as written': instructions, 'respelled': instructions})
+
+    def test_gcc_leaves_a_product_of_constants_it_brings_together_across_calls_to_run_time(self):
+        # GCC's pass over a whole file gives scale() a copy for the 3.0F its one caller passes, and would give
+        # apply() one for the product, FOLDED, computed to nearest. Under GCCFLAGS' -frounding-math the product
+        # stays an FMUL at each level, with contraction and without. Without the option GCC folds it at each level
+        # that runs the pass, so the test would see a fold. The link-time compile runs the same pass over an image
+        test_ld.toolchain(('bin/sh-elf-gcc',))
+        gcc = test_ld.TOOLCHAIN / 'bin/sh-elf-gcc'
+        folded = f'\t.long\t{FOLDED}\n'
+        with tree({'a.c': ONE_FILE}) as root, cwd(ROOT):
+            for level in LEVELS:
+                for fusing in ([], FUSING):
+                    with self.subTest(level=level, fusing=fusing):
+                        flags = [*self.gccflags, *level, *fusing, '-S', '-o', '-', str(root / 'a.c')]
+                        listing = subprocess.run([gcc, *flags], check=True, capture_output=True, text=True).stdout
+                        self.assertIn('\tfmul\t', listing)
+                        self.assertNotIn(folded, listing)
+                        listing = subprocess.run([gcc, *flags, '-fno-rounding-math'], check=True, capture_output=True,
+                                                 text=True).stdout
+                        self.assertEqual(folded in listing, level != ['-O0'])
+
+
+class LinkTime(unittest.TestCase):
+    """GCC's link-time compile of objects that carry its intermediate code, under config/gcc.mk's GCC_LTO_LINK, as
+    tools/ld.py's whole() runs it. It needs a toolchain built with link-time optimization, as make dc's is."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gccflags = test_ld.flags()
+        cls.line = test_ld.flags('GCC_LTO_LINK')
+
+    def whole(self, files, entry, compiled=(), linked=(), rooted=()):
+        """What the link-time compile makes of files, C sources by name: the bytes its image loads, and the
+        instructions of each function there, by name, as sh-elf-objdump lists them. Each source compiles under
+        GCCFLAGS, config/gcc.mk's GCC_LTO for its object and the flags compiled, which a pair of a name and flags
+        gives that source alone. The objects link in the files' order under GCC_LTO_LINK and the flags linked, by
+        the linker's own script, with entry for the image's entry and each name of rooted for a root. GCC runs from
+        the checkout, as make dc runs it. The link fails the test on a warning, as whole() fails on one. The test
+        fails or skips as test_ld.toolchain() does on the driver, objcopy, objdump and LINK_TIME."""
+        test_ld.toolchain(('bin/sh-elf-gcc', 'bin/sh-elf-objcopy', 'bin/sh-elf-objdump', *LINK_TIME))
+        gcc, objcopy, objdump = (test_ld.TOOLCHAIN / f'bin/sh-elf-{tool}' for tool in ('gcc', 'objcopy', 'objdump'))
+        with tree(files) as root, cwd(ROOT):
+            objects = []
+            for name in files:
+                objects.append(str(root / name)[:-2] + '.o')
+                more = [flag for each in compiled for flag in (each[1] if isinstance(each, tuple) and each[0] == name
+                                                                else [] if isinstance(each, tuple) else [each])]
+                subprocess.run([gcc, *self.gccflags, *test_ld.flags('GCC_LTO', Path(objects[-1]).name), *more, '-c',
+                                '-o', objects[-1], str(root / name)], check=True, capture_output=True)
+            image = str(root / 'whole.elf')
+            done = subprocess.run([gcc, *self.line, *linked, '-nostdlib', '-o', image, f'-Wl,-e,_{entry}',
+                                   '-Wl,--no-warn-rwx-segments', *(f'-Wl,-u,_{name}' for name in rooted), *objects],
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            self.assertEqual((done.returncode, 'warning: ' in done.stdout), (0, False), done.stdout)
+            subprocess.run([objcopy, '-O', 'binary', image, str(root / 'whole.bin')], check=True, capture_output=True)
+            listing = subprocess.run([objdump, '-d', image], check=True, capture_output=True, text=True).stdout
+            return (root / 'whole.bin').read_bytes(), listed(listing)
+
+    def test_the_link_time_compile_leaves_a_product_of_constants_it_brings_together_across_objects_to_run_time(self):
+        # use(), scale() and apply() in an object each, as make dc compiles them. The compile sees every caller of
+        # scale() and of apply(), as GCC sees them in one file where they are static, and its pass over the whole
+        # image could fold the product to nearest. Under GCC_LTO_LINK, whose GCC_AS_SHC holds -frounding-math, the
+        # image multiplies, and holds the factor and no FOLDED
+        image, functions = self.whole(CARRIED, 'use')
+        self.assertIn('fmul', [name for body in functions.values() for name in arithmetic(body)], functions)
+        self.assertIn(struct.pack('<I', FACTOR), image)
+        self.assertNotIn(struct.pack('<I', FOLDED), image)
+
+    def test_the_link_time_compile_folds_that_product_where_no_option_withholds_it(self):
+        # the same objects compiled and linked with -fno-rounding-math after the tree's flags: the image holds
+        # FOLDED. So the compile does bring the constants together across objects, and the test above would see a
+        # fold that -frounding-math didn't withhold
+        image, _ = self.whole(CARRIED, 'use', ['-fno-rounding-math'], ['-fno-rounding-math'])
+        self.assertIn(struct.pack('<I', FOLDED), image)
+
+    def test_the_link_time_compile_keeps_each_function_s_own_contraction(self):
+        # an object R26 or R32 builds compiles under -ffp-contract=on, and GCC_LTO_LINK holds GCC_AS_SHC's
+        # -ffp-contract=off. fused(), compiled under on, keeps its FMAC through the compile, and split(), compiled
+        # under GCCFLAGS alone, its FMUL and FADD
+        body = '(float a, float b, float c)\n{\n    return a * b + c;\n}\n'
+        _, functions = self.whole({'fused.c': f'float fused{body}', 'split.c': f'float split{body}'}, 'fused',
+                                  [('fused.c', FUSING)], rooted=['split'])
+        self.assertEqual({name: arithmetic(functions.get(name, [])) for name in ('_fused', '_split')},
+                         {'_fused': ['fmac'], '_split': ['fadd', 'fmul']})
+
+
+def listed(listing):
+    """The instructions of each function in listing, sh-elf-objdump -d's of an ELF, by the function's name as the ELF
+    spells it: each instruction its mnemonic and its operands one space apart, in order. A function's literal pool
+    reads there as instructions too."""
+    functions, body = {}, None
+    for line in listing.splitlines():
+        if named := re.fullmatch(r'[0-9a-f]+ <(\S+)>:', line):
+            body = functions.setdefault(named[1], [])
+        elif body is not None and (fields := line.split('\t'))[2:] and fields[2]:
+            body.append(' '.join(' '.join(fields[2:]).split()))
+    return functions
 
 
 if __name__ == '__main__':

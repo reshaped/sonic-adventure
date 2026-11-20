@@ -1,0 +1,8 @@
+datum  e104_camera_points  D  0x00000000  24
+datum  e104_targets  D  0x00000018  36
+datum  e104_shapes  D  0x0000003c  104
+datum  e104_actions  D  0x000000a4  144
+datum  e104_smoke_params  D  0x00000134  60
+datum  e104_no_offset  C  0x00000008  12
+datum  e104_drawn  B  0x00000000  4
+text  TEXT_1  C  0x00000000  6

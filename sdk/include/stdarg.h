@@ -2,7 +2,7 @@
 #ifndef STDARG_H
 #define STDARG_H
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* SHC passes param and the arguments after it on the stack, where the
  * #else side's walk reads them. GCC passes them in registers while any are
  * free */

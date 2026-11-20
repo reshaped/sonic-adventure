@@ -1,0 +1,5 @@
+datum  event_black_corners  D  0x00000000  32
+datum  event_black_colors  D  0x00000020  16
+datum  event_black_polygon  D  0x00000030  16
+datum  event_black_unused  D  0x00000040  16
+datum  event_black  D  0x00000050  4

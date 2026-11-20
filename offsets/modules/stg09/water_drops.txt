@@ -1,0 +1,5 @@
+datum  water_drops_gravity  D  0x00000000  4
+datum  water_drops_drag  D  0x00000004  4
+datum  water_drops_width  D  0x00000008  4
+datum  water_drops_height  D  0x0000000c  4
+datum  water_drops_frames  D  0x00000010  180

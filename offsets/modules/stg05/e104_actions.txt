@@ -1,0 +1,10 @@
+datum  e104_stand_motion  D  0x00000000  12
+datum  e104_stand_action  D  0x0000000c  8
+datum  e104_jump_action  D  0x00000014  8
+datum  e104_fall_action  D  0x0000001c  8
+datum  e104_landing_action  D  0x00000024  8
+datum  e104_fly_action  D  0x0000002c  8
+datum  e104_fire_right_action  D  0x00000034  8
+datum  e104_fire_left_action  D  0x0000003c  8
+datum  e104_hurt_action  D  0x00000044  8
+datum  e104_defeat_action  D  0x0000004c  8

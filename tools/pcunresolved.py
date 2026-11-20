@@ -2,12 +2,12 @@
 
 Usage: pcunresolved.py IMAGE OUT
 
-make gcc's final link of IMAGE, build/gcc/link/IMAGE/final.map, names the
+make dc's final link of IMAGE, build/dc/link/IMAGE/final.map, names the
 image's GCC objects. Each has a counterpart under build/pc/, which make pc
 compiles, or which no rule there builds yet. The tool reads each
 counterpart's names with llvm-nm, and writes to OUT each name some
 counterpart uses and none defines, with its kind and the source of its
-definition under make gcc:
+definition under make dc:
 
 - import: another image defines it, by IMAGE's imports.ld (stage 2);
 - src: a .src file, which xbox/ doesn't yet replace (stage 1);
@@ -18,8 +18,8 @@ definition under make gcc:
   C runtime.
 
 config/pc.mk's PC_ADDED objects count where their sources link. It ends
-with a count of each kind, which it also prints. make gcc's SH-4
-libraries count for none: the port runs none of them. make gcc must have
+with a count of each kind, which it also prints. make dc's SH-4
+libraries count for none: the port runs none of them. make dc must have
 linked IMAGE first.
 """
 
@@ -29,7 +29,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-OBJECT = re.compile(r'build/gcc/[A-Za-z0-9_/.-]+\.o')
+OBJECT = re.compile(r'build/dc/[A-Za-z0-9_/.-]+\.o')
 IMPORT = re.compile(r'^(_[A-Za-z0-9_]+) = ', re.M)
 
 
@@ -54,7 +54,7 @@ def kind(name, gcc_definitions, pc_objects):
     path = gcc_definitions.get(name)
     if path is None:
         return 'undefined', ''
-    stem = path[len('build/gcc/'):-len('.o')]
+    stem = path[len('build/dc/'):-len('.o')]
     if Path(f'gcc/{stem}.c').exists() and not Path(f'xbox/{stem}.c').exists():
         return 'renderer', f'gcc/{stem}.c'
     if Path(f'{stem}.src').exists() and not Path(f'xbox/{stem}.c').exists():
@@ -69,13 +69,13 @@ def main():
     if len(sys.argv) != 3:
         raise SystemExit(__doc__.split('\n\n')[1])
     image, out = sys.argv[1:]
-    link = Path('build/gcc/link') / image
+    link = Path('build/dc/link') / image
     gcc_objects = sorted({p for p in OBJECT.findall((link / 'final.map').read_text()) if '/sh4zam/' not in p})
-    # make gcc's names, SH ELF's, take SHC's leading underscore, which make
+    # make dc's names, SH ELF's, take SHC's leading underscore, which make
     # pc's i386 ELF names lack
     sh_name = lambda name: name[1:] if name.startswith('_') else name
     imports = {sh_name(n) for n in IMPORT.findall((link / 'imports.ld').read_text())}
-    pc_objects = {Path(p.replace('build/gcc/', 'build/pc/', 1)) for p in gcc_objects}
+    pc_objects = {Path(p.replace('build/dc/', 'build/pc/', 1)) for p in gcc_objects}
     # config/pc.mk's PC_ADDED, SOURCE:ADDED, links ADDED where SOURCE links
     added = re.search(r'^PC_ADDED := (.*)$', Path('config/pc.mk').read_text(), re.M)
     for entry in (added[1].split() if added else []):

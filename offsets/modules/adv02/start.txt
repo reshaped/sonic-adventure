@@ -1,0 +1,5 @@
+datum  mystic_ruins_station_starts  D  0x00000000  128
+datum  mystic_ruins_island_starts  D  0x00000080  48
+datum  mystic_ruins_jungle_starts  D  0x000000b0  80
+datum  mystic_ruins_base_starts  D  0x00000100  64
+datum  mystic_ruins_starts  D  0x00000140  32

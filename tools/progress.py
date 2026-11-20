@@ -74,8 +74,8 @@ BEGIN, END = '***** BEGIN-POOL *****', '***** END-POOL *****'
 POOLED = re.compile(r'DATA FOR SOURCE-LINE (\d+(?:,\d+)*)')
 AROUND = ('BRA TO END-POOL', 'NOP', 'ALIGNMENT CODE')
 # DIRECTIVE matches a directive's start, after any label. .SECTION starts a section. .RES reserves space, and its
-# row's code gives the space's size. .DATAB repeats a value. Its .B, .W or .L suffix gives the unit, which is a byte
-# without one. Its first operand gives the count, in decimal. .ALIGN skips bytes, and its row's offset is past them
+# row's code gives the space's size. .DATAB repeats a value. Its .B, .W or .L suffix gives the unit, and its first
+# operand the count, in decimal. .ALIGN skips bytes, and its row's offset is past them
 DIRECTIVE = r'\s*(?:[\w?]+:)?\s*\.'
 STARTS = re.compile(DIRECTIVE + r'SECTION\s+(\w+)', re.I)
 RESERVES = re.compile(DIRECTIVE + r'RES(?:\.[BWL])?\s', re.I)
@@ -187,7 +187,8 @@ def lines_and_runs(path, sections):
     - a run in no section, or one that doesn't follow the one before it in
       its section;
     - a section that sections lacks, or whose runs don't end at its size;
-    - a .DATAB whose count isn't in decimal digits;
+    - a .DATAB that names no .B, .W or .L, or whose count isn't in decimal
+      digits;
     - a line that is no row of asmsh's listing, as TEXT's comment gives its
       rows;
     - a listing that ends before its lists."""
@@ -205,9 +206,11 @@ def lines_and_runs(path, sections):
             if RESERVES.match(text):
                 size = int(code or '0', 16)
             elif repeated:
+                if not repeated[1]:
+                    fail(f'{path}:{number}: progress reads a .DATAB\'s unit only from a .B, .W or .L suffix')
                 if not repeated[2].isdecimal():
                     fail(f'{path}:{number}: progress reads a .DATAB\'s count only in decimal digits')
-                size = UNITS[(repeated[1] or 'B').upper()] * int(repeated[2])
+                size = UNITS[repeated[1].upper()] * int(repeated[2])
             elif ALIGNS.match(text):
                 # the bytes the alignment skips run from the end of the section's last run to its row's offset
                 offset, size = ends.get(name, 0), offset - ends.get(name, 0)

@@ -1,0 +1,8 @@
+datum  shop2_door_shapes  D  0x00000000  260
+datum  shop2_door_wall_materials  D  0x00000104  20
+datum  shop2_door_wall_meshes  D  0x00000118  8
+datum  shop2_door_wall_meshsets  D  0x00000120  24
+datum  shop2_door_wall_points  D  0x00000138  48
+datum  shop2_door_wall_normals  D  0x00000168  48
+datum  shop2_door_wall_model  D  0x00000198  40
+datum  shop2_door_wall  D  0x000001c0  52

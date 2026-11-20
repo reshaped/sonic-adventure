@@ -1,0 +1,11 @@
+datum  casino_pvms  D  0x00000000  88
+text  TEXT_1  C  0x00000000  14
+text  TEXT_2  C  0x00000010  10
+text  TEXT_3  C  0x0000001c  18
+text  TEXT_4  C  0x00000030  10
+text  TEXT_5  C  0x0000003c  9
+text  TEXT_6  C  0x00000048  5
+text  TEXT_7  C  0x00000050  5
+text  TEXT_8  C  0x00000058  4
+text  TEXT_9  C  0x0000005c  4
+text  TEXT_10  C  0x00000060  5

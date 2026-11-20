@@ -1,0 +1,6 @@
+datum  ev0171_light_points  D  0x00000000  10592
+datum  ev0171_light_path  D  0x00002960  8
+datum  ev0171_light  D  0x00002968  4
+datum  ev0171_textures  D  0x0000296c  8
+text  TEXT_1  C  0x00000000  51
+text  TEXT_2  C  0x00000034  65

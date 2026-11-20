@@ -21,7 +21,7 @@
  * SEA_RIPPLE_STEPS. only this file reads it. it is the bss word at
  * 0x0cb2de4c, 4 bytes below near_clouds, the first of this file's own bss */
 extern Sint32 sea_frame;
-#ifdef GCC
+#ifdef NONMATCHING
 /* ADV0100's tables place the word in bss no source holds, so the port
  * defines it here */
 Sint32 sea_frame;

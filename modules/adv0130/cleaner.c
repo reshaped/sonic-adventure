@@ -220,8 +220,7 @@ static Float cleaner_part_length(struct task *task)
 /* @hack spelling: cleaner_set_mode expanded at each call, which reads
  * task->work again there, as at 0x0c926eb4; called, summed over cleaner_go,
  * cleaner_scrub and egg_carrier_cleaner_step, 199 of 345 words differ */
-#pragma inline(cleaner_set_mode) /* NOLINT(clang-diagnostic-unknown-pragmas)   \
-                                  */
+#pragma inline(cleaner_set_mode)
 /* set the mode, and in work->timer the count it runs down */
 static void cleaner_set_mode(struct task *task, int mode, int count)
 {
@@ -365,8 +364,9 @@ static void cleaner_dust(struct task *task)
     struct task_work *work = task->work;
     /* @hack redundant: dust, filled in and never read, which the image
      * copies to the stack frame and moves to the cleaner (0x0c927016 to
-     * 0x0c92707c). without it, count unmeasured: the object's P ends 0x80
-     * bytes short of its row, and the link fails */
+     * 0x0c92707c). without it, SHC writes no code for cleaner_dust, the
+     * object's P ends 0xa0 bytes short of its row, and 59 of 59 words
+     * differ */
     struct cleaner_dust dust = {
         0,
         {0.2F,

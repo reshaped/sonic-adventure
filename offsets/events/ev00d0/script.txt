@@ -1,0 +1,14 @@
+datum  ev00d0_emerald  D  0x00000000  4
+datum  ev00d0_floor  D  0x00000004  4
+datum  ev00d0_frog  D  0x00000008  4
+datum  ev00d0_textures  D  0x0000000c  48
+datum  ev00d0_sparkle_pos  B  0x00000000  12
+datum  ev00d0_sparkle_speed  B  0x0000000c  12
+text  TEXT_1  C  0x0000000c  8
+text  TEXT_2  C  0x00000014  16
+text  TEXT_3  C  0x00000024  31
+text  TEXT_4  C  0x00000044  33
+text  TEXT_5  C  0x00000068  35
+text  TEXT_6  C  0x0000008c  27
+text  TEXT_7  C  0x000000a8  43
+text  TEXT_8  C  0x000000d4  23

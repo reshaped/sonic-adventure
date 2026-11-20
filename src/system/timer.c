@@ -28,7 +28,7 @@ void port_tcnt1_set(Uint32 count);
 #define TCOR1 port_tcor1
 #define TCNT1 (*port_tcnt1())
 #define TCR1 port_tcr1
-#elif defined(GCC)
+#elif defined(NONMATCHING)
 #define TSTR (*(volatile Uint8 *)0xffd80004)
 #define TCOR1 (*(volatile Uint32 *)0xffd80014)
 #define TCNT1 (*(volatile Uint32 *)0xffd80018)

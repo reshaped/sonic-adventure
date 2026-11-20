@@ -13,7 +13,7 @@ from decimal import ROUND_CEILING, Context, Decimal, InvalidOperation, localcont
 from functools import partial
 from math import prod
 
-from image import (ACTION, CACTION, COLOR, DECLARED, GENERIC, KINDS, LAND, LAND_ENTRY, LAND_MOTION, MATERIAL, MDATA,
+from items import (ACTION, CACTION, COLOR, DECLARED, GENERIC, KINDS, LAND, LAND_ENTRY, LAND_MOTION, MATERIAL, MDATA,
                    MESHSET, MKEY_P, MODEL, MOTION, OBJECT, SAME, SINGLE, STAGE_PATH, STAGE_PATH_POINT, TEXANIM, TEXLIST,
                    TEXNAME, Declared, f32, float_ok)
 from layout import QUALIFIERS, Array, LayoutError, Pointer, Scalar, number, spelled
@@ -22,7 +22,7 @@ from layout import QUALIFIERS, Array, LayoutError, Pointer, Scalar, number, spel
 # The C emitter
 #
 # Write an image's data as C that SHC 5.0 compiles to the same bytes. The
-# emitter reads the image as image.py's Memory, and its items as an Items,
+# emitter reads the image as items.py's Memory, and its items as an Items,
 # which checks them where the emitter takes them. A Writer turns them into a
 # source and the names it takes from outside. It writes pointers as
 # expressions of names, each float as the literal of the fewest significant

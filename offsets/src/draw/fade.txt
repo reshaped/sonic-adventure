@@ -1,0 +1,11 @@
+datum  fading  D  0x00000000  1
+datum  game_over_piece_texanims  D  0x00000002  160
+datum  game_over_texanims  D  0x000000a2  120
+datum  coming_soon_texanims  D  0x0000011a  120
+datum  cover_points  D  0x00000194  32
+datum  cover_colors  D  0x000001b4  16
+datum  cover_quad  D  0x000001c4  16
+datum  fade_hold  B  0x00000000  1
+datum  fade_level  B  0x00000002  2
+datum  game_over_phase  B  0x00000004  1
+datum  fade_cover  B  0x00000008  4

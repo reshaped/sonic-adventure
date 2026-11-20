@@ -1,0 +1,12 @@
+datum  ev00f3_green_emerald_textures  D  0x00000000  12
+datum  ev00f3_green_emerald_texlist  D  0x0000000c  8
+datum  ev00f3_purple_emerald_textures  D  0x00000014  12
+datum  ev00f3_purple_emerald_texlist  D  0x00000020  8
+datum  ev00f3_sky_emerald_textures  D  0x00000028  12
+datum  ev00f3_sky_emerald_texlist  D  0x00000034  8
+datum  ev00f3_white_emerald_textures  D  0x0000003c  12
+datum  ev00f3_white_emerald_texlist  D  0x00000048  8
+text  TEXT_1  C  0x00000000  16
+text  TEXT_2  C  0x00000010  16
+text  TEXT_3  C  0x00000020  15
+text  TEXT_4  C  0x00000030  16

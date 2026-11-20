@@ -1,0 +1,6 @@
+datum  tarai_drop_height  D  0x00000000  4
+datum  tile_points  D  0x00000004  72
+datum  face_textures  D  0x0000004c  20
+datum  face_order  D  0x00000060  6
+datum  tile_shapes  D  0x00000068  156
+datum  tile_faces  B  0x00000000  6

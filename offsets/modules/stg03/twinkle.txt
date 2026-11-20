@@ -1,0 +1,8 @@
+datum  act1_arrival  C  0x00000000  12
+datum  coaster_gate  C  0x0000000c  12
+datum  act1_gate  C  0x00000018  12
+datum  mirrors_gate  C  0x00000024  12
+datum  mirrors_return_gate  C  0x00000030  12
+datum  twinkle_fog  D  0x00000000  512
+datum  mirrors_fog  D  0x00000200  512
+datum  hall_mirrors  D  0x00000400  200

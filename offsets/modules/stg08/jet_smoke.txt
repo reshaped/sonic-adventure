@@ -1,0 +1,2 @@
+datum  jet_smoke_texanims  D  0x00000000  160
+datum  jet_smoke_sprite  B  0x00000000  32

@@ -280,7 +280,7 @@ static void race_chao_run_grown(struct task_work *work, struct alife_chao *chao)
                 /* @hack redundant: a test of agres that never runs, which
                  * gives the record R3 and agres R2 (0x0cb81ce8, 0x0cb81cec)
                  * and the mode R2 (0x0cb81cf4 to 0x0cb81cfa); without it, the
-                 * two trade and 6 of 592 words differ */
+                 * two trade and 6 of 418 words differ */
                 if (0) {
                     if (chao->record->agres > 0) {
                     }
@@ -292,13 +292,13 @@ static void race_chao_run_grown(struct task_work *work, struct alife_chao *chao)
                 /* @hack redundant: an empty test that never runs, which keeps
                  * the timer's reset in this tail's own BRA slot (0x0cb81cfe,
                  * 0x0cb81d00); without it, the tail branches to the sleep's
-                 * at 0x0cb81ccc, 265 of 592 words differ and the function
+                 * at 0x0cb81ccc, 182 of 418 words differ and the function
                  * runs 32 bytes short */
                 if (0) {
                 }
                 /* @hack spelling: a return where a break would do, which reads
                  * sleep_gain into R3 at 0x0cb81d44; as a break, R2, and 2 of
-                 * 592 words differ */
+                 * 418 words differ */
                 return;
             }
         }
@@ -422,7 +422,7 @@ static void race_chao_push(struct task_work *work, struct alife_chao *chao)
             SET_MODE(work, MODE_KOKE);
             /* @hack spelling: a return where a break would do, which loads
              * njScalor's address into R3 for the call at 0x0cb82104; as a
-             * break, R2, and 2 of 404 words differ */
+             * break, R2, and 2 of 284 words differ */
             return;
         }
         speed = njScalor(&chao->speed);
@@ -522,7 +522,7 @@ static void race_chao_run_child(struct task_work *work, struct alife_chao *chao)
         }
         /* @hack spelling: the rate through top, which keeps the sine in FR15
          * and the cosine in FR14 (0x0cb822f6, 0x0cb82316); as
-         * speed * 15.0F, the two trade and 87 of 414 words differ */
+         * speed * 15.0F, the two trade and 87 of 290 words differ */
         top = speed * 15.0F;
         chao->motion.rate = top;
         if (racer->sleep_gain < 1) {
@@ -726,8 +726,8 @@ static void race_chao_play(struct task_work *work, struct alife_chao *chao)
                 work->submode = 3;
                 break;
             /* @hack redundant: a case for MODE_PLAY_SCOOP beside the default,
-             * whose test the switch makes (0x0cb82b1e); without it, 98 of 447
-             * words differ */
+             * whose test the switch makes (0x0cb82b1e); without it, 92 of 350
+             * words and 5 pool words differ */
             case MODE_PLAY_SCOOP:
             default:
                 chao->motion.flags |= MOTION_NEW;
@@ -965,7 +965,7 @@ static void race_chao_pause(struct task_work *work, struct alife_chao *chao,
         chao->accel.x = -chao->speed.x;
         chao->accel.z = -chao->speed.z;
         chao->motion.rate = 1.0F;
-#ifdef GCC
+#ifdef NONMATCHING
         /* GCC can't see that every path sets seconds: case 1 leaves
          * run_motion 84, 78 or 63, as the tag below says */
         seconds = 0;
@@ -1069,7 +1069,7 @@ static void race_chao_drown(struct task_work *work, struct alife_chao *chao)
         break;
     /* @hack redundant: a default that does nothing, which loads
      * alife_face_set_eyes' address into R3 and alife_face_set_mouth's into
-     * R2 (0x0cb834d0, 0x0cb834da); without it, the two trade and 4 of 277
+     * R2 (0x0cb834d0, 0x0cb834da); without it, the two trade and 4 of 188
      * words differ */
     default:
         break;
@@ -1099,7 +1099,7 @@ static void race_chao_eat(struct task_work *work, struct alife_chao *chao,
         chao->terrain.query_height = 7.0F;
         /* @hack spelling: submode stepped as submode + 1, which spills
          * motion to sp+4 and seconds to sp+0 (0x0cb83574, 0x0cb83576); as
-         * ++, the two trade and 176 of 285 words differ */
+         * ++, the two trade and 173 of 227 words differ */
         work->submode = work->submode + 1;
         /* fall through */
     case 1:
@@ -1213,7 +1213,8 @@ static void race_chao_swim(struct task_work *work, struct alife_chao *chao)
             /* @hack redundant: two tests of chance, stored and never read,
              * which keep 0.023 in FR5 and 0.012 in FR6, their pool words at
              * 0x0cb83ae0 and 0x0cb83adc (0x0cb83a46, 0x0cb83a4c); without
-             * them, the two trade and 12 of 484 words differ */
+             * them, the two trade and 8 of 354 words and 2 pool words
+             * differ */
             unused = chance ? work->mode : 0;
             unused = chance ? work->submode : 0;
             if (chance == 0) {
@@ -1269,7 +1270,7 @@ static void race_chao_swim(struct task_work *work, struct alife_chao *chao)
         }
         /* @hack redundant: an else after the break, whose jump SHC deletes,
          * which loads the record into R3 ahead of 5000 (0x0cb83b56 to
-         * 0x0cb83b5a); without it, 5000 takes R3 first, and 3 of 484 words
+         * 0x0cb83b5a); without it, 5000 takes R3 first, and 3 of 354 words
          * differ */
         if (depth < 1.0F && (work->flags & CHAO_ON_GROUND)) {
             SET_MODE(work, MODE_RUN);
@@ -1332,7 +1333,8 @@ void race_chao_stop(struct task_work *work, struct alife_chao *chao)
         /* @hack spelling: 2 through a halfword local, which loads it into R3
          * after the state stores, whose offsets come by ADD (0x0cb83d86 to
          * 0x0cb83d90); stored directly, 2 loads first, one offset comes from
-         * a pool word at 0x0cb83da6, and 7 of 140 words differ */
+         * a pool word at 0x0cb83da6, and 6 of 90 words and 1 pool word
+         * differ */
         {
             Sint16 timer = 2;
 
@@ -1472,7 +1474,7 @@ static void race_chao_wait(struct task_work *work, struct alife_chao *chao)
             work->timer = (int)RANDOM(0.0F, 40.0F);
             /* @hack redundant: a break that repeats the case's own, whose jump
              * SHC deletes, which gives case 2's flags R3 (0x0cb84156 to
-             * 0x0cb8415a); without it, R2, and 3 of 177 words differ */
+             * 0x0cb8415a); without it, R2, and 3 of 132 words differ */
             break;
         }
         break;
@@ -1572,7 +1574,7 @@ static void race_chao_fly(struct task_work *work, struct alife_chao *chao)
         chao->speed.y = 0.5F;
         /* @hack spelling: the cosine scaled in place, which keeps it in FR4
          * and 1.5 in FR5 (0x0cb843d0, 0x0cb843de); as cosine * 1.5F, the two
-         * trade and 5 of 443 words differ */
+         * trade and 5 of 284 words differ */
         cosine *= 1.5F;
         chao->speed.x = cosine;
         chao->speed.z = -sine * 1.5F;
@@ -1677,7 +1679,7 @@ static void race_chao_climb(struct task_work *work, struct alife_chao *chao)
         if (speed > climb_top) {
             /* @hack spelling: the limit copied to scale, which loads it into
              * FR4 and moves it to FR15 across njUnitVector (0x0cb84842,
-             * 0x0cb8484e); used directly, it loads into FR15, 274 of 480
+             * 0x0cb8484e); used directly, it loads into FR15, 193 of 342
              * words differ and the function runs 32 bytes short */
             scale = climb_top;
             njUnitVector(&chao->speed);
@@ -1784,7 +1786,7 @@ static void race_chao_finish_4(struct task_work *work, struct alife_chao *chao)
 {
     switch (work->submode) {
     /* @hack redundant: a case 0 that does nothing, whose test the switch makes
-     * first (0x0cb84bd6); without it, the switch tests 1 alone, 31 of 74
+     * first (0x0cb84bd6); without it, the switch tests 1 alone, 31 of 38
      * words differ and the function runs 4 bytes short */
     case 0:
         break;
@@ -2655,7 +2657,7 @@ static void race_chao_voice(struct task_work *work, struct alife_chao *chao)
     /* @bug uninitialized: tests record before anything sets it, so the return
      * for a null record never runs. SHC reads record as R15, the stack pointer,
      * which is never zero: TST R15,R15 at 0x0cb86336 */
-#ifdef GCC
+#ifdef NONMATCHING
     /* keeps the play the tag names: the return never runs */
 #else
     if (!record) { /* NOLINT(clang-diagnostic-uninitialized) */
@@ -2725,9 +2727,9 @@ static void race_chao_voice(struct task_work *work, struct alife_chao *chao)
          * at 0x0cb864fe, and race_chao_moods_4[12] reads the byte after the
          * table (MOV.B @(R0,R14),R4 at 0x0cb86510): race_chao_voices_17's
          * first voice, 22 */
-#ifdef GCC
-        /* repairs the clamp the tag names: GCC's lets 11 through at most, so
-         * a mood of 12 plays the table's last voice, 9 */
+#ifdef NONMATCHING
+        /* repairs the clamp the tag names: a mood of 12 plays the table's last
+         * voice, 9 */
         if (mood > 11) {
 #else
         if (mood > 12) {

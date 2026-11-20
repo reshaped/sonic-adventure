@@ -79,7 +79,7 @@ static char *music_files[MUSIC_COUNT] = {
     "WNDYVLY2.ADX", "WNDYVLY3.ADX",
 };
 
-#ifdef GCC
+#ifdef NONMATCHING
 /* nothing writes these, so GCC would read each as TRUE. it keeps them as
  * used, as the image keeps them, for a probe of the running game to turn
  * the streams off by */
@@ -153,7 +153,7 @@ static void stream_step(struct task *task)
      * 61 words differ */
     char unused[256];
 
-#ifdef GCC
+#ifdef NONMATCHING
     /* a skip starts no stream behind its curtain, so no voice takes time */
     if (event_skipping) {
         music_request = voice_request = -1;

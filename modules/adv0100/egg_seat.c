@@ -17,7 +17,7 @@
  * it comes back (TST R0,R0 at 0x0c9256ee); with stage.h's Sint8, SHC
  * sign-extends it first with EXTS.B, the function runs 2 bytes long and 44 of
  * 306 words differ */
-#ifdef GCC
+#ifdef NONMATCHING
 #include "stage/stage.h"
 #else
 extern int stage_get_entrance(void);

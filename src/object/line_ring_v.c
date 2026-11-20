@@ -158,9 +158,9 @@ static void line_ring_v_step(struct task *task)
              * sets ring. the sparkle then reads its position from 0xfffffff8,
              * 8 bytes before the null that task_create_child leaves in R4
              * (MOV R0,R4 at 0x8c09e754; ADD #-8,R4 at 0x8c065740) */
-#ifdef GCC
-            /* repairs the read the tag names: with no ring made, GCC makes
-             * no sparkle */
+#ifdef NONMATCHING
+            /* repairs the read the tag names: with no ring made, this side
+             * makes no sparkle */
             if (child != NULL) {
                 NJS_VECTOR speed = {0.0F, 0.05F, 0.0F};
 
@@ -221,9 +221,9 @@ static void line_ring_v_step(struct task *task)
              * from 0xfffffff8, through a ring no path set (BT at 0x8c06581e).
              * R4, ring's register, then holds the null child (0x8c06581a),
              * and ADD #-8,R4 at 0x8c065844 steps back from it */
-#ifdef GCC
-            /* repairs the read the tag names: with no ring made, GCC makes
-             * no sparkle */
+#ifdef NONMATCHING
+            /* repairs the read the tag names: with no ring made, this side
+             * makes no sparkle */
             if (child != NULL) {
                 NJS_VECTOR speed = {0.0F, 0.05F, 0.0F};
 

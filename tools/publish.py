@@ -1,4 +1,4 @@
-"""Write make gcc's files from its images' final links, check them against
+"""Write make dc's files from its images' final links, check them against
 the memory contract, and write the manifest that marks them a build.
 
     python3 tools/publish.py SPEC DIR MANIFEST
@@ -7,7 +7,7 @@ SPEC is tools/ld.py's spec, and DIR the directory tools/ld.py linked the
 images under: each image's final link is DIR/IMAGE/final.elf. SH_ELF in the
 environment names the toolchain's directory, tools/sh-elf by default.
 
-For each image of the spec, publish writes, under build/gcc/ at the
+For each image of the spec, publish writes, under build/dc/ at the
 original's path on the disc, the file its loader reads. A .PRS file's image
 goes to the .BIN beside it, which build/prskit compresses to the .PRS. The
 file runs from the image's origin to the end of its last section that holds
@@ -40,7 +40,8 @@ publish fails too on:
 - a spec that can't be read, that tools/gcclink.py's read() refuses or
   that links an image config/ doesn't describe, or a tree tools/memory.py
   can't read the memory contract from;
-- a toolchain that holds no cc1, or several;
+- a toolchain that holds no cc1, or none of a program of the link-time
+  compile's, or several of one;
 - a final link that can't be read or isn't an ELF, or that holds a
   nonempty allocated section outside its image's interval, or two that
   overlap;
@@ -53,30 +54,34 @@ publish fails too on:
   other bytes than the .BIN beside it;
 - an image with work past it whose final link holds no word that points
   to the work;
-- a tool, input or file it hashes for the manifest that can't be read, or
+- a tool, input, link-time object or file it hashes for the manifest that
+  can't be read, a record of the link-time objects that taken() refuses, or
   a row of the manifest that tools/manifest.py can't write, as of a path
   with a space, which leaves the files it wrote and no manifest.
 
 Last, publish writes MANIFEST, in tools/manifest.py's form:
 
 - a comment that publish writes it once its checks pass;
-- the hashes of sh-elf-gcc, its cc1, sh-elf-as and sh-elf-ld in the
-  toolchain's directory, of build/prskit and of SPEC;
+- the hashes of sh-elf-gcc, its cc1, the link-time compile's lto1,
+  lto-wrapper, collect2 and liblto_plugin.so, sh-elf-as and sh-elf-ld in
+  the toolchain's directory, of build/prskit and of SPEC;
 - for each image, its origin and length, as the spec gives them, and the
-  end its final link gives it; the hash of each input; each import with its
-  provider and symbol, each alias with its symbol, and each constant, each
-  with the value its final link gives it; and the hashes of its final.elf
-  and of each file publish writes for it.
+  end its final link gives it; the hash of each input, and of each
+  link-time object that tools/ld.py's link-time compile wrote for one and
+  the image links in its place, as tools/gcclink.py's taken() reads them
+  from DIR; each import with its provider and symbol, each alias with its
+  symbol, and each constant, each with the value its final link gives it;
+  and the hashes of its final.elf and of each file publish writes for it.
 
 It hashes each final link and each file it writes from the bytes it
-checks, and each tool, the spec and each input as they lie once its checks
-pass. The manifest doesn't record that make gcc's other checks ran, which
+checks, and each tool, the spec, each input and each link-time object as
+they lie once its checks pass. The manifest doesn't record that make dc's other checks ran, which
 make runs before publish, or the memory contract's sources, which
 tools/disc.py reads anew.
 
-A run reads SPEC and the memory contract, finds the toolchain's cc1, and
+A run reads SPEC and the memory contract, finds the toolchain's tools, and
 fails where MANIFEST, or the partial one beside it, is the spec, a tool, an
-input, a final link or a file the run writes. Then it removes MANIFEST, any
+input, a link-time object, a final link or a file the run writes. Then it removes MANIFEST, any
 partial one beside it and each file it writes, and removes those files
 again where writing or checking them fails or is interrupted. So a run that
 fails before it removes them leaves them as a run before wrote them, and no
@@ -99,12 +104,12 @@ import gcclink
 import memory
 from config import Config
 from images import MOVIE, files, images
-from manifest import Built, Manifest, digest, text
+from manifest import TOOLS, Built, Manifest, digest, text
 from tables import aligned, hexa
-from tool import content, fail, remove, save, stoppable
+from tool import content, fail, remove, run_child, save, stoppable
 
 PRSKIT = Path('build/prskit')
-OUT = Path('build/gcc')
+OUT = Path('build/dc')
 # the runs _INITSCT zeroes, B through B32 and then BSG through BSG32, each
 # as the C names of the words of strt1.src's tables that hold its start and
 # its end
@@ -271,13 +276,17 @@ def sequence_problems(found):
     return problems
 
 
-def compiler():
-    """The path of the cc1 that make gcc's toolchain, SH_ELF, installs for
-    its one release, in a directory of libexec/gcc/sh-elf/. A toolchain
-    that holds none fails, naming its libexec/gcc/sh-elf/, and so does one
-    that holds several, naming each: the manifest gives the hash of the one
-    sh-elf-gcc runs."""
-    return gcclink.installed('libexec/gcc/sh-elf', 'cc1')
+def toolchain():
+    """The path of each tool tools/manifest.py's TOOLS names, in its order:
+    build/prskit, a program named sh-elf- and more in the bin/ of make
+    dc's toolchain, SH_ELF, and each other where the toolchain installs it
+    for its one release, in a directory of libexec/gcc/sh-elf/. Those are
+    cc1 and the programs the link-time compile runs. A toolchain that holds
+    none of one fails, naming its libexec/gcc/sh-elf/ and the program, and
+    so does one that holds several, naming each: the manifest gives the
+    hash of the one sh-elf-gcc runs."""
+    return [PRSKIT if name == 'prskit' else gcclink.SH_ELF / 'bin' / name if name.startswith('sh-elf-')
+            else gcclink.installed('libexec/gcc/sh-elf', name) for name in TOOLS]
 
 
 def replace(path, data):
@@ -308,17 +317,19 @@ def publish(spec, out, manifest):
 
     publish() reads the spec and the memory contract, and fails on each
     image of the spec that config/ doesn't describe. It finds the
-    toolchain's cc1, and fails where manifest or the .partial file beside
-    it is a tool, the spec, an input, a final link or an image's file. Then,
-    before it writes anything, it removes manifest, the .partial file and
-    each image's files, as remove() does. Where write_images(), or value()
-    on a name the manifest gives, fails or is interrupted, it removes the
-    images' files again. Where remove() fails then, publish() writes its
-    problems to stderr, and raises what stopped the run.
+    toolchain's tools, and fails where manifest or the .partial file beside
+    it is a tool, the spec, an input, a link-time object, a final link or an
+    image's file. Then, before it writes anything, it removes manifest, the
+    .partial file and each image's files, as remove() does. Where
+    write_images(), or value() on a name the manifest gives, fails or is
+    interrupted, it removes the images' files again. Where remove() fails
+    then, publish() writes its problems to stderr, and raises what stopped
+    the run.
 
-    Fails as gcclink.read(), memory.contract(), compiler(), write_images(),
-    value(), tools/manifest.py's text() and replace() do, and where a tool,
-    input or file it hashes can't be read."""
+    Fails as gcclink.read(), memory.contract(), toolchain(), write_images(),
+    value(), gcclink.taken(), tools/manifest.py's text() and replace() do,
+    and where a tool, input, link-time object or file it hashes can't be
+    read."""
     images_of = gcclink.read(spec)
     known = images()
     terms = memory.contract(known)
@@ -327,13 +338,13 @@ def publish(spec, out, manifest):
                 if name not in original]
     if problems:
         fail(*problems)
-    tools = [gcclink.SH_ELF / 'bin/sh-elf-gcc', compiler(), gcclink.SH_ELF / 'bin/sh-elf-as',
-             gcclink.SH_ELF / 'bin/sh-elf-ld', PRSKIT]
-    paths, used = {}, [spec, *tools]
+    tools = toolchain()
+    paths, compiled, used = {}, {}, [spec, *tools]
     for image in images_of.values():
         path = OUT / original[image.name]
         paths[image.name] = [path.with_suffix('.BIN'), path] if path.suffix == '.PRS' else [path]
-        used += [*image.inputs, gcclink.final(out, image.name), *paths[image.name]]
+        compiled[image.name] = [made for made in gcclink.taken(out, image.name).values() if made]
+        used += [*image.inputs, *compiled[image.name], gcclink.final(out, image.name), *paths[image.name]]
     partial = manifest.with_name(f'{manifest.name}.partial')
     resolved = {Path(path).resolve() for path in used}
     problems = [f"{each}: a file publish reads or writes, which the manifest can't take the place of"
@@ -348,6 +359,7 @@ def publish(spec, out, manifest):
         for image in images_of.values():
             found = finals[image.name]
             built[image.name] = Built(image.origin, image.length, value(found, 'image_end'), image.inputs,
+                                      compiled[image.name],
                                       {alias: (wanted.provider, wanted.symbol, value(found, alias))
                                        for alias, wanted in image.imports.items()},
                                       {alias: (symbol, value(found, alias)) for alias, symbol in image.aliases.items()},
@@ -359,7 +371,8 @@ def publish(spec, out, manifest):
         except SystemExit as left:
             print(left, file=sys.stderr)
         raise
-    named = dict.fromkeys([*tools, spec, *(path for each in built.values() for path in [*each.inputs, *each.files])])
+    named = dict.fromkeys([*tools, spec, *(path for each in built.values()
+                                           for path in [*each.inputs, *each.compiled, *each.files])])
     hashes = {path: hashed.get(path) or digest(path) for path in named}
     replace(manifest, text(Manifest(hashes, tools, spec, built)).encode())
 
@@ -384,16 +397,16 @@ def write_files(image, found, holds_bss, paths):
     if len(paths) == 1:
         return hashes, len(data), None
     try:
-        done = subprocess.run([str(PRSKIT), 'compress', *map(str, paths)], stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, text=True, errors='replace')
+        done = run_child([str(PRSKIT), 'compress', *map(str, paths)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         text=True, errors='replace')
     except OSError as error:
         fail(f"{PRSKIT}: can't run it: {error.strerror}")
     if done.returncode:
         fail(*done.stdout.splitlines(), f'{image.name}: {PRSKIT} compress failed')
     compressed = content(paths[1])
     try:
-        done = subprocess.run([str(PRSKIT), 'decompress', '/dev/stdin', '/dev/stdout'], input=compressed,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        done = run_child([str(PRSKIT), 'decompress', '/dev/stdin', '/dev/stdout'], input=compressed,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError as error:
         fail(f"{PRSKIT}: can't run it: {error.strerror}")
     if done.returncode:

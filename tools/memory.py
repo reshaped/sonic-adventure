@@ -1,4 +1,4 @@
-"""The memory contract of make gcc's images: the RAM each owner holds, the
+"""The memory contract of make dc's images: the RAM each owner holds, the
 states in which owners are live together, and how each image loads and
 starts.
 
@@ -116,7 +116,7 @@ follow the loader's transitions:
   from MODULE_AREA where Sofdec's player decodes. Besides the stream the
   player reads through gsc_gd.c, the movie reads only cast_load's textures.
   texture_load_prs_file reads each in whole sectors to its room just below
-  WORK_AREA. On GCC's side of texture.c, that room is the file's whole
+  WORK_AREA. On texture.c's non-matching side, that room is the file's whole
   sectors, so each read lies in the cast's room. It decodes the texture to
   MODULE_AREA, in modules/movie/movie.c's work.
 - The hand-off's: 1ST_READ.BIN with its stack and heap, which stay live
@@ -172,9 +172,9 @@ each image's, and the link holds each at its offset:
 The contract holds no set or camera file's size. loader_read writes each to
 its area in whole sectors, so a file of more than 16 KB would write over the
 next area: a read to area 0, 1 or 2 runs into area 3, 4 or 5. The contract
-holds no size of a texture texture_load_pvm reads either. On GCC's side of
-texture.c, texture_load_pvm reads each file into its whole sectors just
-below WORK_AREA_END, so the read ends where the heap starts.
+holds no size of a texture texture_load_pvm reads either. On texture.c's
+non-matching side, texture_load_pvm reads each file into its whole sectors
+just below WORK_AREA_END, so the read ends where the heap starts.
 
 contract() gives the contract, from config/'s tables and the sources
 SOURCES names, and its docstring lists how it fails. check() holds a link's
@@ -222,7 +222,7 @@ MACROS = {LOADER_H: ('SECTOR_SIZE', 'WORK_AREA_END', *LOADER_AREAS),
           RECORDER_H: ('DEMO_RECORDING',)}
 # cast.c, whose cast_load reads the movie's textures
 CAST_C = Path('modules/movie/cast.c')
-# texture.c, whose GCC side defines FILE_ROOM
+# texture.c, whose non-matching side defines FILE_ROOM
 TEXTURE_C = Path('src/system/texture.c')
 # demo.c, whose demos[] gives the demos that play recorded pads, and whose
 # demo_advance reads their recordings
@@ -241,7 +241,7 @@ ICECAP_C = Path('modules/stg08/icecap.c')
 CASINO = 'stg09'
 CASINO_C = Path('modules/stg09/casino.c')
 CASINO_H = Path('modules/stg09/casino.h')
-# each source the contract reads, which make gcc's link depends on. The
+# each source the contract reads, which make dc's link depends on. The
 # contract reads the symbols.txt of each field MESSAGES names too.
 SOURCES = (*MACROS, CAST_C, DEMO_C, STAGE_C, TEXTURE_C, ICECAP_C, CASINO_C, CASINO_H)
 
@@ -287,8 +287,8 @@ MESSAGES = {'adv00': ('SS_MES_S.BIN', 29580), 'adv02': ('MR_MES_S.BIN', 9652), '
 CAST = {'KNUCKLES.PRS': 27423, 'EV_TR2_BIG.PRS': 248920, 'AMY.PRS': 67183, 'MILES.PRS': 37906}
 BANKS = {'EROBO': (('EROBO.PB', 301560), ('EROBO.NB', 295156)), 'E101R': (('E101R.PB', 308288), ('E101R.NB', 180920))}
 
-# the #define of FILE_ROOM that GCC's side of texture.c's #ifdef GCC must
-# hold. It gives a file its whole sectors as its room.
+# the #define of FILE_ROOM that the first group of texture.c's #ifdef
+# NONMATCHING must hold. It gives a file its whole sectors as its room.
 # texture_load_prs_file reads a texture into its room just below WORK_AREA,
 # so the largest cast texture's room is the cast's. texture_load_pvm reads
 # a file into its room just below WORK_AREA_END, where the heap starts.
@@ -403,7 +403,7 @@ def conditions(text, path):
     entry is a tuple of the directives that open its conditionals,
     outermost first. A line past a conditional's #else, or past an #elif of
     any form, takes ' #else' after that conditional's directive. So a line
-    past #ifdef GCC's #else lies in ('#ifdef GCC #else',).
+    past #ifdef NONMATCHING's #else lies in ('#ifdef NONMATCHING #else',).
 
     The file's include guard is its first conditional where that is an
     #ifndef whose next line defines the name it tests. A line inside the
@@ -583,7 +583,7 @@ def cases(function):
     where loader.c holds no such function, naming loader.c. It fails too,
     naming loader.c's line, where the function:
     - lies in a conditional, or holds a directive, such as a guard's #ifdef
-      GCC, whose sides the contract doesn't tell apart;
+      NONMATCHING, whose sides the contract doesn't tell apart;
     - holds other than one switch, or a switch whose body isn't in braces;
     - reads outside the switch's cases, or in a form neither PRS_READ nor
       FILE_READ matches;
@@ -817,8 +817,8 @@ def contract(images):
       board motions in a form the contract doesn't read;
     - set and camera areas that start less than AREA_SIZE apart;
     - a cast_load whose textures aren't those CAST gives sizes for;
-    - a texture.c that defines or undefines FILE_ROOM for GCC other than
-      once, as ROOM_DEFINITION, on the GCC side of an #ifdef GCC;
+    - a texture.c that defines or undefines FILE_ROOM other than once, as
+      ROOM_DEFINITION, on the non-matching side of an #ifdef NONMATCHING;
     - a field of MESSAGES whose symbols.txt gives no field_messages;
     - a PRS file loader.c or ICECAP_C reads to an area no source the
       contract reads gives;
@@ -869,10 +869,10 @@ def contract(images):
     text = csource.code(TEXTURE_C)
     room_lines = [(line.strip(), held) for line, held in zip(text.split('\n'), conditions(text, TEXTURE_C))
                   if re.match(r'\s*#\s*(?:define|undef)\s+FILE_ROOM\b', line)]
-    if [line for line, held in room_lines if held == ('#ifdef GCC',)] != [ROOM_DEFINITION] or any(
-            held not in (('#ifdef GCC',), ('#ifdef GCC #else',)) for _, held in room_lines):
-        fail(f'{TEXTURE_C}: defines FILE_ROOM for GCC other than once, as {ROOM_DEFINITION}, on the GCC side of an '
-             "#ifdef GCC: the room the memory contract gives a texture's read")
+    if [line for line, held in room_lines if held == ('#ifdef NONMATCHING',)] != [ROOM_DEFINITION] or any(
+            held not in (('#ifdef NONMATCHING',), ('#ifdef NONMATCHING #else',)) for _, held in room_lines):
+        fail(f'{TEXTURE_C}: defines FILE_ROOM other than once, as {ROOM_DEFINITION}, on the non-matching side of an '
+             "#ifdef NONMATCHING: the room the memory contract gives a texture's read")
     # the cast's room: the largest texture's whole sectors, just below
     # WORK_AREA
     work_area = areas['work'].start
@@ -1223,8 +1223,8 @@ def check(terms, extents):
             problems.append(f'{image}: its extent gives no work, and the memory contract holds {size:#x} bytes of '
                             'work past it')
         if extent.packed is not None and extent.packed > work_area:
-            problems.append(f'{image}: its PRS file takes {extent.packed:#x} bytes in whole sectors, and the work '
-                            f'area loader_read_prs reads it to holds {work_area:#x}')
+            problems.append(f'{image}: its PRS file takes {extent.packed:#x} bytes in whole sectors, and '
+                            f'loader_read_prs reads it to a work area of {work_area:#x}')
 
     def owner(image, part):
         # an event holds the bytes event_load zeroes for it, and its own

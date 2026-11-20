@@ -1,0 +1,15 @@
+datum  ev00c3_jump_keys  C  0x00000000  1782
+datum  ev00c3_jump  C  0x000006f8  8
+datum  ev00c3_e102_flight_points  D  0x00000000  3120
+datum  ev00c3_e102_flight  D  0x00000c30  8
+datum  ev00c3_picture_0  D  0x00000c38  4
+datum  ev00c3_picture_1  D  0x00000c3c  4
+datum  ev00c3_picture_2  D  0x00000c40  4
+datum  ev00c3_picture_3  D  0x00000c44  4
+datum  ev00c3_picture_4  D  0x00000c48  4
+datum  ev00c3_red  D  0x00000c4c  4
+datum  ev00c3_black  D  0x00000c50  4
+datum  ev00c3_textures  D  0x00000c54  16
+text  TEXT_1  C  0x0000070c  39
+text  TEXT_2  C  0x00000734  22
+text  TEXT_3  C  0x0000074c  12

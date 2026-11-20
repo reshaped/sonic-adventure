@@ -1,0 +1,14 @@
+datum  dat_0ca3c390  D  0x00000000  40
+datum  dat_0ca3c3b8  D  0x00000028  80
+datum  dat_0ca3c408  D  0x00000078  176
+datum  dat_0ca3c4b8  D  0x00000128  128
+datum  dat_0ca3c538  D  0x000001a8  320
+datum  dat_0ca3c678  D  0x000002e8  48
+datum  dat_0ca3c6a8  D  0x00000318  504
+datum  dat_0ca3c8a0  D  0x00000510  504
+datum  dat_0ca3ca98  D  0x00000708  40
+datum  cart_sky_object  D  0x00000730  52
+datum  cart_sky_textures  D  0x00000764  24
+datum  cart_sky_texlist  D  0x0000077c  8
+text  TEXT_1  C  0x00000000  8
+text  TEXT_2  C  0x00000008  8

@@ -1,0 +1,2 @@
+datum  dat_0ca54ff0  D  0x00000000  140
+datum  alife_favorite_sprite  D  0x0000008c  32

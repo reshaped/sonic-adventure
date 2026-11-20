@@ -7,6 +7,9 @@
 
 #include "system/cache.h"
 #include "system/sbinit.h"
+#ifdef NONMATCHING
+#include "system/port.h"
+#endif
 
 /* the heap is main memory's last megabyte. MEMORY_END is main memory's
  * end, in the address region _BSG_END lies in */
@@ -41,6 +44,12 @@ void sbInitSystem(Int mode, Int frame, Int count)
 
     set_imask(IMASK_ALL);
     syHwInit();
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+    /* a fault from here on reaches the crash screen */
+    crash_install();
+#endif
+#endif
     cache_ram_init();
     syMallocInit((void *)(MEMORY_END - HEAP_SIZE), HEAP_SIZE);
     njInitSystem(mode, frame, count);

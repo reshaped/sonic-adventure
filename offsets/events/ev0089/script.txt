@@ -1,0 +1,5 @@
+datum  ev0089_textures  D  0x00000000  8
+text  TEXT_1  C  0x00000004  70
+text  TEXT_2  C  0x00000050  44
+text  TEXT_3  C  0x00000000  4
+text  TEXT_4  C  0x0000004c  4

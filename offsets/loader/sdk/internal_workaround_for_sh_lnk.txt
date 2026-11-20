@@ -1,0 +1,4 @@
+datum  driver_notice  DSG  0x00000000  621
+datum  kmiHardwareResource  DSG  0x00000270  4
+datum  kmiDeviceExtension  BSG  0x00000000  1232
+datum  kmiVersionInfo  BSG  0x000004d0  20

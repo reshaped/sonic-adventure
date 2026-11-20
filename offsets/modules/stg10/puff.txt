@@ -1,0 +1,4 @@
+datum  final_puff_frames  D  0x00000000  160
+datum  final_puff_anim  D  0x000000a0  20
+datum  final_puff_params  D  0x000000b4  60
+datum  final_puff_pool  D  0x000000f0  16

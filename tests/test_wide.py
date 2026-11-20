@@ -1,5 +1,6 @@
-"""The rule gcc/src/system/port.h states for 16:9: who may read each aspect, that the game's stays 1, and where the 2D
-draws' cover rule lies and their pivot and cover are put back."""
+"""The rule src/system/port.h and engine/dc/dreamcast.h state for 16:9: who may read each aspect, that the game's
+stays 1, and where the 2D draws' cover rule lies and their pivot and cover are put back, in make dc's C and the
+PC's side of it, SA1's adapter."""
 
 import subprocess
 import unittest
@@ -9,25 +10,25 @@ import csource
 from support import cwd
 
 ROOT = Path(__file__).resolve().parents[1]
-# where GCC's C lies
-C_ROOTS = ('src', 'sdk', 'modules', 'events', 'loader', 'gcc')
-# each place a name of 16:9's aspects appears on GCC's side, as (file, the function or macro that holds it, or None
-# at file scope)
+# where make dc's C lies, and SA1's adapter, which gives the PC its side
+C_ROOTS = ('src', 'sdk', 'modules', 'events', 'loader', 'engine/dc', 'engine/sa1')
+# each place a name of 16:9's aspects appears on the non-matching side, as (file, the function or macro that
+# holds it, or None at file scope)
 READERS = {
     # the picture's: the draws, and wide_apply
     'port_draw_aspect': {
         ('events/shared/picture.c', 'event_picture_draw'),
-        ('gcc/sdk/ninja/njSprite.c', None),
-        ('gcc/sdk/ninja/njSprite.c', 'port_wide_squeezes'),
-        ('gcc/sdk/ninja/njSprite.c', 'port_wide_x'),
-        ('gcc/sdk/ninja/njSprite.c', 'sprite_clip_near'),
-        ('gcc/sdk/ninja/njSprite.c', 'sprite_send_2d'),
-        ('gcc/sdk/ninja/njSprite.c', 'sprite_send_plane'),
-        ('gcc/sdk/ninja/njsprite.h', 'sprite_send_facing_at'),
-        ('gcc/src/draw/model.c', 'draw_model_init'),
-        ('gcc/src/system/port.h', None),
-        ('gcc/src/system/wide.c', 'wide_apply'),
-        ('sdk/ninja/njDrawLine3D.c', 'njDrawLine3D'),
+        ('engine/dc/njSprite.c', None),
+        ('engine/dc/njSprite.c', 'port_wide_squeezes'),
+        ('engine/dc/njSprite.c', 'port_wide_x'),
+        ('engine/dc/sa1/line3d.h', 'sa1_line_3d'),
+        ('engine/dc/sa1/sprite.c', 'sprite_clip_near'),
+        ('engine/dc/sa1/sprite.c', 'sprite_send_plane'),
+        ('engine/dc/sa1/sprite.h', 'sprite_send_2d'),
+        ('engine/dc/sa1/sprite.h', 'sprite_send_facing_at'),
+        ('src/draw/model.c', 'draw_model_init'),
+        ('engine/dc/dreamcast.h', None),
+        ('engine/dc/wide.c', 'wide_apply'),
         ('sdk/ninja/njModel.c', '_njCalcModel'),
         ('sdk/ninja/njModelE.c', '_njEasyDrawModel'),
         ('sdk/ninja/njModelE.c', 'njSetEasyLight'),
@@ -37,31 +38,47 @@ READERS = {
         ('sdk/ninja/njtri_wiredpoly.c', 'njtri_wiredpoly'),
         ('sdk/ninja/njtri_wiredpoly_with_tex.c', 'njtri_wiredpoly_with_tex'),
         ('src/collision/world.c', 'world_land_list_visible'),
+        # the PC's: hooks.c's, the adapter's clip tests and a screen sprite's squeeze
+        ('engine/sa1/hooks.c', None),
+        ('engine/sa1/hooks.c', 'port_wide_squeezes'),
+        ('engine/sa1/hooks.c', 'port_wide_x'),
+        ('engine/sa1/hooks.c', 'wide_apply'),
+        ('engine/sa1/ninja.c', 'easy_out'),
+        ('engine/sa1/ninja.c', 'full_out'),
+        ('engine/sa1/ninja.c', 'simple_out'),
+        ('engine/sa1/records.c', 'sa1_record_sprite'),
+        ('engine/sa1/sprites.c', 'facing_sent'),
+        ('engine/sa1/sprites.c', 'plane_sent'),
     },
-    # the window's: wide_apply, and the window's five readers, two through port_view_x
+    # the window's, which the game defines and frame_end sets: its five readers, two through port_view_x, and the
+    # PC's picture, which takes the window's aspect, since the PC has no pillarbox
     'port_view_aspect': {
-        ('gcc/src/draw/model.c', 'draw_in_view'),
-        ('gcc/src/system/port.h', None),
-        ('gcc/src/system/wide.c', None),
-        ('gcc/src/system/wide.c', 'port_view_x'),
-        ('gcc/src/system/wide.c', 'wide_apply'),
+        ('src/draw/model.c', 'draw_in_view_any_step'),
+        ('src/system/port.h', None),
+        ('src/system/pace.c', None),
+        ('src/system/pace.c', 'frame_end'),
+        ('src/system/port.c', 'port_view_x'),
         ('modules/shooting/reticle.c', 'RETICLE_LEFT'),
         ('modules/shooting/reticle.c', 'RETICLE_RIGHT'),
         ('src/player/npc.c', 'npc_watch'),
+        ('engine/sa1/hooks.c', 'wide_apply'),
     },
     'port_view_x': {
-        ('gcc/src/system/port.h', None),
-        ('gcc/src/system/wide.c', 'port_view_x'),
+        ('src/system/port.h', None),
+        ('src/system/port.c', 'port_view_x'),
         ('src/enemy/enemy.c', 'enemy_on_screen'),
         ('src/system/util.c', 'draw_on_screen'),
     },
 }
-# each place the cover rule appears: its declaration and definition, and the two draws that take it for a polygon
-# without texture
+# each place the cover rule appears: its declaration and definitions, and the two draws that take it for a polygon
+# without texture, and their records on the PC
 COVER_RULE = {
     'port_wide_covers': {
-        ('gcc/sdk/ninja/njSprite.c', 'port_wide_covers'),
-        ('gcc/src/system/port.h', None),
+        ('engine/dc/wide.c', 'port_wide_covers'),
+        ('engine/dc/dreamcast.h', None),
+        ('engine/sa1/hooks.c', 'port_wide_covers'),
+        ('engine/sa1/records.c', 'sa1_record_polygon_2d'),
+        ('engine/sa1/records.c', 'sa1_record_screen_strip'),
         ('sdk/ninja/njDraw.c', 'njDrawPolygon'),
         ('sdk/ninja/njDrawPolygon2D.c', 'njDrawPolygon2D'),
     },
@@ -69,7 +86,7 @@ COVER_RULE = {
 # the 2D draws' pivot and cover, each with the value that puts it back
 PUT_BACK = {'port_wide_anchor': 'WIDE_MIDDLE', 'port_wide_cover': 'FALSE'}
 # the functions that put back a pivot and a cover kept before, which is no set of either
-KEEPERS = {('gcc/src/system/present.c', 'present_wide'), ('gcc/src/system/present.c', 'state_put')}
+KEEPERS = {('src/system/present.c', 'present_wide'), ('src/system/present.c', 'state_put')}
 # the operators that assign to the name before them
 ASSIGNMENTS = {'=', '*=', '/=', '+=', '-=', '++', '--'}
 # the statements a break leaves, and those a continue leaves
@@ -159,7 +176,7 @@ def unbalanced(tokens):
 @unittest.skipUnless((ROOT / '.git').exists(), 'not a git checkout, so no list of the files it tracks')
 class Rule(unittest.TestCase):
     def found(self, names):
-        """Each place a name of names appears on GCC's side, by name."""
+        """Each place a name of names appears on the non-matching side, by name."""
         found = {name: set() for name in names}
         with cwd(ROOT):
             for path in sources(names):
@@ -167,13 +184,13 @@ class Rule(unittest.TestCase):
                     found[token.text].add((path, holder))
         return found
 
-    def test_each_aspect_appears_only_where_port_h_says(self):
+    def test_each_aspect_appears_only_where_the_rule_says(self):
         found = self.found(READERS)
         for name, readers in READERS.items():
             with self.subTest(name=name):
                 self.assertEqual(found[name], readers)
 
-    def test_the_cover_rule_lies_only_in_the_two_draws(self):
+    def test_the_cover_rule_lies_only_in_the_two_draws_and_their_records(self):
         self.assertEqual(self.found(COVER_RULE), COVER_RULE)
 
     def test_each_set_of_the_pivot_or_the_cover_is_put_back_in_its_function(self):
@@ -185,7 +202,7 @@ class Rule(unittest.TestCase):
                         found.update((path, name, line) for line in unbalanced(tokens))
         self.assertEqual(found, set())
 
-    def test_only_njinitglobal_assigns_ninjas_aspect_under_gcc(self):
+    def test_only_njinitglobal_assigns_ninjas_aspect_on_the_non_matching_side(self):
         name = '_nj_scr_aspect_x_'
         found = set()
         with cwd(ROOT):

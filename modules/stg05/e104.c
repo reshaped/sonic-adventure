@@ -1239,6 +1239,17 @@ static void e104_draw(struct task *task)
     NJS_MATRIX *smoke_1;
     NJS_POINT3 offset;
     Angle ang;
+#ifdef NONMATCHING
+    /* this draw writes the points the steps fire, smoke and spark from into
+     * E-104's record. a picture must change nothing a step reads, so the
+     * second picture's pass draws from a copy */
+    struct e104 copy;
+
+    if (frame_redrawing) {
+        copy = *e104;
+        e104 = &copy;
+    }
+#endif
 
     action = e104->motion.state != MOTION_BLENDING
                  ? e104->motion.actions[e104->motion.current].action

@@ -1,0 +1,4 @@
+datum  eggmobile3_pvms  DHEAD  0x00000000  40
+text  TEXT_1  CHEAD  0x00000000  16
+text  TEXT_2  CHEAD  0x00000010  8
+text  TEXT_3  CHEAD  0x00000018  8

@@ -359,6 +359,17 @@ static void pin_draw(struct task *task)
     struct task_work *work = task->work;
     Angle angle;
 
+#ifdef NONMATCHING
+    /* a sinking pin's step fades it only around its own call of this. the
+     * second picture's pass fades it so */
+    if (frame_redrawing && work->mode == PIN_SINKING) {
+        NJS_ARGB material = pin_material;
+
+        draw_attr_save();
+        draw_attr_set(0, NJD_FLAG_USE_ALPHA);
+        njSetConstantMaterial(&material);
+    }
+#endif
     if (!frame_step) {
         texture_set_stage();
         njPushMatrix(NULL);
@@ -371,6 +382,11 @@ static void pin_draw(struct task *task)
         draw_tree(VARS(work)->object);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing && work->mode == PIN_SINKING) {
+        draw_attr_restore();
+    }
+#endif
 }
 
 static void pin_step(struct task *task)
@@ -662,12 +678,39 @@ static void platform_set_textures(struct task *task)
     }
 }
 
+#ifdef NONMATCHING
+/* move v by amount in each uv PLATFORM_REWARD scrolls */
+static void platform_scroll(struct task_work *work, int amount)
+{
+    static const Uint8 scrolled[6] = {0, 4, 6, 9, 11, 12};
+    NJS_MESHSET *meshsets = VARS(work)->object->model->meshsets;
+    int i;
+    int j;
+
+    for (i = 0; i < 6; i++) {
+        for (j = 0; j < 3; j++) {
+            meshsets[scrolled[i]].vertuv[j].tex.v += amount;
+        }
+    }
+}
+#endif
+
 static void platform_draw(struct task *task)
 {
     struct task_work *work = task->work;
     NJS_OBJECT *object;
     Angle angle;
 
+#ifdef NONMATCHING
+    /* the step sets the rounds' marks, the flash and the scroll only around
+     * its own call of this. the second picture's pass sets them so */
+    if (frame_redrawing && work->mode >= PLATFORM_REWARD) {
+        if (work->mode == PLATFORM_REWARD) {
+            platform_scroll(work, work->timer);
+        }
+        platform_set_textures(task);
+    }
+#endif
     if (!frame_step) {
         texture_set_stage();
         njPushMatrix(NULL);
@@ -686,6 +729,15 @@ static void platform_draw(struct task *task)
         njPopMatrix(1);
         njPopMatrix(1);
     }
+#ifdef NONMATCHING
+    if (frame_redrawing && work->mode >= PLATFORM_REWARD) {
+        if (work->mode == PLATFORM_REWARD) {
+            platform_scroll(work, -work->timer);
+        }
+        VARS(work)->object->model->mats[3].attr_texId = PLAIN_TEXTURE;
+        VARS(work)->object->child->model->mats[1].attr_texId = PLAIN_TEXTURE;
+    }
+#endif
 }
 
 /* once the lane's mode reaches LANE_ACTIVE, the platform's child spins. after

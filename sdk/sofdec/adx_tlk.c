@@ -299,8 +299,8 @@ long ADXT_GetNumSctIbuf(ADXT adxt)
     /* @bug uninitialized: with no input joint, nothing sets the count. BT at
      * 0x8c65bb74 goes to the epilogue, and RTS at 0x8c65bb94 returns R0 as the
      * caller left it */
-#ifdef GCC
-    /* repairs the missing count the tag names: with no input joint, GCC
+#ifdef NONMATCHING
+    /* repairs the missing count the tag names. with no input joint, this side
      * returns 0, as no sectors wait */
     return 0;
 #endif

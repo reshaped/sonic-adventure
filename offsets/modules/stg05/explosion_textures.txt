@@ -1,0 +1,10 @@
+datum  mexplosion_textures  D  0x00000000  96
+datum  mexplosion_texlist  D  0x00000060  8
+text  TEXT_1  C  0x00000000  11
+text  TEXT_2  C  0x0000000c  11
+text  TEXT_3  C  0x00000018  11
+text  TEXT_4  C  0x00000024  11
+text  TEXT_5  C  0x00000030  11
+text  TEXT_6  C  0x0000003c  11
+text  TEXT_7  C  0x00000048  11
+text  TEXT_8  C  0x00000054  11
