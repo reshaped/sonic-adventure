@@ -106,13 +106,12 @@ void collision_mesh_pool_init(struct collision_mesh *meshes, int count)
 struct collision_mesh *collision_mesh_alloc(void)
 {
     struct collision_mesh *mesh = free_meshes;
-    struct collision_mesh *rest = mesh->next;
     struct collision_mesh *first;
 
-    if (rest == NULL) {
+    if (mesh == NULL) {
         return NULL;
     }
-    free_meshes = rest;
+    free_meshes = mesh->next;
     first = collision_mesh_list;
     mesh->next = first;
     if (first != NULL) {
@@ -229,6 +228,8 @@ void collision_mesh_take_buckets(struct collision_mesh *mesh)
                 last = bucket->last;
             }
         }
+    } else {
+        mesh->polygons = NULL;
     }
     mesh->last = last;
 }
@@ -417,11 +418,8 @@ ALWAYS_INLINE void walk(struct polygon *polygon, Bool back, Float low,
     } while (polygon != NULL);
 }
 
-/* the skip to the window keeps mesh.src's, as its @bug tag says. it tests
- * the center of the polygon it has just left, not the one it moved to. so it
- * stops one past the first polygon at or past low, and that one goes
- * untested. where that one is the mesh's last, the skip and the walk read
- * through a null polygon */
+/* keep the shipped skip's candidate order. it advances once more after
+ * reaching the first center in the window, which can exhaust the list */
 Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
                         Uint32 flags)
 {
@@ -435,7 +433,7 @@ Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
 
     query->floor.found = FALSE;
     mesh = mesh_of(object);
-    if (mesh == NULL) {
+    if (mesh == NULL || mesh->polygons == NULL) {
         return FALSE;
     }
     mesh_found = FALSE;
@@ -452,6 +450,9 @@ Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
         }
         do {
             polygon = polygon->next;
+            if (polygon == NULL) {
+                return FALSE;
+            }
             before = low > center;
             center = polygon->center.z;
         } while (before);
@@ -489,6 +490,9 @@ Bool mesh_find_heights(struct height_query *query, struct collision_mesh *mesh)
     high = at.z + mesh->span;
     query->below.level = -LEVEL_START + at.y;
     query->above.level = LEVEL_START + at.y;
+    if (polygon == NULL) {
+        return FALSE;
+    }
     if (low > polygon->center.z) {
         if (!(mesh->last->center.z > high)) {
             walk(mesh->last, TRUE, low, high, &at, test_heights, query,

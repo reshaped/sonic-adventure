@@ -22,6 +22,7 @@
 # image    name                               provider    symbol                         view  reason
 *          draw_action_like_ninja             1st_read    draw_action_like_ninja         0x8c  only src/draw/model.c defines it, and the tables give it no address
 *          draw_colors                        1st_read    draw_colors                    0x8c  only src/draw/model.c defines it, and the tables give it no address
+*          draw_in_view_any_step              1st_read    draw_in_view_any_step          0x8c  only src/draw/model.c defines it, and the tables give it no address
 *          draw_tree_like_ninja               1st_read    draw_tree_like_ninja           0x8c  only src/draw/model.c defines it, and the tables give it no address
 *          event_skipping                     1st_read    event_skipping                 0x8c  only src/event/skip.c defines it, and the tables give it no address
 *          frame_later_draws                  1st_read    frame_later_draws              0x8c  only src/system/present.c defines it, and the tables give it no address

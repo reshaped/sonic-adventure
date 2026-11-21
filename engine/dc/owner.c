@@ -22,7 +22,8 @@
  * texture_render and slots_held only to 0, so its handler doesn't read them.
  *
  * at 60 fps the owner runs the frame owner.h describes, and at 30 Kamui's,
- * step for step. ENGINE.md#dreamcast gives the seam it replaces */
+ * except that both rates discard outstanding polygon DMA after ISP overflow.
+ * ENGINE.md#dreamcast gives the seam it replaces */
 #include <kamui.h>
 #include <kmistat.h>
 #include <machine.h>
@@ -183,6 +184,8 @@ static int sixty;
 static int sixty_asked;
 /* at 60 fps, TRUE from a flip that waits for a vblank to that vblank */
 static int vblank_awaited;
+/* an ISP overflow may precede the flip while the direct list is filling */
+static volatile int bank_overflow;
 /* each slot's background plane as its lists' end left it. the tag locates
  * the plane's packet in the slot's bank. the device holds one plane: the last
  * end's tag and the depth the game last set. at 60 fps both can change
@@ -207,6 +210,11 @@ static int owned(void)
  * counts from here */
 static void open_bank(KMDWORD bank)
 {
+    if (bank_overflow) {
+        owner_discard_lists();
+        DEVICE.ta_busy = 0;
+        bank_overflow = 0;
+    }
     kmiWriteRegister(SOFT_RESET_REG, RESET_TA);
     kmiWriteRegister(SOFT_RESET_REG, 0);
     kmiWriteRegister(TA_OL_BASE_REG, DEVICE.ta_bank[bank].ol_base);
@@ -301,11 +309,27 @@ KMSTATUS kmRender(void)
     return KMSTATUS_SUCCESS;
 }
 
+/* a full DMA queue can stop draining once the polygon bank overflows */
+static int send_list(KMDWORD slot, const KMDWORD *data, KMDWORD bytes)
+{
+    KMDWORD *handle;
+
+    while (kmiDMAtoTARequest(TA_INPUT, data, bytes, DMA_SOURCE_UP, &handle) ==
+           DMA_QUEUE_FULL) {
+        if (bank_overflow) {
+            if (DEVICE.slot_state[slot] == SLOT_IN_TA) {
+                DEVICE.slot_state[slot] = SLOT_OVERFLOW;
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /* send slot's buffered lists, each with its end, by DMA. while
  * common_modifier is set, its words go ahead of each modifier list */
 static void send_buffered(KMDWORD slot, KMDWORD direct)
 {
-    KMDWORD *handle;
     KMDWORD list;
 
     for (list = 0; list < LISTS; list++) {
@@ -317,14 +341,14 @@ static void send_buffered(KMDWORD slot, KMDWORD direct)
             *DEVICE.common_modifier_data =
                 (*DEVICE.common_modifier_data & ~LIST_TYPE_MASK) |
                 LIST_TYPE(list);
-            while (kmiDMAtoTARequest(TA_INPUT, DEVICE.common_modifier_data,
-                                     DEVICE.common_modifier_size, DMA_SOURCE_UP,
-                                     &handle) == DMA_QUEUE_FULL) {
+            if (!send_list(slot, DEVICE.common_modifier_data,
+                           DEVICE.common_modifier_size)) {
+                return;
             }
         }
-        while (kmiDMAtoTARequest(TA_INPUT, DEVICE.list_start.row[list][slot],
-                                 DEVICE.list_size[list][slot] + END_OF_LIST,
-                                 DMA_SOURCE_UP, &handle) == DMA_QUEUE_FULL) {
+        if (!send_list(slot, DEVICE.list_start.row[list][slot],
+                       DEVICE.list_size[list][slot] + END_OF_LIST)) {
+            return;
         }
     }
 }
@@ -377,6 +401,10 @@ static KMSTATUS flip(int go_on)
      * the two would find a flip pending whose slot still fills, and
      * release_flip would let it go on before its lists are sent */
     DEVICE.slot_state[slot] = SLOT_IN_TA;
+    /* a direct list can overflow before this slot has a pending flip */
+    if (bank_overflow) {
+        DEVICE.slot_state[slot] = SLOT_OVERFLOW;
+    }
     DEVICE.flip_pending = 1;
     QACR0 = QACR_AREA(TA_INPUT);
     QACR1 = QACR_AREA(TA_INPUT);
@@ -655,10 +683,9 @@ static int slot_waits(void)
  * any, has come. an overflowed slot counts as past its render, as Kamui's
  * handler shows it as rendered. it is past the tile accelerator once its
  * lists have ended there, or at a vblank after the overflow, where Kamui's
- * frame lets such a flip go on. neither frame tests nor stops the slot's
- * transfer at that vblank, so nothing there shows that the slot's buffered
- * lists have all arrived before the flip opens the next bank. a vblank in
- * the overflow's own interrupt doesn't let the flip go on. Kamui's handler
+ * frame lets such a flip go on. open_bank discards the old lists before
+ * installing the next bank. a vblank in the overflow's own interrupt
+ * doesn't let the flip go on. Kamui's handler
  * takes that vblank while the slot is still in the tile accelerator. vblank
  * is TRUE in an interrupt that brought a vblank after the slot overflowed in
  * an earlier one */
@@ -833,6 +860,7 @@ static KMINT32 handle_interrupt(void)
     }
     status = INT_STATUS_ERROR;
     if (status & INT_ISP_OVERFLOW) {
+        bank_overflow = 1;
         INT_STATUS_ERROR = INT_ISP_OVERFLOW;
         STATS.isp_overflows++;
         /* at 60 fps the next picture's direct list can overflow after
@@ -893,6 +921,7 @@ void kmiInitInterrupt(void)
     STATS.ta_timeouts = 0;
     STATS.ol_overflow_wait = 0;
     STATS.isp_overflow_wait = 0;
+    bank_overflow = 0;
     STATS.hold_wait = 0;
     STATS.ol_overflows = 0;
     STATS.isp_overflows = 0;

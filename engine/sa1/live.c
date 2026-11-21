@@ -174,7 +174,8 @@ static void live_model(const NJS_MODEL *model)
     }
 }
 
-/* SA1_LIVE_NESTED, in a context its caller opened. as in model.src, the
+/* Ninja forms reach this path with MODEL_CLIP clear. their scaled points
+ * still take the near test. as in model.src, the
  * shading goes back to MODULATE_ALPHA for any model in view. taken takes
  * the attributes without the forms, since a land draw that reads them is in
  * none */
@@ -182,7 +183,7 @@ static void live_nested(const NJS_MODEL *model)
 {
     struct sa1_attrs now = sa1_attrs_now();
     struct sa1_attrs recorded = now;
-    Bool in = model_in_view(model);
+    Bool in = forms || model_in_view(model);
 
     recorded.forms = forms;
     sa1_record_model(model, SA_SHADE_PALETTE, SA1_RUN, &recorded,

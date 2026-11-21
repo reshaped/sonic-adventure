@@ -42,7 +42,7 @@ names nothing of a host's adapter or slice: a host's draws reach it as
 port.h's port_draws_sent, and its pictures leave by Kamui's calls, or on
 the Dreamcast a first picture by owner.h's, and the backend names nothing
 of the split frame. The PC's overlay draws into the game's picture as the
-Dreamcast's does, by Ninja's 2D polygon and the adapter's text record, so
+Dreamcast's does, through the adapter's band and text records, so
 it names no call or name of the engine's and includes neither the engine's
 header nor a backend's. Play math, engine/numeric/'s library, knows nothing of
 the engine or of a game: a source of it includes the library's own files, the

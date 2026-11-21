@@ -34,6 +34,9 @@
 #include "stg03/cart_pieces.h"
 #include "stg03/cart_routes.h"
 #include "stg03/shareobj_textures.h"
+#ifdef NONMATCHING
+#include "system/frame.h"
+#endif
 #include "system/pad.h"
 #include "system/task.h"
 #include "system/util.h"
@@ -852,7 +855,13 @@ static void cart_draw(struct task *task)
         stage_get_stage_act() == STAGE_ACT(STAGE_TWINKLE, 2)) {
         return;
     }
+#ifdef NONMATCHING
+    /* draw before cart_move on each visible step, alongside the rider */
+    if (!FRAME_DRAWS() ||
+        !draw_in_view_any_step(work->pos.x, work->pos.y, work->pos.z, 20.0F)) {
+#else
     if (!draw_in_view(work->pos.x, work->pos.y, work->pos.z, 20.0F)) {
+#endif
         return;
     }
     for (i = 0; i < cart_color_texid_counts[cart_current->look]; i++) {
@@ -919,6 +928,11 @@ static void cart_draw(struct task *task)
         shadow_draw_at(&cart_current->slope, &shadow, 1.2F);
         break;
     }
+#ifdef NONMATCHING
+    if (frame_step != 0) {
+        return;
+    }
+#endif
     if (cart_current->vitality <= cart_motions[cart_character].smoke_vitality) {
         if ((unsigned int)play_time_get() %
                 (cart_current->vitality + SMOKE_BASE) ==
@@ -2303,8 +2317,8 @@ static void cart_wheel_draw(NJS_OBJECT *object)
     Angle ang;
 
 #ifdef NONMATCHING
-    /* the second picture's pass turns no wheel, so wheels turn as at 30 fps */
-    if (!frame_redrawing) {
+    /* only the original draw advances the wheels */
+    if (frame_step == 0 && !frame_redrawing) {
         cart_current->wheel_phase +=
             (Angle)((WHEEL_TURN +
                      (njScalor(&cart_current->speed) * WHEEL_TURN_PER_SPEED)) *

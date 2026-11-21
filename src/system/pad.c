@@ -300,6 +300,17 @@ static void pad_read_sticks(void)
     Angle ang;
     Float stroke;
 
+/* the DC port's seven-term atan2 changes a stick heading by at most one
+ * unit in a 65536-unit turn */
+#ifdef DREAMCAST
+#ifdef NONMATCHING
+#define STICK_ATAN2F shz_atan2f
+#endif
+#endif
+#ifndef STICK_ATAN2F
+#define STICK_ATAN2F atan2f
+#endif
+
     for (i = 0; i < PLAYER_COUNT; i++) {
         if (i < STICK_PLAYERS) {
             x = (Float)(per_info[i]->x1 << 8);
@@ -320,10 +331,10 @@ static void pad_read_sticks(void)
                 y += PAD_DEAD_ZONE;
             }
             if (camera_work != NULL) {
-                ang = (Angle)(atan2f(y, x) * ANGLE_PER_RADIAN) -
+                ang = (Angle)(STICK_ATAN2F(y, x) * ANGLE_PER_RADIAN) -
                       camera_work->ang.y;
             } else {
-                ang = (Angle)(atan2f(y, x) * ANGLE_PER_RADIAN);
+                ang = (Angle)(STICK_ATAN2F(y, x) * ANGLE_PER_RADIAN);
             }
             squared = (x * x) + (y * y);
             stroke =
@@ -356,3 +367,4 @@ static void pad_read_sticks(void)
         }
     }
 }
+#undef STICK_ATAN2F

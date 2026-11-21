@@ -296,7 +296,8 @@ void draw_put_shading(const struct draw_shading *in)
  * forms model.h gives draw_tree_like_ninja */
 static inline Bool in_ninja_forms(void)
 {
-    return (_nj_control_3d_flag_ & NINJA_FORMS_CONTROL) ==
+    return (_nj_control_3d_flag_ &
+            (NINJA_FORMS_CONTROL | NJD_CONTROL_3D_MODEL_CLIP)) ==
                NINJA_FORMS_CONTROL &&
            (_nj_constant_attr_or_ & UNLIT_TRANSLUCENT) == UNLIT_TRANSLUCENT;
 }

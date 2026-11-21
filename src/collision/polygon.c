@@ -29,6 +29,12 @@
 /* the most points a strip holds: strip_next cuts a longer one short */
 #define STRIP_POINTS 1024
 #define MESHES 192 /* the most objects with meshes at once */
+#ifdef NONMATCHING
+/* only entries the update admits may keep a mesh from its previous step */
+#define MESH_ENTRIES (world_count < MESHES ? world_count : MESHES)
+#else
+#define MESH_ENTRIES world_count
+#endif
 #define MESH_POLYGONS 8192 /* the most polygons in all the meshes */
 #define NEAR_POLYGONS 96 /* the most polygon_collect_near lists */
 
@@ -235,7 +241,7 @@ static void mesh_finds_fill(void)
         find->first = NULL;
         find->era = mesh_finds_era;
     }
-    for (i = world_count, entry = world_objects; i > 0; i--, entry++) {
+    for (i = MESH_ENTRIES, entry = world_objects; i > 0; i--, entry++) {
         find = mesh_find(entry->object);
         if (find->era == mesh_finds_era && find->first == NULL) {
             find->first = entry;
@@ -1534,6 +1540,9 @@ int polygon_collect_near(struct polygon_ball *ball)
     for (mesh = collision_mesh_list; mesh != NULL; mesh = mesh->next) {
         mesh->near = NULL;
         mesh->near_count = 0;
+        if (mesh->polygons == NULL) {
+            continue;
+        }
         for (i = world_count, object = world_objects; i > 0; i--, object++) {
             if (object->object == mesh->object) {
                 break;
@@ -1801,9 +1810,13 @@ Bool collision_mesh_update(void)
                 }
             }
         }
+#ifdef NONMATCHING
+        /* even a full set can replace meshes from the previous step */
+#else
         if (wanted == MESHES) {
             break;
         }
+#endif
         for (mesh = collision_mesh_list; mesh != NULL; mesh = next) {
             found = FALSE;
 #ifdef NONMATCHING
@@ -1813,7 +1826,7 @@ Bool collision_mesh_update(void)
                           mesh_stale_object == entry->object);
             }
 #else
-            for (i = world_count, entry = world_objects; i > 0; i--, entry++) {
+            for (i = MESH_ENTRIES, entry = world_objects; i > 0; i--, entry++) {
                 if (mesh->object == entry->object) {
                     if ((entry->flags & WORLD_MOVES) ||
                         mesh_stale_object == entry->object) {
@@ -1855,6 +1868,11 @@ Bool collision_mesh_update(void)
              * than take the free list's last record. the counts above stop at
              * MESHES, 192, one more */
             mesh = collision_mesh_alloc();
+#ifdef NONMATCHING
+            if (mesh == NULL) {
+                break;
+            }
+#endif
             collision_mesh_clear_buckets();
             njPushMatrix(matrix);
             root = *object;
@@ -2762,9 +2780,8 @@ collision_mesh_pool_init_indexed(struct collision_mesh *meshes, int count)
  * boxes of a mesh made there before. collision_mesh_alloc puts each mesh first
  * in collision_mesh_list, so a walk finds it for its object. the mesh takes
  * its object's slot in arena->seen, where the slot is empty or holds that
- * object. where MESHES objects want meshes, the update frees nothing. a slot
- * then still names no older mesh of its object. a mesh that doesn't move waits
- * for a search to want its boxes. a null mesh takes the shipped call alone */
+ * object. a mesh that doesn't move waits for a search to want its boxes.
+ * a null mesh takes the shipped call alone */
 LINKED_LAST(collision_mesh_take_buckets_indexed)
 __attribute__((noinline, noclone)) void
 collision_mesh_take_buckets_indexed(struct collision_mesh *mesh)
@@ -3222,6 +3239,7 @@ ALWAYS_INLINE void sweep_turn(const NJS_POINT3 *tri, struct sweep_turn *set,
 {
     const Uint32 *edges = (const Uint32 *)&tri[1];
     struct sweep_turn *turn;
+    Float normal_squared;
     Float x_turn;
     Float y_turn;
     Angle ang_x;
@@ -3240,12 +3258,14 @@ ALWAYS_INLINE void sweep_turn(const NJS_POINT3 *tri, struct sweep_turn *set,
     }
     triangle_normal((const char *)&tri[0], (const char *)&tri[1],
                     (const char *)&tri[2], normal);
-    if (njScalor2(normal) == 0.0F) {
+    normal_squared = njScalor2(normal);
+    if (normal_squared == 0.0F) {
         normal->x = 0.0F;
         normal->y = 1.0F;
         normal->z = 0.0F;
     } else {
-        njUnitVector(normal);
+        zam_store_vec3(normal, shz_vec3_scale(zam_load_vec3(normal),
+                                              _builtin_fsrra(normal_squared)));
     }
     x_turn = acosf(normal->y);
     y_turn = atan2f(normal->x, normal->z);
@@ -3400,6 +3420,7 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     NJS_VECTOR speed;
     NJS_VECTOR normal;
     NJS_VECTOR stride;
+    Float stride_squared;
     NJS_POINT3 at;
 
     reach = ball->radius;
@@ -3463,10 +3484,13 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
         }
         hit = FALSE;
         stride = speed;
-        if (njScalor2(&stride) == 0.0F) {
+        stride_squared = njScalor2(&stride);
+        if (stride_squared == 0.0F) {
             stride.x = stride.y = stride.z = 0.0F;
         } else {
-            njUnitVector(&stride);
+            zam_store_vec3(&stride,
+                           shz_vec3_scale(zam_load_vec3(&stride),
+                                          _builtin_fsrra(stride_squared)));
         }
         stride.x *= spacing;
         stride.y *= spacing;

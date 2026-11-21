@@ -2503,6 +2503,36 @@ void sa1_record_screen_strip(const void *vertices, int count, int textured,
     triangles_emit(&out, points);
 }
 
+void sa1_record_band(float x0, float y0, float x1, float y1, uint32_t color)
+{
+    sa_triangles out = {0};
+    sa_point points[4] = {{.at = {x0, y0, 1}, .color = color},
+                          {.at = {x0, y1, 1}, .color = color},
+                          {.at = {x1, y0, 1}, .color = color},
+                          {.at = {x1, y1, 1}, .color = color}};
+
+    port_draws_sent++;
+    if (!recording) {
+        return;
+    }
+    if (!picture_open) {
+        begin_picture();
+    }
+    out.view = view_id(0);
+    out.object_to_world[0] = out.object_to_world[5] = out.object_to_world[10] =
+        1;
+    out.texture = SA_CAP_NONE;
+    out.instance = instance();
+    out.count = 2;
+    out.form = SA_TRIANGLES_STRIP;
+    out.flags = SA_TRIANGLES_SCREEN | SA_TRIANGLES_BLEND;
+    out.depth = SA_DEPTH_ALWAYS;
+    out.fog = SA_FOG_NONE;
+    out.src = SA_BLEND_SRC_ALPHA;
+    out.dst = SA_BLEND_INV_SRC_ALPHA;
+    triangles_emit(&out, points);
+}
+
 /* the overlay's text, one square of side pixels for each character from x, y,
  * in color. its glyphs come from font, the texels of Ninja's built-in font as
  * njInitPrint loads them. it lies over all else, as the Dreamcast's print at

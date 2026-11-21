@@ -11,6 +11,7 @@
 #include "ninja/njkamui.h"
 
 #ifdef NONMATCHING
+#include "engine/dc/overlay.h"
 #include "sa1/text.h"
 #endif
 
@@ -213,6 +214,16 @@ void njCharacter(Sint16 x, Sint16 y, char c)
 #define PRINT_CLOSE()                                                          \
     ((&_nj_vertex_buffer_)->pCurrentPtr[KM_TRANS_POLYGON] =                    \
          (Uint32 *)(((Uint32)print_sq & SQ_ADDRESS) | list_top))
+
+#ifdef NONMATCHING
+void overlay_font_header(Uint32 *header)
+{
+    header[0] = global_param;
+    header[1] = isp_param;
+    header[2] = tsp_param;
+    header[3] = tex_param;
+}
+#endif
 
 void njPrintC(Int loc, const char *s)
 {

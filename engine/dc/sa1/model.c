@@ -760,6 +760,8 @@ OUT_OF_LINE const struct bake *bake_admit(const NJS_MODEL *model, Float x,
     struct bake *spare = NULL;
     int i;
 
+    /* at -O3 GCC duplicates the lighting-cache probe eight times */
+#pragma GCC unroll 1
     for (i = 0; i < BAKE_PROBES; i++) {
         struct bake *bake = &bakes[(hash + i) & (BAKE_SLOTS - 1)];
 
@@ -2015,14 +2017,15 @@ ALWAYS_INLINE void sa1_live_model(const NJS_MODEL *model)
     }
 }
 
-/* SA1_LIVE_NESTED: a model in view, in a context its caller opened. it sets
+/* Ninja forms reach this path with MODEL_CLIP clear. their scaled points
+ * still take the near test. the caller opens the context. this sets
  * the shading back to MODULATE_ALPHA for a model in view even when every
  * point is near */
 ALWAYS_INLINE void sa1_live_nested(const NJS_MODEL *model)
 {
     int near_points;
 
-    if (model_in_view(model)) {
+    if (drawer.project == project_like_ninja || model_in_view(model)) {
         take_constant_attr();
         near_points = drawer.project(model);
         if (near_points < model->nbPoint) {

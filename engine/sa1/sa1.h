@@ -53,6 +53,8 @@ void sa1_record_lines(const NJS_POINT3COL *p, int n, uint32_t attr);
  * screen, a texture's named by its global index */
 void sa1_record_screen_strip(const void *vertices, int count, int textured,
                              uint32_t global_index, int blend);
+/* a translucent overlay rectangle in screen pixels */
+void sa1_record_band(float x0, float y0, float x1, float y1, uint32_t color);
 /* the overlay's text at x, y on the screen, in color. each character is a
  * square side pixels wide. font is the texels of Ninja's built-in font */
 void sa1_record_text(const char *text, float x, float y, float side,

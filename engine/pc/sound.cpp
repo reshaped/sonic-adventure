@@ -1061,22 +1061,15 @@ float Sound::filter_frame(Voice &v, float x)
 
 void Sound::voice_frame(Voice &v, float &left, float &right)
 {
-    /* a voice whose step outruns its loop passes every sample sound memory
-     * can hold, at two a byte. ending it there keeps its position, and each
-     * address plus a sample's index, far within 32 bits */
-    if (v.position >= 2.0 * SOUND_MEMORY) {
-        v.on = false;
-        return;
-    }
-    uint32_t at = static_cast<uint32_t>(v.position);
-
-    if (at >= v.loop_end) {
+    if (v.position >= v.loop_end) {
         if (!v.loops || v.loop_end <= v.loop_start) {
             v.on = false;
             return;
         }
-        v.position -= v.loop_end - v.loop_start;
-        at = static_cast<uint32_t>(v.position);
+        double length = v.loop_end - v.loop_start;
+        double past = v.position - v.loop_end;
+
+        v.position = v.loop_start + (past < length ? past : fmod(past, length));
         if (v.format == FORMAT_ADPCM && v.loop_saved) {
             v.decoded = v.loop_start;
             v.value = v.loop_value;
@@ -1088,6 +1081,7 @@ void Sound::voice_frame(Voice &v, float &left, float &right)
      * after a loop's last is its first, as MAME's aica.cpp has it for PCM. a
      * voice with no loop holds its last sample to its end, where MAME ends
      * it a sample sooner */
+    uint32_t at = static_cast<uint32_t>(v.position);
     double frac = v.position - at;
     int32_t a, b;
 

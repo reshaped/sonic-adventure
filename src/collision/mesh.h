@@ -15,7 +15,8 @@ struct polygon;
 extern struct collision_mesh *collision_mesh_list;
 
 /* a pool's free records lie in a list linked through next. an allocation
- * returns null rather than take the list's last record */
+ * returns null when the pool is exhausted. the original reserves the last
+ * record in both pools. the ports reserve it only in the polygon pool */
 
 /* make polygons[0..count) the free polygons, writing only their next.
  * count must be at least 2 */
@@ -47,7 +48,8 @@ void collision_mesh_clear_buckets(void);
 struct polygon *polygon_alloc(Float z);
 /* join the buckets' lists, lowest z first, as the mesh's polygons, from
  * mesh->polygons to mesh->last. within a bucket, the newest polygon comes
- * first. with every bucket empty, it sets only mesh->last, to null */
+ * first. with every bucket empty, the original clears only last, the DC
+ * port clears both ends, and the native port points both at its terminator */
 void collision_mesh_take_buckets(struct collision_mesh *mesh);
 
 /* polygon_find_floor and polygon_find_heights find the first mesh in

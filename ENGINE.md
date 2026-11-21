@@ -46,7 +46,7 @@ The header asserts record layouts. `make engine-test` compiles the ABI as C and 
 
 A call that can fail returns `sa_result`. `SA_OK` means success, nonnegative values may describe other outcomes, and negative values report errors.
 
-A failing call leaves the engine's state unchanged and does not write its output parameters. The failures are:
+A failing call retains no new handle and opens no picture or scene. It may have written part of an output, shown a picture that was due, or posted events. Read outputs after `SA_OK` and poll events after any result.
 
 | Result | Meaning |
 |---|---|
@@ -87,7 +87,7 @@ The engine refuses an overfull arena, event ring or resource table. It doesn't s
 
 ## Numbers
 
-Math whose result affects play gives the same bits on every host. Math used only to produce a picture may use the backend's native arithmetic.
+Play math targets the same bits on every host. The Dreamcast port makes one exception for the analog stick. Its seven-term SH4ZAM atan2 differs from the original by at most one unit in a 65,536-unit turn (0.00549°) after quantization. The PC retains the original stick path. Recorded pads use the same decoder as live input. The [Dreamcast test](engine/tests/dreamcast.py) compares the compiled routines over all 65,536 stick positions. Math used only to produce a picture may use the backend's native arithmetic.
 
 The Dreamcast executes the SH-4's instructions. A host uses play math, declared by [`play_math.h`](engine/numeric/play_math.h), wherever its own arithmetic would give other bits: FTRV, FIPR, FSCA, FSRRA, FMAC, conversions, comparisons and the scalar operations, under the game's rounding. The library depends on neither the engine nor the game, and gives the same bits whatever the host FPU's mode.
 

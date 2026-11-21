@@ -1,4 +1,4 @@
-"""SH4ZAM as the tree takes it: each entry a source calls gives the console's bits whatever its arguments, as
+"""SH4ZAM as the tree takes it: each entry a source calls is listed with its numerical contract, as
 PORTS.md#sh4zam-and-the-runtime says, a function takes SHZ_FAST_MATH only in a file whose bin config/parts.txt gives as
 picture, a body that hands SH4ZAM a caller's matrix as its own type, which aligns to 8, traps in a build without
 NDEBUG on one that lies off 8, and GCC refuses a structure that would hold a matrix off 8. The lists hold an entry's
@@ -18,12 +18,16 @@ from support import cwd, tree
 ROOT = Path(__file__).resolve().parents[1]
 # a call of an SH4ZAM function or function-like macro
 CALL = re.compile(r'\b((?:shz|SHZ)_\w+)\s*\(')
+# an object-like macro can call the same entry through a different spelling
+ALIAS = re.compile(r'^\s*#\s*define[ \t]+(\w+)[ \t]+\(?[ \t]*((?:shz|SHZ)_\w+)[ \t]*\)?[ \t]*$', re.M)
+STICK = ('src/system/pad.c', 'STICK_ATAN2F', 'shz_atan2f')
 # the entries a source may call, each a back-end entry or a public one with no constant branch, so it runs the same
 # instructions whatever its arguments, but XMTRX's unaligned load, store and apply, which move a matrix by pairs or by
 # single floats as its address is aligned, to the same bits. shz_floorf and shz_ceilf fold a constant by GCC's floor
 # and ceil, which round nothing, and mathf.h gives a zero result x's sign either way
 EXACT = {
-    # four FIPRs, or three, the vector first in each
+    # four FIPRs, or three, the vector first in each. the pinned vec3 transform reuses x in a zero-weight lane
+    # of z, so its agreement with the shipped transform requires a finite x result
     'shz_mat4x4_transform_vec4_sh4', 'shz_mat4x4_transform_vec3',
     # FSRRA and FSCA
     'shz_inv_sqrtf_fsrra_sh4', 'shz_sincosu16_sh4',
@@ -92,14 +96,21 @@ HOLDERS = (
 def calls(path, text):
     """Each call of an SH4ZAM entry in path's text, outside comments and literals, as (path:line, entry)."""
     code = csource.blanked(text)
-    return [(f'{path}:{code.count(chr(10), 0, call.start()) + 1}', call[1]) for call in CALL.finditer(code)]
+    entries = [(call.start(1), call[1]) for call in CALL.finditer(code)]
+    for alias in ALIAS.finditer(code):
+        entry = alias[2]
+        if (path, alias[1], entry) == STICK:
+            entry = f'{alias[1]} -> {entry}'
+        entries.append((alias.start(2), entry))
+    return [(f'{path}:{code.count(chr(10), 0, offset) + 1}', entry) for offset, entry in sorted(entries)]
 
 
 def refused(found):
     """Each of found, as calls() gives them, that EXACT lacks and SUMMED doesn't allow its source, as
     path:line: entry."""
     return [f'{at}: {entry}' for at, entry in found
-            if entry not in EXACT and at.rpartition(':')[0] not in SUMMED.get(entry, ())]
+            if entry not in EXACT and at.rpartition(':')[0] not in SUMMED.get(entry, ())
+            and (at.rpartition(':')[0], entry) != (STICK[0], f'{STICK[1]} -> {STICK[2]}')]
 
 
 def idle(found):
@@ -176,6 +187,21 @@ class Exact(unittest.TestCase):
                          ['src/a.c:4: shz_sqrtf', 'src/a.c:4: shz_vec3_cross', 'src/a.c:4: shz_fmaf'])
         self.assertEqual(refused(calls('sdk/ninja/njModel.c', text)),
                          ['sdk/ninja/njModel.c:4: shz_sqrtf', 'sdk/ninja/njModel.c:4: shz_fmaf'])
+
+    def test_only_the_stick_decoder_may_alias_the_approximation(self):
+        definition = '#define STICK_ATAN2F shz_atan2f\n'
+        path = STICK[0]
+        pad = (ROOT / path).read_text()
+        decoder = pad.split('static void pad_read_sticks(void)\n{', 1)[1].split('\n}', 1)[0]
+        self.assertIn(definition, decoder)
+        self.assertEqual(pad.count('STICK_ATAN2F('), decoder.count('STICK_ATAN2F('))
+        self.assertIn('\n}\n#undef STICK_ATAN2F', pad)
+        self.assertFalse(refused(calls(path, definition)))
+        for source, code in [(path, definition.replace('STICK_ATAN2F', 'OTHER')),
+                             ('src/other.c', definition), (path, 'return shz_atan2f(y, x);')]:
+            self.assertEqual(refused(calls(source, code)), [f'{source}:1: shz_atan2f'])
+        self.assertEqual(refused(calls(path, definition.replace('shz_atan2f', 'shz_sqrtf'))),
+                         [f'{path}:1: shz_sqrtf'])
 
     def test_names_a_listed_entry_that_no_source_calls(self):
         # a source that calls every entry of EXACT but one, and none of SUMMED's
@@ -275,7 +301,6 @@ class Exact(unittest.TestCase):
                          ['no second is defined: name in tests/test_zam.py the function that hands SH4ZAM the matrix '
                           'now'])
 
-    def test_compiles_the_tree_and_sh4zam_s_library_with_no_sh4zam_macro(self):
-        # SH4ZAM builds in its default mode, as upstream's does
+    def test_compiles_the_tree_and_sh4zam_with_the_same_seven_term_arctangent(self):
         for flags in (test_ld.flags(), test_ld.flags('GCC_SH4ZAM_FLAGS')):
-            self.assertEqual([flag for flag in flags if flag.startswith('-DSHZ_')], [])
+            self.assertEqual([flag for flag in flags if flag.startswith('-DSHZ_')], ['-DSHZ_ATAN2F_TERMS=7'])

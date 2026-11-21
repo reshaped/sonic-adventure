@@ -106,6 +106,8 @@ static uint32_t renders;
  * each age counts the vblanks so far */
 static int rendering;
 static int taking;
+static int hazard_resets;
+static int buffered_dma, pending_list_end, discarded, reject_request;
 static uint32_t render_age;
 static uint32_t taking_age;
 
@@ -212,6 +214,9 @@ KMINT32 kmiWriteRegister(KMDWORD reg, KMDWORD value)
     int slot;
 
     if (PVR_REGISTERS + reg == TA_ISP_BASE) {
+        if (taking || buffered_dma || pending_list_end) {
+            fail("bank opens with an old transfer or list end pending");
+        }
         for (slot = 0; slot < SLOTS; slot++) {
             KMINT32 state = DEVICE.slot_state[slot];
 
@@ -248,6 +253,14 @@ void kmiMemCopy4(void *destination, void *source, KMDWORD size)
 KMSTATUS kmiDMAtoTARequest(KMDWORD target, const KMDWORD *source, KMDWORD size,
                            KMDWORD flags, KMDWORD **handle)
 {
+    if (reject_request) {
+        if (reject_request++ != 1) {
+            fail("retried a full polygon queue after overflow");
+            return DMA_QUEUED;
+        }
+        return DMA_QUEUE_FULL;
+    }
+    buffered_dma = 1;
     (void)target;
     (void)source;
     (void)size;
@@ -261,8 +274,16 @@ KMBOOLEAN kmiExecuteDMAChain(void)
     return 0;
 }
 
+void owner_discard_lists(void)
+{
+    discarded++;
+    taking = buffered_dma = pending_list_end = 0;
+}
+
 KMINT32 kmiDMAHazardReset(void)
 {
+    hazard_resets++;
+    taking = buffered_dma = pending_list_end = 0;
     return 0;
 }
 
@@ -365,7 +386,12 @@ static void interrupt(const char *events)
 
     for (; *events != '\0'; events++) {
         switch (*events) {
+        case 'd':
+            buffered_dma = 0;
+            pending_list_end = 1;
+            break;
         case 'l':
+            buffered_dma = pending_list_end = 0;
             reached.finished += (uint32_t)slot_waits();
             *word(TA_ISP_CURRENT) = held[DEVICE.ta_slot].end;
             for (list = 0; list < LISTS; list++) {
@@ -495,7 +521,8 @@ static void set_up(const char *name, int sixty)
     first = pictures;
     renders = 0;
     rendering = 0;
-    taking = 0;
+    hazard_resets = 0;
+    taking = buffered_dma = pending_list_end = discarded = reject_request = 0;
     script = "";
     d->latency_model = KM_LATENCYMODEL_2V;
     d->vertex_buffer_model = NOBUF;
@@ -706,6 +733,40 @@ static void overflow_waits(void)
            "next vblank",
            1);
     flip(1, "(vo)v");
+    set_up("DMA finished with an old list end still pending", 1);
+    flip(1, "odv");
+    if (discarded != 1) {
+        fail("the overflowed bank was not discarded");
+    }
+    flip(1, "l");
+    set_up("discard a direct list after it overflows", 1);
+    event('o');
+    kmResetPointer();
+    if (discarded != 1) {
+        fail("reset left an overflow in the current bank");
+    }
+    flip(1, "l");
+    for (int split = 0; split <= 1; split++) {
+        set_up("a direct-list overflow with room in the DMA queue", split);
+        event('o');
+        flip(split, "v");
+        if (discarded != 1 || hazard_resets ||
+            kmiIntStatisticData.ta_timeouts) {
+            fail("direct-list overflow needed a whole-queue reset");
+        }
+    }
+    set_up("a full queue after a direct-list overflow", 1);
+    event('o');
+    reject_request = 1;
+    flip(1, "v");
+    if (reject_request != 2 || discarded != 1) {
+        fail("the full polygon queue was not discarded");
+    }
+    set_up("30 fps recovers before opening the other bank", 0);
+    flip(0, "ov");
+    if (discarded != 1) {
+        fail("30 fps kept the overflowed bank");
+    }
 }
 
 /* 60 fps ends with a picture finished and waiting for its render. the next

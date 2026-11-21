@@ -714,16 +714,10 @@ tools/sh-elf/bin/sh-elf-gcc:
 	$(Q)rm -rf tools/sh-elf && mv tools/sh-elf.part tools/sh-elf
 	$(Q)rm -rf tools/sh-elf.src build/toolchain
 
-# SH4ZAM's library whole: each file of its include/ and source/, and its
-# LICENSE, fetched by itself from the commit SH4ZAM_AT names. SH4ZAM's
-# AGENTS.md, as of its commit ad2f890, accepts a copy only by its third
-# route, a synchronized copy: the whole library, pulled from upstream by a
-# build mechanism that records the commit, with local changes kept to a
-# minimum and sent upstream. The tree makes none of its own: SH4ZAM_AT
-# names a commit of upstream's master, which holds the changes the tree
-# offered upstream. GitHub's archive of a commit holds the same files, but
-# the archive's compressed bytes can change
-SH4ZAM_AT := https://raw.githubusercontent.com/gyrovorbis/sh4zam/d5af8cb4a51c50d1988da62b6bdac7ab9d9b6de2
+# Fetch the complete library by commit and verify each file against its hash.
+# The fork carries the FSCA output-register change in upstream PR #94 on top
+# of upstream master at 3ef3764.
+SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/810f9b4fcd1af950449f06873829ca8c512b388c
 $(SH4ZAM): $(if $(UNFETCHED),FORCE)
 	@$(call status,fetch,$@)
 	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)

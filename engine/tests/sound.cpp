@@ -1167,6 +1167,71 @@ int wraps(pc::Sound &sound)
             }
         }
     }
+    /* four source samples per output frame cross a short loop repeatedly.
+     * the prefix still plays on the first pass */
+    for (int length : {1, 2}) {
+        for (int prefix : {0, 2}) {
+            for (int program : {0, 1}) {
+                auto bank = looping();
+                uint32_t split = program ? 0x530 : 0x68;
+                bank[split + 37] = 84;
+                put16(bank, split + 4, prefix);
+                put16(bank, split + 6, prefix + length);
+                /* PCM samples differ across the loop boundary. ADPCM keeps
+                 * its original codes, whose decoded samples differ too */
+                if (!program) {
+                    for (int i = 0; i < 12; i++) {
+                        put16(bank, 0x100 + 2 * i, 1000 + 1000 * i);
+                    }
+                }
+                auto play = [&](int key, int16_t *out, int n) {
+                    sa_audio_command note[] = {midi(1, 0xc0, program, 0),
+                                               midi(1, 0x90, key, 127)};
+                    sa_audio_command stop = midi(1, 0x80, key, 0);
+                    sound.submit(note, 2);
+                    sound.render(out, n);
+                    sound.submit(&stop, 1);
+                    sound.render(rest.data(), 400);
+                };
+                int16_t normal[2 * 8], fast[2 * 8];
+                if (place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000, bank) !=
+                        SA_OK ||
+                    sound.submit(set, 2) != SA_OK) {
+                    return 67;
+                }
+                play(60, normal, 8);
+                play(84, fast, 8);
+                for (int i = 0; i < 8; i++) {
+                    int at = i * 4;
+                    if (at >= prefix + length) {
+                        at = prefix + (at - prefix) % length;
+                    }
+                    if (fast[2 * i] != normal[2 * at]) {
+                        fprintf(stderr,
+                                "sound: program %d loop %d+%d frame %d\n",
+                                program, prefix, length, i);
+                        return 68;
+                    }
+                }
+                if (!program && prefix == 2 && length == 2) {
+                    /* a fractional pitch can cross both ends of the loop
+                     * between samples. bytes past its end must stay silent */
+                    play(83, fast, 8);
+                    for (int i = prefix + length; i < 12; i++) {
+                        put16(bank, 0x100 + 2 * i, 0xffff);
+                    }
+                    if (place(sound, SA_BANK_PROGRAMS, 1, BANK + 0x8000,
+                              bank) != SA_OK) {
+                        return 69;
+                    }
+                    play(83, normal, 8);
+                    if (memcmp(fast, normal, sizeof fast)) {
+                        return 70;
+                    }
+                }
+            }
+        }
+    }
     return 0;
 }
 

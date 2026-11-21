@@ -17,6 +17,9 @@
  * a flip ahead of that vblank waits for it, so it goes on in Kamui's frame.
  * sa_present_mode calls owner_sixty once a frame */
 void owner_sixty(int on);
+/* discard the overflowed bank's polygon DMA and pending list-end events.
+ * the Kamui request queues implement this alongside their interrupt handler */
+void owner_discard_lists(void);
 /* kmFlipFrameBuffer for a split frame's first picture. at 60 fps its flip
  * waits for no vblank. it goes on once the tile accelerator has the lists
  * and the next slot's bank is free */

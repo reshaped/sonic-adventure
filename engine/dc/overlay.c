@@ -12,6 +12,10 @@
 
 #include "engine/dc/crash.h"
 #include "engine/dc/dreamcast.h"
+#include "engine/dc/overlay.h"
+#include "sdk/ninja/njkamui.h"
+#include "rules.h"
+#include "sa1/text.h"
 #include "main.h"
 #include "stage/stage.h"
 #include "system/chord.h"
@@ -35,8 +39,6 @@
 /* the vsyncs the note fades in and out over, and shows for in all */
 #define NOTE_FADE 15
 #define NOTE_VSYNCS 120
-/* njInitPrint's color, which the game's prints take */
-#define PRINT_COLOR 0xffbfbfbf
 /* the alpha of the dark band under the overlay's text, out of 255 */
 #define BAND_ALPHA 0xa0
 /* the pixels the band reaches past its text, across and down */
@@ -49,12 +51,7 @@ static struct {
     int left;
     int level;
 } note;
-/* the readout's page, which the chord's up steps through. port_chord gives
- * the readout's toggle FALSE at READOUT_OFF, so the readout draws nothing.
- * no page folds a frame then, and the SH-4's counters are left alone.
- * counter_measure and hitch_measure still take each frame */
-enum { READOUT_OFF, READOUT_PERF, READOUT_CACHE, READOUTS };
-static int readout;
+static enum readout_page readout;
 /* the frame's times, in syTmrGetCount's counts. busy is as overlay_end takes
  * it. gpu is the last finished render's, as owner.c's handler records it */
 static struct {
@@ -66,12 +63,14 @@ static struct {
  * half second's start. frame_wait, njWaitVSync and present.c's show_first add
  * 1 to it as each flips to a picture. a split frame is a frame of play that
  * shows two pictures. counter_split counts the frames that showed both */
+static int sampling_fps;
 static Uint32 counter_start;
 static int counter_frames;
 static Uint32 counter_peak;
 static Uint32 counter_flips;
 static int counter_split;
 static int counter_reason;
+static char fps_line[sizeof("999 FPS")] = "-- FPS";
 static char counter_line[LINE_CHARS + 1];
 static Uint32 counter_color;
 static char modes_line[LINE_CHARS + 1];
@@ -155,8 +154,7 @@ static char cache_lines[CACHE_LINES][LINE_CHARS + 1];
  * wanted the split. switches counts the changes between both pictures and
  * one. lone counts the frames that showed one between two that showed both.
  * both holds whether each of the last two showed both, newest first.
- * fullest is the store of the split's records that came fullest in any
- * frame. full is the percent of its room it took */
+ * fullest and full record peak store occupancy while PERF or CACHE is open */
 static struct {
     int switches;
     int lone;
@@ -176,17 +174,96 @@ static Uint32 counter_gpu_peak;
  * perf page shows those since, up to 99 */
 static Uint32 act_start_overflows;
 
-/* a see-through band from x0, y0 to x1, y1 in color, blended as
- * fade_draw_cover blends its quad. at pri -1 it takes depth 1, the most a 2D
- * draw takes. drawn after the fades, it lies over them. port_wide_cover
- * keeps it from 16:9's squeeze, as njPrintC's glyphs take none */
+#define SQ_AREA(ptr) (((ptr) >> 24) & 0x1c)
+#define SQ_ADDRESS 0x03ffffff
+#define SQ_BASE 0xe0000000
+#define QACR0 (*(volatile Uint32 *)0xff000038)
+#define QACR1 (*(volatile Uint32 *)0xff00003c)
+
+struct overlay_strip {
+    Uint32 area0, area1, list, *sq;
+};
+
+static void overlay_open(struct overlay_strip *strip,
+                         const KMVERTEXCONTEXT *context)
+{
+    Uint32 list = (Uint32)_nj_vertex_buffer_.pCurrentPtr[KM_TRANS_POLYGON];
+    Uint32 *sq = (Uint32 *)((list & SQ_ADDRESS) | SQ_BASE);
+
+    strip->area0 = QACR0;
+    strip->area1 = QACR1;
+    strip->list = list;
+    QACR0 = SQ_AREA(list);
+    QACR1 = SQ_AREA(list);
+    if (context != NULL) {
+        sq[0] = context->GLOBALPARAMBUFFER;
+        sq[1] = context->ISPPARAMBUFFER;
+        sq[2] = context->TSPPARAMBUFFER;
+        sq[3] = 0;
+    } else {
+        overlay_font_header(sq);
+    }
+    prefetch(sq);
+    strip->sq = sq + 8;
+}
+
+static void overlay_close(const struct overlay_strip *strip)
+{
+    _nj_vertex_buffer_.pCurrentPtr[KM_TRANS_POLYGON] =
+        (Uint32 *)(((Uint32)strip->sq & SQ_ADDRESS) | (strip->list & LIST_TOP));
+    QACR0 = strip->area0;
+    QACR1 = strip->area1;
+}
+
 static void overlay_band(Float x0, Float y0, Float x1, Float y1, Uint32 color)
 {
-    njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
-    njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
-    port_wide_cover = TRUE;
-    port_band(x0, y0, x1, y1, color, -1.0F, NJD_FILL | NJD_TRANSPARENT);
-    port_wide_cover = FALSE;
+    struct overlay_strip strip;
+    Uint32 *sq;
+
+    static KMVERTEXCONTEXT band;
+
+    if (!band.RenderState) {
+        band.RenderState = KM_PARAMTYPE | KM_LISTTYPE | KM_COLORTYPE |
+                           KM_SHADINGMODE | KM_DEPTHMODE | KM_CULLINGMODE |
+                           KM_ZWRITEDISABLE | KM_USEALPHA | KM_SRCBLENDINGMODE |
+                           KM_DSTBLENDINGMODE | KM_FOGMODE;
+        band.ParamType = KM_POLYGON;
+        band.ListType = KM_TRANS_POLYGON;
+        band.ColorType = KM_PACKEDCOLOR;
+        band.ShadingMode = KM_NOTEXTUREFLAT;
+        band.DepthMode = KM_ALWAYS;
+        band.CullingMode = KM_NOCULLING;
+        band.bZWriteDisable = TRUE;
+        band.bUseAlpha = TRUE;
+        band.SRCBlendingMode = KM_SRCALPHA;
+        band.DSTBlendingMode = KM_INVSRCALPHA;
+        band.FogMode = KM_NOFOG;
+        kmProcessVertexRenderState(&band);
+    }
+    overlay_open(&strip, &band);
+    sq = sa1_send_vertex(strip.sq, KM_VERTEXPARAM_NORMAL, x0, y0, 1, FALSE, 0,
+                         0, color);
+    sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, x0, y1, 1, FALSE, 0, 0,
+                         color);
+    sq = sa1_send_vertex(sq, KM_VERTEXPARAM_NORMAL, x1, y0, 1, FALSE, 0, 0,
+                         color);
+    strip.sq = sa1_send_vertex(sq, KM_VERTEXPARAM_ENDOFSTRIP, x1, y1, 1, FALSE,
+                               0, 0, color);
+    overlay_close(&strip);
+}
+
+static void overlay_print(int col, int row, const char *text, int cell,
+                          Uint32 color)
+{
+    struct overlay_strip strip;
+    struct sa1_live_character glyph = {col * cell, row * cell, cell, color};
+
+    overlay_open(&strip, NULL);
+    for (; *text; text++) {
+        strip.sq = sa1_character(strip.sq, &glyph, (Uint8)*text);
+        glyph.x += cell;
+    }
+    overlay_close(&strip);
 }
 
 /* text at col and row in the rgb color, on a dark band. alpha, out of 255,
@@ -198,8 +275,7 @@ static void overlay_text(int col, int row, const char *text, Uint32 color,
                  (col + (int)strlen(text)) * CELL + BAND_PAD_X,
                  (row + 1) * CELL + BAND_PAD_Y,
                  (Uint32)(alpha * BAND_ALPHA / 255) << 24);
-    njPrintColor((Uint32)alpha << 24 | color);
-    njPrintC(NJM_LOCATION(col, row), text);
+    overlay_print(col, row, text, CELL, (Uint32)alpha << 24 | color);
 }
 
 /* value, or most where value passes it. string_format checks no length. a
@@ -524,6 +600,16 @@ static void readout_start(void)
     memset(&page, 0, sizeof(page));
     memset(&counts, 0, sizeof(counts));
     page_timed = FALSE;
+    sampling_fps = FALSE;
+    counter_frames = counter_split = counter_reason = 0;
+    counter_sum.busy = counter_sum.gpu = counter_peak = counter_gpu_peak = 0;
+    if (readout == READOUT_FPS) {
+        strcpy(fps_line, "-- FPS");
+    } else if (readout >= READOUT_PERF) {
+        counter_color = 0xffffff;
+        strcpy(counter_line, fps_line);
+        modes_line[0] = 0;
+    }
     if (readout == READOUT_PERF) {
         perf_write();
     }
@@ -577,6 +663,32 @@ static void page_measure(enum present_shown shown,
     }
 }
 
+/* refresh the displayed rate from completed flips once per half second */
+static int fps_sample(Uint32 now)
+{
+    Uint32 span = now - counter_start;
+    Uint32 flips;
+    Uint32 between;
+    Uint32 fps;
+
+    if (!sampling_fps) {
+        sampling_fps = TRUE;
+        counter_start = now;
+        counter_flips = _nj_vsync_count_;
+        return FALSE;
+    }
+    if (span < COUNTS_PER_SECOND / 2) {
+        return FALSE;
+    }
+    flips = _nj_vsync_count_ - counter_flips;
+    between = flips ? span / flips : 0;
+    fps = between ? (COUNTS_PER_SECOND + between / 2) / between : 0;
+    string_format(fps_line, "%2u FPS", at_most(fps, 999));
+    counter_start = now;
+    counter_flips = _nj_vsync_count_;
+    return TRUE;
+}
+
 /* fold the frame into the counter's half second. shown is present_shown's.
  * once the half second has passed at now, write the counter's line. it shows
  * the pictures presented a second, then the mean busy and render times in
@@ -590,11 +702,7 @@ static void counter_measure(Uint32 now, enum present_shown shown)
         [HELD_LATE] = 'T',   [HELD_STOPPED] = 'T', [HELD_FULL] = 'C',
         [HELD_FIRST] = 'T',  [HELD_PVR] = 'R',     [HELD_SECOND] = 'T',
         [HELD_BITMAP] = 'B', [HELD_SPARE] = 'E'};
-    Uint32 span = now - counter_start;
     Uint32 budget = frame_interval * VSYNC_COUNTS;
-    Uint32 flips;
-    Uint32 between;
-    int fps;
     int busy;
     int gpu;
 
@@ -612,24 +720,17 @@ static void counter_measure(Uint32 now, enum present_shown shown)
     if (measure.gpu > counter_gpu_peak) {
         counter_gpu_peak = measure.gpu;
     }
-    if (span < COUNTS_PER_SECOND / 2) {
+    if (!fps_sample(now)) {
         return;
     }
-    flips = _nj_vsync_count_ - counter_flips;
-    between = flips != 0 ? span / flips : 0;
-    fps = between != 0 ? (COUNTS_PER_SECOND + between / 2) / between : 0;
     busy = counter_mean(counter_sum.busy);
     gpu = counter_mean(counter_sum.gpu);
-    string_format(counter_line, "%2d FPS %2d.%d GPU %2d.%d", fps, busy / 10,
+    string_format(counter_line, "%s %2d.%d GPU %2d.%d", fps_line, busy / 10,
                   busy % 10, gpu / 10, gpu % 10);
     counter_color =
         colors[(counter_peak * 10 > budget * 9) + (counter_peak > budget)];
     modes_write();
-    if (readout != READOUT_OFF) {
-        readout_write();
-    }
-    counter_start = now;
-    counter_flips = _nj_vsync_count_;
+    readout_write();
     counter_frames = 0;
     counter_split = counter_reason = 0;
     counter_sum.busy = counter_sum.gpu = 0;
@@ -675,13 +776,12 @@ static void readout_draw(void)
                  TOP_ROW * CELL - BAND_PAD_Y, RIGHT_END * CELL + BAND_PAD_X,
                  (UNDER_ROW + lines) * CELL + BAND_PAD_Y,
                  (Uint32)BAND_ALPHA << 24);
-    njPrintColor(0xff000000 | counter_color);
-    njPrintC(NJM_LOCATION(RIGHT_END - counter, TOP_ROW), counter_line);
-    njPrintColor(0xffffffff);
-    njPrintC(NJM_LOCATION(RIGHT_END - modes, TOP_ROW + 1), modes_line);
+    overlay_print(RIGHT_END - counter, TOP_ROW, counter_line, CELL,
+                  0xff000000 | counter_color);
+    overlay_print(RIGHT_END - modes, TOP_ROW + 1, modes_line, CELL, 0xffffffff);
     for (i = 0; i < lines; i++) {
-        njPrintC(NJM_LOCATION(RIGHT_END - (int)strlen(under[i]), UNDER_ROW + i),
-                 under[i]);
+        overlay_print(RIGHT_END - (int)strlen(under[i]), UNDER_ROW + i,
+                      under[i], CELL, 0xffffffff);
     }
 }
 
@@ -698,15 +798,23 @@ void overlay_end(Uint32 wait, Uint32 busy, int late)
      * second can hold hundreds of them, each past a budget of 0 */
     if (frame_interval != 0) {
         shown = present_shown(late);
-        figured = present_figures(&frame);
-        page_out = figured ? frame.out : STORES;
-        measure.busy = busy;
-        measure.gpu = kmiIntStatisticData.render_time;
-        hitch_measure(shown, late, figured ? &frame : NULL);
-        if (readout != READOUT_OFF && figured) {
-            page_measure(shown, &frame);
+        if (readout >= READOUT_PERF) {
+            figured = present_figures(&frame);
+            page_out = figured ? frame.out : STORES;
+            measure.busy = busy;
+            measure.gpu = kmiIntStatisticData.render_time;
+            hitch_measure(shown, late, figured ? &frame : NULL);
+            if (figured) {
+                page_measure(shown, &frame);
+            }
+            counter_measure(wait, shown);
+        } else {
+            /* the hitch totals on PERF cover the whole act */
+            hitch_measure(shown, late, NULL);
+            if (readout == READOUT_FPS) {
+                fps_sample(wait);
+            }
         }
-        counter_measure(wait, shown);
     }
     page_timed = FALSE;
     if (counting) {
@@ -733,7 +841,10 @@ void overlay_draw(void)
         overlay_band(0.0F, 0.0F, SCREEN_WIDTH, SCREEN_HEIGHT,
                      (Uint32)(curtain * 255 / CURTAIN_FADE) << 24);
     }
-    if (port_toggles[TOGGLE_READOUT]) {
+    if (readout == READOUT_FPS) {
+        overlay_text(RIGHT_END - (int)strlen(fps_line), TOP_ROW, fps_line,
+                     0xffffff, 255);
+    } else if (port_toggles[TOGGLE_READOUT]) {
         readout_draw();
     }
     if (note.level > 0) {
@@ -741,12 +852,11 @@ void overlay_draw(void)
                      UNDER_ROW + readout_lines() + 1, note.text, 0xffffff,
                      note.level * 255 / NOTE_FADE);
     }
-    njPrintColor(PRINT_COLOR);
 }
 
 int overlay_page(void)
 {
-    readout = (readout + 1) % READOUTS;
+    readout = readout == READOUT_CACHE ? READOUT_OFF : readout + 1;
     readout_start();
     return readout != READOUT_OFF;
 }
@@ -754,7 +864,7 @@ int overlay_page(void)
 void overlay_note(int toggle)
 {
     static const char *const names[TOGGLES] = {"READOUT", "16:9", "60 FPS"};
-    static const char *const readouts[READOUTS] = {"OFF", "PERF", "CACHE"};
+    static const char *const readouts[] = {"OFF", "FPS", "PERF", "CACHE"};
 
     string_format(note.text, "%s %s", names[toggle],
                   toggle == TOGGLE_READOUT ? readouts[readout]
@@ -775,7 +885,7 @@ void overlay_pad(void)
             zone_start(ZONE_STEP0);
         }
     } else if (frame_step == 1) {
-        if (readout != READOUT_OFF) {
+        if (readout >= READOUT_PERF) {
             page_step1 = syTmrGetCount();
             page_timed = TRUE;
         }

@@ -315,7 +315,6 @@ warm     src/system/util.c         points_blend
 warm     sdk/ninja/kmvertex_kamui_lib.c kmProcessVertexRenderState
 warm     src/system/present.c      present_draw
 warm     src/enemy/saru.c          saru_step
-warm     src/collision/polygon.c   collision_mesh_update
 warm     src/enemy/sai.c           sai_roll_treads
 warm     sdk/ninja/njDrawTriangle3D.c njDrawTriangle3D
 warm     src/collision/world.c     world_collect_near_players
@@ -402,6 +401,7 @@ warm     src/effect/spark.c        spark_step
 warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
 warm     sdk/ninja/njModelE.c      _njEasyDrawModel
 warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
+warm     src/collision/polygon.c   collision_mesh_update
 
 # the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
 # then collision's index of the static meshes, which their sides' and

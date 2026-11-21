@@ -72,7 +72,7 @@ The readout, 16:9 and 60 fps start off. The game saves the 16:9 and 60 fps setti
 
 ### The readout
 
-Up steps through off, a page of frame times and a page of cache counters. On the PC it shows or hides one page ([The readout](ENGINE.md#the-readout)).
+From off, the first press shows just FPS in the top-right corner. It counts game pictures over the last half second. On PC, extra pictures the backend interpolates or repeats do not count. Press again for frame times, then cache counters on Dreamcast, then off ([The readout](ENGINE.md#the-readout)).
 
 ### Skips
 

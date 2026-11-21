@@ -96,13 +96,11 @@ void draw_models_end(void);
  * lacks NJD_FLAG_DOUBLE_SIDE loses its back faces through the header's cull
  * mode. Ninja's _cull drawers drop them too.
  *
- * the forms depart from njDrawModel in three ways. njDrawModel clamps the
+ * with MODEL_CLIP set the original Ninja drawer handles clipping.
+ * the forms depart from njDrawModel in two ways. njDrawModel clamps the
  * constant material's color and alpha between 0 and 1. the forms clamp its
- * color alone. a draw drops a model whose bounding sphere is out of view.
- * the sphere takes the model's own radius, whatever the matrix's scale.
- * njDrawModel tests a sphere only under NJD_CONTROL_3D_MODEL_CLIP. a
- * single-sided quad or polygon loses each of its triangles that faces away.
- * Ninja's keeps or drops it whole as its first triangle faces */
+ * color alone. a single-sided quad or polygon loses each triangle that
+ * faces away. Ninja keeps or drops it whole as its first triangle faces */
 void draw_tree_like_ninja(NJS_OBJECT *object);
 void draw_action_like_ninja(NJS_ACTION *action, Float frame);
 #endif

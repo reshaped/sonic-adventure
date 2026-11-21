@@ -66,6 +66,8 @@ GCC_TARGET += $(call quoted,-fdebug-prefix-map=$(CURDIR)=.) -fno-working-directo
 # make dc builds the non-matching code for the Dreamcast: it defines both
 # switches a guard tests (PORTS.md#switches)
 GCC_TARGET += -DNONMATCHING -DDREAMCAST
+# The seven-term arctangent keeps a stick heading within one Ninja angle unit.
+GCC_TARGET += -DSHZ_ATAN2F_TERMS=7
 # The shipping build defines NDEBUG, so assert checks nothing, as SH4ZAM's
 # documentation asks of a release build: its copies assert their arguments'
 # alignment and size. The tree's own assertions are three, each that a
@@ -346,6 +348,8 @@ build/dc/src/draw/sprite.o build/dc/sdk/ninja/njSprite.o: private GCCFLAGS += -I
 build/dc/sdk/ninja/njDraw.o build/dc/sdk/ninja/njDrawPolygon2D.o build/dc/sdk/ninja/njDrawLine2D.o \
 build/dc/sdk/ninja/njDrawLine3D.o build/dc/sdk/ninja/njDebug.o build/dc/sdk/ninja/njModelE.o: private GCCFLAGS += \
 	-Iengine/include -Iengine/sa1 -Iengine/dc
+# the readout submits screen vertices through the same font and strip headers
+build/dc/engine/dc/overlay.o: private GCCFLAGS += -Iengine/include -Iengine/sa1 -Iengine/dc
 # the game's frame end asks the Dreamcast engine's mode, which 16:9's file
 # answers, by the core's call and the backend's header
 build/dc/src/system/pace.o build/dc/engine/dc/wide.o: private GCCFLAGS += -Iengine/include -Iengine/dc

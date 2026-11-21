@@ -11,9 +11,10 @@ ALWAYS_INLINE void unit_store(shz_vec3_t v, NJS_VECTOR *vd)
 }
 
 /* transform vs by m in memory with SH4ZAM's three FIPRs, one for each
- * column. each takes (vs, 0) first and the column, with 0 for its fourth, as
- * the shipped body does. SH4ZAM's routine takes an shz_mat4x4_t, so m must
- * be 8-byte aligned, as njtypes.h aligns an NJS_MATRIX. FTRV transforms a
+ * column. the z dot uses the x result in its fourth lane against zero. it
+ * agrees with the shipped zero lane for finite x results. an infinite or
+ * NaN x result can therefore make z NaN. the routine takes an shz_mat4x4_t.
+ * m must lie on 8 bytes, as njtypes.h aligns an NJS_MATRIX. FTRV transforms a
  * vector register in place. keeping this out of line lets the null m's path
  * load vs there and store vd from there */
 static void __attribute__((noinline))

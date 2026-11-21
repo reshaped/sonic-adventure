@@ -33,9 +33,19 @@ owner_renames = $(foreach n,$1,-D$n=kamui_$n)
 
 # engine-test runs engine/tests/owner_diff.c on x86-64 Linux: Kamui's frame and
 # the owner's, each built for the host from its sources as they stand, through
-# the same events, overflows and timeouts among them, with their traces equal.
+# the same events and timeouts, with their traces equal. The owner's ISP
+# overflow recovery runs separately at both frame rates.
 # Kamui's C is old, and the file's -Dlong=int gives it a 32-bit KMDWORD
 ifeq ($(HOST),Linux x86_64)
+build/engine/tests/owner-dma: engine/tests/owner_dma.c sdk/ninja/dma_kamui_lib.c engine/tests/host/machine.h sdk/include/kamui.h $(ENGINE_CC)
+	$(Q)mkdir -p $(@D)
+	$(Q)$(CC) -O1 -w -std=gnu17 -Dlong=int -DNONMATCHING -Iengine/tests/host -Isdk/include -c -o $@.o sdk/ninja/dma_kamui_lib.c
+	$(Q)$(CC) -O1 -Wall -Wextra -Werror -std=gnu17 -o $@ $< $@.o
+engine-test-owner: engine-test-owner-dma
+engine-test-owner-dma: build/engine/tests/owner-dma
+	$(Q)$<
+.PHONY: engine-test-owner-dma
+
 OWNER_DIFF_RUN := 120 100
 OWNER_DIFF_CFLAGS := -O1 -w -Wno-return-mismatch -Wno-int-conversion -Wno-incompatible-pointer-types -fno-pie \
 	-fno-strict-aliasing -std=gnu17 -Dlong=int -Iengine/tests/host -Isdk/include
@@ -63,6 +73,7 @@ build/engine/tests/owner-diff/equal: build/engine/tests/owner-diff/kamui build/e
 	$(Q)touch $@
 # the owner's frame at 60 fps, through the same events, with no flip timed out
 build/engine/tests/owner-diff/sixty: build/engine/tests/owner-diff/owner
+	$(Q)build/engine/tests/owner-diff/owner -i $(OWNER_DIFF_RUN) > $@.overflow
 	$(Q)build/engine/tests/owner-diff/owner -6 $(OWNER_DIFF_RUN) > $@.owner
 	@$(call status,owner,the owner's frame at 60 fps on the chip's model)
 	$(Q)touch $@

@@ -63,6 +63,7 @@ engine/dc/ninja/               sdk        play
 engine/dc/njSprite.c           sdk        both    # Ninja's sprite entries keep the split frame's record and set Ninja's texture and color mode, and the object holds the picture's aspect and squeeze and includes the sprite sends, sa1/sprite.c
 engine/dc/njsprite.h           sdk        both    # the sprite layers' share: sprite_begin sets Ninja's texture and color mode, and the header includes the sprite sends, sa1/sprite.h
 engine/dc/overlay.c            game       picture
+engine/dc/overlay.h            game       picture
 engine/dc/owner.c              backend    picture
 engine/dc/owner.h              backend    picture
 engine/dc/sa1/                 drawer     picture

@@ -52,7 +52,6 @@ PLACES = {
         ('engine/dc/overlay.c', 'overlay_note'),
         ('engine/sa1/overlay.c', 'readout_measure'),
         ('engine/sa1/overlay.c', 'overlay_draw'),
-        ('engine/sa1/overlay.c', 'overlay_page'),
         ('engine/sa1/overlay.c', 'overlay_note'),
         ('engine/sa1/overlay.c', 'sa1_wide_on'),
         ('engine/sa1/overlay.c', 'sa1_fast_on'),

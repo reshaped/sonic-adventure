@@ -1,9 +1,9 @@
 /* the PC's overlay, in engine/dc/overlay.c's place. it draws the curtain and
  * the note that names a toggle as the chord flips it. it draws the readout
- * too, the port's on-screen timing display, as one page of the host's figures.
+ * too, with a corner FPS counter and a page of host timings.
  * the toggles, the chord and the curtain's count are src/system/port.c's,
  * which every machine shares. so a skip collapses an event at the step the
- * Dreamcast's does. the bands draw by Ninja's 2D polygon, and the text in
+ * Dreamcast's does. the bands draw in screen coordinates, and the text in
  * Ninja's built-in font. a split frame shows two pictures for a frame of play.
  * the overlay goes over the first, where present.c draws it. it goes over each
  * frame's last picture as frame_wait begins. that one shows the overlay as the
@@ -46,8 +46,6 @@
 
 /* Ninja's built-in font, which the slice links from the disc's data */
 extern Uint8 _nj_debug_char_[];
-/* Ninja's own njDrawPolygon2D, which the slice's link wraps */
-void __real_njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr);
 
 struct sa1_figures sa1_figures;
 
@@ -71,8 +69,10 @@ static struct {
     int split;
     int reason;
 } half;
+static enum readout_page readout;
+static char fps_line[sizeof("999 FPS")] = "-- FPS";
 static char lines[READOUT_LINES][LINE_CHARS + 1];
-static Uint32 counter_color = 0x60e080;
+static Uint32 counter_color;
 /* where the last frame ended on the host's clock, and the time play had
  * waited by then */
 static uint64_t frame_end_ns;
@@ -97,28 +97,6 @@ static uint64_t at_most(uint64_t value, uint64_t most)
     return value < most ? value : most;
 }
 
-/* draw a see-through band from (x0, y0) to (x1, y1) in color, as the
- * Dreamcast's overlay does. 16:9 doesn't squeeze it. the band skips ninja.c's
- * wrap of njDrawPolygon2D and its present_record. the overlay draws as
- * frame_wait begins, where present_record may keep a 2D draw for the next
- * frame's first picture. that picture draws the overlay anew, so a kept band
- * would show in it twice */
-static void overlay_band(Float x0, Float y0, Float x1, Float y1, Uint32 color)
-{
-    NJS_POINT2 points[4] = {{x0, y0}, {x1, y0}, {x1, y1}, {x0, y1}};
-    NJS_COLOR colors[4] = {{color}, {color}, {color}, {color}};
-    NJS_POINT2COL band = {points, colors, NULL, 4};
-
-    njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
-    njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
-    port_wide_cover = TRUE;
-    /* the record follows the call, since it reads the header words the call
-     * leaves in Kamui's context */
-    __real_njDrawPolygon2D(&band, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
-    sa1_record_polygon_2d(&band, 4, -1.0F, NJD_FILL | NJD_TRANSPARENT);
-    port_wide_cover = FALSE;
-}
-
 /* text at col and row in the ARGB color, as njPrintC draws it */
 static void overlay_print(int col, int row, const char *text, Uint32 color)
 {
@@ -131,15 +109,32 @@ static void overlay_print(int col, int row, const char *text, Uint32 color)
 static void overlay_text(int col, int row, const char *text, Uint32 color,
                          int alpha)
 {
-    overlay_band(col * CELL - 8, row * CELL - 4,
-                 (col + (int)strlen(text)) * CELL + 8, (row + 1) * CELL + 4,
-                 (Uint32)(alpha * BAND_ALPHA / 255) << 24);
+    sa1_record_band(col * CELL - 8, row * CELL - 4,
+                    (col + (int)strlen(text)) * CELL + 8, (row + 1) * CELL + 4,
+                    (Uint32)(alpha * BAND_ALPHA / 255) << 24);
     overlay_print(col, row, text, (Uint32)alpha << 24 | color);
 }
 
 static const char *readout_mode(int asked, int applied)
 {
     return applied ? "ON" : asked ? "HELD" : "OFF";
+}
+
+static int fps_sample(uint64_t now)
+{
+    uint64_t span = now - half.start;
+    Uint32 flips;
+    int fps;
+
+    if (span < HALF_SECOND_NS) {
+        return FALSE;
+    }
+    flips = _nj_vsync_count_ - half.flips;
+    fps = (int)at_most((flips * 1000000000ULL + span / 2) / span, 999);
+    string_format(fps_line, "%2d FPS", fps);
+    half.start = now;
+    half.flips = _nj_vsync_count_;
+    return TRUE;
 }
 
 /* fold the frame into the half second. busy is its busy time in ns, and shown
@@ -158,12 +153,9 @@ static void readout_measure(uint64_t now, uint64_t busy,
         [HELD_LATE] = 'T',   [HELD_STOPPED] = 'T', [HELD_FULL] = 'C',
         [HELD_FIRST] = 'T',  [HELD_PVR] = 'R',     [HELD_SECOND] = 'T',
         [HELD_BITMAP] = 'B', [HELD_SPARE] = 'E'};
-    uint64_t span = now - half.start;
     uint64_t budget = frame_interval * VSYNC_NS;
     char reason[3] = {0};
-    Uint32 flips;
     int split;
-    int fps;
     int mean;
     int device;
 
@@ -178,14 +170,12 @@ static void readout_measure(uint64_t now, uint64_t busy,
     if (busy > half.peak) {
         half.peak = busy;
     }
-    if (span < HALF_SECOND_NS) {
+    if (!fps_sample(now)) {
         return;
     }
-    flips = _nj_vsync_count_ - half.flips;
-    fps = (int)at_most((flips * 1000000000ULL + span / 2) / span, 999);
     mean = (int)at_most(half.busy / half.frames / 100000, 999);
     device = (int)at_most(half.device / half.frames / 100000, 999);
-    string_format(lines[0], "%2d FPS %2d.%d GPU %2d.%d", fps, mean / 10,
+    string_format(lines[0], "%s %2d.%d GPU %2d.%d", fps_line, mean / 10,
                   mean % 10, device / 10, device % 10);
     counter_color =
         colors[(half.peak * 10 > budget * 9) + (half.peak > budget)];
@@ -217,9 +207,9 @@ static void readout_draw(void)
         length = strlen(lines[i]);
         width = length > width ? length : width;
     }
-    overlay_band((RIGHT_END - width) * CELL - 8, TOP_ROW * CELL - 4,
-                 RIGHT_END * CELL + 8, (TOP_ROW + READOUT_LINES) * CELL + 4,
-                 (Uint32)BAND_ALPHA << 24);
+    sa1_record_band((RIGHT_END - width) * CELL - 8, TOP_ROW * CELL - 4,
+                    RIGHT_END * CELL + 8, (TOP_ROW + READOUT_LINES) * CELL + 4,
+                    (Uint32)BAND_ALPHA << 24);
     for (i = 0; i < READOUT_LINES; i++) {
         overlay_print(RIGHT_END - (int)strlen(lines[i]), TOP_ROW + i, lines[i],
                       0xff000000 | (i == 0 ? counter_color : 0xffffff));
@@ -230,9 +220,6 @@ static void readout_draw(void)
 void overlay_end(Uint32 wait, Uint32 busy, int late)
 {
     int vsyncs = frame_interval + late;
-    uint64_t now = now_ns();
-    uint64_t waited = sa1_figures.waited_ns - frame_waited_ns;
-    uint64_t spent = now - frame_end_ns;
     int most;
 
     (void)wait;
@@ -243,17 +230,21 @@ void overlay_end(Uint32 wait, Uint32 busy, int late)
         act_stage = stage_current;
         act_act = act_current;
     }
-    /* the first frame starts the half second. a skip's frames, at
-     * frame_interval 0, wait for no vsync, so the readout leaves them out */
-    if (frame_end_ns == 0) {
-        half.start = now;
-        half.flips = _nj_vsync_count_;
-    } else if (frame_interval != 0) {
-        readout_measure(now, spent > waited ? spent - waited : 0,
-                        present_shown(late));
+    if (readout != READOUT_OFF) {
+        uint64_t now = now_ns();
+
+        if (frame_interval && readout == READOUT_FPS) {
+            fps_sample(now);
+        } else if (frame_interval) {
+            uint64_t spent = now - frame_end_ns;
+            uint64_t waited = sa1_figures.waited_ns - frame_waited_ns;
+
+            readout_measure(now, spent > waited ? spent - waited : 0,
+                            present_shown(late));
+        }
+        frame_end_ns = now;
+        frame_waited_ns = sa1_figures.waited_ns;
     }
-    frame_end_ns = now;
-    frame_waited_ns = sa1_figures.waited_ns;
     note.left = note.left > vsyncs ? note.left - vsyncs : 0;
     most = note.left > NOTE_FADE ? NOTE_FADE : note.left;
     note.level += vsyncs;
@@ -271,10 +262,13 @@ void overlay_draw(void)
     }
     curtain = port_curtain_level();
     if (curtain > 0) {
-        overlay_band(0.0F, 0.0F, COLUMNS * CELL, ROWS * CELL,
-                     (Uint32)(curtain * 255 / CURTAIN_FADE) << 24);
+        sa1_record_band(0.0F, 0.0F, COLUMNS * CELL, ROWS * CELL,
+                        (Uint32)(curtain * 255 / CURTAIN_FADE) << 24);
     }
-    if (port_toggles[TOGGLE_READOUT]) {
+    if (readout == READOUT_FPS) {
+        overlay_text(RIGHT_END - (int)strlen(fps_line), TOP_ROW, fps_line,
+                     0xffffff, 255);
+    } else if (port_toggles[TOGGLE_READOUT]) {
         readout_draw();
     }
     if (note.level > 0) {
@@ -283,18 +277,34 @@ void overlay_draw(void)
     }
 }
 
-/* the readout is one page, which the chord's up shows or hides */
 int overlay_page(void)
 {
-    return !port_toggles[TOGGLE_READOUT];
+    readout = readout == READOUT_PERF ? READOUT_OFF : readout + 1;
+    if (readout != READOUT_OFF) {
+        memset(&half, 0, sizeof(half));
+        half.start = frame_end_ns = now_ns();
+        half.flips = _nj_vsync_count_;
+        frame_waited_ns = sa1_figures.waited_ns;
+        if (readout == READOUT_FPS) {
+            strcpy(fps_line, "-- FPS");
+        } else {
+            counter_color = 0xffffff;
+            strcpy(lines[0], fps_line);
+            lines[1][0] = lines[2][0] = 0;
+        }
+    }
+    return readout != READOUT_OFF;
 }
 
 void overlay_note(int toggle)
 {
     static const char *const names[TOGGLES] = {"READOUT", "16:9", "60 FPS"};
+    static const char *const readouts[] = {"OFF", "FPS", "PERF"};
 
     string_format(note.text, "%s %s", names[toggle],
-                  port_toggles[toggle] ? "ON" : "OFF");
+                  toggle == TOGGLE_READOUT ? readouts[readout]
+                  : port_toggles[toggle]   ? "ON"
+                                           : "OFF");
     note.left = NOTE_VSYNCS;
 }
 

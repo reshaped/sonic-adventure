@@ -171,10 +171,11 @@ struct collision_mesh {
 /* collision_mesh_init frees every mesh and polygon, as a stage starts.
  * collision_mesh_update runs each step. it frees the meshes of moving
  * objects and of objects no longer near the players. it then makes a mesh
- * for each near object without one, the moving ones included. when 192
- * objects want meshes, it frees nothing first. the pool gives out at most
- * 191 meshes at once, and the update writes a mesh past them through
- * null. both return TRUE */
+ * for each near object without one, the moving ones included. the ports
+ * keep meshes for the first 192 world entries and stop if the pool runs
+ * out. when 192 objects want meshes, the original skips the free pass
+ * and writes through null after allocating its 191st record. both return TRUE
+ */
 Bool collision_mesh_init(void);
 Bool collision_mesh_update(void);
 /* the next update makes meshes for every object of the world, not only

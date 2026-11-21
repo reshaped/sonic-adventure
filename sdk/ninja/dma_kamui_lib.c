@@ -40,6 +40,7 @@
 
 /* CHCR2's bits */
 #define CHCR_ENABLE 0x1
+#define CHCR_TRANSFER_END 0x2
 #define CHCR_32_BYTES 0x40 /* a 32-byte unit at a time */
 #define CHCR_BURST 0x80 /* burst mode, rather than cycle steal */
 #define CHCR_TO_BUS 0x200 /* memory to the system bus, at its request */
@@ -180,6 +181,64 @@ KMINT32 kmiDMAHazardReset(void)
     }
     return 0;
 }
+
+#ifdef NONMATCHING
+/* an ISP overflow can lose the last list-end interrupt. retire every request
+ * for the old polygon bank before resetting TA. Texture requests share the
+ * channel and keep their place in either FIFO */
+void owner_discard_lists(void)
+{
+    volatile KMDWORD *const status = (volatile KMDWORD *)0xa05f6900;
+    volatile KMDWORD *const error = (volatile KMDWORD *)0xa05f6908;
+    const KMDWORD isp_overflow = 1U << 2;
+    const KMDWORD dma_end = 1U << 19;
+    const KMDWORD list_ends = (15U << 7) | (1U << 21);
+    int mask = get_imask();
+
+    for (;;) {
+        int pending = FALSE;
+        int q, i;
+
+        set_imask(14);
+        for (q = 0; q < QUEUES; q++) {
+            for (i = 0; i < SLOTS; i++) {
+                if ((requests[q][i].state & DMA_BUSY) &&
+                    requests[q][i].target == TA_INPUT) {
+                    pending = TRUE;
+                }
+            }
+        }
+        if (!pending) {
+            /* reset flushes the old parser. acknowledge its latched list
+             * ends before interrupts can deliver them to the next bank */
+            SOFT_RESET = RESET_TA;
+            (void)SOFT_RESET;
+            SOFT_RESET = 0;
+            (void)SOFT_RESET;
+            *error = isp_overflow;
+            *status = list_ends;
+            (void)*status;
+            set_imask(mask);
+            return;
+        }
+        if ((STARTED_REQUEST.state & DMA_RUNNING) &&
+            STARTED_REQUEST.target == TA_INPUT) {
+            /* Kamui's channel-2 abort sequence, limited to the active list.
+             * retire its DMA interrupt before starting the next request */
+            CH2_DMA_START = 0;
+            SOFT_RESET = RESET_TA;
+            SOFT_RESET = 0;
+            while (CH2_DMA_START != 0) {
+            }
+            CHCR2 = CHCR2 & ~(CHCR_ENABLE | CHCR_TRANSFER_END);
+            *status = dma_end;
+            (void)*status;
+            kmiExecuteDMAChain();
+        }
+        set_imask(mask);
+    }
+}
+#endif
 
 KMSTATUS kmiDMAtoTARequest(KMDWORD target, const KMDWORD *source,
                            KMDWORD length, KMDWORD flags, KMDWORD **handle)

@@ -6,6 +6,9 @@
 #ifndef MACHINE_H
 #define MACHINE_H
 
+int get_imask(void);
+void set_imask(int level);
+
 #ifdef OWNER_SLOTS
 volatile KMDWORD *owner_slots_word(KMDWORD address);
 #define WORD(address) (*owner_slots_word(address))

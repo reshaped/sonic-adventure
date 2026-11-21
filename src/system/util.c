@@ -91,6 +91,10 @@ Uint16 message_window_memory[MESSAGE_TEXTURE_PIXELS + 16]
 
 static void bitmap_print_centered(struct bitmap *bitmap, const char *text);
 static void bitmap_print_block(struct bitmap *bitmap, const char *text);
+#ifdef NONMATCHING
+/* GCC otherwise expands the recursive child walk at each call */
+__attribute__((noinline))
+#endif
 static NJS_OBJECT *tree_find_node(NJS_OBJECT *node, NJS_OBJECT *object,
                                   int *count);
 static int tree_collect_nodes(NJS_OBJECT **nodes, int *count);
@@ -1550,6 +1554,20 @@ int tree_node_index(NJS_OBJECT *root, NJS_OBJECT *object)
 static NJS_OBJECT *tree_find_node(NJS_OBJECT *node, NJS_OBJECT *object,
                                   int *count)
 {
+#ifdef NONMATCHING
+    while (node != object) {
+        (*count)++;
+        if (node->child != NULL &&
+            tree_find_node(node->child, object, count) == object) {
+            return object;
+        }
+        if (node->sibling == NULL) {
+            return NULL;
+        }
+        node = node->sibling;
+    }
+    return object;
+#else
     NJS_OBJECT *next;
 
     if (node == object) {
@@ -1572,6 +1590,7 @@ static NJS_OBJECT *tree_find_node(NJS_OBJECT *node, NJS_OBJECT *object,
         }
     }
     return NULL;
+#endif
 }
 
 Float float_wrap(Float value, Float period)

@@ -13,6 +13,10 @@
  * 16:9 and down flips 60 fps. from that press until L, R and the d-pad are
  * all up, the game sees none of them */
 void port_chord(PDS_PERIPHERAL *pad);
+
+/* the cache counters belong to the Dreamcast */
+enum readout_page { READOUT_OFF, READOUT_FPS, READOUT_PERF, READOUT_CACHE };
+
 /* each machine's overlay.c defines overlay_page and overlay_note for
  * port_chord. overlay_page steps the readout to its next page as up steps
  * it. it returns TRUE where a page then shows, and the readout's toggle

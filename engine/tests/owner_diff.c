@@ -19,7 +19,8 @@
  *
  * owner_diff SEEDS FRAMES prints the digests and what the seeds reached.
  * owner_diff -t SEED FRAMES prints one seed's trace, to compare by hand.
- * owner_diff -6 SEEDS FRAMES runs the owner's frame alone at 60 fps. each
+ * owner_diff -i SEEDS FRAMES exercises the owner's ISP overflow recovery at 30
+ * fps. owner_diff -6 SEEDS FRAMES runs the owner's frame alone at 60 fps. each
  * odd frame flips by owner_flip_on. owner_diff returns 1 where a flip times
  * out */
 #define _GNU_SOURCE
@@ -123,7 +124,7 @@ static int rendering;
 /* the owner's calls at 60 fps, which Kamui's build leaves null */
 void owner_sixty(int on) __attribute__((weak));
 KMSTATUS owner_flip_on(void) __attribute__((weak));
-static int sixty;
+static int sixty, with_isp_overflow;
 /* set while the handler runs. the chip's level 6 interrupt doesn't nest, so
  * on_step wakes no chip then */
 static int in_handler;
@@ -343,6 +344,12 @@ KMBOOLEAN kmiExecuteDMAChain(void)
     return 0;
 }
 
+void owner_discard_lists(void)
+{
+    /* this harness completes each queued transfer at submission. the slots
+     * harness models outstanding requests and late list-end interrupts */
+}
+
 KMINT32 kmiDMAHazardReset(void)
 {
     record('H', 0, 0);
@@ -409,7 +416,7 @@ static void chip_wake(void)
     status |= chance(odds.hblank) ? INT_HBLANK_IN : 0;
     status |= chance(odds.dma) ? INT_DMA2_END : 0;
     status |= chance(odds.yuv) ? INT_YUV_END : 0;
-    error |= chance(odds.isp) ? INT_ISP_OVERFLOW : 0;
+    error |= chance(odds.isp) && with_isp_overflow ? INT_ISP_OVERFLOW : 0;
     error |= chance(odds.ol) ? INT_OL_OVERFLOW : 0;
     error |= chance(odds.strip) ? INT_STRIP_OVERRUN : 0;
     reached.isp += (error & INT_ISP_OVERFLOW) != 0;
@@ -651,14 +658,16 @@ int main(int argc, char **argv)
 
     one = argc == 4 && strcmp(argv[1], "-t") == 0;
     sixty = argc == 4 && strcmp(argv[1], "-6") == 0;
-    if ((argc != 3 && !one && !sixty) || (sixty && owner_sixty == NULL)) {
+    with_isp_overflow = sixty || (argc == 4 && strcmp(argv[1], "-i") == 0);
+    if ((argc != 3 && !one && !with_isp_overflow) ||
+        (with_isp_overflow && owner_sixty == NULL)) {
         fprintf(stderr, "usage: owner_diff SEEDS FRAMES | owner_diff -t SEED "
-                        "FRAMES | owner_diff -6 SEEDS FRAMES (the owner's "
+                        "FRAMES | owner_diff -i|-6 SEEDS FRAMES (the owner's "
                         "build alone)\n");
         return 2;
     }
-    seeds = (uint32_t)strtoul(argv[1 + one + sixty], NULL, 0);
-    frames = (uint32_t)strtoul(argv[2 + one + sixty], NULL, 0);
+    seeds = (uint32_t)strtoul(argv[argc - 2], NULL, 0);
+    frames = (uint32_t)strtoul(argv[argc - 1], NULL, 0);
     for (i = 0; i < PAGES; i++) {
         if (mmap((void *)(uintptr_t)pages[i], PAGE_BYTES, PROT_NONE,
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1,
