@@ -5,6 +5,11 @@
 
 struct task;
 
+#ifdef NONMATCHING
+/* Whether the board controller owns movement in this player mode. */
+int tails_board_mode(int mode);
+#endif
+
 /* Tails' bytes in work->vars */
 struct tails_vars {
     Uint8 player; /* as in struct player_vars */

@@ -300,15 +300,14 @@ HOOKS = {
     ],
 }
 # the console's rewrites of shipped C in the SH-4's own instructions that
-# keep a matching side: the collision index's searches, the ball's sweep and
-# the near list's walk. the host takes each one's matching side. a guard is
+# keep a matching side: the collision index's searches and the ball's sweep.
+# The host takes each one's matching side. A guard is
 # known by its first line of code past its #ifdef, whatever comment opens it,
 # with the count of guards that open so
 CONSOLE = {
     'src/collision/polygon.c': {
         '    collision_mesh_pool_init_indexed(mesh_pool, MESHES);': 2,
         '            triangles = strip.count - 2;': 1,
-        '#define NEAR_END (near_polygons + NEAR_POLYGONS)': 1,
         '                found = mesh_find(entry->object)->era == mesh_finds_era;': 1,
         '            entry = mesh_find(mesh->object)->first;': 1,
         '                collision_mesh_free_indexed(mesh);': 1,

@@ -45,7 +45,10 @@ class Scratch(unittest.TestCase):
                                f'"the scratch of a buffer at {buffer:#x} and code on line {line}");')
                 self.assertIn(followed + 1, range(SIZE // LINE // 2 + 1, SIZE // LINE))
         probed('\n'.join([*cache, *macros, *asserts, '']))
-        self.assertRegex(model, r'Uint32 sweep = \(\(Uint32\)polygon_sweep \+ OC_LINE - 1\) & ~\(OC_LINE - 1\);')
+        kernel = (ROOT / 'config/1st_read/kernel.txt').read_text().splitlines()
+        first = next(line.split() for line in kernel if line.startswith('sweep '))
+        self.assertEqual(first, ['sweep', 'src/collision/polygon.c', 'polygon_sweep_for'])
+        self.assertRegex(model, r'Uint32 sweep = \(\(Uint32\)polygon_sweep_for \+ OC_LINE - 1\) & ~\(OC_LINE - 1\);')
         self.assertIn('void *scratch = (void *)(buffer + SCRATCH_LINE(buffer, sweep) + OC_LINE);', model)
 
 

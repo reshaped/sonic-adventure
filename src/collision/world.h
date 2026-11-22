@@ -79,11 +79,30 @@ struct world_object {
 
 /* in a land entry's flags, beside its world flags: the entry is drawn */
 #define LAND_DRAWN 0x80000000
+
 /* the land's task measures from a point half the clip ahead of the camera.
  * it draws an entry whose sphere comes within half the clip of that point,
  * or with LAND_FAR, within ninja's far clip. the clip is the land's own with
  * LAND_CLIP, else ninja's far clip */
 #define LAND_FAR 0x20
+
+#ifdef NONMATCHING
+/* Running and falling use the same geometry across these materials.
+ * The supporting entry still supplies its complete flags to the player. */
+static inline Bool world_plain_surface(Uint32 flags)
+{
+    const Uint32 ordinary =
+        WORLD_SOLID | WORLD_SIZE | WORLD_TURNED | LAND_DRAWN | LAND_FAR |
+        WORLD_GRIP_HIGH | WORLD_FOOTPRINTS | WORLD_DIGGABLE | WORLD_UNCLIMBABLE;
+    return (flags & WORLD_SOLID) && !(flags & ~ordinary);
+}
+
+/* Static land with no surface-specific collision response. */
+static inline Bool world_plain_land(const struct world_object *entry)
+{
+    return !entry->owner && world_plain_surface(entry->flags);
+}
+#endif
 
 /* an object of an act's land, and the sphere round it */
 struct land_entry {
@@ -180,14 +199,21 @@ void world_show_land(void);
 void world_set_land_material(Float gray);
 /* keep the objects near the players for the lists, and list them in
  * world_objects. it keeps up to 128 objects of tasks with WORLD_TESTED, and
- * up to 128 of the land's solid and liquid entries. an object is near when
- * its sphere comes within the near radius of the first point, or within 40
- * of the second. the first point is player 0, else player 1, else the
+ * the nearby solid and liquid land entries. The original keeps 128 land
+ * entries. The port snapshots the bounds and flags at collection. An object is
+ * near when its sphere comes within the near radius of the first point, or
+ * within 40 of the second. the first point is player 0, else player 1, else the
  * camera. the second is player 1, when player 0 is there too */
 void world_collect_near_players(void);
 /* keep and list every task's object and every solid or liquid land entry,
  * up to the same counts, whatever the task's flags */
 void world_collect_all(void);
+#ifdef NONMATCHING
+/* The current act's collision land, or null while land is disabled. */
+const struct land_table *world_collision_land(void);
+/* Put the objects near either player first in the last collection. */
+void world_prioritize_meshes(void);
+#endif
 /* list in world_objects the kept objects whose spheres come within radius
  * of the point, or within radius + 30 for a task's object. world_list_all
  * lists every kept object */

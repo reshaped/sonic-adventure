@@ -13,6 +13,9 @@
 #include "player/player.h"
 #include "sound/sound.h"
 #include "stg03/go_round.h"
+#ifdef NONMATCHING
+#include "stg03/ride.h"
+#endif
 #include "system/frame.h"
 #include "system/task.h"
 #include "system/texture.h"
@@ -140,16 +143,13 @@ static void go_round_destroy(struct task *task)
     go_round_part_destroy(task);
 }
 
-/* while the go-round turns, the floor turns at its speed. a player that
- * touches the turning floor with PLAYER_ON_LAND set turns with it about its
- * center */
+/* The floor follows the carousel motor. */
 static void go_round_floor_step(struct task *task)
 {
     struct task_work *work = task->work;
     struct task_force *force = task->force;
     Angle ang;
     NJS_OBJECT *world;
-    Sint8 player;
 
     if (edit_mode) {
         njPushMatrix(NULL);
@@ -180,7 +180,12 @@ static void go_round_floor_step(struct task *task)
             world->model = FLOOR(work)->object->model;
             world->child = FLOOR(work)->object->child;
             world->sibling = FLOOR(work)->object->sibling;
+#ifdef NONMATCHING
+            /* The flat deck has sixteen sides. Its rim turns with the motor. */
+            world_add(WORLD_LARGE | WORLD_MOVES, task, world);
+#else
             world_add(WORLD_LARGE, task, world);
+#endif
             break;
         case GO_ROUND_RUN:
             if (player_in_range(&work->pos, FLOOR_NEAR)) {
@@ -188,12 +193,18 @@ static void go_round_floor_step(struct task *task)
             } else {
                 work->flags &= ~WORLD_TESTED;
             }
+#ifdef NONMATCHING
+            twinkle_turn_riders(task, GO_ROUND_SPEED(task->parent->work));
+#endif
             if (task->parent->work->submode != GO_ROUND_STILL) {
                 ang = GO_ROUND_SPEED(task->parent->work);
                 work->ang.y += ang;
+#ifdef NONMATCHING
+                FLOOR(work)->world->ang[1] = work->ang.y;
+#else
                 if ((work->collision->flags & COLLISION_HIT) &&
                     work->collision->hit->kind == COLLISION_PLAYER) {
-                    player =
+                    Sint8 player =
                         PLAYER_VARS(work->collision->hit->owner->work)->player;
                     if (player_work[player]->flags & PLAYER_ON_LAND) {
                         NJS_VECTOR from;
@@ -211,6 +222,7 @@ static void go_round_floor_step(struct task *task)
                         force->turn.y = -ang;
                     }
                 }
+#endif
                 collision_register(work);
             }
             go_round_floor_draw(task);

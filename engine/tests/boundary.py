@@ -154,7 +154,7 @@ TYPES_ONLY = ('src/system/port.h', 'engine/dc/dreamcast.h')
 TYPES = {'sg_xpt.h', 'njtypes.h'}
 WALK_SYSTEM = re.compile(r'(kamui|machine|ninja|sg_xpt)\.h|sh4zam/shz_\w+\.h')
 WALK_REFUSED = re.compile(r'_nj_\w*|\bnj[A-Z]\w*\s*\(|\b(port|present|frame|event)_\w+|\bFRAME_DRAWS\b|'
-                          r'\bdraw_(colors|palettes|unlit_offsets|debug_counts)\b|\bpolygon_sweep\b')
+                          r'\bdraw_(colors|palettes|unlit_offsets|debug_counts)\b|\bpolygon_sweep(?:_for)?\b')
 # the Dreamcast engine's batch kernels: SH4ZAM's, zam.h's and C's names
 # alone, none of the SDK's types or the walk's refused names, and none of
 # SA1's

@@ -14,6 +14,9 @@
 #include "stg05/propeller.h"
 #include "system/task.h"
 #include "system/util.h"
+#ifdef NONMATCHING
+#include "collision/yaw_mesh.h"
+#endif
 
 extern NJS_TEXLIST obj_mountain_texlist;
 extern NJS_MODEL mountain_propeller_base_model;
@@ -133,16 +136,32 @@ static void mountain_propeller_init(struct task *task)
     }
 }
 
+#ifdef NONMATCHING
+/* The mesh holds the pose published before the fan advanced its phase. */
+static void mountain_propeller_motion(struct task *task,
+                                      struct polygon_yaw *motion)
+{
+    struct task_work *work = task->work;
+    NJS_OBJECT *world = VARS(work)->world;
+    motion->object = world;
+    motion->turn = (Sint16)((Uint16)(work->ang.y - FAN_ANGLE(work)) -
+                            (Uint16)world->ang[1]);
+    motion->travel = (NJS_VECTOR){0, work->pos.y - world->pos[1], 0};
+}
+static const struct polygon_yaw_ops mountain_propeller_sweep = {
+    mountain_propeller_motion, yaw_mesh_cast};
+
+#endif
+
 /* turn and bob the fan. while a player is near, the world tests the fan's
- * object. the force then carries player 0 with the fan's turn and rise */
+ * object. the force carries its riders with the fan's turn and rise */
+#ifdef NONMATCHING
+__attribute__((used))
+#endif
 static void mountain_propeller_run(struct task *task)
 {
     struct task_work *work = task->work;
     Float last_y = work->pos.y;
-    NJS_POINT3 player;
-    NJS_POINT3 carried;
-    Float reach;
-    Angle ang;
     NJS_OBJECT *world;
 
     mountain_propeller_draw(task);
@@ -150,6 +169,9 @@ static void mountain_propeller_run(struct task *task)
         if (!player_in_range(&work->pos,
                              mountain_propeller_world_object[0].model->r +
                                  NEAR_MARGIN)) {
+#ifdef NONMATCHING
+            polygon_rotate_with(task, NULL);
+#endif
             work->flags &= ~WORLD_TESTED;
             FAN_ANGLE(work) += VARS(work)->turn_step;
             VARS(work)->bob_phase += (int)BOB_SPEED(work);
@@ -170,12 +192,25 @@ static void mountain_propeller_run(struct task *task)
         njPrintC(EDITOR_LABEL(EDITOR_ROW_SCL_Z), "-> Y SPEED   (0x400)");
         /* while the set editor holds the fan, it has no copy, so it points
          * at the shared object */
+#ifdef NONMATCHING
+        polygon_rotate_with(task, NULL);
+#endif
         VARS(work)->world = mountain_propeller_world_object;
     }
     FAN_ANGLE(work) += VARS(work)->turn_step;
     VARS(work)->bob_phase += (int)BOB_SPEED(work);
     work->pos.y = mountain_propeller_height(work);
     if (!placement_editing(task)) {
+#ifdef NONMATCHING
+        struct angles next = {0, work->ang.y - FAN_ANGLE(work), 0};
+        player_carry_riders_at(task, VARS(work)->world, &next);
+        polygon_rotate_with(task, &mountain_propeller_sweep);
+#else
+        NJS_POINT3 player;
+        NJS_POINT3 carried;
+        Float reach;
+        Angle ang;
+
         if (!player_get_history(0, 0, &player, NULL)) {
             goto done;
         }
@@ -206,6 +241,7 @@ static void mountain_propeller_run(struct task *task)
             FORCE(task)->turn.z = 0;
             FORCE(task)->turn.y = 0;
         }
+#endif
     }
 done:
     if (!placement_editing(task)) {
@@ -246,6 +282,9 @@ static void mountain_propeller_draw(struct task *task)
 
 static void mountain_propeller_destroy(struct task *task)
 {
+#ifdef NONMATCHING
+    polygon_rotate_with(task, NULL);
+#endif
     if (!placement_editing(task)) {
         world_remove(task, VARS(task->work)->world);
         world_object_free(VARS(task->work)->world);

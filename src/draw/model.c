@@ -130,7 +130,7 @@ _Static_assert(OC_SIZE + (DRAW_MOST_POINTS * 32) <= DRAW_SCRATCH_SIZE &&
 void draw_model_init(void)
 {
     Uint32 buffer = (Uint32)_nj_vertex_buf_;
-    Uint32 sweep = ((Uint32)polygon_sweep + OC_LINE - 1) & ~(OC_LINE - 1);
+    Uint32 sweep = ((Uint32)polygon_sweep_for + OC_LINE - 1) & ~(OC_LINE - 1);
     /* the line SCRATCH_LINE gives lies under OC_SIZE bytes in, and the
      * walk's project_points' first pass writes it. a model's n points take 16n
      * bytes from the next line, the scratch, and their lit and unlit colors

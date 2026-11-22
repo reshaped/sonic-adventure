@@ -107,35 +107,57 @@ const float _unit_matrix_[16] = {1, 0, 0, 0, 0, 1, 0, 0,
 #define HEAP (NATIVE_DOMAIN + 0x50000000UL)
 #define HEAP_SIZE 0x10000000UL
 
-/* Shinobi's heap: HEAP_SIZE bytes of the domain, which the first call maps.
- * a block takes the next of them, to a multiple of 32 bytes, and syFree gives
- * none back. a size the bytes left can't hold gets null, as it does on the
- * console where no block fits. of what the slice compiles, Ninja's
- * njInitVertexBuffer and njExitSystem alone name the two calls, and the slice
- * calls neither (stubs.txt). src/collision/polygon.c names them for its
- * index's arena on the console's side of a guard, which marks.py's CONSOLE
- * leaves out of the slice */
+/* The game stores 32-bit pointers into this mapping. Keep live intervals
+ * in address order so freeing a block also joins the gaps on either side. */
+struct shinobi_block {
+    uintptr_t start, end;
+    struct shinobi_block *next;
+};
+static struct shinobi_block *shinobi_blocks;
+
 void *syMalloc(uint32_t size)
 {
-    static char *next;
-    uint64_t bytes = ((uint64_t)size + 31) & ~(uint64_t)31;
-    void *block;
+    static int mapped;
+    uintptr_t start = HEAP;
+    /* A zero-size allocation still owns an address until syFree. */
+    uint64_t bytes = ((uint64_t)(size ? size : 1) + 31) & ~(uint64_t)31;
+    struct shinobi_block **link = &shinobi_blocks;
 
-    if (!next) {
+    if (!mapped) {
         native_map((void *)HEAP, HEAP_SIZE, "the heap");
-        next = (char *)HEAP;
+        mapped = 1;
     }
-    if (bytes > HEAP + HEAP_SIZE - (uintptr_t)next) {
+    while (*link) {
+        struct shinobi_block *block = *link;
+        if (bytes <= block->start - start) {
+            break;
+        }
+        start = block->end;
+        link = &block->next;
+    }
+    if (bytes > HEAP + HEAP_SIZE - start) {
         return NULL;
     }
-    block = next;
-    next += bytes;
-    return block;
+    struct shinobi_block *block = malloc(sizeof *block);
+    if (!block) {
+        return NULL;
+    }
+    *block = (struct shinobi_block){start, start + (uintptr_t)bytes, *link};
+    *link = block;
+    return (void *)start;
 }
 
-void syFree(void *block)
+void syFree(void *address)
 {
-    (void)block;
+    for (struct shinobi_block **link = &shinobi_blocks; *link;
+         link = &(*link)->next) {
+        struct shinobi_block *block = *link;
+        if (block->start == (uintptr_t)address) {
+            *link = block->next;
+            free(block);
+            return;
+        }
+    }
 }
 
 /* a vsync in the count's units, as engine/dc/dreamcast.h gives the game's C:

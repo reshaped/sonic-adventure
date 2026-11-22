@@ -138,6 +138,7 @@ void dash_panel_step(struct task *task)
                     ang[2] = work->ang.z;
                     VARS(work)->steps = ceilf(work->scl.y);
                     player_send_flying(player, &speed, ang, VARS(work)->steps);
+                    PLAYER_MARK_DASH_PANEL(player_records[player]);
                     sound_play(SE_DASH, 0, 0, 0);
                     vibration_start(player, 4, 15, 0);
                     work->submode = player;

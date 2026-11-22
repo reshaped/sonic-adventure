@@ -41,6 +41,13 @@
 #include "system/util.h"
 #include "vmu/vibration.h"
 
+#ifdef NONMATCHING
+const struct player_terrain_modes
+    e102_terrain_modes LINKED_LAST_DATA(e102_terrain_modes) = {
+        E102_WALK,  E102_STOP,  E102_JUMP,       E102_FALL,
+        E102_STAND, E102_SKATE, E102_SKATE_STOP, E102_SKATE_JUMP};
+#endif
+
 /* SE_SKATE and SE_HOVER play until stopped */
 #define SE_STEP 782 /* his footsteps, and a light landing */
 #define SE_E102_JUMP 783 /* his own jump. sound.h's SE_JUMP is everyone's */
@@ -575,7 +582,8 @@ void e102_step(struct task *task)
         /* on top of a task and not rising, he stands on it. his collision's
          * owner is his own task, so copying its x and z angles leaves his as
          * they were */
-        if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+        if ((work->flags & COLLISION_ON_TOP) &&
+            PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
             work->flags |= PLAYER_ON_TASK;
             work->ang.x = work->collision->owner->work->ang.x;
             work->ang.z = work->collision->owner->work->ang.z;
@@ -594,6 +602,7 @@ void e102_step(struct task *task)
                 e102_choose_mode(task, motion, record);
                 e102_try_time_up(work, record);
             }
+            PLAYER_CLEAR_LANDING_SPEED(record);
         }
     }
     if (work->collision != NULL) {
@@ -746,7 +755,7 @@ void e102_step(struct task *task)
         player_apply_accel(work, motion, record);
         player_collide(work, motion, record);
         player_take_speed(work, motion, record);
-        if (motion->speed.y <= 0.0F) {
+        if (PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
             work->mode = E102_FALL;
         }
         break;
@@ -1384,8 +1393,7 @@ static void e102_choose_mode(struct task *task, struct task_motion *motion,
                 struct task_force *force = record->ground_task->force;
 
                 if (force != NULL) {
-                    player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                     force->speed.y, force->speed.z);
+                    PLAYER_INHERIT_PLATFORM_SPEED(work, force);
                 }
             }
             work->flags &= ~PLAYER_ON_TASK;
@@ -1415,7 +1423,7 @@ static void e102_choose_mode(struct task *task, struct task_motion *motion,
             } else if (e102_try_stop(work, motion, record)) {
                 work->ang.x = motion->aim.x;
                 work->ang.z = motion->aim.z;
-                if (motion->speed.y > -5.0F) {
+                if (PLAYER_LANDING_SPEED(motion->speed.y, record) > -5.0F) {
                     record->anim.action = ACTION_STAND;
                 } else {
                     record->anim.action = ACTION_HARD_LANDING;
@@ -2747,8 +2755,7 @@ static Bool e102_try_jump(struct task_work *work, struct task_motion *motion,
             struct task_force *force = record->ground_task->force;
 
             if (force != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                 force->speed.y, force->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, force);
             }
         }
         work->flags &= ~PLAYER_ON_TASK;

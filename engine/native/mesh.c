@@ -36,13 +36,14 @@ struct collision_mesh {
     void *P32 object;
     int32_t flags;
     struct polygon *P32 polygons, *P32 last;
-    int32_t unk_18;
-    struct polygon **P32 near;
-    int32_t unk_20;
+    int32_t bucketed;
+    struct near_group *P32 near;
+    int32_t near_back;
     int near_count;
-    float span, unk_2c;
+    float span;
+    uint16_t plan_demand, plan_rank;
     vector center;
-    int32_t unk_3c;
+    int32_t out_of_polygons;
 };
 
 #define BUCKETS 128
@@ -76,8 +77,11 @@ static void *link_pool(void *first, int count, size_t size)
     return first;
 }
 
+int collision_polygon_capacity;
+
 void polygon_pool_init(struct polygon *polygons, int count)
 {
+    collision_polygon_capacity = count > 0 ? count - 1 : 0;
     free_polygons = link_pool(polygons, count, sizeof *polygons);
 }
 
@@ -95,6 +99,8 @@ struct collision_mesh *collision_mesh_alloc(void)
         return NULL;
     }
     free_meshes = mesh->next;
+    mesh->bucketed = 0;
+    mesh->out_of_polygons = 0;
     mesh->next = collision_mesh_list;
     if (mesh->next) {
         mesh->next->prev = mesh;
@@ -150,7 +156,11 @@ struct polygon *collision_mesh_add_polygon(struct collision_mesh *mesh)
     if (!mesh->polygons) {
         mesh->polygons = mesh->last = &end_polygon;
     }
-    return take_polygon(&mesh->polygons, &mesh->last);
+    struct polygon *polygon = take_polygon(&mesh->polygons, &mesh->last);
+    if (polygon) {
+        mesh->bucketed = 0;
+    }
+    return polygon;
 }
 
 void collision_mesh_clear_buckets(void)
@@ -174,6 +184,7 @@ void collision_mesh_take_buckets(struct collision_mesh *mesh)
     struct polygon *last = NULL;
     int i = 0;
 
+    mesh->bucketed = 1;
     while (i < BUCKETS && !buckets[i].first) {
         i++;
     }

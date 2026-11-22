@@ -506,6 +506,21 @@ class Asm2c(unittest.TestCase):
             run = subprocess.run([path / 'small'], check=True, capture_output=True, text=True)
         return run.stdout.split()
 
+    @unittest.skipUnless(shutil.which('clang') and (ROOT / 'tools/sh4zam/fetched.txt').is_file(),
+                         'terrain geometry requires Clang and the pinned SH4ZAM headers')
+    def test_terrain_faces(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for source in ('terrain_faces', 'dc_yaw'):
+                with self.subTest(source=source):
+                    test = Path(folder) / source
+                    subprocess.run(['clang', '-std=gnu17', '-O2', '-ffp-contract=off', '-DNONMATCHING', '-DNDEBUG',
+                                    '-DSHZ_TLS_MODEL=SHZ_TLS_DISABLED', '-Wno-unknown-attributes',
+                                    '-include', 'engine/native/prelude.h', '-isystem', 'tools/sh4zam/include',
+                                    '-idirafter', 'sdk/include', '-I.', '-Isrc', '-Iengine/numeric', '-o', test,
+                                    f'engine/tests/{source}.c', *os.environ['PLAY_MATH'].split(), '-lm'],
+                                   cwd=ROOT, check=True)
+                    subprocess.run([test], check=True)
+
     def test_native_mesh_search_and_pool_reuse(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)
@@ -4322,14 +4337,18 @@ void syFree(void *);
 uint32_t syTmrGetCount(void);
 
 /* each word a size to take, printed as the block's bytes past the heap's first block, or none where the heap
- * refuses it; free, to give the last block back; or a count of vsyncs, after an at, printed as the timer's count */
+ * refuses it; free, to give the last block back; give and an offset, to free that block; or at and a count of
+ * vsyncs, to read the timer */
 int main(int argc, char **argv)
 {
-    char *first = syMalloc(0), *last = first;
+    char *first = syMalloc(1), *last = NULL;
+    syFree(first);
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "free")) {
             syFree(last);
+        } else if (!strcmp(argv[i], "give") && i + 1 < argc) {
+            syFree(first + strtoul(argv[++i], NULL, 0));
         } else if (!strcmp(argv[i], "at") && i + 1 < argc) {
             native_vsyncs = strtoul(argv[++i], NULL, 0);
             printf("%u\n", syTmrGetCount());
@@ -4368,12 +4387,23 @@ class Shinobi(unittest.TestCase):
         return subprocess.run([self.tool, *map(str, words)], check=True, capture_output=True,
                               text=True).stdout.splitlines()
 
-    def test_a_block_takes_the_next_bytes_to_32_and_a_freed_one_gives_none_back(self):
+    def test_blocks_round_to_32_bytes_and_can_reuse_the_last_span(self):
         self.assertEqual(self.said(1, 32, 33, 0, 'free', 5), ['0', '32', '64', '128', '128'])
+
+    def test_freeing_a_zero_length_block_keeps_its_neighbor_live(self):
+        self.assertEqual(self.said(0, 32, 'give', 0, 32), ['0', '32', '0'])
+
+    def test_freed_neighbors_hold_one_larger_request(self):
+        self.assertEqual(self.said(32, 64, 32, self.size - 128, 'give', 32, 'give', 96, 96, 1),
+                         ['0', '32', '96', '128', '32', 'none'])
+
+    def test_repeated_temporary_storage_leaves_the_whole_heap_available(self):
+        self.assertEqual(self.said(self.size, 'free', self.size, 'free', self.size),
+                         ['0', '0', '0'])
 
     def test_a_size_past_the_bytes_left_is_refused_and_the_heap_gives_the_rest(self):
         # the heap whole, then nothing; and a block more than it has left, which takes none of them
-        self.assertEqual(self.said(self.size, 1, 0), ['0', 'none', str(self.size)])
+        self.assertEqual(self.said(self.size, 1, 0), ['0', 'none', 'none'])
         self.assertEqual(self.said(self.size - 64, 65, 64, 1), ['0', 'none', str(self.size - 64), 'none'])
         # a size that rounds past 32 bits is no block of none
         self.assertEqual(self.said(0xffffffff, 0xffffffe1, 32), ['none', 'none', '0'])

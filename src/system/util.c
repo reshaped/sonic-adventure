@@ -1714,8 +1714,14 @@ int world_sweep_all(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
     return world_sweep_ball(pos, speed, ang, 0, radius);
 }
 
+#ifdef NONMATCHING
+static int world_sweep_for(NJS_POINT3 *pos, NJS_VECTOR *speed,
+                           struct angles *ang, int skip, Float radius,
+                           enum polygon_sweep_mode mode)
+#else
 int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
                      int skip, Float radius)
+#endif
 {
     struct polygon_ball hit;
     struct polygon_ball *contact;
@@ -1777,7 +1783,11 @@ int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
         if (objects[i].flags & skip) {
             continue;
         }
+#ifdef NONMATCHING
+        if (polygon_sweep_for(contact, objects[i].object, mode)) {
+#else
         if (polygon_sweep(contact, objects[i].object, objects[i].flags)) {
+#endif
             if (ang != NULL && contact->hit.normal.y < 0.0F) {
                 slope_x =
                     (Angle)(asinf(contact->hit.normal.z) * ANGLE_PER_RADIAN);
@@ -1854,6 +1864,20 @@ int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
     }
     return result;
 }
+
+#ifdef NONMATCHING
+int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
+                     int skip, Float radius)
+{
+    return world_sweep_for(pos, speed, ang, skip, radius, POLYGON_SWEEP_MOTION);
+}
+
+Bool world_sweep_board_camera(NJS_POINT3 *pos, NJS_VECTOR *speed, Float radius)
+{
+    return world_sweep_for(pos, speed, NULL, 0, radius,
+                           POLYGON_SWEEP_SAMPLES) != 0;
+}
+#endif
 
 void evalflags_set_all(NJS_OBJECT **objects, Uint32 flags)
 {

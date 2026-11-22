@@ -13,12 +13,6 @@
 # pin. For make dc, dc-disc, dc-check and dc-order, DOWNLOADS takes each of
 # these files that is missing or UNFETCHED
 PINNED_GCC := $(filter tools/sh-elf/bin/sh-elf-gcc,$(SH_ELF)/bin/sh-elf-gcc)
-sh4zam_sums = awk '$$2 ~ "^tools/sh4zam/"' tools/SHA256SUMS
-SH4ZAM     := $(shell awk '$$2 ~ "^tools/sh4zam/" { print $$2 }' tools/SHA256SUMS)
-FETCHED    := tools/sh4zam/fetched.txt
-ifneq ($(strip $(file <$(FETCHED))),$(strip $(shell $(sh4zam_sums))))
-UNFETCHED  := $(SH4ZAM)
-endif
 DOWNLOADS  += $(filter-out $(wildcard $(PINNED_GCC) $(filter-out $(UNFETCHED),$(SH4ZAM))), \
 	$(if $(filter dc dc-disc dc-check dc-order,$(MAKECMDGOALS)),$(PINNED_GCC) $(SH4ZAM)))
 # The toolchain's sources unpack with tar, one that gzip compressed and four
@@ -713,18 +707,3 @@ tools/sh-elf/bin/sh-elf-gcc:
 	$(Q)printf '%s\n' $(call quoted,$(SH_ELF_REQUEST)) > tools/sh-elf.part/request.txt
 	$(Q)rm -rf tools/sh-elf && mv tools/sh-elf.part tools/sh-elf
 	$(Q)rm -rf tools/sh-elf.src build/toolchain
-
-# Fetch the complete library by commit and verify each file against its hash.
-# The fork carries the FSCA output-register change in upstream PR #94 on top
-# of upstream master at 3ef3764.
-SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/810f9b4fcd1af950449f06873829ca8c512b388c
-$(SH4ZAM): $(if $(UNFETCHED),FORCE)
-	@$(call status,fetch,$@)
-	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)
-# Each fetch removes FETCHED, which make writes only once every file is in
-# place. After a run of fetches cut short, make fetches every file again.
-# Once every file is in place, FETCHED's recipe removes each other file
-# under tools/sh4zam/, one an earlier pin listed, then writes FETCHED
-$(FETCHED): $(SH4ZAM)
-	$(Q)rm -f $@ $(filter-out $(SH4ZAM) $(FETCHED),$(shell [ ! -d tools/sh4zam ] || find tools/sh4zam -type f))
-	$(Q)mkdir -p $(@D) && $(sh4zam_sums) > $@

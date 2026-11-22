@@ -103,6 +103,14 @@ The engine distinguishes two kinds of visibility.
 
 **Presentation visibility** decides what a backend draws. It may cull more geometry, render another view or keep offscreen objects, but its decisions never advance tasks, consume random numbers or otherwise alter play.
 
+## Terrain collision
+
+The Dreamcast and PC ports share terrain collision. In ordinary running modes, all six characters carry their speed across connected slopes and banks. Sonic, Tails, and Knuckles also use these contacts while rolling. Gamma uses them while skating and braking on dry ground. At a convex crest, the runner leaves the ground when gravity cannot supply the turn. Authored loop guides keep the original movement and release timing. A dash panel's boost keeps the original ground snap on a clear stride. Walls and moving solids still use swept collision.
+
+Each character's movement mode selects when the shared solver handles airborne impacts. It tests triangle faces, edges and corners along the sphere's path and resolves walls and landings in time order across mesh boundaries. The snowboard and its camera sample the terrain to steer through banks. Both also check for a face crossed entirely between samples.
+
+The game resolves platform carry separately from the rider's movement. Station Square cars, Speed Highway cars and the Egg Carrier's interior lift carry each rider through the platform's rotation. A rider pushed into static terrain slides along the obstruction. Red Mountain's fans also check where each blade travels during the tick, so a blade can strike a standing player between its starting and ending positions.
+
 ## Dreamcast
 
 `make dc` builds the port with GCC 16.2, replacing selected assembly and SDK routines while keeping the game's C and its guarded non-matching code. [PORTS.md](PORTS.md) gives the compiler, flags and link rules. [`config/dreamcast.mk`](config/dreamcast.mk) names the replacements and added sources.
@@ -250,4 +258,5 @@ The PC keeps the game's VMU data in files. From the game's point of view, storag
 | `make play` | The native game in a window, from Emerald Coast's start |
 | `make native` | A headless run of the native game for a fixed count of frames |
 | `make engine-test` | The ABI, runtime, numeric and backend tests |
+| `make engine-test-player-terrain` | Player movement across seams, crests and curbs, while rolling and during dash-panel boosts, using the Linux game objects and the extracted disc |
 | `make accept` | Every gate a change must pass, recorded in `build/accept.txt` |

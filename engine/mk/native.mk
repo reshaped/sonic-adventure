@@ -172,7 +172,7 @@ NATIVE_DOUBLE_FLOAT := $(shell awk '/SDK \+= .*-double=float/ { for (i = 1; i <=
 $(foreach s,$(NATIVE_DOUBLE_FLOAT),$(eval $(NATIVE)/obj/$s.o: private SDK += -double=float))
 native_pass = $(NATIVE_CC) $(call native_pass_flags,$2,$3) $1 -E -MD -MP -MT $@ -MF $(@:.o=.d) \
 	-o $(@:.o=.i) $< && \
-	python3 tools/floats.py --shc $2 $(filter -fpu=single -double=float -aggressive=2,$3) $(@:.o=.i) && \
+	python3 tools/floats.py --shc $2 $(filter -fpu=single -double=float -aggressive=2,$3) $(NATIVE_FLOAT_SYSTEM) $(@:.o=.i) && \
 	python3 engine/tools/marks.py mark $(NATIVE_TREE) $(@:.o=.i) && \
 	$(NATIVE_CC) $(call native_pass_flags,$2,$3) -S -emit-llvm -Xclang -disable-llvm-passes -o $(@:.o=.ll) $(@:.o=.i) && \
 	python3 engine/tools/refs.py $(@:.o=.ll) $(NATIVE_REFS) && \
@@ -180,6 +180,12 @@ native_pass = $(NATIVE_CC) $(call native_pass_flags,$2,$3) $1 -E -MD -MP -MT $@ 
 NATIVE_GAME_INC := sdk/include $(addprefix $(NATIVE_TREE)/,src modules events) build/gen/src build/gen/modules \
 	build/gen/events build/gen/sdk
 NATIVE_GEN_INC  := sdk/include $(addprefix $(NATIVE_TREE)/,src modules)
+
+# The shared terrain solver uses only SH4ZAM's inline vector operations.
+NATIVE_TERRAIN_OBJ := $(addprefix $(NATIVE)/obj/,src/collision/polygon.o modules/stg05/propeller.o)
+$(NATIVE_TERRAIN_OBJ): private NATIVE_DEFS := -isystem tools/sh4zam/include -DSHZ_TLS_MODEL=SHZ_TLS_DISABLED -DNDEBUG
+$(NATIVE_TERRAIN_OBJ): private NATIVE_FLOAT_SYSTEM := --system tools/sh4zam/include
+$(NATIVE_TERRAIN_OBJ): | $(FETCHED)
 
 # The slice's sources: its images' C outside the SDK, as their splits.txt
 # places them, and the C make dc adds to 1ST_READ.BIN, NONMATCHING_C; their
@@ -204,7 +210,7 @@ NATIVE_NINJA  := njAddVector njCalcPoint njCalcVector njClearMatrix njCos njDetM
 	njInitView njSetPerspective njClipZ njCreateLight njSetLightAngle njSetLightRange njDraw njMotionE njMotSrc \
 	njCameraMotion njSetCamera njPointCamereInterest njRollCameraInterest njSetCameraAngle njMotLinkSrc
 NATIVE_ASM    := src/system/math.src src/system/vector.src src/collision/mesh.src src/system/matrix_push.c \
-	src/draw/action.c src/draw/action_link.c src/system/cache.src:matrix_load_parent \
+	engine/native/mesh_heights.src src/draw/action.c src/draw/action_link.c src/system/cache.src:matrix_load_parent \
 	src/draw/palette.src $(NATIVE_NINJA:%=sdk/ninja/%.c)
 # Ninja's C, for those and for the math and globals that are C alone
 NATIVE_SDK_C  := $(addprefix sdk/ninja/,$(NATIVE_NINJA:%=%.c) njDistanceL2PL.c njDistanceP2L.c njDistanceP2P.c \

@@ -36,6 +36,10 @@
 #include "path/path.h"
 #include "player/effects.h"
 #include "player/player.h"
+#ifdef NONMATCHING
+#include "player/sonic.h"
+#include "player/tails.h"
+#endif
 #include "player/target.h"
 #include "progress/progress.h"
 #include "sboard/sand.h"
@@ -64,6 +68,9 @@
  * ground, though other tests can too. a wall whose normal faces the
  * player's motion, reversed, meets that motion head on */
 #define FACING_TURN 0x2c00
+
+#define STEP_FOOT_HEIGHT 4.0F
+#define STEP_RADIUS_MAX 5.1F
 
 /* how the wall sweeps mark each contact in contact_flags, which nothing
  * reads: as ground, or as a wall the ball moves into */
@@ -228,6 +235,18 @@ struct drown {
 
 #define DROWN(task) ((struct drown *)(task)->extra)
 
+#ifdef NONMATCHING
+static const struct player_terrain_modes *const
+    terrain_modes[CHARACTER_COUNT] LINKED_LAST_DATA(player_terrain_modes) = {
+        [CHARACTER_SONIC] = &sonic_terrain_modes,
+        [CHARACTER_TAILS] = &tails_terrain_modes,
+        [CHARACTER_KNUCKLES] = &knuckles_terrain_modes,
+        [CHARACTER_AMY] = &amy_terrain_modes,
+        [CHARACTER_E102] = &e102_terrain_modes,
+        [CHARACTER_BIG] = &big_terrain_modes,
+};
+#endif
+
 static void player_note_history(Uint8 player);
 static void player_accel_cling(struct task_work *work,
                                struct task_motion *motion,
@@ -267,12 +286,21 @@ static void player_stop_creep(struct task_work *work,
 static void player_slide_along_wall(struct task_work *work,
                                     struct task_motion *motion,
                                     struct player *record);
+#ifdef NONMATCHING
+static Uint32 player_collide_ground(struct task_work *work,
+                                    struct task_motion *motion,
+                                    struct player *record, Bool grab);
+static Uint32 player_collide_world(struct task_work *work,
+                                   struct task_motion *motion,
+                                   struct player *record, Bool grab);
+#else
 static Uint32 player_collide_ground(struct task_work *work,
                                     struct task_motion *motion,
                                     struct player *record);
 static Uint32 player_collide_world(struct task_work *work,
                                    struct task_motion *motion,
                                    struct player *record);
+#endif
 static Bool player_step_up(struct task_work *work, struct polygon_ball *ball,
                            struct world_object *world);
 static Uint32 player_hit_wall(struct task_work *work,
@@ -507,6 +535,17 @@ void player_finish_step(struct task_work *work, struct task_motion *motion,
     record->nudge.x = record->nudge.y = record->nudge.z = record->accel.x =
         record->accel.y = record->accel.z = 0.0F;
     motion->slip = 0.0F;
+#ifdef NONMATCHING
+    if (record->dash_panel) {
+        unsigned id = PLAYER_VARS(work)->character;
+        const struct player_terrain_modes *row =
+            id < CHARACTER_COUNT ? terrain_modes[id] : NULL;
+        if (record->launch_steps <= 1 || !row || work->mode == row->jump ||
+            work->mode == row->fast_jump) {
+            record->dash_panel = FALSE;
+        }
+    }
+#endif
     if (record->launch_steps > 0) {
         record->launch_steps--;
     } else {
@@ -3440,6 +3479,78 @@ static void player_turn_at_speed(struct task_work *work,
     record->speed.z = (record->speed.z * keep) + (speed.z * rest);
 }
 
+#ifdef NONMATCHING
+LINKED_LAST(player_terrain_motion)
+enum player_terrain_motion player_terrain_motion(unsigned character, int mode)
+{
+    if (character < CHARACTER_COUNT && mode > 0 && terrain_modes[character]) {
+        const struct player_terrain_modes *row = terrain_modes[character];
+        if (mode == row->walk || mode == row->stop) {
+            return PLAYER_TERRAIN_STRIDE;
+        }
+        if (mode == row->stand) {
+            return PLAYER_TERRAIN_STAND;
+        }
+        if (mode == row->jump || mode == row->fall) {
+            return PLAYER_TERRAIN_AIR;
+        }
+        if (mode == row->fast || mode == row->fast_stop) {
+            return PLAYER_TERRAIN_STRIDE;
+        }
+        if (mode == row->fast_jump) {
+            return PLAYER_TERRAIN_AIR;
+        }
+    }
+    return PLAYER_TERRAIN_SPECIAL;
+}
+
+/* The original ground probe can select a wall beside a runner. Steep
+ * terrain can continue an established stride, including through a loop. */
+static inline Bool player_has_running_surface(const struct task_work *work,
+                                              const struct player *record)
+{
+    if (record->ground_normal.y >= njCos(FACING_TURN)) {
+        return TRUE;
+    }
+    return record->stride_object &&
+           record->stride_object == record->ground_object &&
+           work->pos.x == record->stride_feet.x &&
+           work->pos.y == record->stride_feet.y &&
+           work->pos.z == record->stride_feet.z &&
+           record->ground_normal.x == record->stride_normal.x &&
+           record->ground_normal.y == record->stride_normal.y &&
+           record->ground_normal.z == record->stride_normal.z;
+}
+
+/* Store and recover running speed in the physical floor's frame. Banking
+ * the model can take several ticks after the floor has already turned. */
+LINKED_LAST(player_runs_on_floor)
+static Bool player_runs_on_floor(const struct task_work *work,
+                                 const struct player *record)
+{
+    return (work->flags & (PLAYER_ON_GROUND | PLAYER_ON_PATH |
+                           PLAYER_EVENT_DRIVEN)) == PLAYER_ON_LAND &&
+           record->ground_object && !record->ground_task &&
+           world_plain_surface(record->ground_flags) &&
+           (record->ground_normal.x || record->ground_normal.z || work->ang.x ||
+            work->ang.z) &&
+           !world_gravity.x && !world_gravity.z && world_gravity.y < 0.0F &&
+           player_terrain_motion(PLAYER_VARS(work)->character, work->mode) ==
+               PLAYER_TERRAIN_STRIDE &&
+           !event_in_control() && player_has_running_surface(work, record);
+}
+static inline Bool player_uses_ground_frame(const struct task_work *work,
+                                            const struct player *record)
+{
+    return (record->ground_flags & WORLD_NO_SLOPE) ||
+           player_runs_on_floor(work, record);
+}
+#define PLAYER_USES_GROUND_FRAME player_uses_ground_frame
+#else
+#define PLAYER_USES_GROUND_FRAME(work, record)                                 \
+    ((record)->ground_flags & WORLD_NO_SLOPE)
+#endif
+
 void player_apply_accel(struct task_work *work, struct task_motion *motion,
                         struct player *record)
 {
@@ -3495,7 +3606,7 @@ void player_apply_accel(struct task_work *work, struct task_motion *motion,
         }
     }
     speed = record->speed;
-    if (record->ground_flags & WORLD_NO_SLOPE) {
+    if (PLAYER_USES_GROUND_FRAME(work, record)) {
         ground_turn_to_world(&record->ground_normal, &speed, work->ang.y);
     } else {
         player_turn_to_world(work, &speed);
@@ -3503,6 +3614,15 @@ void player_apply_accel(struct task_work *work, struct task_motion *motion,
     motion->speed = speed;
     njAddVector(&motion->speed, &record->nudge);
     player_limit_speed(work, motion, record);
+#ifdef NONMATCHING
+    /* At running speed a small vertical or lateral component can be the
+     * slope itself. Removing it would tip the velocity away from the ground. */
+    if ((record->ground_normal.x || record->ground_normal.z) &&
+        (njAbs(record->speed.x) >= 0.02F || njAbs(record->speed.z) >= 0.02F) &&
+        player_runs_on_floor(work, record)) {
+        return;
+    }
+#endif
     player_stop_creep(work, motion);
 }
 
@@ -3801,8 +3921,14 @@ static void player_slide_along_wall(struct task_work *work,
     motion->aim.y = work->ang.y;
 }
 
+#ifdef NONMATCHING
+static int player_collide_with(struct task_work *work,
+                               struct task_motion *motion,
+                               struct player *record, Bool grab)
+#else
 int player_collide(struct task_work *work, struct task_motion *motion,
                    struct player *record)
+#endif
 {
     NJS_VECTOR speed;
     NJS_VECTOR normal;
@@ -3970,7 +4096,11 @@ int player_collide(struct task_work *work, struct task_motion *motion,
         turn = none ? work->ang.y : work->ang.x;
     }
     if (work->flags & PLAYER_ON_TASK) {
+#ifdef NONMATCHING
+        ret = player_collide_ground(work, motion, record, grab);
+#else
         ret = player_collide_ground(work, motion, record);
+#endif
         if (!result) {
             result = ret;
         }
@@ -3991,7 +4121,11 @@ int player_collide(struct task_work *work, struct task_motion *motion,
             motion->speed.y = 0.0F;
         }
     } else {
+#ifdef NONMATCHING
+        ret = player_collide_ground(work, motion, record, grab);
+#else
         ret = player_collide_ground(work, motion, record);
+#endif
         if (!result) {
             result = ret;
         }
@@ -3999,43 +4133,518 @@ int player_collide(struct task_work *work, struct task_motion *motion,
     return result;
 }
 
+#ifdef NONMATCHING
+int player_collide(struct task_work *work, struct task_motion *motion,
+                   struct player *record)
+{
+    return player_collide_with(work, motion, record, FALSE);
+}
+
+/* A jump tests a grip before it moves. Its leading sphere can reach a wall
+ * that the body will miss for the entire tick. A glide moves in this call. */
+LINKED_LAST(jump_body_misses)
+static Bool jump_body_misses(struct task_work *work, struct task_motion *motion,
+                             struct player *record)
+{
+    if (work->mode != knuckles_terrain_modes.jump || work->ang.x ||
+        work->ang.z || record->ground_flags || record->last_ground_flags ||
+        ((work->flags | record->last_flags) &
+         (PLAYER_ON_GROUND | PLAYER_ON_PATH)) ||
+        (work->collision->flags & COLLISION_HIT)) {
+        return FALSE;
+    }
+    Uint16 act = stage_get_stage_act();
+    if (act == STAGE_ACT(STAGE_CASINO, 2) ||
+        act == STAGE_ACT(STAGE_CASINO, 3)) {
+        return FALSE;
+    }
+    struct polygon_ball body = {.pos = work->pos,
+                                .normal = {0, 1, 0},
+                                .radius = record->consts.height * 0.5F,
+                                .speed = motion->speed};
+    NJS_VECTOR offset = {0, body.radius, 0};
+    ball_drop(motion, record, &body, &offset);
+    body.pos.y += offset.y;
+    if (polygon_collect_near(&body)) {
+        for (int i = 0; i < world_count; i++) {
+            struct world_object *entry = &world_objects[i];
+            if (polygon_sweep(&body, entry->object, entry->flags)) {
+                return FALSE;
+            }
+        }
+    }
+    return TRUE;
+}
+
+int player_collide_grab(struct task_work *work, struct task_motion *motion,
+                        struct player *record)
+{
+    if (jump_body_misses(work, motion, record)) {
+        return 0;
+    }
+    return player_collide_with(work, motion, record, TRUE);
+}
+#endif
+
+#ifdef NONMATCHING
+static Uint32 player_collide_ground(struct task_work *work,
+                                    struct task_motion *motion,
+                                    struct player *record, Bool grab)
+#else
 static Uint32 player_collide_ground(struct task_work *work,
                                     struct task_motion *motion,
                                     struct player *record)
+#endif
 {
     if (stage_get_stage_act() == STAGE_ACT(STAGE_CASINO, 2) ||
         stage_get_stage_act() == STAGE_ACT(STAGE_CASINO, 3)) {
         return player_collide_pinball(work, motion, record);
     }
+#ifdef NONMATCHING
+    return player_collide_world(work, motion, record, grab);
+#else
     return player_collide_world(work, motion, record);
+#endif
 }
 
+#ifdef NONMATCHING
+/* The stopping object goes first and the old support goes last. Entries
+ * that share an object can carry different owners and surface flags. */
+LINKED_LAST(player_order_world)
+static void player_order_world(struct world_object *out, const Uint16 *indices,
+                               int count, int stop, struct player *record)
+{
+    int next = 0;
+    int last = count;
+    if (stop >= 0) {
+        out[next++] = world_objects[indices[stop]];
+    }
+    int step = record->ground_task ? 1 : -1;
+    int i = step > 0 ? 0 : count - 1;
+    for (int left = count; left; left--, i += step) {
+        if (i == stop) {
+            continue;
+        }
+        const struct world_object *entry = &world_objects[indices[i]];
+        if (record->ground_object == entry->object) {
+            out[--last] = *entry;
+        } else {
+            out[next++] = *entry;
+        }
+    }
+    for (int end = count - 1; last < end; last++, end--) {
+        struct world_object swap = out[last];
+        out[last] = out[end];
+        out[end] = swap;
+    }
+}
+static enum polygon_sweep_mode player_sweep_mode(const struct task_work *work)
+{
+    int character = PLAYER_VARS(work)->character;
+    if ((character == CHARACTER_SONIC && sonic_board_mode(work->mode)) ||
+        (character == CHARACTER_TAILS && tails_board_mode(work->mode))) {
+        return POLYGON_SWEEP_SAMPLES;
+    }
+    return POLYGON_SWEEP_MOTION;
+}
+/* Apply the wall and ground stops in world order, then give the movement
+ * pass its own ordered snapshot. A platform can call back into the game
+ * while the player is using that snapshot. */
+LINKED_LAST(player_prepare_world)
+static int player_prepare_world(struct world_object *out,
+                                struct task_work *work,
+                                struct task_motion *motion,
+                                struct player *record, Bool pinball)
+{
+    Uint16 indices[world_count];
+    struct polygon_ball *ball = record->contact;
+    enum polygon_sweep_mode mode = player_sweep_mode(work);
+    int count = 0;
+    int stop = -1;
+    for (int i = 0; i < world_count; i++) {
+        struct world_object *world = &world_objects[i];
+        if (((world->flags & WORLD_LIQUID) &&
+             PLAYER_VARS(work)->character != CHARACTER_E102) ||
+            (world->owner && !(world->owner->work->flags & WORLD_TESTED))) {
+            continue;
+        }
+        if (polygon_sweep_for(ball, world->object, mode)) {
+            Bool stopped;
+            if (!(record->last_flags & PLAYER_ON_GROUND)) {
+                stopped = ball_stop_at_ground(work, motion, record, ball);
+            } else if (pinball) {
+                stopped = pinball_stop_at_walls(work, motion, record, ball,
+                                                world->flags);
+            } else {
+                stopped = ball_stop_at_walls(work, motion, record, ball,
+                                             world->flags);
+            }
+            if (stopped == TRUE) {
+                stop = count;
+            }
+        }
+        indices[count++] = i;
+        if (!pinball && (world->flags & WORLD_NO_SLOPE)) {
+            no_slope_near = TRUE;
+        }
+    }
+    player_order_world(out, indices, count, stop, record);
+    return count;
+}
+#endif
+
+#ifdef NONMATCHING
+/* Walkable seams use the player's ground response. A blocking wall can
+ * instead constrain the ball against several faces of this mesh at once. */
+LINKED_LAST(player_sweep_world)
+static __attribute__((noinline)) Bool
+player_sweep_world(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags,
+                   struct task_work *work)
+{
+    enum polygon_sweep_mode mode = player_sweep_mode(work);
+    if (!polygon_sweep_for(ball, object, mode)) {
+        return FALSE;
+    }
+    if (ball->count > 1 && !(flags & WORLD_NO_SLOPE)) {
+        /* Board movement steers along banked walls with its own tilt. */
+        if (mode == POLYGON_SWEEP_SAMPLES) {
+            return TRUE;
+        }
+        Float floor_cosine = njCos(FACING_TURN);
+        Float gravity = njInnerProduct(&world_gravity, &ball->normal);
+        for (int i = 0; i < ball->count; i++) {
+            NJS_VECTOR *normal = &polygon_contacts[i].hit.normal;
+            if (njInnerProduct(&ball->normal, normal) < floor_cosine &&
+                njInnerProduct(&world_gravity, normal) >= gravity) {
+                polygon_resolve_corner(ball);
+                break;
+            }
+        }
+    }
+    return TRUE;
+}
+/* The foot probe can adopt a step while the body touches a wall. Give
+ * both probes clearance before committing an airborne slide. */
+static inline Float player_probe_clearance(Float radius, Float height,
+                                           Float drop)
+{
+    Float body = radius + njAbs(drop);
+    Float foot = STEP_RADIUS_MAX + njAbs(STEP_FOOT_HEIGHT + drop - height);
+    return body > foot ? body : foot;
+}
+
+LINKED_LAST(player_slide_air)
+static __attribute__((noinline)) Bool player_slide_air(
+    struct task_work *work, struct task_motion *motion, struct player *record,
+    const NJS_VECTOR *offset, const NJS_VECTOR *probe, Bool can_land)
+{
+    if (player_terrain_motion(PLAYER_VARS(work)->character, work->mode) !=
+            PLAYER_TERRAIN_AIR ||
+        (record->last_flags &
+         (PLAYER_ON_GROUND | PLAYER_ON_PATH | PLAYER_EVENT_DRIVEN)) ||
+        record->last_ground_flags || offset->x != 0.0F || offset->z != 0.0F ||
+        !(offset->y > 0.0F) || world_gravity.x != 0.0F ||
+        world_gravity.z != 0.0F || !(world_gravity.y < 0.0F)) {
+        return FALSE;
+    }
+    struct polygon_ball *ball = record->contact;
+    if (event_in_control()) {
+        return FALSE;
+    }
+    struct polygon_ball physical;
+    physical.radius = ball->radius;
+    physical.pos = work->pos;
+    physical.pos.y += offset->y;
+    physical.speed = motion->speed;
+    Float drop = probe->y - offset->y;
+    Float clearance = player_probe_clearance(ball->radius, offset->y, drop);
+    struct polygon_ball region;
+    region.pos = physical.pos;
+    region.speed = physical.speed;
+    region.radius =
+        clearance + (clearance + njScalor(&physical.speed)) * 0x1p-12F;
+    NJS_VECTOR move = physical.speed;
+    NJS_OBJECT *support = NULL;
+    struct task *owner = NULL;
+    Uint32 flags = 0;
+    if (polygon_collect_near(&region) || polygon_rotating ||
+        world_count == WORLD_OBJECTS) {
+        struct polygon_slide slide;
+        if (!polygon_slide_air(&physical, &slide, &region, clearance,
+                               njCos(FACING_TURN), can_land)) {
+            return FALSE;
+        }
+        if (slide.stalled || slide.fall_speed < 0.0F || slide.normal.x ||
+            slide.normal.y || slide.normal.z || slide.correction.x ||
+            slide.correction.y || slide.correction.z) {
+            ball->pos.x = physical.pos.x + slide.correction.x;
+            ball->pos.y = physical.pos.y + slide.correction.y;
+            ball->pos.z = physical.pos.z + slide.correction.z;
+            ball->speed = slide.travel;
+            move.x = slide.correction.x + slide.travel.x;
+            move.y = slide.correction.y + slide.travel.y;
+            move.z = slide.correction.z + slide.travel.z;
+            if (slide.normal.x || slide.normal.y || slide.normal.z) {
+                record->wall_normal = slide.normal;
+            }
+            /* Knuckles tests his approach angle when he grabs a wall on
+             * descent. The sweep has already clipped this tick's travel. */
+            if (slide.stalled || slide.fall_speed < 0.0F ||
+                slide.hit_unclimbable_rim ||
+                PLAYER_VARS(work)->character != CHARACTER_KNUCKLES ||
+                work->mode != knuckles_terrain_modes.jump) {
+                motion->speed = slide.velocity;
+            }
+            owner = slide.owner;
+            support = slide.support;
+            flags = slide.flags;
+            if (support) {
+                work->flags |= PLAYER_ON_LAND;
+                record->ground_normal = ball->normal = ball->hit.normal =
+                    slide.up;
+                ball->hit.normal_speed = slide.normal_speed;
+                ball->hit.speed = slide.velocity;
+                Angle pitch = 0, roll = 0;
+                if (slide.up.x || slide.up.z) {
+                    pitch = (Angle)(asinf(slide.up.z) * ANGLE_PER_RADIAN);
+                    roll = -(Angle)(atan2f(slide.up.x, slide.up.y) *
+                                    ANGLE_PER_RADIAN);
+                }
+                work->ang.x = motion->aim.x = ball->hit.ang_x = pitch;
+                work->ang.z = motion->aim.z = ball->hit.ang_z = roll;
+                record->landing_speed_y = slide.fall_speed;
+                move.x -= ball->radius * slide.up.x;
+                move.y += offset->y - ball->radius * slide.up.y;
+                move.z -= ball->radius * slide.up.z;
+            }
+        }
+    }
+    work->pos.x += move.x;
+    work->pos.y += move.y;
+    work->pos.z += move.z;
+    record->ground_task = owner;
+    if (support) {
+        ball->pos = work->pos;
+        ball->pos.x += ball->radius * ball->normal.x;
+        ball->pos.y += ball->radius * ball->normal.y;
+        ball->pos.z += ball->radius * ball->normal.z;
+        ball->speed = (NJS_VECTOR){0};
+    }
+    record->ground_object = support;
+    player_set_ground(work, motion, record, flags);
+    return TRUE;
+}
+/* A glancing hit turns the runner with the surviving horizontal tangent.
+ * After a turn, the entry speed at the wall determines a hard hit's result. */
+LINKED_LAST(player_stride_wall)
+static __attribute__((noinline)) Bool player_stride_wall(
+    struct task_work *work, struct task_motion *motion, struct player *record,
+    struct ground_step *step, Uint32 *result)
+{
+    NJS_VECTOR in = motion->speed;
+    NJS_VECTOR out = step->turned_wall ? step->wall_tangent : step->velocity;
+    Float inward = step->turned_wall ? step->wall_impact
+                                     : -njInnerProduct(&in, &step->wall);
+    if (step->turned_wall && !(inward > 0.0F)) {
+        record->wall_normal = step->wall;
+        return TRUE;
+    }
+    Bool glancing = FALSE;
+    Angle turn = 0;
+    if (out.x * out.x + out.z * out.z >
+        0x1p-36F * (in.x * in.x + in.z * in.z)) {
+        turn = (Angle)(atan2f(in.x * out.z - in.z * out.x,
+                              in.x * out.x + in.z * out.z) *
+                       ANGLE_PER_RADIAN);
+        glancing = turn > -0x3000 && turn < 0x3000;
+    }
+    if (!(inward < 4.5F && glancing)) {
+        if (!step->turned_wall) {
+            return FALSE;
+        }
+        *result = 1;
+        if (record->speed.x >= 15.0F) {
+            record->contact->hit.speed = (NJS_VECTOR){0};
+            player_clear_speed(NULL, record);
+            *result = PLAYER_CRASHED;
+        } else if (record->speed.x >= record->consts.crash_speed &&
+                   inward >= njCos(0x1000) * njSqrt(step->entry_speed2)) {
+            *result = PLAYER_CRASHED;
+        }
+    }
+    if (glancing && *result != PLAYER_CRASHED) {
+        work->ang.y += turn;
+        if (angle_distance(motion->aim.y, work->ang.y) > 0x6000) {
+            work->ang.y += 0x8000;
+        }
+        motion->aim.y = work->ang.y;
+    }
+    record->wall_normal = step->wall;
+    return TRUE;
+}
+
+LINKED_LAST(player_follow_ground)
+static __attribute__((noinline)) Bool player_follow_ground(
+    struct task_work *work, struct task_motion *motion, struct player *record,
+    const NJS_VECTOR *offset, const NJS_VECTOR *probe, Uint32 *result)
+{
+    enum player_terrain_motion mode =
+        player_terrain_motion(PLAYER_VARS(work)->character, work->mode);
+    if ((mode != PLAYER_TERRAIN_STRIDE && mode != PLAYER_TERRAIN_STAND) ||
+        (record->last_flags & (PLAYER_ON_GROUND | PLAYER_ON_PATH |
+                               PLAYER_EVENT_DRIVEN)) != PLAYER_ON_LAND ||
+        !record->ground_object || record->ground_task ||
+        record->speed.y > 0.0F ||
+        !world_plain_surface(record->last_ground_flags) || world_gravity.x ||
+        world_gravity.z || world_gravity.y >= 0 || event_in_control() ||
+        !player_has_running_surface(work, record)) {
+        return FALSE;
+    }
+    struct polygon_ball *ball = record->contact;
+    struct polygon_ball body;
+    body.pos = work->pos;
+    body.speed = motion->speed;
+    body.radius = ball->radius;
+    body.normal = record->ground_normal;
+    struct ground_step step;
+    Float clearance = !probe->x && !probe->z && record->speed.x < 15.0F
+                          ? player_probe_clearance(ball->radius, ball->radius,
+                                                   probe->y - ball->radius)
+                          : 0.0F;
+    Bool stand = mode == PLAYER_TERRAIN_STAND;
+    Bool banked_stand =
+        stand && (work->ang.x || work->ang.z || body.speed.y || body.normal.x ||
+                  body.normal.y != 1 || body.normal.z);
+    if (banked_stand && !polygon_rotating) {
+        return FALSE;
+    }
+    /* Only Gamma collides with liquid. A solid entry can carry both flags. */
+    Uint32 liquid_mask =
+        PLAYER_VARS(work)->character == CHARACTER_E102 ? 0 : WORLD_LIQUID;
+    Bool followed = polygon_follow_ground(
+        &body, record->ground_object, record->consts.snap, njCos(FACING_TURN),
+        -world_gravity.y * record->consts.gravity, clearance, liquid_mask,
+        &step);
+    /* Dash panels use the original ground snap while steering is locked.
+     * A blocked stride still needs the swept wall or moving-solid response. */
+    if (followed && record->dash_panel && record->launch_steps > 0 &&
+        !step.stalled && !step.turned_wall && !step.moving_contact &&
+        !step.wall.x && !step.wall.y && !step.wall.z) {
+        return FALSE;
+    }
+    if (banked_stand && (!followed || !step.moving_contact)) {
+        return FALSE;
+    }
+    Bool checked_step =
+        !followed || (stand && !step.stalled && !step.moving_contact &&
+                      (step.support != record->ground_object ||
+                       step.normal.y != 1 || step.wall.x || step.wall.z));
+    if (checked_step) {
+        /* Gravity presses a rolling ball into the floor. Check step clearance
+         * along its supported tangent on the flat tread. */
+        if ((work->flags & PLAYER_BALL) && body.speed.y < 0.0F) {
+            body.speed.y = 0.0F;
+        }
+        if (!polygon_step_clearance(&body, record->ground_object,
+                                    njCos(FACING_TURN), liquid_mask, &step)) {
+            return FALSE;
+        }
+    }
+    if ((step.wall.x || step.wall.z) && !checked_step && !step.moving_contact &&
+        !player_stride_wall(work, motion, record, &step, result)) {
+        return FALSE;
+    }
+    if (checked_step || step.moving_contact) {
+        record->wall_normal = step.wall;
+    }
+    /* Rolling reads the previous contact's normal velocity. A supported
+     * stride carries no landing impulse into a later roll. */
+    ball->hit.normal_speed = (NJS_VECTOR){0};
+    record->ground_task = step.owner;
+    if (step.support) {
+        work->flags |= PLAYER_ON_LAND;
+        record->ground_object = step.support;
+        record->ground_normal = step.normal;
+        ball->hit.normal = step.normal;
+        ball->hit.ang_x = (int)(asinf(step.normal.z) * ANGLE_PER_RADIAN);
+        ball->hit.ang_z =
+            -(int)(atan2f(step.normal.x, step.normal.y) * ANGLE_PER_RADIAN);
+        player_tilt_to_ground(work, record, ball);
+        ball->normal = step.normal;
+    } else {
+        record->ground_object = NULL;
+    }
+    work->pos = step.feet;
+    motion->speed = step.velocity;
+    ball->pos.x = step.feet.x + ball->radius * step.normal.x;
+    ball->pos.y = step.feet.y + ball->radius * step.normal.y;
+    ball->pos.z = step.feet.z + ball->radius * step.normal.z;
+    if (step.turned_wall && !step.support) {
+        /* The next airborne step uses the body's offset from its own frame. */
+        work->pos.x = ball->pos.x - offset->x;
+        work->pos.y = ball->pos.y - offset->y;
+        work->pos.z = ball->pos.z - offset->z;
+    }
+    ball->speed = (NJS_VECTOR){0};
+    player_set_ground(work, motion, record, step.flags);
+    if (step.support && step.normal.y < njCos(FACING_TURN)) {
+        record->stride_object = step.support;
+        record->stride_feet = step.feet;
+        record->stride_normal = step.normal;
+    }
+    return TRUE;
+}
+LINKED_LAST(player_move_terrain)
+static __attribute__((noinline)) Bool
+player_move_terrain(struct task_work *work, struct task_motion *motion,
+                    struct player *record, const NJS_VECTOR *offset,
+                    const NJS_VECTOR *probe, int old_flags, Uint32 *result)
+{
+    if (record->last_flags & PLAYER_ON_LAND) {
+        return player_follow_ground(work, motion, record, offset, probe,
+                                    result);
+    }
+    return player_slide_air(work, motion, record, offset, probe,
+                            !(old_flags & PLAYER_ON_GROUND));
+}
+#endif
+
+#ifdef NONMATCHING
+static Uint32 player_collide_world(struct task_work *work,
+                                   struct task_motion *motion,
+                                   struct player *record, Bool grab)
+#else
 static Uint32 player_collide_world(struct task_work *work,
                                    struct task_motion *motion,
                                    struct player *record)
+#endif
 {
     NJS_VECTOR offset;
     NJS_VECTOR normal;
     NJS_VECTOR position;
     NJS_POINT3 old_pos;
+#ifdef NONMATCHING
+    int k;
+#else
     struct world_object candidates[16];
     struct world_object sorted[16];
-    struct polygon_ball *ball;
     struct world_object *world;
-    struct world_object *entry;
     struct world_object *last;
+    int j;
+    int k;
+    int taken;
+    int saved;
+    Bool hit;
+#endif
+    struct polygon_ball *ball;
+    struct world_object *entry;
     struct world_object *list;
     struct polygon_contact *contact;
     struct task *owner;
     NJS_OBJECT *object;
     int old_flags;
     int i;
-    int j;
-    int k;
-    int taken;
     int count;
-    int saved;
-    Bool hit;
     Bool grounded;
     Uint32 result;
     int found;
@@ -4090,6 +4699,12 @@ static Uint32 player_collide_world(struct task_work *work,
     ball->radius = record->consts.height * 0.5F;
     ball->speed = motion->speed;
     old_pos = work->pos;
+#ifdef NONMATCHING
+    if (!grab && player_move_terrain(work, motion, record, &offset, &normal,
+                                     old_flags, &result)) {
+        return result;
+    }
+#endif
     polygon_collect_near(ball);
     if (world_count == 0) {
         work->pos.x += motion->speed.x;
@@ -4100,6 +4715,12 @@ static Uint32 player_collide_world(struct task_work *work,
         record->ground_object = NULL;
         return 0;
     }
+#ifdef NONMATCHING
+    struct world_object sorted[world_count];
+    count = player_prepare_world(sorted, work, motion, record, FALSE);
+    grounded = FALSE;
+    object = NULL;
+#else
     grounded = FALSE;
     hit = FALSE;
     world = world_objects;
@@ -4134,6 +4755,7 @@ static Uint32 player_collide_world(struct task_work *work,
             no_slope_near = TRUE;
         }
     }
+#endif
     if (count == 0) {
         work->pos.x += motion->speed.x;
         work->pos.y += motion->speed.y;
@@ -4146,6 +4768,10 @@ static Uint32 player_collide_world(struct task_work *work,
     if (event_in_control()) {
         no_slope_near = FALSE;
     }
+
+#ifdef NONMATCHING
+    k = count - 1;
+#else
     taken = 0;
     if (hit == TRUE) {
         sorted[taken] = candidates[saved];
@@ -4182,6 +4808,7 @@ static Uint32 player_collide_world(struct task_work *work,
             }
         }
     }
+#endif
     ball->pos.x = work->pos.x + normal.x;
     ball->pos.y = work->pos.y + normal.y;
     ball->pos.z = work->pos.z + normal.z;
@@ -4191,7 +4818,11 @@ static Uint32 player_collide_world(struct task_work *work,
     for (i = 0; i < count; i++) {
         entry = &list[i];
         owner = entry->owner;
+#ifdef NONMATCHING
+        if (!player_sweep_world(ball, entry->object, entry->flags, work)) {
+#else
         if (!polygon_sweep(ball, entry->object, entry->flags)) {
+#endif
             continue;
         }
         mask = 1;
@@ -4507,7 +5138,7 @@ static Bool player_step_up(struct task_work *work, struct polygon_ball *ball,
     record = player_records[PLAYER_VARS(work)->player];
     saved = *ball;
     foot.x = foot.z = 0.0F;
-    foot.y = 4.0F;
+    foot.y = STEP_FOOT_HEIGHT;
     if (no_slope_near && PLAYER_VARS(work)->player == 5) {
         foot.y = step_up_foot;
     }
@@ -4555,7 +5186,7 @@ static Bool player_step_up(struct task_work *work, struct polygon_ball *ball,
     if (record->speed.x >= record->consts.full_speed ||
         (record->last_ground_flags & WORLD_NO_SLOPE) ||
         (record->speed.y <= 0.0F && (world->flags & WORLD_NO_SLOPE))) {
-        ball->radius = 5.1F;
+        ball->radius = STEP_RADIUS_MAX;
     } else if (record->consts.trot_speed <= record->speed.x &&
                record->speed.x <= record->consts.full_speed) {
         ball->radius =
@@ -4887,9 +5518,17 @@ static void player_ride_task(struct task_work *work, struct player *record,
             force->carry(player_tasks[PLAYER_VARS(work)->player], work, force);
             work->pos = pos;
         }
+#ifdef NONMATCHING
+        NJS_VECTOR travel = force->speed;
+        if (travel.x || travel.y || travel.z) {
+            polygon_limit_carry(&ball->pos, ball->radius, &travel);
+            njAddVector(&ball->pos, &travel);
+        }
+#else
         ball->pos.x += force->speed.x;
         ball->pos.y += force->speed.y;
         ball->pos.z += force->speed.z;
+#endif
         work->ang.x = (Uint16)(work->ang.x + force->turn.x);
         work->ang.y = (Uint16)(work->ang.y + force->turn.y);
         work->ang.z = (Uint16)(work->ang.z + force->turn.z);
@@ -4910,6 +5549,9 @@ static void player_set_ground(struct task_work *work,
                               struct task_motion *motion, struct player *record,
                               Uint32 flags)
 {
+#ifdef NONMATCHING
+    record->stride_object = NULL;
+#endif
     record->ground_flags |= flags;
 
     if (record->shadow.above_flags & WORLD_WATER) {
@@ -5622,8 +6264,13 @@ static void push_out(Float *push, Float *pos)
     *pos += *push * 0.5F;
 }
 
+#ifdef NONMATCHING
+static int climb_contacts(struct task_work *work, struct task_motion *motion,
+                          struct player *record)
+#else
 int player_collide_climb(struct task_work *work, struct task_motion *motion,
                          struct player *record)
+#endif
 {
     NJS_VECTOR up;
     struct polygon_hit hit;
@@ -5647,6 +6294,9 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
     Angle ang_z;
     Float dot;
 
+#ifdef NONMATCHING
+    NJS_POINT3 *idle_feet;
+#else
     if (record->ground_task != NULL) {
         force = record->ground_task->force;
         if (force != NULL) {
@@ -5655,6 +6305,7 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
             work->pos.z += force->speed.z;
         }
     }
+#endif
     if ((work->collision->flags & COLLISION_PUSHED) &&
         !(work->flags & PLAYER_HURT) &&
         (work->collision->flags & COLLISION_HIT_SIDE) &&
@@ -5691,7 +6342,36 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
     ball->hit.ang_x = work->ang.x;
     ball->hit.ang_z = work->ang.z;
     ball->speed = motion->speed;
+#ifdef NONMATCHING
+    /* On descent the body and the ledge probe each lie half a height
+     * from this center. Otherwise collect just the body and wall grip. */
+    idle_feet = player_read_stick(work, NULL, NULL) ? NULL : &work->pos;
+    Float radius = ball->radius;
+    Float offset = motion->speed.y < -0.01F ? record->consts.height * 0.25F
+                                            : (radius + 0.3F) * 0.5F;
+    ball->pos.x = work->pos.x + motion->speed.x + offset * up.x;
+    ball->pos.y = work->pos.y + motion->speed.y + offset * up.y;
+    ball->pos.z = work->pos.z + motion->speed.z + offset * up.z;
+    Float reach = njAbs(radius - offset);
+    Float grip = njAbs(0.3F - offset);
+    Float pad = (1.0F + radius + njAbs(ball->pos.x) + njAbs(ball->pos.y) +
+                 njAbs(ball->pos.z)) *
+                0x1p-20F;
+    ball->radius += (reach > grip ? reach : grip) + pad;
+    if (idle_feet) {
+        ball->radius += POLYGON_CLIMB_PUSH;
+    }
+#endif
     polygon_collect_near(ball);
+#ifdef NONMATCHING
+    ball->radius = radius;
+    ball->pos.x = work->pos.x + radius * up.x;
+    ball->pos.y = work->pos.y + radius * up.y;
+    ball->pos.z = work->pos.z + radius * up.z;
+    if (polygon_block_climb(ball, &up, idle_feet)) {
+        return result;
+    }
+#else
     ball->pos.x = work->pos.x + motion->speed.x + (ball->radius * up.x);
     ball->pos.y = work->pos.y + motion->speed.y + (ball->radius * up.y);
     ball->pos.z = work->pos.z + motion->speed.z + (ball->radius * up.z);
@@ -5723,6 +6403,7 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
             }
         }
     }
+#endif
     if (motion->speed.y < -0.01F) {
         ball->pos.x = work->pos.x + motion->speed.x +
                       (record->consts.height * up.x * 0.25F);
@@ -5851,6 +6532,9 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
         motion->aim.x = work->ang.x;
         motion->aim.z = work->ang.z;
         ball->pos = hit.point;
+#ifdef NONMATCHING
+        ball->hit = hit;
+#else
         owner = hit_world->owner;
         if (owner != NULL) {
             njAddVector(&ball->pos,
@@ -5859,6 +6543,7 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
             work->ang.y += ((struct task_force *)owner->force)->turn.y;
             work->ang.z += ((struct task_force *)owner->force)->turn.z;
         }
+#endif
         record->ground_task = hit_world->owner;
         if (njDistanceP2P(&work->pos, &ball->pos) > 0.3F) {
             work->pos = ball->pos;
@@ -5878,6 +6563,10 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
                       (((up.y * 0.25F) + 0.5F) * record->consts.height);
         ball->pos.z = work->pos.z + motion->speed.z -
                       (record->consts.height * up.z * 0.25F);
+#ifdef NONMATCHING
+        /* Only a failed grip reaches the ledge above the climber. */
+        polygon_collect_near(ball);
+#endif
         for (i = world_count, world = world_objects; i > 0; i--, world++) {
             if (polygon_sweep(ball, world->object, world->flags) == TRUE) {
                 for (j = ball->count, contact = polygon_contacts; j > 0;
@@ -5895,8 +6584,48 @@ int player_collide_climb(struct task_work *work, struct task_motion *motion,
             }
         }
     }
+#ifdef NONMATCHING
+    /* A missed grip or ledge leaves him facing his current wall. */
+    ball->hit.normal = up;
+#endif
     return result;
 }
+
+#ifdef NONMATCHING
+int player_collide_climb(struct task_work *work, struct task_motion *motion,
+                         struct player *record)
+{
+    int result = climb_contacts(work, motion, record);
+    struct task *owner = record->ground_task;
+    if (!owner || !owner->force) {
+        return result;
+    }
+    const struct task_force *force = owner->force;
+    if (PLAYER_VARS(work)->player) {
+        force++;
+    }
+    NJS_VECTOR travel = force->speed;
+    if (travel.x || travel.y || travel.z) {
+        /* The grip is on the wall. The body sweeps one radius out from it. */
+        Float radius = record->consts.height * 0.75F;
+        NJS_VECTOR offset = {0, radius, 0};
+        player_turn_to_world(work, &offset);
+        NJS_POINT3 center = work->pos;
+        njAddVector(&center, &offset);
+        polygon_limit_carry(&center, radius, &travel);
+        njAddVector(&work->pos, &travel);
+        if (work->flags & PLAYER_ON_LAND) {
+            njAddVector(&record->contact->pos, &travel);
+        }
+    }
+    if (work->flags & PLAYER_ON_LAND) {
+        work->ang.x += force->turn.x;
+        work->ang.y += force->turn.y;
+        work->ang.z += force->turn.z;
+    }
+    return result;
+}
+#endif
 
 int player_collide_simple(struct task_work *work, struct task_motion *motion,
                           struct player *record)
@@ -6077,27 +6806,31 @@ static Uint32 player_collide_pinball(struct task_work *work,
     NJS_VECTOR normal;
     NJS_VECTOR position;
     NJS_POINT3 old_pos;
+#ifdef NONMATCHING
+    int k;
+#else
     struct world_object candidates[16];
     struct world_object sorted[16];
+    struct world_object *world;
+    struct world_object *last;
+    int j;
+    int k;
+    int taken;
+    int saved;
+    Bool hit;
+#endif
     NJS_PLANE plane;
     NJS_POINT3 point;
     struct world_object swap;
     struct polygon_ball *ball;
-    struct world_object *world;
     struct world_object *entry;
-    struct world_object *last;
     struct world_object *list;
     struct polygon_contact *contact;
     struct task *owner;
     NJS_OBJECT *object;
     int old_flags;
     int i;
-    int j;
-    int k;
-    int taken;
     int count;
-    int saved;
-    Bool hit;
     Bool grounded;
     Uint32 result;
     int found;
@@ -6141,6 +6874,12 @@ static Uint32 player_collide_pinball(struct task_work *work,
         record->ground_object = NULL;
         return 0;
     }
+#ifdef NONMATCHING
+    struct world_object sorted[world_count];
+    count = player_prepare_world(sorted, work, motion, record, TRUE);
+    grounded = FALSE;
+    object = NULL;
+#else
     hit = FALSE;
     grounded = FALSE;
     world = world_objects;
@@ -6172,6 +6911,7 @@ static Uint32 player_collide_pinball(struct task_work *work,
         candidates[count] = *world;
         count++;
     }
+#endif
     if (count == 0) {
         work->pos.x += motion->speed.x;
         work->pos.y += motion->speed.y;
@@ -6181,6 +6921,9 @@ static Uint32 player_collide_pinball(struct task_work *work,
         record->ground_object = NULL;
         return 0;
     }
+#ifdef NONMATCHING
+    k = count - 1;
+#else
     taken = 0;
     if (hit == TRUE) {
         sorted[taken] = candidates[saved];
@@ -6217,6 +6960,7 @@ static Uint32 player_collide_pinball(struct task_work *work,
             }
         }
     }
+#endif
     ball->pos.x = work->pos.x + normal.x;
     ball->pos.y = work->pos.y + normal.y;
     ball->pos.z = work->pos.z + normal.z;
@@ -6822,7 +7566,7 @@ void player_take_speed(struct task_work *work, struct task_motion *motion,
 
     speed = motion->speed;
     if ((work->flags & PLAYER_ON_GROUND) &&
-        (record->ground_flags & WORLD_NO_SLOPE)) {
+        PLAYER_USES_GROUND_FRAME(work, record)) {
         ground_turn_back(&record->ground_normal, &speed, work->ang.y);
     } else {
         player_turn_back(work, &speed);
@@ -8884,7 +9628,7 @@ void player_launch(Uint8 player, const Angle *ang, Float speed, Sint16 steps)
     struct player *record = player_records[player];
     NJS_VECTOR up;
 
-    record->launch_steps = steps;
+    PLAYER_LOCK_INPUT(record, steps);
     work->flags |= PLAYER_REQUEST;
     work->submode = PLAYER_MODE_LAUNCH;
     up.x = 0.0F;
@@ -8927,7 +9671,7 @@ void player_send_flying(Uint8 player, NJS_VECTOR *speed, const Angle *ang,
     struct player *record = player_records[player];
     NJS_VECTOR world;
 
-    record->launch_steps = steps;
+    PLAYER_LOCK_INPUT(record, steps);
     record->speed = *speed;
     work->ang.x = ang[0];
     work->ang.y = 0x4000 - ang[1];
@@ -8946,7 +9690,7 @@ void player_launch_speed(Uint8 player, NJS_VECTOR *speed, const Angle *ang,
     struct player *record = player_records[player];
     NJS_VECTOR world;
 
-    record->launch_steps = steps;
+    PLAYER_LOCK_INPUT(record, steps);
     work->flags |= PLAYER_REQUEST;
     work->submode = PLAYER_MODE_LAUNCH_SPEED;
     record->speed = *speed;
@@ -9019,6 +9763,79 @@ void player_set_accel(Sint8 player, Float x, Float y, Float z)
     motion->accel.y = y;
     motion->accel.z = z;
 }
+
+#ifdef NONMATCHING
+/* The collision mesh applies Rz Ry Rx. Carry each rider's feet from the
+ * previous mesh frame to the new one, before replacing the object pose. */
+LINKED_LAST(player_carry_riders_at)
+void player_carry_riders_at(struct task *floor, const NJS_OBJECT *previous,
+                            const struct angles *next)
+{
+    const struct task_work *work = floor->work;
+    struct task_forces *forces = floor->force;
+    const Angle *from = previous->ang;
+    Angle yaw = (Sint16)((Uint16)next->y - (Uint16)from[1]);
+    Angle pitch = (Sint16)((Uint16)next->x - (Uint16)from[0]);
+    Angle roll = (Sint16)((Uint16)next->z - (Uint16)from[2]);
+    Bool loaded = FALSE;
+    forces->individual_takeoff = TRUE;
+    for (int i = 0; i < TASK_FORCES; i++) {
+        struct task_force *force = &forces->riders[i];
+        force->turn = (struct angles){0};
+        force->speed = (NJS_VECTOR){0};
+        if (!player_stands_on(i, floor)) {
+            continue;
+        }
+        force->turn.y = -yaw;
+        force->speed = (NJS_VECTOR){work->pos.x - previous->pos[0],
+                                    work->pos.y - previous->pos[1],
+                                    work->pos.z - previous->pos[2]};
+        if (yaw || pitch || roll) {
+            if (!loaded) {
+                matrix_push_unit();
+                if (!pitch && !next->z && !from[2]) {
+                    TURN(njRotateY, yaw);
+                } else {
+                    TURN(njRotateZ, next->z);
+                    TURN(njRotateY, next->y);
+                    TURN(njRotateX, pitch);
+                    TURN(njRotateY, -from[1]);
+                    TURN(njRotateZ, -from[2]);
+                }
+                loaded = TRUE;
+            }
+            const NJS_POINT3 *feet = &player_work[i]->pos;
+            NJS_VECTOR offset = {feet->x - previous->pos[0],
+                                 feet->y - previous->pos[1],
+                                 feet->z - previous->pos[2]};
+            NJS_VECTOR turned;
+            njCalcVector(NULL, &offset, &turned);
+            force->speed.x += turned.x - offset.x;
+            force->speed.y += turned.y - offset.y;
+            force->speed.z += turned.z - offset.z;
+        }
+    }
+    if (loaded) {
+        njPopMatrix(1);
+    }
+}
+
+LINKED_LAST(player_carry_riders)
+void player_carry_riders(struct task *floor, const NJS_OBJECT *previous)
+{
+    player_carry_riders_at(floor, previous, &floor->work->ang);
+}
+
+void player_inherit_platform_speed(struct task_work *work,
+                                   const struct task_force *forces)
+{
+    Uint8 player = PLAYER_VARS(work)->player;
+    if (player && ((const struct task_forces *)forces)->individual_takeoff) {
+        forces++;
+    }
+    player_set_accel(player, forces->speed.x, forces->speed.y, forces->speed.z);
+}
+#endif
 
 void player_set_position(Uint8 player, Float x, Float y, Float z)
 {

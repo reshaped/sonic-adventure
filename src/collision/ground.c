@@ -109,6 +109,90 @@ Float ground_below(Float x, Float y, Float z, struct angles *slope)
     return best;
 }
 
+#ifdef NONMATCHING
+Bool ground_nearest_surface(const NJS_POINT3 *pos, Bool land_only,
+                            struct surface *nearest)
+{
+    struct height_query query;
+    Float best_distance = 0.0F;
+
+    nearest->found = FALSE;
+    for (int i = 0; i < world_count; i++) {
+        struct world_object *entry = &world_objects[i];
+        Float offset = 0.0F;
+        if (land_only && (entry->owner || (entry->flags & WORLD_LIQUID))) {
+            continue;
+        }
+        if (entry->owner) {
+            NJS_OBJECT *object = entry->object;
+            NJS_VECTOR away = {object->pos[0] - pos->x, 0,
+                               object->pos[2] - pos->z};
+            Float scale = object->scl[0];
+            if (scale < object->scl[1]) {
+                scale = object->scl[1];
+            }
+            if (scale < object->scl[2]) {
+                scale = object->scl[2];
+            }
+            if (njScalor(&away) > scale * object->model->r) {
+                continue;
+            }
+            if (entry->owner->force) {
+                offset = FORCE(entry->owner)->speed.y;
+            }
+        }
+
+        /* Subtract the carrier step to bracket the reported floor height. */
+        query.pos = *pos;
+        query.pos.y -= offset;
+        if (!polygon_find_heights(&query, entry->object, entry->flags)) {
+            continue;
+        }
+        const struct surface *surface = &query.below;
+        if (!surface->found ||
+            (query.above.found &&
+             query.above.level - query.pos.y < query.pos.y - surface->level)) {
+            surface = &query.above;
+        }
+        Float level = surface->level + offset;
+        Float distance = njAbs(pos->y - level);
+        if (!nearest->found || distance < best_distance ||
+            (distance == best_distance && level < nearest->level)) {
+            *nearest = *surface;
+            nearest->level = level;
+            nearest->flags = entry->flags;
+            best_distance = distance;
+        }
+    }
+    return nearest->found;
+}
+
+static Float nearest_ground(Float x, Float y, Float z, struct angles *slope,
+                            Bool land_only)
+{
+    NJS_POINT3 pos = {x, y, z};
+    struct surface surface;
+
+    world_list_near(x, y, z, 5.0F);
+    if (ground_nearest_surface(&pos, land_only, &surface)) {
+        slope->x = surface.ang_x;
+        slope->z = surface.ang_z;
+        return surface.level;
+    }
+    slope->x = slope->z = 0;
+    return -GROUND_FAR;
+}
+
+Float ground_nearest(Float x, Float y, Float z, struct angles *slope)
+{
+    return nearest_ground(x, y, z, slope, FALSE);
+}
+
+Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope)
+{
+    return nearest_ground(x, y, z, slope, TRUE);
+}
+#else
 Float ground_nearest(Float x, Float y, Float z, struct angles *slope)
 {
     struct floor_query query;
@@ -128,12 +212,6 @@ Float ground_nearest(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
-#ifdef NONMATCHING
-    /* repairs the unset ang_x and ang_z the tag at the end names. with no
-     * floor, this side writes a flat slope */
-    ang_x = 0;
-    ang_z = 0;
-#endif
     for (i = 0; i < world_count; i++) {
         object = objects[i].object;
         if (objects[i].owner != NULL) {
@@ -206,12 +284,6 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope)
     objects = world_objects;
     world_list_near(x, y, z, 5.0F);
     best = -GROUND_FAR;
-#ifdef NONMATCHING
-    /* repairs the unset ang_x and ang_z the tag at the end names. with no
-     * floor, this side writes a flat slope */
-    ang_x = 0;
-    ang_z = 0;
-#endif
     for (i = 0; i < world_count; i++) {
         object = objects[i].object;
         if (objects[i].owner != NULL) {
@@ -242,6 +314,8 @@ Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope)
     slope->z = ang_z;
     return best;
 }
+
+#endif
 
 Float ground_find_first_floor(struct task_work *work, struct angles *slope)
 {

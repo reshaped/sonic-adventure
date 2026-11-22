@@ -11,15 +11,8 @@
 #include "collision/mesh.h"
 #include "collision/polygon.h"
 
-/* mesh.h points each call of polygon_find_heights outside polygon.c at
- * polygon.c's indexed search. here the name is the shipped search's, which
- * the indexed one falls back to */
+/* Export the original entry point for callers outside the C headers. */
 #undef polygon_find_heights
-
-/* the buckets a new mesh's polygons sort into by z. each is a list's first
- * and last polygons, and takes 16 of z, 1 << BUCKET_BITS */
-#define BUCKETS 128
-#define BUCKET_BITS 4
 
 /* a polygon is near the point when its center's squared distance is at most
  * its radius plus this. the radius is a square already, and this is 30
@@ -31,8 +24,6 @@
  * 0.0001 or H'38D1B717. that y is twice the area of the polygon's projection
  * on x and z. the level divides by it */
 #define EDGE_ON_Y2 0x1.a36e2ep-14F
-/* how far below and above the point's y a height query's levels start */
-#define LEVEL_START 220.0F
 
 struct bucket {
     struct polygon *first;
@@ -48,10 +39,13 @@ LINKED_LAST_DATA(collision_mesh_list)
 struct collision_mesh *collision_mesh_list;
 LINKED_LAST_DATA(mesh_found) static Bool mesh_found;
 LINKED_LAST_DATA(mesh_buckets)
-static struct bucket mesh_buckets[BUCKETS] __attribute__((aligned(32)));
+static struct bucket mesh_buckets[MESH_BUCKETS] __attribute__((aligned(32)));
+
+int collision_polygon_capacity;
 
 void polygon_pool_init(struct polygon *polygons, int count)
 {
+    collision_polygon_capacity = count > 0 ? count - 1 : 0;
     Uint32 left = (Uint32)count - 1;
 
     free_polygons = polygons;
@@ -72,6 +66,7 @@ struct polygon *collision_mesh_add_polygon(struct collision_mesh *mesh)
         return NULL;
     }
     free_polygons = rest;
+    mesh->bucketed = FALSE;
     first = mesh->polygons;
     polygon->next = first;
     if (first != NULL) {
@@ -112,6 +107,8 @@ struct collision_mesh *collision_mesh_alloc(void)
         return NULL;
     }
     free_meshes = mesh->next;
+    mesh->out_of_polygons = FALSE;
+    mesh->bucketed = FALSE;
     first = collision_mesh_list;
     mesh->next = first;
     if (first != NULL) {
@@ -178,7 +175,7 @@ void collision_mesh_clear_buckets(void)
 
 struct polygon *polygon_alloc(Float z)
 {
-    Sint32 at = ((Sint32)z >> BUCKET_BITS) + BUCKETS / 2;
+    Sint32 at = ((Sint32)z >> MESH_BUCKET_BITS) + MESH_BUCKETS / 2;
     struct bucket *bucket;
     struct polygon *polygon;
     struct polygon *rest;
@@ -187,8 +184,8 @@ struct polygon *polygon_alloc(Float z)
     if (at < 0) {
         at = 0;
     }
-    if (at > BUCKETS - 1) {
-        at = BUCKETS - 1;
+    if (at > MESH_BUCKETS - 1) {
+        at = MESH_BUCKETS - 1;
     }
     bucket = &mesh_buckets[at];
     polygon = free_polygons;
@@ -212,9 +209,10 @@ struct polygon *polygon_alloc(Float z)
 void collision_mesh_take_buckets(struct collision_mesh *mesh)
 {
     struct bucket *bucket = mesh_buckets;
-    struct bucket *end = mesh_buckets + BUCKETS;
+    struct bucket *end = mesh_buckets + MESH_BUCKETS;
     struct polygon *last = NULL;
 
+    mesh->bucketed = TRUE;
     while (bucket < end && bucket->first == NULL) {
         bucket++;
     }
@@ -377,12 +375,6 @@ void mesh_test_heights(struct height_query *query,
     take(surface, flags, level, n);
 }
 
-static void test_heights(void *query, const struct polygon *polygon,
-                         Sint32 flags)
-{
-    mesh_test_heights(query, polygon, flags);
-}
-
 /* the mesh in collision_mesh_list whose object is object, or null */
 ALWAYS_INLINE struct collision_mesh *mesh_of(NJS_OBJECT *object)
 {
@@ -464,47 +456,7 @@ Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
 Bool polygon_find_heights(struct height_query *query, NJS_OBJECT *object,
                           Uint32 flags)
 {
-    struct collision_mesh *mesh = mesh_of(object);
-
-    if (mesh == NULL) {
-        query->below.found = FALSE;
-        query->above.found = FALSE;
-        return FALSE;
-    }
-    return mesh_find_heights(query, mesh);
-}
-
-Bool mesh_find_heights(struct height_query *query, struct collision_mesh *mesh)
-{
-    struct polygon *polygon;
-    NJS_POINT3 at;
-    Float low;
-    Float high;
-
-    query->below.found = FALSE;
-    query->above.found = FALSE;
-    mesh_found = FALSE;
-    polygon = mesh->polygons;
-    at = query->pos;
-    low = at.z - mesh->span;
-    high = at.z + mesh->span;
-    query->below.level = -LEVEL_START + at.y;
-    query->above.level = LEVEL_START + at.y;
-    if (polygon == NULL) {
-        return FALSE;
-    }
-    if (low > polygon->center.z) {
-        if (!(mesh->last->center.z > high)) {
-            walk(mesh->last, TRUE, low, high, &at, test_heights, query,
-                 mesh->flags);
-            return mesh_found;
-        }
-        do {
-            polygon = polygon->next;
-        } while (low > polygon->center.z);
-    }
-    walk(polygon, FALSE, low, high, &at, test_heights, query, mesh->flags);
-    return mesh_found;
+    return polygon_find_heights_indexed(query, object, flags);
 }
 
 /* transform the point in place by XMTRX: one FTRV of (point, 1) */

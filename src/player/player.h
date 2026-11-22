@@ -12,6 +12,7 @@ struct event_mouth_key;
 struct path;
 struct polygon_ball;
 struct task;
+struct task_force;
 struct task_motion;
 struct task_work;
 
@@ -333,7 +334,85 @@ struct player {
     NJS_VECTOR weld_axis4;
     NJS_VECTOR weld_axis5;
     struct shadow shadow; /* what's above and below it, such as water */
+#ifdef NONMATCHING
+    /* Incoming vertical speed for the next landing decision. */
+    Float landing_speed_y;
+    /* The last steep face reached by running across a shared terrain edge. */
+    NJS_OBJECT *stride_object;
+    NJS_POINT3 stride_feet;
+    NJS_VECTOR stride_normal;
+    /* The active steering lock came from a dash panel. */
+    Uint8 dash_panel;
+#endif
 };
+
+/* A new steering lock supersedes the previous source, even at the same
+ * duration. */
+#ifdef NONMATCHING
+static inline void player_lock_input(struct player *record, Sint16 steps)
+{
+    record->dash_panel = FALSE;
+    record->launch_steps = steps;
+}
+
+static inline void player_extend_input_lock(struct player *record, Sint16 steps)
+{
+    player_lock_input(record, record->launch_steps + steps);
+}
+
+static inline void player_mark_dash_panel(struct player *record)
+{
+    record->dash_panel = record->launch_steps > 0;
+}
+#define PLAYER_LOCK_INPUT player_lock_input
+#define PLAYER_EXTEND_INPUT_LOCK player_extend_input_lock
+#define PLAYER_MARK_DASH_PANEL player_mark_dash_panel
+#else
+#define PLAYER_LOCK_INPUT(record, steps) ((record)->launch_steps = (steps))
+#define PLAYER_EXTEND_INPUT_LOCK(record, steps)                                \
+    ((record)->launch_steps += (steps))
+#define PLAYER_MARK_DASH_PANEL(record) ((void)0)
+#endif
+
+#ifdef NONMATCHING
+/* Characters define these entries beside their private mode enums.
+ * A negative entry leaves that movement to the character's controller. */
+struct player_terrain_modes {
+    Sint8 walk, stop, jump, fall, stand;
+    /* Zero where the character has no matching fast movement mode. */
+    Sint8 fast, fast_stop, fast_jump;
+};
+extern const struct player_terrain_modes sonic_terrain_modes,
+    tails_terrain_modes, knuckles_terrain_modes, amy_terrain_modes,
+    e102_terrain_modes, big_terrain_modes;
+enum player_terrain_motion {
+    PLAYER_TERRAIN_SPECIAL,
+    PLAYER_TERRAIN_STRIDE,
+    PLAYER_TERRAIN_AIR,
+    PLAYER_TERRAIN_STAND
+};
+enum player_terrain_motion player_terrain_motion(unsigned character, int mode);
+
+/* A bank can turn a descending velocity uphill before the next mode choice. */
+static inline Float player_landing_speed(Float vertical,
+                                         const struct player *record)
+{
+    return record && record->landing_speed_y < 0.0F ? record->landing_speed_y
+                                                    : vertical;
+}
+
+static inline void player_clear_landing_speed(struct player *record)
+{
+    if (record) {
+        record->landing_speed_y = 0.0F;
+    }
+}
+#define PLAYER_LANDING_SPEED player_landing_speed
+#define PLAYER_CLEAR_LANDING_SPEED player_clear_landing_speed
+#else
+#define PLAYER_LANDING_SPEED(vertical, record) (vertical)
+#define PLAYER_CLEAR_LANDING_SPEED(record) ((void)0)
+#endif
 
 /* a player's weld_mode: what becomes of the vertices of its welds */
 #define PLAYER_WELD_MAKE 0 /* made on the next pass */
@@ -716,6 +795,11 @@ void player_apply_glide_accel(struct task_work *work,
  * Casinopolis' pinball tables */
 int player_collide(struct task_work *work, struct task_motion *motion,
                    struct player *record);
+#ifdef NONMATCHING
+/* A wall grab also needs the contact point and tilt in record->contact. */
+int player_collide_grab(struct task_work *work, struct task_motion *motion,
+                        struct player *record);
+#endif
 /* player_collide as Knuckles climbs a wall: 1 as he runs into a task, or
  * PLAYER_CRASHED at his running speed or faster, and otherwise 0 */
 int player_collide_climb(struct task_work *work, struct task_motion *motion,
@@ -1022,6 +1106,23 @@ Bool player_ground_speed(Uint8 player, Float *speed);
 void player_set_speed(Uint8 player, Float x, Float y, Float z);
 /* set what pushes the player this step, its motion's accel */
 void player_set_accel(Sint8 player, Float x, Float y, Float z);
+#ifdef NONMATCHING
+/* Carry each supported rider from the solid's previous pose to the new pose
+ * in floor->work. Player heading uses the opposite sign from object yaw. */
+void player_carry_riders(struct task *floor, const NJS_OBJECT *previous);
+/* Use the given angles when the solid rotates separately from its task. */
+void player_carry_riders_at(struct task *floor, const NJS_OBJECT *previous,
+                            const struct angles *next);
+/* Apply the supporting task's velocity at takeoff. forces points to the
+ * first record of its TASK_FORCE allocation. */
+void player_inherit_platform_speed(struct task_work *work,
+                                   const struct task_force *forces);
+#define PLAYER_INHERIT_PLATFORM_SPEED player_inherit_platform_speed
+#else
+#define PLAYER_INHERIT_PLATFORM_SPEED(work, forces)                            \
+    player_set_accel(PLAYER_VARS(work)->player, (forces)->speed.x,             \
+                     (forces)->speed.y, (forces)->speed.z)
+#endif
 /* set the player's push as the wind carries it up, in PLAYER_MODE_UPDRAFT */
 void player_updraft(Sint8 player, Float x, Float y, Float z);
 /* set the player's push, divided by its character's gravity */

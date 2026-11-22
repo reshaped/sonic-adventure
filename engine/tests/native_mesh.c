@@ -38,16 +38,19 @@ static void check_pool(int count)
     collision_mesh_pool_init(meshes, 2);
     for (int i = 0; i < 3; i++) {
         mesh = collision_mesh_alloc();
+        assert(!mesh->bucketed);
         mesh->object = mesh;
         mesh->span = 10;
         collision_mesh_clear_buckets();
         collision_mesh_take_buckets(mesh);
+        assert(mesh->bucketed);
         search(mesh, 50, 0);
         if (i == 1) {
             a = collision_mesh_add_polygon(mesh);
             a->center.z = 100;
             b = collision_mesh_add_polygon(mesh);
             b->center.z = 0;
+            assert(!mesh->bucketed);
             if (count == 3) {
                 assert(!collision_mesh_add_polygon(mesh));
             }
@@ -60,6 +63,7 @@ static void check_pool(int count)
                 assert(!polygon_alloc(200));
             }
             collision_mesh_take_buckets(mesh);
+            assert(mesh->bucketed);
         }
         assert(mesh->polygons == b && mesh->last == a);
         assert(a->next == &end_polygon);

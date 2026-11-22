@@ -9,6 +9,9 @@
 #include <sg_xpt.h>
 
 #include "collision/collision.h"
+#ifdef NONMATCHING
+#include "collision/arc.h"
+#endif
 #include "collision/ground.h"
 #include "debug/editor.h"
 #include "draw/model.h"
@@ -44,7 +47,11 @@ struct hammer_motion {
     void *unk_00;
     NJS_POINT3 head; /* the head's center in the arm's own space */
     NJS_POINT3 impact; /* the head's center in the world with the arm down */
+#ifdef NONMATCHING
+    struct collision_arc arc;
+#else
     Uint8 unk_1c[24];
+#endif
     Float dust_radius; /* the radius of the ring of dust the head raises */
     Float dust_scale; /* the scale of each puff in the ring */
 };
@@ -53,7 +60,12 @@ struct hammer_motion {
  * scl holds the sphere's center in the arm's own space, at the hammer's
  * size */
 struct hammer_head_vars {
+#ifdef NONMATCHING
+    Bool has_previous_pose;
+    Uint8 unk_04[4];
+#else
     Uint8 unk_00[8];
+#endif
     Float radius; /* the sphere's radius, at the hammer's size */
 };
 
@@ -386,6 +398,17 @@ static void hammer_head_step(struct task *task)
     task->step = hammer_head_follow;
 }
 
+#ifdef NONMATCHING
+static Bool hammer_swept(struct task *head, struct task_work *player,
+                         const NJS_POINT3 *from, const NJS_POINT3 *to)
+{
+    const struct hammer_motion *arm =
+        (const struct hammer_motion *)head->parent->motion;
+    return HEAD(head->work)->has_previous_pose &&
+           collision_arc_player(&arm->arc, head, player, from, to);
+}
+#endif
+
 /* place the sphere where the arm carries its scl, and register it */
 static void hammer_head_follow(struct task *task)
 {
@@ -393,6 +416,10 @@ static void hammer_head_follow(struct task *task)
     struct task_work *hammer = task->parent->work;
     Angle ang;
 
+#ifdef NONMATCHING
+    struct hammer_motion *arm = (struct hammer_motion *)task->parent->motion;
+    arm->arc.start = work->pos;
+#endif
     njPushMatrix(NULL);
     njUnitMatrix(NULL);
     njTranslateV(NULL, &hammer->pos);
@@ -400,5 +427,10 @@ static void hammer_head_follow(struct task *task)
     TURN_VIA(njRotateX, VARS(hammer)->swing, ang);
     njCalcPoint(NULL, &work->scl, &work->pos);
     njPopMatrix(1);
+#ifdef NONMATCHING
+    arm->arc.pivot = hammer->pos;
+    HEAD(work)->has_previous_pose = work->collision->sweep != NULL;
+    work->collision->sweep = hammer_swept;
+#endif
     collision_register(work);
 }

@@ -5,6 +5,9 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+/* Number of records in the game's collision mesh pool. */
+#define COLLISION_MESH_RECORDS 192
+
 struct collision_mesh;
 struct floor_query;
 struct height_query;
@@ -21,6 +24,10 @@ extern struct collision_mesh *collision_mesh_list;
 /* make polygons[0..count) the free polygons, writing only their next.
  * count must be at least 2 */
 void polygon_pool_init(struct polygon *polygons, int count);
+#ifdef NONMATCHING
+/* The initialized pool's usable polygon records. */
+extern int collision_polygon_capacity;
+#endif
 /* make meshes[0..count) the free meshes, writing only their next, and
  * empty collision_mesh_list. count must be at least 2 */
 void collision_mesh_pool_init(struct collision_mesh *meshes, int count);
@@ -40,6 +47,11 @@ struct polygon *collision_mesh_add_polygon(struct collision_mesh *mesh);
  * mesh's root model. polygon_alloc cuts z toward 0 to a whole number. each
  * bucket takes 16 whole numbers, from -1024 up, and the first and last also
  * take every one past them */
+
+#ifdef NONMATCHING
+#define MESH_BUCKETS 128
+#define MESH_BUCKET_BITS 4
+#endif
 
 /* empty every bucket */
 void collision_mesh_clear_buckets(void);
@@ -79,26 +91,21 @@ Bool polygon_find_floor(struct floor_query *query, NJS_OBJECT *object,
  * with no mesh for object, both levels keep their values */
 Bool polygon_find_heights(struct height_query *query, NJS_OBJECT *object,
                           Uint32 flags);
-#ifdef DREAMCAST
 #ifdef NONMATCHING
-/* here each call outside polygon.c takes this search, which gives
- * polygon_find_heights' result and query. it skips each polygon whose box
- * gives no surface at the point. the skip needs the mesh's boxes whole and
- * the point within polygon.c's BOX_FAR of 0 on each axis. it skips none
- * in a group of polygon.c's GROUP_BOXES boxes whose centers reach the
- * window's end. the search stops there */
+/* Search each bucket that can contain a face under the point. Static
+ * Dreamcast meshes can skip groups whose boxes exclude the point. */
 Bool polygon_find_heights_indexed(struct height_query *query,
                                   NJS_OBJECT *object, Uint32 flags);
 #define polygon_find_heights polygon_find_heights_indexed
-/* test polygon against query as polygon_find_heights tests each polygon
- * near the point. a surface it takes gets flags, the mesh's world flags.
- * engine/dc/mesh.c defines it for make dc. mesh.src's test reads its
- * operands from the search's registers instead */
+/* Apply the single-face height test with the mesh's world flags. */
+#ifdef DREAMCAST
 void mesh_test_heights(struct height_query *query,
                        const struct polygon *polygon, Sint32 flags);
-/* search mesh as polygon_find_heights searches the mesh it finds for
- * object */
-Bool mesh_find_heights(struct height_query *query, struct collision_mesh *mesh);
+#define MESH_TEST_HEIGHTS mesh_test_heights
+#else
+void mesh_source_heights(struct height_query *query,
+                         const struct polygon *polygon, Sint32 flags);
+#define MESH_TEST_HEIGHTS mesh_source_heights
 #endif
 #endif
 

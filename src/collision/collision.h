@@ -164,6 +164,12 @@ struct collision_work {
     Sint16 own_shape;
     Sint16 hit_shape;
     struct collision_work *hit;
+#ifdef NONMATCHING
+    /* Test the player's primary sphere against the moving first shape.
+     * Return TRUE after resolving the pair over this interval. */
+    Bool (*sweep)(struct task *mover, struct task_work *player,
+                  const NJS_POINT3 *from, const NJS_POINT3 *to);
+#endif
 };
 
 /* a task near a player, and how far */

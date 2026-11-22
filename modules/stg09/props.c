@@ -539,7 +539,7 @@ static void telepot_run(struct task *task)
                 }
             }
             offset.y -= 10.0F;
-            player_get(0)->launch_steps = 3;
+            PLAYER_LOCK_INPUT(player_get(0), 3);
             distance = njScalor(&offset);
             if ((offset.x * offset.x) + (offset.z * offset.z) < 10.0F) {
                 if (!telepot_holder) {
@@ -573,7 +573,7 @@ static void telepot_run(struct task *task)
 
         if (work->collision->flags & COLLISION_HIT) {
             player = player_work[0];
-            player_get(0)->launch_steps = 3;
+            PLAYER_LOCK_INPUT(player_get(0), 3);
             /* @bug mismatched-call: vibration_start takes four arguments and
              * gets three. its time, R7 at the JSR at 0x0c911a04, is slot_count
              * as placement_editing left it (MOV.W at 0x8c04551e): 1 until the

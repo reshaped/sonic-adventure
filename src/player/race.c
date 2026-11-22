@@ -1151,6 +1151,11 @@ static const struct race_point race_icecap_points[255] = {
 };
 static const Sint32 race_icecap_count = 255;
 
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+LINKED_LAST_DATA(race_casino_points)
+#endif
+#endif
 static const struct race_point race_casino_points[99] = {
     {POINT_RUN, {19.0F, -1694.0F, 2849.0F}},
     {POINT_RUN, {-13.0F, -1834.0F, 2858.0F}},

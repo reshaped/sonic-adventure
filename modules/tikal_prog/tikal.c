@@ -670,8 +670,7 @@ static Bool tikal_try_jump(struct task_work *work, struct task_motion *motion,
             struct task_force *force = record->ground_task->force;
 
             if (force != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                 force->speed.y, force->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, force);
             }
         }
         record->anim.action = ACTION_JUMP;

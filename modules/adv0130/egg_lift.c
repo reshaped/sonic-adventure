@@ -75,7 +75,14 @@ static struct dust_params egg_lift_dust = {
 static void egg_lift_solid_init(struct task *task, struct task_work *work);
 static void egg_lift_draw(struct task *task);
 static void egg_lift_destroy(struct task *task);
+#ifdef NONMATCHING
+static void egg_lift_move(struct task *task, struct task_work *work,
+                          struct task_force *force);
+#define EGG_LIFT_MOVE(task, work, force) egg_lift_move(task, work, force)
+#else
 static void egg_lift_move(struct task_work *work, struct task_force *force);
+#define EGG_LIFT_MOVE(task, work, force) egg_lift_move(work, force)
+#endif
 static void egg_lift_puff(struct task_work *work);
 static Bool egg_lift_take_aboard(struct task *task, struct task_work *work);
 static Bool egg_lift_reach_middle(struct task_work *work);
@@ -105,12 +112,15 @@ void egg_carrier_egg_lift_step(struct task *task)
             work->pos.y = VARS(work)->from->pos[1];
             work->pos.z = VARS(work)->from->pos[2];
             work->ang.y = VARS(work)->from->ang[1];
+#ifdef NONMATCHING
+            work->ang.x = work->ang.z = 0;
+#endif
             task->destructor = egg_lift_destroy;
             task->draw = egg_lift_draw;
             work->timer = 0;
             VARS(work)->frame = 0.0F;
             work->mode = LIFT_WAIT;
-            egg_lift_move(work, force);
+            EGG_LIFT_MOVE(task, work, force);
             break;
         case LIFT_WAIT:
             if (egg_lift_take_aboard(task, work) &&
@@ -128,7 +138,7 @@ void egg_carrier_egg_lift_step(struct task *task)
         case LIFT_UP:
             sound_play_for(SE_LIFT, (int)work, 1, 0, 2);
             player_event_stop(0);
-            egg_lift_move(work, force);
+            EGG_LIFT_MOVE(task, work, force);
             VARS(work)->frame += LIFT_SPEED;
             if (VARS(work)->frame < LIFT_TOP) {
                 break;
@@ -139,6 +149,10 @@ void egg_carrier_egg_lift_step(struct task *task)
             force->speed.y = 0.0F;
             force->speed.z = 0.0F;
             force->turn.y = 0;
+#ifdef NONMATCHING
+            force[1].speed = force->speed;
+            force[1].turn.y = 0;
+#endif
             pad_enable_player(BOTH_PADS);
             if (egg_carrier_transformed()) {
                 stage_set_entrance(0);
@@ -149,7 +163,7 @@ void egg_carrier_egg_lift_step(struct task *task)
             }
             break;
         case LIFT_DOWN:
-            egg_lift_move(work, force);
+            EGG_LIFT_MOVE(task, work, force);
             /* @hack spelling: the speed negated and added, -0.3 in the pool
              * at 0x0c925e04 and an FADD at 0x0c925d90; subtracted, 1 of 234
              * words differ */
@@ -164,6 +178,10 @@ void egg_carrier_egg_lift_step(struct task *task)
             force->speed.y = 0.0F;
             force->speed.z = 0.0F;
             force->turn.y = 0;
+#ifdef NONMATCHING
+            force[1].speed = force->speed;
+            force[1].turn.y = 0;
+#endif
             work->mode = LIFT_CLEAR;
             break;
         }
@@ -222,7 +240,13 @@ static void egg_lift_destroy(struct task *task)
 /* move the lift and its surface to where the action puts them at
  * VARS(work)->frame. force takes the change, so the lift carries what stands
  * on it */
+#ifdef NONMATCHING
+__attribute__((used)) static void egg_lift_move(struct task *task,
+                                                struct task_work *work,
+                                                struct task_force *force)
+#else
 static void egg_lift_move(struct task_work *work, struct task_force *force)
+#endif
 {
     NJS_MOTION_DATA data;
     Float pos[3];
@@ -235,6 +259,16 @@ static void egg_lift_move(struct task_work *work, struct task_force *force)
     njPushMatrix(NULL);
     njGetAction(&egg_lift_action, &data, VARS(work)->frame);
     njPopMatrix(1);
+#ifdef NONMATCHING
+    NJS_OBJECT *solid = VARS(work)->solid;
+    work->pos = (NJS_POINT3){pos[0], pos[1], pos[2]};
+    work->ang.y = ang[1];
+    player_carry_riders(task, solid);
+    solid->pos[0] = pos[0];
+    solid->pos[1] = pos[1];
+    solid->pos[2] = pos[2];
+    solid->ang[1] = ang[1];
+#else
     force->speed.x = pos[0] - work->pos.x;
     force->speed.y = pos[1] - work->pos.y;
     force->speed.z = pos[2] - work->pos.z;
@@ -243,6 +277,7 @@ static void egg_lift_move(struct task_work *work, struct task_force *force)
     VARS(work)->solid->pos[1] = work->pos.y = pos[1];
     VARS(work)->solid->pos[2] = work->pos.z = pos[2];
     VARS(work)->solid->ang[1] = work->ang.y = ang[1];
+#endif
 }
 
 static void egg_lift_puff(struct task_work *work)

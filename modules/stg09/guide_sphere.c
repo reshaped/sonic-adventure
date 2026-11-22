@@ -121,7 +121,7 @@ static void guide_sphere_run(struct task *task)
         next = guide_sphere_find_next(task, ID(work));
         if (!guide_sphere_running) {
             if (next && !(MODE(work) & TARGET_ONLY)) {
-                player->launch_steps = RUN_LOCK;
+                PLAYER_LOCK_INPUT(player, RUN_LOCK);
                 player_event_run(PLAYER(work), next->work->pos.x,
                                  next->work->pos.z);
                 guide_sphere_running = task;
@@ -133,7 +133,7 @@ static void guide_sphere_run(struct task *task)
                 task_kill(guide_sphere_running);
             }
             if (next) {
-                player->launch_steps = RUN_LOCK;
+                PLAYER_LOCK_INPUT(player, RUN_LOCK);
                 player_event_run(PLAYER(work), next->work->pos.x,
                                  next->work->pos.z);
                 guide_sphere_running = task;

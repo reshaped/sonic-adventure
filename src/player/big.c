@@ -128,6 +128,11 @@ enum big_mode {
     BIG_EDIT
 };
 
+#ifdef NONMATCHING
+const struct player_terrain_modes big_terrain_modes LINKED_LAST_DATA(
+    big_terrain_modes) = {BIG_WALK, BIG_STOP, BIG_JUMP, BIG_FALL, BIG_STAND};
+#endif
+
 extern NJS_ACTION big_fidget_start_action;
 extern NJS_ACTION big_fidget_action;
 extern NJS_ACTION big_stand_uphill_action;
@@ -427,7 +432,8 @@ void big_step(struct task *task)
     struct task_motion *motion = task->motion;
     struct player *record = motion->record;
 
-    if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+    if ((work->flags & COLLISION_ON_TOP) &&
+        PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
         work->flags |= PLAYER_ON_TASK;
         /* his collision's owner is his own task, so these stores copy his
          * own angles back unchanged */
@@ -439,6 +445,7 @@ void big_step(struct task *task)
     if (work->mode != BIG_DOWN) {
         big_choose_mode(work, motion, record);
     }
+    PLAYER_CLEAR_LANDING_SPEED(record);
     if (record != NULL && (BIG_FLAGS(record) & BIG_START_FISHING)) {
         /* @hack spelling: the new target through a local, which SHC spills to
          * the frame across the call and reloads for the store (MOV.L R0,@R15
@@ -2526,8 +2533,7 @@ static Bool big_try_jump(struct task_work *work, struct task_motion *motion,
         if (record->ground_task != NULL) {
             ground = record->ground_task->force;
             if (ground != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                 ground->speed.y, ground->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
             }
         }
         record->anim.action = ACTION_JUMP;

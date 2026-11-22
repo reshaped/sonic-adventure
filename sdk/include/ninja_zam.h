@@ -70,26 +70,12 @@ _Static_assert(_Alignof(shz_vec3_t) <= _Alignof(Float));
 _Static_assert(sizeof(shz_vec4_t) == 4 * sizeof(Float));
 _Static_assert(_Alignof(shz_vec4_t) <= _Alignof(Float));
 
-/* p's x, y and z as an SH4ZAM vector. all three must be set. the helper
- * reads them as p's members, so where GCC can't prove one set, its warning
- * names the caller's variable. read through shz_vec3_deref, the warning
- * would name SH4ZAM's unnamed union by a number, which moves whenever a
- * declaration is added above */
-ALWAYS_INLINE shz_vec3_t zam_load_vec3(const NJS_POINT3 *p)
-{
-    return shz_vec3_init(p->x, p->y, p->z);
-}
+#include "ninja_vec3.h"
 
 /* p's x, y and z, with w as the fourth component */
 ALWAYS_INLINE shz_vec4_t zam_load_vec4(const NJS_POINT3 *p, Float w)
 {
     return shz_vec4_init(p->x, p->y, p->z, w);
-}
-
-/* store v in p's x, y and z */
-ALWAYS_INLINE void zam_store_vec3(NJS_POINT3 *p, shz_vec3_t v)
-{
-    shz_vec3_deref(p) = v;
 }
 
 /* FIPR FV4,FV8 of a and b. a is FIPR's first operand, FVm, and b is FVn.

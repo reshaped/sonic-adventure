@@ -337,7 +337,7 @@ static void hand_run(struct task *task)
             break;
         }
         if ((Sint16)ring_count() > 0) {
-            player_get(0)->launch_steps += GRAB_LOCK;
+            PLAYER_EXTEND_INPUT_LOCK(player_get(0), GRAB_LOCK);
             player_set_speed(0, 0.0F, 0.0F, 0.0F);
             player_event_stop(nearest);
             work->mode = HAND_GRABBING;

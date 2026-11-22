@@ -1895,12 +1895,32 @@ static Float collide_capsule_capsule(struct collision_work *collision,
 
 /* TRUE when pos lies within other's current rectangle across x and z,
  * grown by radius on each side, and FALSE otherwise. center is the
- * rectangle's center. the rectangle turns by its task's angle, even when
- * it is SHAPE_IN_WORLD or SHAPE_UNTURNED */
+ * rectangle's center. The original test also turns world-space and
+ * unturned boxes by their task's heading. */
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+/* Keep GCC from expanding the arguments at each warm collision dispatch. */
+__attribute__((noipa))
+#endif
+#endif
 static Bool rectangle_contains(struct collision_work *collision,
                                NJS_POINT3 *pos, struct collision_work *other,
                                NJS_POINT3 *center, Float radius)
 {
+#ifdef NONMATCHING
+    const struct collision_shape *box = &other->shapes[other->current];
+    Angle heading = (Uint16)box->ang.y;
+    if (!(box->flags & (SHAPE_IN_WORLD | SHAPE_UNTURNED))) {
+        heading += (Uint16)other->owner->work->ang.y;
+    }
+    Float dx = pos->x - center->x;
+    Float dz = pos->z - center->z;
+    Float sine, cosine;
+    _builtin_fsca(heading, &sine, &cosine);
+    Float x = cosine * dx - sine * dz;
+    Float z = sine * dx + cosine * dz;
+    return njAbs(x) < box->radius + radius && njAbs(z) < box->size_z + radius;
+#else
     NJS_POINT3 corners[4];
     NJS_POINT3 turned[4];
     NJS_POINT3 point;
@@ -1952,6 +1972,7 @@ static Bool rectangle_contains(struct collision_work *collision,
         }
     }
     return TRUE;
+#endif
 }
 
 /* pos less center, in a frame turned by ang about y */
@@ -3055,10 +3076,90 @@ static Float collide_target(struct collision_work *collision,
     return result;
 }
 
+#ifdef NONMATCHING
+/* Only players tested against a moving head need consecutive body poses. */
+static struct swing_body {
+    struct collision_work *body;
+    NJS_POINT3 center, history;
+    Float radius;
+} swing_bodies[PLAYER_COUNT];
+static unsigned swing_seen, swing_known;
+
+static void remember_swing_bodies(void)
+{
+    for (unsigned slot = 0; slot < PLAYER_COUNT; ++slot) {
+        if (!(swing_seen & (1U << slot))) {
+            continue;
+        }
+        struct swing_body *sample = &swing_bodies[slot];
+        struct task_work *work = player_work[slot];
+        sample->body = work->collision;
+        struct collision_shape *shape = sample->body->shapes;
+        sample->radius = shape->radius;
+        collision_get_shape_center(work, shape, &sample->center);
+        player_get_history(slot, 0, &sample->history, NULL);
+    }
+    swing_known = swing_seen;
+    swing_seen = 0;
+}
+
+#ifdef DREAMCAST
+LINKED_LAST(collide_swing)
+#endif
+static
+    __attribute__((noinline)) Bool collide_swing(struct collision_work *body,
+                                                 struct collision_work *hazard)
+{
+    struct collision_shape *sphere = body->shapes;
+    struct collision_shape *head = hazard->shapes;
+    struct task_work *work = body->owner->work;
+    struct task_work *other = hazard->owner->work;
+    unsigned slot = PLAYER_VARS(work)->player;
+    if (!body->count || !hazard->count || slot >= PLAYER_COUNT ||
+        player_work[slot] != work || work->collision != body ||
+        (sphere->flags & (SHAPE_KIND | SHAPE_OFF)) != SHAPE_SPHERE) {
+        return FALSE;
+    }
+    unsigned bit = 1U << slot;
+    swing_seen |= bit;
+    struct swing_body *previous = &swing_bodies[slot];
+    /* A newly enabled or resized body has only its current pose. */
+    if (!(swing_known & bit) || previous->body != body ||
+        previous->radius != sphere->radius ||
+        (head->flags & (SHAPE_KIND | SHAPE_OFF)) != SHAPE_SPHERE) {
+        return FALSE;
+    }
+    body->current = hazard->current = 0;
+    if (collision_ignores(body, hazard)) {
+        return FALSE;
+    }
+    NJS_POINT3 pos, last;
+    player_get_history(slot, 1, &last, NULL);
+    /* Warps can replace the last position in the player's history. */
+    if (last.x != previous->history.x || last.y != previous->history.y ||
+        last.z != previous->history.z) {
+        return FALSE;
+    }
+    collision_get_shape_center(work, sphere, &pos);
+    if (!hazard->sweep(hazard->owner, work, &previous->center, &pos)) {
+        return FALSE;
+    }
+    collision_hit(work, body, other, hazard);
+    collision_hurt(body, hazard);
+    return TRUE;
+}
+#endif
+
 /* a player against an object. the player's first shape meets every kind
  * but walls and bounds, and sweeps against both kinds of rectangle. its
  * other shapes meet the object's as collide_pair's do, but for its
  * rectangles, which meet nothing */
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+/* The kernel layout names this dispatch. Keep its entry intact. */
+__attribute__((noipa))
+#endif
+#endif
 static void collide_object(struct collision_work *collision,
                            struct collision_work *other)
 {
@@ -3078,13 +3179,22 @@ static void collide_object(struct collision_work *collision,
      * delay slot with MOV R13,R5 (0x8c034aa0) and keeps the second loop's i
      * in the frame; set at its declaration, 17 of 312 words differ */
     work = collision->owner->work;
+#ifdef NONMATCHING
+    /* A swing may cross the player outside both endpoint bounds. */
+    Bool swept = other->sweep && collide_swing(collision, other);
+#endif
     if (!list_near_and_test_reach(work, collision, other->owner->work, other)) {
         return;
     }
     /* @hack spelling: i set after the tests, where SHC zeroes its R8 (MOV #0,R8
      * at 0x8c034aaa); set at its declaration, 36 of 312 words differ */
     i = 0;
+#ifdef NONMATCHING
+    /* A swept contact has already resolved the first pair. */
+    for (j = swept; j < other->count; j++) {
+#else
     for (j = 0; j < other->count; j++) {
+#endif
         collision->current = i;
         other->current = j;
         if (collision_ignores(collision, other)) {
@@ -3437,6 +3547,11 @@ void collision_collide_all(void)
          * collision_clear_lists's address into R2, not R3 (0x8c035396);
          * without it, 2 of 30 words differ */
     }
+#ifdef NONMATCHING
+    if (swing_seen || swing_known) {
+        remember_swing_bodies();
+    }
+#endif
     collision_clear_lists();
 }
 
@@ -3502,6 +3617,15 @@ void collision_free(struct task_work *work)
     struct collision_work *collision = work->collision;
 
     if (collision != NULL) {
+#ifdef NONMATCHING
+        if (collision->kind == COLLISION_PLAYER) {
+            unsigned slot = PLAYER_VARS(work)->player;
+            if (slot < PLAYER_COUNT && swing_bodies[slot].body == collision) {
+                swing_seen &= ~(1U << slot);
+                swing_known &= ~(1U << slot);
+            }
+        }
+#endif
         if ((collision->flags & COLLISION_OWN_SHAPES) &&
             collision->shapes != NULL) {
             heap_free(collision->shapes);

@@ -599,7 +599,7 @@ static void springboard_run(struct task *task)
                 player_set_angles(number, 0, angle + NJM_DEG_ANG(90), 0);
                 player_bounce(number, point.x, point.y, point.z);
 
-                player->launch_steps = LAUNCH_STEPS;
+                PLAYER_LOCK_INPUT(player, LAUNCH_STEPS);
                 SPRING(work)->flags |= SPRING_BOUNCED;
             }
         }

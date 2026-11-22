@@ -184,7 +184,7 @@ static void launcher_run(struct task *task)
             njPopMatrix(1);
             player_fling(0, launcher_speed + SPEED(work), &line);
             dust_create(&pos, &speed, launcher_dust_scale);
-            player->launch_steps = LAUNCH_LOCK;
+            PLAYER_LOCK_INPUT(player, LAUNCH_LOCK);
         } else {
             work->timer = 0;
         }

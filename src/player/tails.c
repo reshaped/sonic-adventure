@@ -121,6 +121,18 @@ enum tails_mode {
     TAILS_EDIT /* the editor's. nothing in this file enters it */
 };
 
+#ifdef NONMATCHING
+const struct player_terrain_modes tails_terrain_modes LINKED_LAST_DATA(
+    tails_terrain_modes) = {TAILS_WALK, TAILS_STOP,  TAILS_JUMP,
+                            TAILS_FALL, TAILS_STAND, TAILS_ROLL};
+
+LINKED_LAST(tails_board_mode)
+int tails_board_mode(int mode)
+{
+    return mode >= TAILS_BOARD && mode <= TAILS_BOARD_CRASH;
+}
+#endif
+
 /* the rows of tails_actions his code names */
 enum tails_action_index {
     ACTION_STAND = 0,
@@ -938,7 +950,8 @@ void tails_step(struct task *task)
     struct task_motion *motion = task->motion;
     struct player *record = motion->record;
 
-    if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+    if ((work->flags & COLLISION_ON_TOP) &&
+        PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
         work->flags |= PLAYER_ON_TASK;
         work->ang.x = work->collision->owner->work->ang.x;
         work->ang.z = work->collision->owner->work->ang.z;
@@ -948,6 +961,7 @@ void tails_step(struct task *task)
     if (work->mode != TAILS_DOWN) {
         tails_choose_mode(work, motion, record);
     }
+    PLAYER_CLEAR_LANDING_SPEED(record);
     if (work->collision != NULL) {
         /* his body's attack and guard levels, by what he's doing */
         /* @hack type: the levels as Uint32s, which SHC zero-extends
@@ -1684,7 +1698,7 @@ static void tails_choose_mode(struct task_work *work,
             } else if (tails_try_stop(work, record)) {
                 work->ang.x = motion->aim.x;
                 work->ang.z = motion->aim.z;
-                if (motion->speed.y > -5.0F) {
+                if (PLAYER_LANDING_SPEED(motion->speed.y, record) > -5.0F) {
                     record->anim.action = ACTION_LANDED;
                 } else {
                     record->anim.action = ACTION_HARD_LANDING;
@@ -1783,7 +1797,7 @@ static void tails_choose_mode(struct task_work *work,
             } else if (tails_try_stop(work, record)) {
                 work->ang.x = motion->aim.x;
                 work->ang.z = motion->aim.z;
-                if (motion->speed.y > -5.0F) {
+                if (PLAYER_LANDING_SPEED(motion->speed.y, record) > -5.0F) {
                     record->anim.action = ACTION_LAND;
                 } else {
                     record->anim.action = ACTION_HARD_LANDING;
@@ -2789,8 +2803,7 @@ static void tails_choose_mode(struct task_work *work,
             if (record->ground_task != NULL) {
                 ground = record->ground_task->force;
                 if (ground != NULL) {
-                    player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                     ground->speed.y, ground->speed.z);
+                    PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
                 }
                 if (record->ground_task->work->id == RAMP_ID) {
                     work->mode = TAILS_BOARD_TRICK;
@@ -2897,8 +2910,7 @@ static void tails_choose_mode(struct task_work *work,
             if (record->ground_task != NULL) {
                 ground = record->ground_task->force;
                 if (ground != NULL) {
-                    player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                     ground->speed.y, ground->speed.z);
+                    PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
                 }
             }
             record->anim.action = ACTION_BOARD_JUMP;
@@ -3840,8 +3852,7 @@ static Bool tails_try_jump(struct task_work *work, struct player *record)
         if (record->ground_task != NULL) {
             ground = record->ground_task->force;
             if (ground != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                 ground->speed.y, ground->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
             }
         }
         record->anim.action = ACTION_JUMP;

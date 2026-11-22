@@ -156,28 +156,52 @@ struct collision_mesh {
     Sint32 flags; /* the object's world flags */
     struct polygon *polygons; /* the first and the last */
     struct polygon *last;
+#ifdef NONMATCHING
+    Bool bucketed; /* centers follow the root-relative z buckets */
+#else
     Sint32 unk_18;
+#endif
     /* where polygon_collect_near's list holds this mesh's triangles, or
      * null */
+#ifdef NONMATCHING
+    struct near_group *near;
+    Bool near_back; /* the groups follow prev when the query walks backward */
+#else
     struct polygon **near;
     Sint32 unk_20;
+#endif
     int near_count; /* and how many it holds */
     Float span; /* the longest any of its triangles is along z */
+#ifdef NONMATCHING
+    /* One-based place in the last pressure plan. Zero invalidates demand. */
+    struct {
+        Uint16 demand, rank;
+    } plan;
+#else
     Float unk_2c;
+#endif
     NJS_POINT3 center; /* its root model's center, in the world */
+#ifdef NONMATCHING
+    Bool out_of_polygons; /* the pool could not hold this whole object */
+#else
     Sint32 unk_3c;
+#endif
 };
 
 /* collision_mesh_init frees every mesh and polygon, as a stage starts.
  * collision_mesh_update runs each step. it frees the meshes of moving
  * objects and of objects no longer near the players. it then makes a mesh
  * for each near object without one, the moving ones included. the ports
- * keep meshes for the first 192 world entries and stop if the pool runs
- * out. when 192 objects want meshes, the original skips the free pass
+ * give whole meshes near either player priority when a pool fills.
+ * when 192 objects want meshes, the original skips the free pass
  * and writes through null after allocating its 191st record. both return TRUE
  */
 Bool collision_mesh_init(void);
 Bool collision_mesh_update(void);
+#ifdef NONMATCHING
+/* Some admitted objects could not fit complete geometry in the polygon pool. */
+extern Bool collision_mesh_pressure;
+#endif
 /* the next update makes meshes for every object of the world, not only
  * those near the players */
 void collision_mesh_collect_all(void);
@@ -200,33 +224,140 @@ void collision_index_release(void);
  * later update frees the mesh */
 void collision_mesh_forget(NJS_OBJECT *object);
 
-/* list the triangles polygon_sweep tests for the ball, mesh by mesh, and
- * return how many, at most 96. each mesh's near and near_count give its
- * part of the list. once the list is full, the meshes left keep the near
- * and near_count they had.
+/* list the triangles polygon_sweep tests and return their total. the ports
+ * query objects within the ball's radius plus the length of its movement.
+ * each mesh keeps every triangle its search admits. bucketed meshes skip
+ * distant buckets. a directly assembled mesh can be in any order.
  *
- * only the meshes of objects world_list_near lists within the ball's
- * radius of pos count. of each, only the triangles whose centers lie
- * within its span plus reach of pos along z count. reach is the ball's
- * radius plus speed's length. a triangle's limit is reach * reach plus its
- * radius, itself a square. it is near when its center's squared distance
- * from pos is at most 1.3 times its limit */
+ * the original queries objects within the ball's starting radius. it tests
+ * centers against 1.3 times the sum of the squared radii. it stops at 96
+ * triangles and leaves later meshes with their previous selection */
 int polygon_collect_near(struct polygon_ball *ball);
+#ifdef NONMATCHING
+struct task;
+struct polygon_yaw {
+    NJS_OBJECT *object; /* the mesh at the start of the movement tick */
+    NJS_VECTOR travel; /* pivot displacement in world coordinates */
+    Angle turn; /* signed rotation about world Y during that tick */
+};
+/* Register only while the current collision mesh and its upcoming motion
+ * agree. Unregister with NULL before an owner or its mesh disappears. */
+struct polygon_yaw_ops;
+void polygon_rotate_with(struct task *owner,
+                         const struct polygon_yaw_ops *motion);
+extern struct task *polygon_rotating;
+struct world_object;
+/* test the sphere's entire movement against the last collection, including
+ * either side of a face, its edges and its vertices. the collection must
+ * cover the probe. a null entry tests all collected meshes. a supplied
+ * entry restricts the probe to its object. leaves contact records untouched */
+Bool polygon_ball_touches(const struct polygon_ball *ball,
+                          const struct world_object *entry);
+#endif
 /* sweep the ball over the triangles polygon_collect_near listed from
  * object's mesh. the ball's center steps from pos toward pos + speed,
  * radius / 2 at a time, and ends at pos + speed. it touches a triangle
  * when, at one of those points, it lies within radius of the triangle's
- * plane, over the triangle along its normal. flags goes unread.
+ * plane, over the triangle along its normal. the ports also test the instant a
+ * moving sphere first reaches the face between samples. only a two-sided
+ * face gets this test from behind.
+ * flags goes unread.
  *
  * it returns TRUE when the ball touches any, and lists them in
  * polygon_contacts, at most 16. the ball takes their count, and the index
  * of the touch with the lowest height_after. its hit is that touch's, with
- * point and pos averaged over all of them. the 16th touch ends the sweep,
- * and leaves one matrix pushed on the matrix stack.
+ * point and pos averaged over all of them. the 16th touch ends the sweep.
+ * the original leaves one matrix pushed in that case. Both ports restore
+ * the caller's matrix at every depth.
  *
  * it returns FALSE and changes neither for a ball whose radius isn't over
  * 0, an object with no mesh, or no touch */
 Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags);
+#ifdef NONMATCHING
+/* The board and its camera steer from sampled slopes. A face crossed
+ * between samples can block a complete passage through its plane, but
+ * a brief touch at a seam must not supply their tilt. */
+enum polygon_sweep_mode { POLYGON_SWEEP_MOTION, POLYGON_SWEEP_SAMPLES };
+Bool polygon_sweep_for(struct polygon_ball *ball, NJS_OBJECT *object,
+                       enum polygon_sweep_mode mode);
+/* Call immediately after a player sweep identifies a blocking corner.
+ * Resolve the center and movement together against this mesh's touching
+ * faces. A full contact list or a later impact keeps the sweep's result. */
+void polygon_resolve_corner(struct polygon_ball *ball);
+#define POLYGON_CLIMB_PUSH 0.5F
+/* Test the climbing body from its current center along its intended move.
+ * An obstruction reports its surface normal and stops the climb. For
+ * idle feet, include POLYGON_CLIMB_PUSH extra clearance in the collection.
+ * Recover penetration within that distance while respecting other faces. */
+Bool polygon_block_climb(struct polygon_ball *ball, const NJS_VECTOR *wall_up,
+                         NJS_POINT3 *idle_feet);
+
+struct polygon_slide {
+    NJS_VECTOR correction; /* initial push-out, independent of velocity */
+    NJS_VECTOR travel; /* displacement after the push-out */
+    NJS_VECTOR velocity; /* velocity leaving the last contact */
+    NJS_VECTOR normal; /* last blocking normal, zero without a wall or rim */
+    NJS_OBJECT *support;
+    struct task *owner; /* moving support at the end of the tick */
+    Uint32 flags;
+    Float fall_speed; /* downward impact velocity, zero without a landing */
+    Bool stalled; /* a full unresolved contact set stopped this tick */
+    Bool hit_unclimbable_rim; /* a floor or moving rim blocked the body */
+    NJS_VECTOR up; /* support normal on landing */
+    NJS_VECTOR normal_speed; /* incoming velocity along the support normal */
+};
+
+/* Clip a platform's displacement against nearby solid, dry static land.
+ * Missing geometry or an unresolved contact returns FALSE with the checked
+ * part of the displacement. The current mesh collection stays valid. */
+Bool polygon_limit_carry(const NJS_POINT3 *center, Float radius,
+                         NJS_VECTOR *travel);
+
+/* Sweep the body through ordinary static walls and exposed rims of moving
+ * solids at their published pose. A descending player can land on static
+ * walkable faces. Object landings use the original ride response.
+ * Clearance encloses the original foot and body probes. Only a completed
+ * move writes the result. Restore the collection after a wider search. */
+Bool polygon_slide_air(const struct polygon_ball *ball,
+                       struct polygon_slide *slide,
+                       struct polygon_ball *collected, Float clearance,
+                       Float floor_y, Bool can_land);
+
+struct ground_step {
+    NJS_POINT3 feet;
+    NJS_VECTOR velocity, normal;
+    NJS_VECTOR wall; /* blocking wall normal, or zero on a free stride */
+    Bool turned_wall; /* the wall sweep started on a newly reached support */
+    /* A positive inward speed records the strongest supported wall hit. */
+    Float wall_impact, entry_speed2;
+    NJS_VECTOR wall_tangent; /* velocity immediately after that hit */
+    NJS_OBJECT *support; /* null after leaving a ledge */
+    struct task *owner;
+    Bool moving_contact;
+    Uint32 flags; /* the supporting land entry's flags, or zero in the air */
+    Bool stalled; /* the step stopped at its last verified pose */
+};
+
+/* Check a step against overhead faces. An obstruction clips the stride.
+ * An upward-only platform above the body leaves the lower tread reachable.
+ * Set liquid_mask to WORLD_LIQUID to pass through liquid, or zero to include
+ * it. */
+Bool polygon_step_clearance(const struct polygon_ball *body,
+                            NJS_OBJECT *previous, Float turn_cosine,
+                            Uint32 liquid_mask, struct ground_step *step);
+
+/* Follow static land from the previous owner's face. Adjacent faces must
+ * share an edge and their unit normals must have dot product >= turn_cosine.
+ * The ball carries the feet, unit support normal and world velocity. Gravity is
+ * the downward acceleration per tick. Clearance encloses the character's body
+ * and step probes. Zero keeps the original wall response on the starting
+ * face. Only a completed step writes the result. Queries refresh the
+ * collection. */
+Bool polygon_follow_ground(const struct polygon_ball *body,
+                           NJS_OBJECT *previous, Float snap, Float turn_cosine,
+                           Float gravity, Float clearance, Uint32 liquid_mask,
+                           struct ground_step *step);
+#endif
 /* sweep the ball as polygon_sweep does, over the triangles of the models
  * of object's tree, each where the tree puts it in the world. a triangle's
  * reach, squared, is its longest edge's square plus those of speed's

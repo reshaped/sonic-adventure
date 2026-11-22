@@ -4,6 +4,11 @@
 
 struct task;
 
+#ifdef NONMATCHING
+/* Whether the board controller owns movement in this player mode. */
+int sonic_board_mode(int mode);
+#endif
+
 /* the step of a player's task when the player is Sonic. make the task with
  * TASK_MOTION, TASK_WORK and TASK_FORCE, as every player's is, and the
  * player's number in its vars */

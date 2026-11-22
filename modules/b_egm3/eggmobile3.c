@@ -266,7 +266,11 @@ static void eggmobile3_create_floor(void)
             task->work->pos.y = floor_pos[row][column].y;
             task->work->pos.z = floor_pos[row][column].z;
             task->work->ang.y = floor_ang[row][column];
+#ifdef NONMATCHING
+            task->force = task_alloc_force();
+#else
             task->force = heap_calloc(TASK_FORCES, sizeof(struct task_force));
+#endif
             panel = task->extra = heap_alloc(sizeof(struct floor_panel));
             /* @hack redundant: a call of add_solid that never runs. SHC
              * drops the call, but counts its use of task first, which keeps

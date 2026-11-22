@@ -46,6 +46,12 @@
 #include "system/util.h"
 #include "vmu/vibration.h"
 
+#ifdef NONMATCHING
+const struct player_terrain_modes knuckles_terrain_modes LINKED_LAST_DATA(
+    knuckles_terrain_modes) = {KNUCKLES_WALK, KNUCKLES_STOP,  KNUCKLES_JUMP,
+                               KNUCKLES_FALL, KNUCKLES_STAND, KNUCKLES_ROLL};
+#endif
+
 #define SE_GLIDE_START 748
 #define SE_GLIDE 737
 #define SE_PUNCH 738
@@ -1063,7 +1069,8 @@ void knuckles_step(struct task *task)
     struct task_motion *motion = task->motion;
     struct player *record = motion->record;
 
-    if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+    if ((work->flags & COLLISION_ON_TOP) &&
+        PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
         work->flags |= PLAYER_ON_TASK;
         /* @bug logic: coming down onto a task, he copies his own tilt, not the
          * task's. his collision's owner is his own task, which collision_init
@@ -1081,6 +1088,7 @@ void knuckles_step(struct task *task)
     } else if (work->mode != KNUCKLES_DOWN) {
         knuckles_choose_mode(work, motion, record);
     }
+    PLAYER_CLEAR_LANDING_SPEED(record);
     switch (work->mode) {
     case KNUCKLES_INIT: {
         struct task *child;
@@ -3721,8 +3729,7 @@ static Bool knuckles_try_jump(struct task_work *work,
                 (struct task_force *)record->ground_task->force;
 
             if (ground != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                 ground->speed.y, ground->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
             }
         }
         record->speed.y = record->consts.jump_speed;
@@ -5133,6 +5140,10 @@ static void knuckles_glide_bounce(struct task_work *work,
  * he turns off a wall he can't climb or a floor, and is pushed off a
  * ceiling. a wall he can climb gives GLIDE_CLIMB if player_collide reports
  * a hit, and GLIDE_BOUNCE otherwise */
+#ifdef NONMATCHING
+LINKED_LAST(knuckles_glide_collide)
+__attribute__((used))
+#endif
 static enum glide_hit knuckles_glide_collide(struct task_work *work,
                                              struct task_motion *motion,
                                              struct player *record)
@@ -5173,7 +5184,13 @@ static enum glide_hit knuckles_glide_collide(struct task_work *work,
     contact.pos.z = work->collision->shapes->center.z +
                     (contact.radius * njSin(work->ang.y));
     contact.speed = motion->speed;
+#ifdef NONMATCHING
+    if (!polygon_collect_near(&contact)) {
+        return GLIDE_CLEAR;
+    }
+#else
     polygon_collect_near(&contact);
+#endif
     count = world_count;
     object = world_objects;
     while (count > 0) {
@@ -5181,7 +5198,11 @@ static enum glide_hit knuckles_glide_collide(struct task_work *work,
          * R11 (MOV R6,R11 at 0x8c0d06c2). set apart, the record and the
          * mask 0x400002 trade R10 and R11, and 9 of 259 words differ */
         if (((flags = object->flags) & WORLD_LIQUID) &&
+#ifdef NONMATCHING
+            polygon_ball_touches(&contact, object)) {
+#else
             polygon_sweep(&contact, object->object, flags) == TRUE) {
+#endif
             return GLIDE_WATER;
         }
         count--;
@@ -5220,7 +5241,11 @@ static enum glide_hit knuckles_glide_collide(struct task_work *work,
         }
     }
     if (climbable == TRUE) {
+#ifdef NONMATCHING
+        if (player_collide_grab(work, motion, record)) {
+#else
         if (player_collide(work, motion, record)) {
+#endif
             return GLIDE_CLIMB;
         }
         return GLIDE_BOUNCE;
@@ -5231,10 +5256,35 @@ static enum glide_hit knuckles_glide_collide(struct task_work *work,
 /* TRUE while a surface lies within his height of any of nine points. the
  * points are his middle and those around it 4 away along x, z or both.
  * FALSE otherwise */
+#ifdef NONMATCHING
+/* the target fixture also calls the complete grip check */
+LINKED_LAST(knuckles_wall_near)
+__attribute__((used))
+#endif
 static Bool knuckles_wall_near(struct task_work *work,
                                struct task_motion *motion,
                                struct player *record)
 {
+#ifdef NONMATCHING
+    NJS_POINT3 center = work->collision->shapes->center;
+    /* the corners of the probe grid reach sqrt(4*4 + 4*4) from its center */
+    struct polygon_ball ball = {.pos = center,
+                                .radius = record->consts.height + 6.0F};
+    if (!polygon_collect_near(&ball)) {
+        return FALSE;
+    }
+    ball.radius = record->consts.height;
+    for (int dz = -4; dz <= 4; dz += 4) {
+        ball.pos.z = center.z + dz;
+        for (int dx = -4; dx <= 4; dx += 4) {
+            ball.pos.x = center.x + dx;
+            if (polygon_ball_touches(&ball, NULL)) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+#else
     struct polygon_ball contact;
     Float dz;
     Float dx;
@@ -5267,6 +5317,7 @@ static Bool knuckles_wall_near(struct task_work *work,
         }
     }
     return FALSE;
+#endif
 }
 
 /* his action as he climbs, by the way he moves: up or down, across, or
@@ -5988,6 +6039,10 @@ static struct task_work *knuckles_home(struct task_work *work)
 
 /* he holds on to a wall he can climb, at the point his contact found on
  * it, tilted to its slope */
+#ifdef NONMATCHING
+LINKED_LAST(knuckles_start_climb)
+__attribute__((used))
+#endif
 static void knuckles_start_climb(struct task_work *work,
                                  struct task_motion *motion,
                                  struct player *record)

@@ -1097,6 +1097,13 @@ static void car_collide(struct task *task)
     }
 }
 
+#ifdef NONMATCHING
+LINKED_LAST(car_carry)
+__attribute__((used)) static void car_carry(struct task *task)
+{
+    player_carry_riders(task, CAR(task->work)->solid);
+}
+#else
 /* add to the force's speed the move that turning by turn about the car
  * gives the player's position */
 static void car_carry_turn(struct task *task, Angle turn, int player)
@@ -1137,6 +1144,7 @@ static void car_carry(struct task *task)
     force->speed.y += work->pos.y - motion->last_pos.y;
     force->speed.z += work->pos.z - motion->last_pos.z;
 }
+#endif
 
 /* draw the car where it stood, then move it */
 static void car_step(struct task *task)

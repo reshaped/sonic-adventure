@@ -97,6 +97,11 @@ enum amy_mode {
     AMY_MODES
 };
 
+#ifdef NONMATCHING
+const struct player_terrain_modes amy_terrain_modes LINKED_LAST_DATA(
+    amy_terrain_modes) = {AMY_WALK, AMY_STOP, AMY_JUMP, AMY_FALL, AMY_STAND};
+#endif
+
 /* the rows of amy_actions her code names, by index */
 enum amy_action_index {
     ACTION_STAND = 0,
@@ -866,7 +871,8 @@ void amy_step(struct task *task)
     struct task_motion *motion = task->motion;
     struct player *record = motion->record;
 
-    if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+    if ((work->flags & COLLISION_ON_TOP) &&
+        PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
         work->flags |= PLAYER_ON_TASK;
         work->ang.x = work->collision->owner->work->ang.x;
         work->ang.z = work->collision->owner->work->ang.z;
@@ -878,6 +884,7 @@ void amy_step(struct task *task)
     } else if (work->mode != AMY_DOWN) {
         amy_choose_mode(work, motion, record);
     }
+    PLAYER_CLEAR_LANDING_SPEED(record);
     switch (work->mode) {
     case AMY_INIT: {
         struct task *child;
@@ -3181,8 +3188,7 @@ static Bool amy_try_jump(struct task_work *work, struct task_motion *motion,
             struct task_force *ground = record->ground_task->force;
 
             if (ground != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, ground->speed.x,
-                                 ground->speed.y, ground->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, ground);
             }
         }
         record->speed.y = record->consts.jump_speed;

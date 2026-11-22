@@ -8,6 +8,9 @@
 #include "draw/tree.h"
 #include "object/placement.h"
 #include "player/player.h"
+#ifdef NONMATCHING
+#include "stg03/ride.h"
+#endif
 #include "stg03/roof.h"
 #include "system/frame.h"
 #include "system/task.h"
@@ -80,16 +83,13 @@ static void roof_destroy(struct task *task)
     task_kill(task);
 }
 
-/* turn the roof by ROOF_SPEED a step, and keep its copy in the collision world
- * at its pose. the roof's force carries a touching player round its axis by
- * the same turn. the player must have PLAYER_ON_LAND set */
+/* The roof turns about its placement axis each step. */
 void roof_step(struct task *task)
 {
     struct task_work *work = task->work;
     struct task_force *force = task->force;
     NJS_OBJECT *world;
     int turn;
-    Sint8 player;
 
     if (placement_try_leave_by(task, ROOF_RANGE)) {
         return;
@@ -133,7 +133,11 @@ void roof_step(struct task *task)
             world->pos[1] = work->pos.y;
             world->pos[2] = work->pos.z;
             world->ang[0] = work->ang.x;
+#ifdef NONMATCHING
+            /* Publish the roof's yaw after advancing it below. */
+#else
             world->ang[1] = work->ang.y;
+#endif
             world->ang[2] = work->ang.z;
             if (player_in_range(&work->pos, ROOF_REACH)) {
                 work->flags |= WORLD_TESTED;
@@ -142,9 +146,14 @@ void roof_step(struct task *task)
             }
             turn = ROOF_SPEED(work) * ANGLE_PER_DEGREE;
             work->ang.y += turn;
+#ifdef NONMATCHING
+            world->ang[1] = work->ang.y;
+            twinkle_turn_riders(task, turn);
+#else
             if ((work->collision->flags & COLLISION_HIT) &&
                 work->collision->hit->kind == COLLISION_PLAYER) {
-                player = PLAYER_VARS(work->collision->hit->owner->work)->player;
+                Sint8 player =
+                    PLAYER_VARS(work->collision->hit->owner->work)->player;
                 if (player_work[player]->flags & PLAYER_ON_LAND) {
                     NJS_VECTOR from;
                     NJS_VECTOR to;
@@ -161,6 +170,7 @@ void roof_step(struct task *task)
                     force->speed.z = from.z - to.z;
                 }
             }
+#endif
             collision_register(work);
             roof_draw(task);
             break;

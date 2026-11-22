@@ -148,6 +148,18 @@ enum sonic_mode {
     SONIC_EDIT /* in the editor, where the stick moves him freely */
 };
 
+#ifdef NONMATCHING
+LINKED_LAST(sonic_board_mode)
+int sonic_board_mode(int mode)
+{
+    return mode >= SONIC_BOARD && mode <= SONIC_BOARD_CRASH;
+}
+
+const struct player_terrain_modes sonic_terrain_modes LINKED_LAST_DATA(
+    sonic_terrain_modes) = {SONIC_WALK, SONIC_STOP,  SONIC_JUMP,
+                            SONIC_FALL, SONIC_STAND, SONIC_SPIN_DASH};
+#endif
+
 /* the rows of sonic_actions his code sets or tests, by index. his board
  * actions run from ACTION_BOARD to ACTION_BOARD_CROUCH, and super Sonic's
  * from ACTION_SUPER_STAND to ACTION_SUPER_BALL */
@@ -1233,7 +1245,8 @@ void sonic_step(struct task *task)
     struct player *record = motion->record;
 
     /* coming down onto a task, he stands on it */
-    if ((work->flags & COLLISION_ON_TOP) && motion->speed.y <= 0.0F) {
+    if ((work->flags & COLLISION_ON_TOP) &&
+        PLAYER_LANDING_SPEED(motion->speed.y, record) <= 0.0F) {
         work->flags |= PLAYER_ON_TASK;
         /* @bug logic: he copies his own tilt, not the task's. his collision
          * record's owner is his own task, which collision_init stores
@@ -1250,6 +1263,7 @@ void sonic_step(struct task *task)
     } else if (work->mode != SONIC_DOWN) {
         sonic_choose_mode(work, motion, record);
     }
+    PLAYER_CLEAR_LANDING_SPEED(record);
     /* his shape's attack and guard levels: the highest while he's
      * invincible or super, raised while he attacks, and 0 at rest */
     if (work->collision != NULL) {
@@ -2362,7 +2376,8 @@ static void sonic_choose_mode(struct task_work *work,
             } else if (sonic_try_stop(work, motion, record)) {
                 work->ang.x = motion->aim.x;
                 work->ang.z = motion->aim.z;
-                if (motion->speed.y > HARD_LANDING_SPEED) {
+                if (PLAYER_LANDING_SPEED(motion->speed.y, record) >
+                    HARD_LANDING_SPEED) {
                     record->anim.action = ACTION_LANDED;
                 } else {
                     record->anim.action = ACTION_HARD_LANDING;
@@ -2467,7 +2482,8 @@ static void sonic_choose_mode(struct task_work *work,
             } else if (sonic_try_stop(work, motion, record)) {
                 work->ang.x = motion->aim.x;
                 work->ang.z = motion->aim.z;
-                if (motion->speed.y > HARD_LANDING_SPEED) {
+                if (PLAYER_LANDING_SPEED(motion->speed.y, record) >
+                    HARD_LANDING_SPEED) {
                     record->anim.action = ACTION_LAND;
                 } else {
                     record->anim.action = ACTION_HARD_LANDING;
@@ -3784,8 +3800,7 @@ static void sonic_choose_mode(struct task_work *work,
             if (record->ground_task != NULL) {
                 force = record->ground_task->force;
                 if (force != NULL) {
-                    player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                     force->speed.y, force->speed.z);
+                    PLAYER_INHERIT_PLATFORM_SPEED(work, force);
                 }
                 /* off a ramp he leaps the way it faces, with a trick that
                  * scores by how fast he takes it */
@@ -3903,8 +3918,7 @@ static void sonic_choose_mode(struct task_work *work,
             if (record->ground_task != NULL) {
                 force = record->ground_task->force;
                 if (force != NULL) {
-                    player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                     force->speed.y, force->speed.z);
+                    PLAYER_INHERIT_PLATFORM_SPEED(work, force);
                 }
             }
             record->anim.action = ACTION_BOARD_JUMP;
@@ -5299,8 +5313,7 @@ static Bool sonic_try_jump(struct task_work *work, struct task_motion *motion,
             struct task_force *force = record->ground_task->force;
 
             if (force != NULL) {
-                player_set_accel(PLAYER_VARS(work)->player, force->speed.x,
-                                 force->speed.y, force->speed.z);
+                PLAYER_INHERIT_PLATFORM_SPEED(work, force);
             }
         }
         record->anim.action = ACTION_SPIN;

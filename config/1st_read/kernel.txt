@@ -191,14 +191,14 @@ window   walk      55
 # sweep: the sweep, then the arc tangent of a quotient and the arc cosine,
 # which turn each polygon's normal, and the arc sine, which a hit takes.
 # model.c starts the draws' scratch on the operand cache's set of
-# polygon_sweep's first whole line, so polygon_sweep opens the kernel.
+# the sweep loop's first whole line, so polygon_sweep_for opens the kernel.
 # Where the windows ahead put that line on one of the cache's first 256
 # sets, which the draws' palettes take, the scratch starts on set 256,
 # and where they put it on the last set, on set 510, so the points that
 # follow the line start past the palettes' sets too. The lower the line's
 # set, the more points a model draws before its scratch runs on past the
 # cache's last set, onto the palettes'
-sweep    src/collision/polygon.c   polygon_sweep
+sweep    src/collision/polygon.c   polygon_sweep_for
 sweep    sdk/runtime/atan2f.c      atan2f
 sweep    sdk/runtime/_i_atn2s.c    _in_atan2s
 sweep    sdk/runtime/_i_atans.c    _in_atans
@@ -247,6 +247,9 @@ window   sprite    114
 # of a kernel's pool would take one of theirs
 data     sdk/ninja/njkm.c          _nj_parameterkm_
 data     sdk/ninja/njGlobal.c      _nj_current_matrix_ptr_
+# Sound slots fit after the Ninja globals and free an alignment page
+# before the game heap.
+data     src/sound/sound.c         sound_slots
 
 over     walk     rare
 over     sweep    mesh
@@ -315,6 +318,8 @@ warm     src/system/util.c         points_blend
 warm     sdk/ninja/kmvertex_kamui_lib.c kmProcessVertexRenderState
 warm     src/system/present.c      present_draw
 warm     src/enemy/saru.c          saru_step
+warm     src/collision/polygon.c   polygon_collect_near
+warm     src/collision/polygon.c   height_strip_batch
 warm     src/enemy/sai.c           sai_roll_treads
 warm     sdk/ninja/njDrawTriangle3D.c njDrawTriangle3D
 warm     src/collision/world.c     world_collect_near_players
@@ -342,6 +347,7 @@ warm     src/player/player.c       player_step_up
 warm     src/system/pad.c          pad_scan
 warm     src/system/present.c      marks_first
 warm     src/system/task.c         heap_alloc
+warm     src/collision/polygon.c   impact_outside
 warm     src/draw/action_link.c    action_link_transform
 warm     sdk/ninja/njDetMatrix.c   njDetMatrix
 warm     src/player/player.c       player_turn_to_world
@@ -363,9 +369,10 @@ warm     src/player/sonic.c        sonic_sway_step
 warm     src/collision/polygon.c   box_walk_start
 warm     src/object/ring.c         ring_step
 warm     src/collision/polygon.c   sweep_touch
+warm     src/player/player.c       player_terrain_motion
 warm     sdk/ninja/njGenerateFogTable3.c njGenerateFogTable3
 warm     src/effect/particle.c     particle_draw_all
-warm     src/collision/mesh.src    mesh_find_heights
+warm     src/collision/polygon.c   list_heights
 warm     src/collision/collision.c collide_object
 warm     src/object/placement.c    placement_try_leave
 warm     src/player/npc.c          npc_step
@@ -373,6 +380,7 @@ warm     src/system/present.c      marks_find
 warm     src/player/tails.c        tails_bend_points
 warm     src/collision/polygon.c   heights_visit
 warm     src/draw/model.src        bake_admit
+warm     src/collision/polygon.c   impact_cast
 warm     src/object/common.c       model_draw
 warm     src/system/present.c      state_put
 warm     src/camera/camera.c       camera_task_step
@@ -390,7 +398,7 @@ warm     src/effect/lens.c         lens_draw
 warm     src/system/present.c      present_sprite
 warm     sdk/shinobi/kdapi.c       publish_devices
 warm     src/collision/collision.c collision_collide_all
-warm     src/collision/polygon.c   polygon_collect_near
+warm     src/collision/polygon.c   landing_advance
 warm     sdk/ninja/njDrawLine3D.c  njDrawLine3D
 warm     src/collision/ground.c    shadow_draw_placed
 warm     src/draw/model.src        draw_divide_light
@@ -402,6 +410,7 @@ warm     sdk/ninja/kmvertex_kamui_lib.c kmSetVertexRenderState
 warm     sdk/ninja/njModelE.c      _njEasyDrawModel
 warm     sdk/ninja/njNearClippingLine.c njNearClippingLine
 warm     src/collision/polygon.c   collision_mesh_update
+warm     src/collision/polygon.c   ground_snap_clear
 
 # the last code: the Ninja forms E-101 mkII's blur and arm trails draw by,
 # then collision's index of the static meshes, which their sides' and

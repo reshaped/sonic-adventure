@@ -193,6 +193,9 @@ GCC_HOT += src/player/player.c src/camera/camera.c src/object/ring.c src/system/
 # Emerald Coast's footprints, which -O2 inlines or unrolls: 0.4% added at
 # -Os, Emerald Coast
 GCC_HOT += sdk/runtime/_a_atans.c sdk/runtime/_a_sins.c src/vmu/draw.c modules/stg01/footprints.c
+# Red Mountain's rotating blade: a grazing player cast takes 0.8 ms in the
+# console model at -O2, matching the same cast in the resident controller.
+GCC_HOT += modules/stg05/propeller.c
 # GCC_OPTIMIZE, a source's level: -O2 for GCC_HOT's, -Os for the rest, whose
 # smaller code is the images' room in retail's memory map. Where SHC takes
 # -optimize=0, GCC takes -O0 after either, which compiles each statement in

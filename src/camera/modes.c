@@ -977,7 +977,11 @@ void camera_step_board(struct camera_view *view)
         delta.x = camera_state->pos.x - previous.x;
         delta.y = camera_state->pos.y - previous.y;
         delta.z = camera_state->pos.z - previous.z;
+#ifdef NONMATCHING
+        if (world_sweep_board_camera(&dir, &delta, 14.0F)) {
+#else
         if (world_sweep_all_hit(&dir, &delta, NULL, 14.0F)) {
+#endif
             camera_state->pos.x = dir.x + delta.x - normal.x;
             camera_state->pos.y = dir.y + delta.y - normal.y;
             camera_state->pos.z = dir.z + delta.z - normal.z;
@@ -1029,7 +1033,11 @@ static void board_fixed_view(struct camera_view *view)
     delta.x = camera_state->pos.x - previous.x;
     delta.y = camera_state->pos.y - previous.y;
     delta.z = camera_state->pos.z - previous.z;
+#ifdef NONMATCHING
+    if (world_sweep_board_camera(&origin, &delta, 14.0F)) {
+#else
     if (world_sweep_all_hit(&origin, &delta, NULL, 14.0F)) {
+#endif
         camera_state->pos.x = origin.x + delta.x - normal.x;
         camera_state->pos.y = origin.y + delta.y - normal.y;
         camera_state->pos.z = origin.z + delta.z - normal.z;

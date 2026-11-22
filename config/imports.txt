@@ -31,7 +31,12 @@
 *          loader_must_read_file              1st_read    loader_must_read_file          0x8c  only src/system/loader.c's non-matching side defines it, and the tables give it no address
 *          loader_must_read_prs               1st_read    loader_must_read_prs           0x8c  only src/system/loader.c's non-matching side defines it, and the tables give it no address
 *          path_sample_from                   1st_read    path_sample_from               0x8c  only src/path/path.c's non-matching side defines it, and the tables give it no address
+*          player_carry_riders                1st_read    player_carry_riders            0x8c  only src/player/player.c's non-matching side defines it, and the tables give it no address
+stg05      player_carry_riders_at             1st_read    player_carry_riders_at         0x8c  the propeller publishes its next pose and both rider displacements
+*          player_inherit_platform_speed      1st_read    player_inherit_platform_speed  0x8c  only src/player/player.c's non-matching side defines it, and the tables give it no address
 *          polygon_find_sides_indexed         1st_read    polygon_find_sides_indexed     0x8c  only src/collision/polygon.c's non-matching side defines it, and the tables give it no address
+*          polygon_limit_carry                1st_read    polygon_limit_carry            0x8c  only src/collision/polygon.c's non-matching side defines it, and the tables give it no address
+stg05      polygon_rotate_with                1st_read    polygon_rotate_with            0x8c  the propeller publishes its next pose and both rider displacements
 *          port_band                          1st_read    port_band                      0x8c  only engine/dc/wide.c defines it, and the tables give it no address
 *          port_draw_aspect                   1st_read    port_draw_aspect               0x8c  only engine/dc/njSprite.c defines it, and the tables give it no address
 *          port_view_aspect                   1st_read    port_view_aspect               0x8c  only src/system/pace.c defines it, and the tables give it no address

@@ -1,0 +1,32 @@
+        .IMPORT     _mesh_test_heights
+        .EXPORT     _mesh_source_heights
+
+PG_POINTS: .EQU     24              ; vertex[0] in struct polygon
+
+; void mesh_source_heights(struct height_query *query,
+;                          const struct polygon *polygon, Sint32 flags)
+; The height search in mesh.src keeps the query, vertices and flags in
+; R14, R12 and R13 across its polygon tests. Its leaf also changes R11,
+; FR12 and FR15, which the C interface preserves.
+; @asm open: this native adapter supplies the register inputs of mesh.src
+_mesh_source_heights:
+        MOV.L       R14,@-R15
+        MOV.L       R13,@-R15
+        MOV.L       R12,@-R15
+        MOV.L       R11,@-R15
+        STS.L       PR,@-R15
+        FMOV.S      FR15,@-R15
+        FMOV.S      FR12,@-R15
+        MOV         R4,R14
+        MOV         R5,R12
+        ADD         #PG_POINTS,R12
+        BSR         _mesh_test_heights
+        MOV         R6,R13
+        FMOV.S      @R15+,FR12
+        FMOV.S      @R15+,FR15
+        LDS.L       @R15+,PR
+        MOV.L       @R15+,R11
+        MOV.L       @R15+,R12
+        MOV.L       @R15+,R13
+        RTS
+        MOV.L       @R15+,R14

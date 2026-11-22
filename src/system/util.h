@@ -231,6 +231,11 @@ void sprite_init(NJS_SPRITE *sprite, NJS_TEXLIST *texlist,
  * adds an unset turn */
 int world_sweep_ball(NJS_POINT3 *pos, NJS_VECTOR *speed, struct angles *ang,
                      int skip, Float radius);
+/* The board camera's collision response feeds back into steering. */
+#ifdef NONMATCHING
+Bool world_sweep_board_camera(NJS_POINT3 *pos, NJS_VECTOR *speed, Float radius);
+#endif
+
 /* world_sweep_all is world_sweep_ball skipping nothing. world_sweep_all_hit
  * and world_sweep_ball_hit sweep as world_sweep_ball does, skipping
  * nothing or skip's flags, and move pos, speed and ang alike. they return

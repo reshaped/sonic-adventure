@@ -96,6 +96,18 @@ struct task_force {
     NJS_VECTOR speed;
 };
 
+#ifdef NONMATCHING
+struct polygon_yaw_ops;
+/* The two force records keep their original offsets. A translating platform
+ * can publish one takeoff velocity for both riders in the first record. */
+struct task_forces {
+    struct task_force riders[TASK_FORCES];
+    Bool individual_takeoff;
+    struct task *next_rotating;
+    const struct polygon_yaw_ops *rotation;
+};
+#endif
+
 /* a node in a tree of tasks. next and prev link a root task into its level,
  * and a child among its parent's children. task_step_all runs only the
  * roots' steps. a child's step runs when its parent's step runs it, as

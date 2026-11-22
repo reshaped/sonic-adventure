@@ -773,6 +773,30 @@ DATA_TOOLS := tools/data.py tools/items.py tools/cdata.py tools/csource.py tools
 FLOATS := tools/floats.py $(wildcard tools/float_*.py) tools/csource.py tools/tool.py tools/layout.py
 MEMORY_TOOLS := tools/memory.py tools/csource.py tools/layout.py $(CONFIG_TOOLS)
 
+# The console and native collision solver use the same pinned vector library.
+ifneq ($(DC_MK_GOALS)$(ENGINE_GOALS)$(filter pc,$(MAKECMDGOALS)),)
+sh4zam_sums = awk '$$2 ~ "^tools/sh4zam/"' tools/SHA256SUMS
+SH4ZAM     := $(shell awk '$$2 ~ "^tools/sh4zam/" { print $$2 }' tools/SHA256SUMS)
+FETCHED    := tools/sh4zam/fetched.txt
+ifneq ($(strip $(file <$(FETCHED))),$(strip $(shell $(sh4zam_sums))))
+UNFETCHED  := $(SH4ZAM)
+endif
+# Fetch the complete library by commit and verify each file against its hash.
+# The fork carries the FSCA output-register change in upstream PR #94 on top
+# of upstream master at 3ef3764.
+SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/810f9b4fcd1af950449f06873829ca8c512b388c
+$(SH4ZAM): $(if $(UNFETCHED),FORCE)
+	@$(call status,fetch,$@)
+	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)
+# Each fetch removes FETCHED, which make writes only once every file is in
+# place. After a run of fetches cut short, make fetches every file again.
+# Once every file is in place, FETCHED's recipe removes each other file
+# under tools/sh4zam/, one an earlier pin listed, then writes FETCHED
+$(FETCHED): $(SH4ZAM)
+	$(Q)rm -f $@ $(filter-out $(SH4ZAM) $(FETCHED),$(shell [ ! -d tools/sh4zam ] || find tools/sh4zam -type f))
+	$(Q)mkdir -p $(@D) && $(sh4zam_sums) > $@
+endif
+
 # dc.mk reads the lists, include directories and macros above. The orig/
 # rules below read its DC_OBJ
 ifneq ($(DC_MK_GOALS),)
@@ -780,6 +804,9 @@ include dc.mk
 endif
 ifneq ($(ENGINE_GOALS)$(filter pc,$(MAKECMDGOALS)),)
 include engine/engine.mk
+endif
+ifneq ($(and $(filter linux,$(NATIVE_HOST)),$(filter engine-test-player-terrain %/player-terrain,$(MAKECMDGOALS))),)
+include engine/mk/player_terrain.mk
 endif
 
 # HEAD's commit, then a line for each path where the tree differs from it.

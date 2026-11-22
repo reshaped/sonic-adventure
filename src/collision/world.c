@@ -3,6 +3,11 @@
 #include <mathf.h>
 #include <ninja.h>
 #include <sg_xpt.h>
+#ifdef NONMATCHING
+#include <shinobi.h>
+#include "collision/mesh.h"
+#include <string.h>
+#endif
 
 #include "adv00/land2.h"
 #include "adv00/land3.h"
@@ -201,7 +206,23 @@ struct world_object world_objects[WORLD_OBJECTS];
 /* the tasks' objects and the land entries the last collect kept, which the
  * lists choose from */
 static struct world_object world_near_added[NEAR_ADDED];
+#ifdef NONMATCHING
+/* A query needs only these fields from the last collection. Stage tasks can
+ * change the source entry's flags before the next collection. */
+struct near_land {
+    NJS_POINT3 center;
+    Float radius;
+    NJS_OBJECT *object;
+    Sint32 flags;
+};
+#define LAND_CACHE                                                             \
+    (NEAR_LAND * sizeof(struct land_entry) / sizeof(struct near_land))
+static struct near_land land_cache[LAND_CACHE];
+static struct near_land *world_near_land = land_cache;
+static int land_capacity = LAND_CACHE;
+#else
 static struct land_entry world_near_land[NEAR_LAND];
+#endif
 /* the land the task loaded, or null */
 static struct land_table *world_land;
 /* the land task's work, while the task runs */
@@ -262,10 +283,26 @@ void world_land_step(struct task *task)
     }
 }
 
+#ifdef NONMATCHING
+LINKED_LAST(world_clear_land_cache)
+static __attribute__((noinline, noclone)) void world_clear_land_cache(void)
+{
+    if (world_near_land != land_cache) {
+        syFree(world_near_land);
+        world_near_land = land_cache;
+        land_capacity = LAND_CACHE;
+    }
+    world_near_land_count = 0;
+}
+#endif
+
 /* empty the world and forget the land and its task. the land is left shown
  * and enabled. task is unused */
 static void world_reset(struct task *task)
 {
+#ifdef NONMATCHING
+    world_clear_land_cache();
+#endif
     world_count = 0;
     world_stage = 0;
     world_act = 0;
@@ -376,6 +413,11 @@ void world_release_act(int stage, int act)
     int count;
     int i;
 
+#ifdef NONMATCHING
+    if (land == world_land) {
+        world_clear_land_cache();
+    }
+#endif
     if (land != NULL) {
         count = land->count;
         if (land->flags & LAND_FILE) {
@@ -752,12 +794,216 @@ ALWAYS_INLINE Bool world_beyond(Float squared, Float radius, Float reach)
 }
 #endif
 
+#ifdef NONMATCHING
+const struct land_table *world_collision_land(void)
+{
+    return world_land_enabled == TRUE ? world_land : NULL;
+}
+#endif
+
+#ifdef NONMATCHING
+/* Distance from the nearer player to the entry's bounding sphere. */
+static Float land_distance(const NJS_POINT3 *center, Float radius,
+                           const NJS_POINT3 *positions, int count)
+{
+    Float least = __builtin_inff();
+    for (int i = 0; i < count; i++) {
+        Float dx = center->x - positions[i].x;
+        Float dy = center->y - positions[i].y;
+        Float dz = center->z - positions[i].z;
+        Float distance = njSqrt(dx * dx + dy * dy + dz * dz) - radius;
+        if (distance < least) {
+            least = distance;
+        }
+    }
+    return least < 0.0F ? 0.0F : least;
+}
+
+/* Keep both players' closest bounds in file order when space runs out. */
+LINKED_LAST(land_evict)
+static __attribute__((noinline)) int land_evict(const struct land_entry *entry,
+                                                const NJS_POINT3 *positions,
+                                                int players)
+{
+    Float farthest =
+        land_distance(&entry->center, entry->radius, positions, players);
+    int victim = -1;
+    for (int i = world_near_land_count - 1; i >= 0; i--) {
+        const struct near_land *old = &world_near_land[i];
+        Float distance =
+            land_distance(&old->center, old->radius, positions, players);
+        if (distance > farthest) {
+            victim = i;
+            farthest = distance;
+        }
+    }
+    return victim;
+}
+
+/* Reserve the physical mesh records for objects near either player first.
+ * Later point queries still see every collected entry in collection order. */
+LINKED_LAST(world_near_meshes)
+static __attribute__((noinline)) void
+world_near_meshes(const NJS_POINT3 *positions, int players)
+{
+    Uint32 near[(WORLD_OBJECTS + 31) / 32] = {0};
+    int close = 0;
+    int i;
+    for (i = 0; i < world_count; i++) {
+        NJS_POINT3 center;
+        Float radius;
+        if (i < world_near_added_count) {
+            const NJS_OBJECT *object = world_near_added[i].object;
+            NJS_MODEL *model = object->model;
+            center =
+                (NJS_POINT3){object->pos[0], object->pos[1], object->pos[2]};
+            radius = model->r;
+            if (world_near_added[i].flags & WORLD_TURNED) {
+                radius += njScalor(&model->center);
+            } else {
+                center.x += model->center.x;
+                center.y += model->center.y;
+                center.z += model->center.z;
+            }
+        } else {
+            const struct near_land *entry =
+                &world_near_land[i - world_near_added_count];
+            center = entry->center;
+            radius = entry->radius;
+        }
+        Float reach = radius + SECOND_RADIUS;
+        for (int j = 0; j < players; j++) {
+            Float dx = center.x - positions[j].x;
+            Float dy = center.y - positions[j].y;
+            Float dz = center.z - positions[j].z;
+            if (dx * dx + dy * dy + dz * dz <= reach * reach) {
+                near[i / 32] |= 1U << (i % 32);
+                close++;
+                break;
+            }
+        }
+    }
+    if (close == 0 || close == world_count) {
+        return;
+    }
+    int next = 0;
+    for (i = 0; i < world_count; i++) {
+        int at = near[i / 32] & (1U << (i % 32)) ? next++ : close++;
+        if (i < world_near_added_count) {
+            world_objects[at] = world_near_added[i];
+        } else {
+            const struct near_land *entry =
+                &world_near_land[i - world_near_added_count];
+            world_objects[at] =
+                (struct world_object){entry->flags, entry->object, NULL};
+        }
+    }
+}
+
+/* Continue in file order after filling the inline snapshots. Allocate only
+ * if another entry qualifies. The block belongs to the current act. */
+LINKED_LAST(world_land_overflow)
+static __attribute__((noinline)) void
+world_land_overflow(const struct land_entry *entry, int remaining,
+                    const NJS_POINT3 *positions, int players, Bool all)
+{
+    int added = world_count - world_near_land_count;
+    int room = WORLD_OBJECTS - added;
+    Bool tried = FALSE;
+    for (; remaining > 0; remaining--, entry++) {
+        if (!(entry->flags & (WORLD_SOLID | WORLD_LIQUID))) {
+            continue;
+        }
+        if (!all) {
+            int i = 0;
+            for (; i < players; i++) {
+                Float radius = i ? SECOND_RADIUS : world_near_radius;
+                Float dx = entry->center.x - positions[i].x;
+                Float dy = entry->center.y - positions[i].y;
+                Float dz = entry->center.z - positions[i].z;
+                Float squared = dx * dx + dy * dy + dz * dz;
+                if (!world_beyond(squared, radius, entry->radius) &&
+                    njSqrt(squared) - radius < entry->radius) {
+                    break;
+                }
+            }
+            if (i == players) {
+                continue;
+            }
+        }
+        if (world_near_land_count == land_capacity && land_capacity < room &&
+            !tried) {
+            int capacity = world_land->count < room ? world_land->count : room;
+            struct near_land *more = syMalloc(capacity * sizeof *more);
+            if (more) {
+                memcpy(more, world_near_land,
+                       world_near_land_count * sizeof *more);
+                if (world_near_land != land_cache) {
+                    syFree(world_near_land);
+                }
+                world_near_land = more;
+                land_capacity = capacity;
+            }
+            tried = TRUE;
+        }
+        if (world_near_land_count == land_capacity ||
+            world_near_land_count == room) {
+            int victim = land_evict(entry, positions, players);
+            if (victim < 0) {
+                continue;
+            }
+            --world_near_land_count;
+            memmove(world_near_land + victim, world_near_land + victim + 1,
+                    (world_near_land_count - victim) * sizeof *world_near_land);
+        }
+        world_near_land[world_near_land_count++] = (struct near_land){
+            entry->center, entry->radius, entry->object, entry->flags};
+    }
+    world_count = added;
+    for (int i = 0; i < world_near_land_count; i++) {
+        const struct near_land *kept = &world_near_land[i];
+        world_objects[world_count++] =
+            (struct world_object){kept->flags, kept->object, NULL};
+    }
+}
+
+static int world_player_positions(NJS_POINT3 positions[2])
+{
+    int count = 0;
+    for (int i = 0; i < 2; i++) {
+        if (player_work[i]) {
+            positions[count++] = player_work[i]->pos;
+        }
+    }
+    if (!count && camera_work) {
+        positions[count++] = camera_work->pos;
+    }
+    return count;
+}
+
+/* Give a scarce polygon pool the same two-player order as a full mesh pool. */
+LINKED_LAST(world_prioritize_meshes)
+void world_prioritize_meshes(void)
+{
+    NJS_POINT3 positions[2];
+    int players = world_player_positions(positions);
+    if (players) {
+        world_near_meshes(positions, players);
+    }
+}
+
+#endif
+
 void world_list_near(Float x, Float y, Float z, Float radius)
 {
     struct world_object *out = world_objects;
     struct world_object *added;
     NJS_OBJECT *object;
+#ifdef NONMATCHING
+    struct near_land *entry;
+#else
     struct land_entry *entry;
+#endif
     NJS_POINT3 center;
     Float *coord;
     Float dx;
@@ -851,7 +1097,11 @@ void world_collect_near_players(void)
     NJS_OBJECT *object;
     struct task *owner;
     struct land_entry *entry;
+#ifdef NONMATCHING
+    struct near_land *near_land;
+#else
     struct land_entry *near_land;
+#endif
     NJS_POINT3 positions[2];
     NJS_POINT3 center;
     NJS_POINT3 *pos;
@@ -1027,7 +1277,14 @@ added_done:
                 distance = center_distance - radius;
                 reach = entry->radius;
                 if (distance < reach) {
+
+#ifdef NONMATCHING
+                    *near_land =
+                        (struct near_land){entry->center, entry->radius,
+                                           entry->object, entry->flags};
+#else
                     *near_land = *entry;
+#endif
                     near_land++;
                     world_near_land_count += 1;
                     out->flags = entry->flags;
@@ -1035,17 +1292,32 @@ added_done:
                     out->object = entry->object;
                     world_count += 1;
                     out++;
+#ifdef NONMATCHING
+                    if (world_near_land_count == land_capacity ||
+                        world_count == WORLD_OBJECTS) {
+                        world_land_overflow(entry + 1, count - 1, positions,
+                                            player_count, FALSE);
+                        goto land_done;
+                    }
+#else
                     if (world_near_land_count >= NEAR_LAND) {
                         return;
                     }
                     if (world_count >= WORLD_OBJECTS) {
                         return;
                     }
+#endif
                     break;
                 }
             }
         }
     }
+#ifdef NONMATCHING
+land_done:
+    if (world_count > COLLISION_MESH_RECORDS) {
+        world_near_meshes(positions, player_count);
+    }
+#endif
     /* @hack redundant: a call of njSqrt that never runs, which SHC counts as
      * one more use of its address, and which keeps out in R14, world_count's
      * address in R13, cy in FR10 and cz in FR9; without it, 23 of 374 words
@@ -1253,7 +1525,11 @@ void world_list_all(void)
     struct world_object *out = world_objects;
     struct world_object *added;
     NJS_OBJECT *object;
+#ifdef NONMATCHING
+    struct near_land *entry;
+#else
     struct land_entry *entry;
+#endif
     Sint16 count;
 
     world_count = 0;
@@ -1294,7 +1570,11 @@ void world_collect_all(void)
     struct world_object *near_added;
     NJS_OBJECT *object;
     struct land_entry *entry;
+#ifdef NONMATCHING
+    struct near_land *near_land;
+#else
     struct land_entry *near_land;
+#endif
     Sint16 count;
 
     world_count = 0;
@@ -1326,7 +1606,13 @@ void world_collect_all(void)
             if (!(entry->flags & (WORLD_SOLID | WORLD_LIQUID))) {
                 continue;
             }
+
+#ifdef NONMATCHING
+            *near_land = (struct near_land){entry->center, entry->radius,
+                                            entry->object, entry->flags};
+#else
             *near_land = *entry;
+#endif
             near_land++;
             world_near_land_count += 1;
             out->flags = entry->flags;
@@ -1334,14 +1620,30 @@ void world_collect_all(void)
             out->object = entry->object;
             world_count += 1;
             out++;
+#ifdef NONMATCHING
+            if (world_near_land_count == land_capacity ||
+                world_count == WORLD_OBJECTS) {
+                NJS_POINT3 positions[2];
+                int players = world_player_positions(positions);
+                world_land_overflow(entry + 1, count - 1, positions, players,
+                                    TRUE);
+                break;
+            }
+#else
             if (world_near_land_count >= NEAR_LAND) {
                 break;
             }
             if (world_count >= WORLD_OBJECTS) {
                 break;
             }
+#endif
         }
     }
+#ifdef NONMATCHING
+    if (world_count > COLLISION_MESH_RECORDS) {
+        world_prioritize_meshes();
+    }
+#endif
 }
 
 void world_set_near_radius(Float radius)

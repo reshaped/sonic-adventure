@@ -234,7 +234,6 @@ static void traffic_car_draw_advance(struct task *task);
 static void traffic_car_draw(struct task *task);
 static void traffic_car_throw_player(int number, struct car_work *work);
 static void traffic_car_collide(struct car_work *work);
-static void traffic_car_carry_turn(struct task *task, Angle turn, Sint8 number);
 static void traffic_car_carry(struct task *task);
 static void fun_0c906022(struct car_work *work);
 static void traffic_car_run(struct task *task);
@@ -1262,6 +1261,13 @@ static void traffic_car_collide(struct car_work *work)
     }
 }
 
+#ifdef NONMATCHING
+LINKED_LAST(traffic_car_carry)
+__attribute__((used)) static void traffic_car_carry(struct task *task)
+{
+    player_carry_riders(task, ((struct car_work *)task->work)->world);
+}
+#else
 /* add to force[0].speed how far turning by turn, about the car, moves player
  * number. force[0] is player 0's record, and the one caller passes player 0 */
 static void traffic_car_carry_turn(struct task *task, Angle turn, Sint8 number)
@@ -1300,6 +1306,7 @@ static void traffic_car_carry(struct task *task)
     force->speed.y += work->pos.point.y - STEP_START(motion).y;
     force->speed.z += work->pos.point.z - STEP_START(motion).z;
 }
+#endif
 
 /* set bit 0x200 of the car's flags, then clear it: the bit ends clear */
 static void fun_0c906022(struct car_work *work)

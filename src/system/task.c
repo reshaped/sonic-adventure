@@ -3,6 +3,9 @@
 #include <sg_xpt.h>
 
 #include "collision/collision.h"
+#ifdef NONMATCHING
+#include "collision/polygon.h"
+#endif
 #include "event/event.h"
 #include "object/placement.h"
 #include "system/task.h"
@@ -458,7 +461,11 @@ void *task_alloc_force(void)
      * words differ */
     void *force;
 
+#ifdef NONMATCHING
+    force = heap_calloc(1, sizeof(struct task_forces));
+#else
     force = heap_calloc(TASK_FORCES, sizeof(struct task_force));
+#endif
     return force;
 }
 
@@ -510,6 +517,10 @@ void heap_init(void)
     Uint8 *fill;
     Uint32 i;
 
+#ifdef NONMATCHING
+    /* Resetting the arena invalidates every rotating task in the list. */
+    polygon_rotating = NULL;
+#endif
     fill = heap_arena;
     heap_free_list = (struct heap_block *)fill;
     end = (struct heap_block *)(fill + HEAP_SIZE);

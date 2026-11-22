@@ -4,6 +4,14 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#ifdef NONMATCHING
+struct surface;
+/* Find the nearest height on the current world_objects list and its flags.
+ * land_only admits dry ownerless land. An equal distance prefers below. */
+Bool ground_nearest_surface(const NJS_POINT3 *pos, Bool land_only,
+                            struct surface *nearest);
+#endif
+
 struct angles;
 struct sides_query;
 struct task_work;
@@ -43,7 +51,8 @@ Float ground_below(Float x, Float y, Float z, struct angles *slope);
  * whatever R0 holds at the return */
 int ground_below_int(Float x, Float y, Float z, struct angles *slope);
 /* the height of the floor over or under the point that is nearest the
- * point's height, of any object, or -GROUND_FAR */
+ * point's height, of any object, or -GROUND_FAR. The ports compare heights
+ * after a moving object's vertical offset and prefer the lower on a tie. */
 Float ground_nearest(Float x, Float y, Float z, struct angles *slope);
 /* ground_nearest, of the land's objects that aren't liquid */
 Float ground_nearest_land(Float x, Float y, Float z, struct angles *slope);

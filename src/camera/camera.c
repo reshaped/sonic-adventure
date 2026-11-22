@@ -440,7 +440,7 @@ static void camera_task_step(struct task *task)
             if (adjust == CAMERA_ADJUST_NONE && camera_cut) {
                 struct player *player = player_get(0);
 
-                player->launch_steps = CUT_STEPS;
+                PLAYER_LOCK_INPUT(player, CUT_STEPS);
             }
         }
         camera_cut = FALSE;

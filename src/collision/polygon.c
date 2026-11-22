@@ -4,6 +4,11 @@
 #include <ninja.h>
 #include <sg_xpt.h>
 
+#ifdef NONMATCHING
+#include <shinobi.h>
+#include "collision/capsule.h"
+#include "collision/support.h"
+#endif
 #include "collision/mesh.h"
 #include "collision/polygon.h"
 #include "collision/world.h"
@@ -15,7 +20,6 @@
 #ifdef NONMATCHING
 #include <kamui.h>
 #include <sh4zam/shz_mem.h>
-#include <shinobi.h>
 #endif
 #endif
 
@@ -28,7 +32,7 @@
 
 /* the most points a strip holds: strip_next cuts a longer one short */
 #define STRIP_POINTS 1024
-#define MESHES 192 /* the most objects with meshes at once */
+#define MESHES COLLISION_MESH_RECORDS /* the records in mesh_pool */
 #ifdef NONMATCHING
 /* only entries the update admits may keep a mesh from its previous step */
 #define MESH_ENTRIES (world_count < MESHES ? world_count : MESHES)
@@ -36,9 +40,9 @@
 #define MESH_ENTRIES world_count
 #endif
 #define MESH_POLYGONS 8192 /* the most polygons in all the meshes */
-#define NEAR_POLYGONS 96 /* the most polygon_collect_near lists */
+#define NEAR_POLYGONS 96 /* the original near list and DC turn cache size */
 
-/* the factor polygon_collect_near widens a triangle's squared reach by */
+/* the original collector's multiplier for the squared reach */
 #define NEAR_SCALE 1.3F
 
 /* polygon_cast_segment tries the world's objects within this of the
@@ -164,11 +168,34 @@ static struct polygon polygon_pool[MESH_POLYGONS] __attribute__((aligned(32)));
 static struct collision_mesh mesh_pool[MESHES];
 static struct polygon polygon_pool[MESH_POLYGONS];
 #endif
+#ifdef NONMATCHING
+/* A full polygon pool switches mesh admission to whole models. */
+Bool collision_mesh_pressure;
+static int mesh_plan_capacity;
+struct mesh_budget {
+    /* Slots hold one-based indices in world_objects. Zero is empty. */
+    Uint8 first[256];
+    Uint8 state[256];
+    Uint16 demand[256];
+};
+#endif
 /* the triangles polygon_collect_near listed, mesh by mesh */
 static int near_polygon_count;
-static struct polygon *near_polygons[NEAR_POLYGONS];
-#ifdef DREAMCAST
 #ifdef NONMATCHING
+/* Each group starts at a hit. Its mask covers the next 32 mesh-list nodes
+ * including that hit. Each mesh can leave only its last group short. */
+struct near_group {
+    struct polygon *first;
+    Uint32 mask;
+};
+/* Keep the table's size out of the mesh and polygon pools' layout. */
+struct near_group collision_near_groups[MESH_POLYGONS / 32 + MESHES]
+    __attribute__((common));
+#else
+static struct polygon *near_polygons[NEAR_POLYGONS];
+#endif
+#ifdef NONMATCHING
+#ifdef DREAMCAST
 /* sweep_turn's work for a triangle, kept for a later sweep of it. TURN_SETS
  * sets hold TURN_WAYS ways each, and a triangle's place in polygon_pool names
  * its set. a way matches a triangle by the EDGE_WORDS words of its tri[1] and
@@ -323,11 +350,8 @@ ALWAYS_INLINE void mesh_store_center(Float *word, Float radius, Float x,
             : [radius] "f"(radius), [x] "f"(x), [y] "f"(y), [z] "f"(z));
 }
 
-/* polygon.h and mesh.h point the other sources' calls of polygon_find_sides
- * and polygon_find_heights at the indexed searches. here the names call the
- * shipped searches, which the indexed ones call where the boxes can't serve */
+/* The indexed side search falls back to the original entry point. */
 #undef polygon_find_sides
-#undef polygon_find_heights
 /* what collision_mesh_init, collision_mesh_link_pools and
  * collision_mesh_update call in place of the shipped functions. each runs its
  * shipped function and the index's own work. they stay out of line, so each
@@ -335,6 +359,13 @@ ALWAYS_INLINE void mesh_store_center(Float *word, Float radius, Float x,
 void collision_mesh_pool_init_indexed(struct collision_mesh *meshes, int count);
 void collision_mesh_take_buckets_indexed(struct collision_mesh *mesh);
 void collision_mesh_free_indexed(struct collision_mesh *mesh);
+#else
+/* The console can index the same mesh list the native port walks. */
+struct box_arena;
+static inline struct box_arena *arena_held(void)
+{
+    return NULL;
+}
 #endif
 #endif
 /* the triangles polygon_sweep has touched */
@@ -1130,6 +1161,9 @@ void polygon_find_near_levels(NJS_POINT3 *pos, Float radius, Float *above,
 
 void collision_mesh_link_pools(void)
 {
+#ifdef NONMATCHING
+    collision_mesh_pressure = FALSE;
+#endif
     polygon_pool_init(polygon_pool, MESH_POLYGONS);
 #ifdef NONMATCHING
     /* the meshes freed here keep their objects. so a slot of the index's
@@ -1157,6 +1191,77 @@ void polygon_pool_seek_free(void)
     }
 }
 
+#ifdef NONMATCHING
+enum { MESH_BATCH_TRIANGLES = 64 };
+
+struct mesh_strip {
+    int kind, count, left, strips;
+    Bool reversed;
+    const Sint16 *indices;
+    const NJS_MODEL *model;
+    NJS_POINT3 points[MESH_BATCH_TRIANGLES + 2];
+};
+
+/* Keep the preceding edge and its winding when a strip crosses a batch. */
+ALWAYS_INLINE Bool mesh_strip_batch(struct mesh_strip *strip,
+                                    const NJS_OBJECT *unturned)
+{
+    int kept = 0;
+    if (strip->left) {
+        strip->reversed ^= (strip->count - 2) & 1;
+        strip->points[0] = strip->points[strip->count - 2];
+        strip->points[1] = strip->points[strip->count - 1];
+        kept = 2;
+    } else {
+        do {
+            if (!strip->strips) {
+                return FALSE;
+            }
+            strip->strips--;
+            strip->reversed = FALSE;
+            if (strip->kind == NJD_MESHSET_3 || strip->kind == NJD_MESHSET_4) {
+                strip->left = strip->kind == NJD_MESHSET_3 ? 3 : 4;
+            } else {
+                Uint16 header = *strip->indices++;
+                strip->left = header & STRIP_COUNT;
+                strip->reversed = (header & NJD_TRIMESH_END) != 0;
+            }
+            if (strip->left < 3) {
+                strip->indices += strip->left;
+            }
+        } while (strip->left < 3);
+    }
+    int count = MESH_BATCH_TRIANGLES + 2 - kept;
+    if (count > strip->left) {
+        count = strip->left;
+    }
+    strip->left -= count;
+    strip->count = kept + count;
+    const Sint16 *indices = strip->indices;
+    NJS_POINT3 *points = strip->model->points;
+    NJS_POINT3 *out = strip->points + kept;
+    if (!unturned) {
+        for (int i = 0; i < count; i++) {
+            njCalcPoint(NULL, &points[*indices++], out++);
+        }
+    } else if (unturned->evalflags & NJD_EVAL_UNIT_POS) {
+        for (int i = 0; i < count; i++) {
+            *out++ = points[*indices++];
+        }
+    } else {
+        Float x = unturned->pos[0], y = unturned->pos[1], z = unturned->pos[2];
+        for (int i = 0; i < count; i++) {
+            const NJS_POINT3 *point = &points[*indices++];
+            out->x = point->x + x;
+            out->y = point->y + y;
+            out->z = point->z + z;
+            out++;
+        }
+    }
+    strip->indices = indices;
+    return TRUE;
+}
+#else
 /* as strip_next does, for a mesh being made */
 static Bool mesh_strip_next(struct strip *strip)
 {
@@ -1193,6 +1298,7 @@ static Bool mesh_strip_next(struct strip *strip)
     }
     return reversed;
 }
+#endif
 
 /* put the triangles of object's own model, through the current matrix, in
  * the buckets of the mesh being made. returns FALSE when the polygons run
@@ -1200,7 +1306,11 @@ static Bool mesh_strip_next(struct strip *strip)
 static Bool mesh_add_model(NJS_OBJECT *object, Sint32 flags,
                            struct collision_mesh *mesh)
 {
+#ifdef NONMATCHING
+    struct mesh_strip strip;
+#else
     struct strip strip;
+#endif
     NJS_MESHSET *meshset;
     NJS_MATERIAL *mats;
     struct polygon *polygon;
@@ -1254,8 +1364,15 @@ static Bool mesh_add_model(NJS_OBJECT *object, Sint32 flags,
         }
         strips = meshset->nbMesh;
         strip.indices = meshset->meshes;
+#ifdef NONMATCHING
+        strip.left = 0;
+        strip.strips = strips;
+        while (mesh_strip_batch(&strip, NULL)) {
+            reversed = strip.reversed;
+#else
         for (; strips > 0; strips--) {
             reversed = mesh_strip_next(&strip);
+#endif
 #ifdef NONMATCHING
             /* this loop makes each value by the shipped loop's operations, on
              * the same operands in the same order. GCC would spill that
@@ -1420,6 +1537,10 @@ static NJS_OBJECT *mesh_add_tree(NJS_OBJECT *object, Sint32 flags,
         child = mesh_add_tree(child, flags, mesh);
     }
     if (!mesh_add_model(object, flags, mesh)) {
+#ifdef NONMATCHING
+        mesh->out_of_polygons = TRUE;
+        collision_mesh_pressure = TRUE;
+#endif
         njPopMatrix(1);
         return NULL;
     }
@@ -1449,9 +1570,76 @@ Float polygon_distance2(Float *from, Float *to)
 }
 
 #ifdef NONMATCHING
-/* past the end of polygon_collect_near's list */
-#define NEAR_END (near_polygons + NEAR_POLYGONS)
+#include "collision/bounds.h"
 
+LINKED_LAST(sweep_sphere_bounds)
+static __attribute__((noinline)) void
+sweep_sphere_bounds(struct sweep_bounds *box, NJS_POINT3 pos, Float radius)
+{
+    sweep_extents(box, pos, (NJS_VECTOR){0}, radius);
+}
+
+LINKED_LAST(sweep_bounds)
+static __attribute__((noinline)) void
+sweep_bounds(struct sweep_bounds *box, const struct polygon_ball *ball)
+{
+    sweep_extents(box, ball->pos, ball->speed, ball->radius);
+}
+
+struct near_cursor {
+    const struct near_group *group;
+    struct polygon *polygon;
+    Uint32 mask;
+    Bool back;
+};
+
+ALWAYS_INLINE struct polygon *near_next(struct near_cursor *cursor)
+{
+    if (cursor->mask == 0) {
+        cursor->polygon = cursor->group->first;
+        cursor->mask = cursor->group++->mask;
+    } else {
+        do {
+            cursor->polygon =
+                cursor->back ? cursor->polygon->prev : cursor->polygon->next;
+            cursor->mask >>= 1;
+        } while (!(cursor->mask & 1));
+    }
+    cursor->mask &= ~1U;
+    return cursor->polygon;
+}
+
+LINKED_LAST(polygon_ball_touches)
+Bool polygon_ball_touches(const struct polygon_ball *ball,
+                          const struct world_object *entry)
+{
+    if (!(ball->radius > 0.0F)) {
+        return FALSE;
+    }
+    struct sweep_bounds box;
+    sweep_bounds(&box, ball);
+    Float radius2 = ball->radius * ball->radius;
+    Float speed2 = capsule_dot(ball->speed, ball->speed);
+    for (struct collision_mesh *mesh = collision_mesh_list; mesh;
+         mesh = mesh->next) {
+        if (!mesh->near_count || (entry && mesh->object != entry->object)) {
+            continue;
+        }
+        struct near_cursor cursor = {.group = mesh->near,
+                                     .back = mesh->near_back};
+        for (int i = 0; i < mesh->near_count; i++) {
+            struct polygon *triangle = near_next(&cursor);
+            if (!sweep_box_misses(&box, triangle->vertex) &&
+                capsule_triangle(triangle->vertex, ball->pos, ball->speed,
+                                 speed2, radius2)) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+#ifdef DREAMCAST
 /* polygon's center and radius, the words from center.x on. FMOV.S takes no
  * displacement, and GCC forms no FMOV.S @Rm+ here. so the asm loads the four
  * words by post-increment */
@@ -1469,61 +1657,128 @@ ALWAYS_INLINE void near_load(const struct polygon *polygon, Float *x, Float *y,
             : "m"(*(const Float(*)[4])word));
 }
 
-/* list at near each polygon of a mesh's window whose center lies near the
- * point. the walk runs forward from polygon to the first center not under
- * high. with back set, it runs back to the first center not over low. a
- * polygon is near where its center's squared distance isn't over
- * (reach2 + radius) * NEAR_SCALE. the distance takes the shipped FMUL and two
- * FMACs. returns past the last polygon listed, which is NEAR_END where the
- * list fills. a polygon's first cache line holds next, prev, center and
- * radius. so the walk prefetches the next one's as it tests this one */
-ALWAYS_INLINE struct polygon **near_walk(struct polygon *polygon, Bool back,
-                                         Float low, Float high, Float x,
-                                         Float y, Float z, Float reach2,
-                                         struct polygon **near)
+#else
+ALWAYS_INLINE void near_load(const struct polygon *polygon, Float *x, Float *y,
+                             Float *z, Float *radius)
 {
-    struct polygon *next;
-    Float center_x;
-    Float center_y;
-    Float center_z;
-    Float radius;
-    Float dx;
-    Float dy;
-    Float dz;
+    *x = polygon->center.x;
+    *y = polygon->center.y;
+    *z = polygon->center.z;
+    *radius = polygon->radius;
+}
+#endif
 
-    for (; polygon != NULL; polygon = next) {
-        near_load(polygon, &center_x, &center_y, &center_z, &radius);
-        if (back ? !(center_z > low) : !(high > center_z)) {
+/* Extra squared distance admitted by the shipped point query. */
+#define HEIGHTS_MARGIN 900.0F
+
+/* what polygon_find_heights does at each polygon of its walk. its squares and
+ * sums are separate FMULs and FADDs, as in mesh.src */
+LINKED_LAST(heights_visit)
+static __attribute__((noinline)) void heights_visit(struct height_query *query,
+                                                    struct polygon *polygon,
+                                                    Sint32 mesh_flags)
+{
+    Float reach = polygon->radius + HEIGHTS_MARGIN;
+    Float x = polygon->center.x - query->pos.x;
+    Float y;
+    Float z;
+
+    x = x * x;
+    if (x > reach) {
+        return;
+    }
+    y = polygon->center.y - query->pos.y;
+    y = y * y;
+    y = y + x;
+    if (y > reach) {
+        return;
+    }
+    z = polygon->center.z - query->pos.z;
+    z = z * z;
+    z = z + y;
+    if (z > reach) {
+        return;
+    }
+    MESH_TEST_HEIGHTS(query, polygon, mesh_flags);
+}
+
+/* centers within a bucket can be in any order. polygon_alloc truncates
+ * before the shift. the end buckets also take every center beyond them */
+ALWAYS_INLINE Float near_bucket_end(const struct collision_mesh *mesh,
+                                    Float bound, Bool back)
+{
+    const int width = 1 << MESH_BUCKET_BITS;
+    const int first = -MESH_BUCKETS / 2, last = MESH_BUCKETS / 2 - 1;
+    Float z = bound - mesh->center.z;
+    int bucket = !(z > first * width) ? first
+                 : z >= last * width  ? last
+                                      : (Sint32)z >> MESH_BUCKET_BITS;
+    if (bucket == (back ? first : last)) {
+        return back ? -__builtin_inff() : __builtin_inff();
+    }
+    Float edge = mesh->center.z + (back ? bucket : bucket + 1) * width;
+    /* truncation brings a negative fraction toward the next whole unit */
+    Float pad = 1.0F + __builtin_fabsf(mesh->center.z) * 0x1p-21F;
+    return back ? edge - pad : edge + pad;
+}
+
+ALWAYS_INLINE struct near_group *near_walk(struct collision_mesh *mesh,
+                                           struct polygon *polygon, Bool back,
+                                           Float start, Float limit, Float x,
+                                           Float y, Float z, Float reach2,
+                                           struct near_group *out)
+{
+    Uint32 bit = 0;
+    struct near_group *first = out;
+    int count = 0;
+    struct polygon *next;
+    struct polygon *end = back ? mesh->polygons->prev : mesh->last->next;
+    while (polygon != end &&
+           (back ? polygon->center.z > start : polygon->center.z < start)) {
+        polygon = back ? polygon->prev : polygon->next;
+    }
+    for (; polygon != end; polygon = next, bit <<= 1) {
+        Float cx, cy, cz, radius;
+        near_load(polygon, &cx, &cy, &cz, &radius);
+        if (back ? cz < limit : cz > limit) {
             break;
         }
         next = back ? polygon->prev : polygon->next;
+        Float dx = cx - x;
+        Float dy = cy - y;
+        Float dz = cz - z;
+#ifdef DREAMCAST
         SHZ_PREFETCH(next);
-        dx = center_x - x;
-        dy = center_y - y;
-        dz = center_z - z;
-        if (__builtin_fmaf(dz, dz, __builtin_fmaf(dx, dx, dy * dy)) >
-            (reach2 + radius) * NEAR_SCALE) {
+        Float distance =
+            __builtin_fmaf(dz, dz, __builtin_fmaf(dx, dx, dy * dy));
+#else
+        Float distance = (dx * dx) + (dy * dy) + (dz * dz);
+#endif
+        /* (a + b) squared is at most twice the sum of the squares. the
+         * margin covers rounding the two squared radii */
+        if (distance > (reach2 + radius) * (2.0F + 0x1p-12F)) {
             continue;
         }
-        *near++ = polygon;
-        if (near == NEAR_END) {
-            break;
+        if (bit == 0) {
+            out->first = polygon;
+            out->mask = 1;
+            out++;
+            bit = 1;
+        } else {
+            out[-1].mask |= bit;
         }
+        count++;
     }
-    return near;
+    mesh->near = count ? first : NULL;
+    mesh->near_count = count;
+    mesh->near_back = back;
+    return out;
 }
 
-/* the shipped list, made from the same words by the same operations. the
- * window's high end is SHC's sum, span plus reach, then z. the shipped C
- * would have GCC add z and span first. the skip to the window steps on while
- * a center isn't over low, as SHC's FCMP/GT tests it. so it steps past a
- * NaN, where the shipped C's <= stops. the ball's point stays in registers.
- * the list's count, and each mesh's place and count in it, are stored after
- * the walk. no code reads them sooner */
 int polygon_collect_near(struct polygon_ball *ball)
 {
-    struct polygon **near = near_polygons;
-    struct polygon **first;
+    struct near_group *out = collision_near_groups;
+    int total = 0;
     struct collision_mesh *mesh;
     struct polygon *polygon;
     struct world_object *object;
@@ -1533,10 +1788,8 @@ int polygon_collect_near(struct polygon_ball *ball)
     Float z = ball->pos.z;
     Float reach = njScalor(&ball->speed) + ball->radius;
     Float reach2 = reach * reach;
-    Float low;
-    Float high;
 
-    world_list_near(x, y, z, ball->radius);
+    world_list_near(x, y, z, reach);
     for (mesh = collision_mesh_list; mesh != NULL; mesh = mesh->next) {
         mesh->near = NULL;
         mesh->near_count = 0;
@@ -1552,35 +1805,29 @@ int polygon_collect_near(struct polygon_ball *ball)
             continue;
         }
         polygon = mesh->polygons;
-        low = z - mesh->span - reach;
-        high = mesh->span + reach + z;
-        if (low > polygon->center.z && mesh->last->center.z > high) {
-            while (!(polygon->center.z > low)) {
-                if ((polygon = polygon->next) == NULL) {
-                    break;
-                }
-            }
+        Bool back = FALSE;
+        Float start = -__builtin_inff(), limit = __builtin_inff();
+        if (mesh->bucketed) {
+            Float low = z - mesh->span - reach;
+            Float high = mesh->span + reach + z;
+            back = !(polygon->center.z > low ||
+                     (low > polygon->center.z && mesh->last->center.z > high));
+            /* the stored centroid uses 0.3333 times the vertex sum. its
+             * drift grows with the absolute world coordinate */
+            Float pad =
+                (__builtin_fabsf(z) + mesh->span + reach + 1.0F) * 0x1p-12F;
+            start = back ? high + pad : low - pad;
+            limit = near_bucket_end(mesh, back ? low - pad : high + pad, back);
         }
-        first = near;
-        if (polygon != NULL && polygon->center.z > low) {
-            near = near_walk(polygon, FALSE, low, high, x, y, z, reach2, near);
-        } else {
-            near =
-                near_walk(mesh->last, TRUE, low, high, x, y, z, reach2, near);
+        if (back) {
+            polygon = mesh->last;
         }
-        if (near != first) {
-            mesh->near = first;
-            mesh->near_count = near - first;
-        }
-        if (near == NEAR_END) {
-            if (debug_hidden >= 0) {
-                njPrintC(NJM_LOCATION(2, 21), "WARNING: NEAR-poly is FULL");
-            }
-            break;
-        }
+        out =
+            near_walk(mesh, polygon, back, start, limit, x, y, z, reach2, out);
+        total += mesh->near_count;
     }
-    near_polygon_count = near - near_polygons;
-    return near_polygon_count;
+    near_polygon_count = total;
+    return total;
 }
 #else
 int polygon_collect_near(struct polygon_ball *ball)
@@ -1712,6 +1959,9 @@ Bool collision_mesh_init(void)
     for (i = MESH_POLYGONS, polygon = polygon_pool; i > 0; i--, polygon++) {
         polygon->radius = 0.0F;
     }
+#ifdef NONMATCHING
+    collision_mesh_pressure = FALSE;
+#endif
     polygon_pool_init(polygon_pool, MESH_POLYGONS);
 #ifdef NONMATCHING
     collision_mesh_pool_init_indexed(mesh_pool, MESHES);
@@ -1725,6 +1975,116 @@ void collision_mesh_collect_all(void)
 {
     mesh_collect_all = TRUE;
 }
+
+#ifdef NONMATCHING
+/* Count the polygons mesh_add_tree would allocate, without transforming
+ * vertices. A model that cannot fit need not be counted to the end. */
+LINKED_LAST(mesh_fits)
+static __attribute__((noinline)) Bool mesh_fits(const NJS_OBJECT *object,
+                                                int *space)
+{
+    for (const NJS_OBJECT *child = object->child; child;
+         child = child->sibling) {
+        if (!mesh_fits(child, space)) {
+            return FALSE;
+        }
+    }
+    const NJS_MODEL *model = object->model;
+    for (int i = 0; i < model->nbMeshset; i++) {
+        const NJS_MESHSET *set = &model->meshsets[i];
+        int type = set->type_matId & NJD_MESHSET_MASK;
+        if (type == NJD_MESHSET_3 || type == NJD_MESHSET_4) {
+            *space -= set->nbMesh * (type == NJD_MESHSET_3 ? 1 : 2);
+        } else {
+            const Sint16 *indices = set->meshes;
+            for (int j = 0; j < set->nbMesh; j++) {
+                int points = *indices & STRIP_COUNT;
+                if (points > 2) {
+                    *space -= points - 2;
+                    if (*space < 0) {
+                        return FALSE;
+                    }
+                }
+                indices += points + 1;
+            }
+        }
+        if (*space < 0) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+enum { MESH_DENIED = 1, MESH_VISITED = 2, MESH_COUNTED = 4 };
+_Static_assert(MESHES < 256, "a pressure slot must fit a one-based mesh index");
+
+LINKED_LAST(mesh_budget_slot)
+static __attribute__((noinline)) unsigned
+mesh_budget_slot(const struct mesh_budget *budget, const NJS_OBJECT *object)
+{
+    unsigned key = (uintptr_t)object / sizeof *object;
+    for (;;) {
+        unsigned slot = key++ % 256;
+        int first = budget->first[slot];
+        if (!first || world_objects[first - 1].object == object) {
+            return slot;
+        }
+    }
+}
+
+/* A deferred object keeps a record without claiming any polygon slots. */
+LINKED_LAST(mesh_add_planned)
+static __attribute__((noinline)) void
+mesh_add_planned(const struct mesh_budget *budget, struct collision_mesh *mesh)
+{
+    unsigned slot = mesh_budget_slot(budget, mesh->object);
+    int first = budget->first[slot];
+    if (!world_objects[first - 1].owner && !(mesh->flags & WORLD_MOVES)) {
+        mesh->plan.rank = first;
+        mesh->plan.demand = budget->demand[slot];
+    }
+    if (budget->state[slot] & MESH_DENIED) {
+        mesh->out_of_polygons = TRUE;
+    } else {
+        mesh_add_tree(mesh->object, mesh->flags, mesh);
+    }
+}
+
+/* Both pool readouts share the same columns and warning color. */
+LINKED_LAST(mesh_print_capacity)
+static __attribute__((noinline)) void
+mesh_print_capacity(int row, const char *label, int percent, int value)
+{
+    njPrintC(NJM_LOCATION(10, row), label);
+    if (percent >= USED_WARNING) {
+        njPrintColor(COLOR_WARNING);
+    }
+    njPrintD(NJM_LOCATION(15, row), percent, 3);
+    njPrintC(NJM_LOCATION(18, row), "%");
+    if (percent >= USED_WARNING) {
+        njPrintColor(COLOR_TEXT);
+    }
+    njPrintD(NJM_LOCATION(20, row), value, 5);
+}
+
+LINKED_LAST(mesh_print_pools)
+static __attribute__((noinline)) void mesh_print_pools(int free, int total,
+                                                       int most)
+{
+    mesh_print_capacity(26, "obj:", 100 - free * 100 / MESHES, MESHES - free);
+    if (free == 0 && debug_hidden >= 0) {
+        njPrintC(NJM_LOCATION(2, 19), "WARNING: OBJECT buf is FULL");
+    }
+    njPrintC(NJM_LOCATION(27, 26), "polMAX:");
+    njPrintD(NJM_LOCATION(35, 26), most, 4);
+    mesh_print_capacity(27, "r-p:", total * 100 / MESH_POLYGONS, total);
+    if (free == 0 && debug_hidden >= 0) {
+        njPrintC(NJM_LOCATION(2, 20), "WARNING: RANGE-poly buf is FULL");
+    }
+}
+
+static Bool mesh_plan_pressure(struct mesh_budget *budget, Bool first);
+#endif
 
 Bool collision_mesh_update(void)
 {
@@ -1748,12 +2108,26 @@ Bool collision_mesh_update(void)
     int total;
     int used;
 
+#ifdef NONMATCHING
+    /* The normal update needs no plan. Reserve its fixed workspace only
+     * after the pool has actually filled. */
+    struct mesh_budget *budget = NULL;
+#endif
     if (!mesh_collect_all) {
         world_collect_near_players();
     } else {
         world_collect_all();
         mesh_collect_all = FALSE;
     }
+#ifdef NONMATCHING
+    if (collision_mesh_pressure) {
+        budget = __builtin_alloca(sizeof *budget);
+        if (!mesh_plan_pressure(budget, FALSE)) {
+            return TRUE;
+        }
+    }
+update_meshes:
+#endif
 #ifdef DREAMCAST
 #ifdef NONMATCHING
     mesh_finds_fill();
@@ -1772,6 +2146,13 @@ Bool collision_mesh_update(void)
             count = MESHES;
         }
         for (entry = world_objects; count > 0; count--, entry++) {
+#ifdef NONMATCHING
+            if (budget &&
+                budget->first[mesh_budget_slot(budget, entry->object)] !=
+                    entry - world_objects + 1) {
+                continue;
+            }
+#endif
             if (entry->flags & WORLD_MOVES) {
                 *object = entry->object;
                 object++;
@@ -1893,18 +2274,36 @@ Bool collision_mesh_update(void)
             dat_8c74872c = mesh_span = 0.0F;
             mesh->object = *object;
             mesh->flags = *flag;
+#ifdef NONMATCHING
+            mesh->polygons = NULL;
+#else
             mesh->polygons = NULL;
             mesh->unk_18 = 0;
+#endif
             mesh->near = NULL;
             mesh->near_count = 0;
+#ifdef NONMATCHING
+            mesh->plan.rank = 0;
+            if (budget) {
+                mesh_add_planned(budget, mesh);
+            } else {
+                mesh_add_tree(*object, *flag, mesh);
+            }
+            object++;
+#else
             mesh_add_tree(*object++, *flag, mesh);
+#endif
 #ifdef NONMATCHING
             collision_mesh_take_buckets_indexed(mesh);
 #else
             collision_mesh_take_buckets(mesh);
 #endif
+#ifdef NONMATCHING
+            mesh->span = mesh_span;
+#else
             mesh->span = mesh_span;
             mesh->unk_2c = dat_8c74872c;
+#endif
             flag++;
         } while (--i > 0);
     }
@@ -1928,6 +2327,9 @@ Bool collision_mesh_update(void)
                 total += count;
             }
         }
+#ifdef NONMATCHING
+        mesh_print_pools(free, total, most);
+#else
         used = 100 - (free * 100 / MESHES);
         njPrintC(NJM_LOCATION(10, 26), "obj:");
         if (used >= USED_WARNING) {
@@ -1963,9 +2365,124 @@ Bool collision_mesh_update(void)
         if (free == 0 && debug_hidden >= 0) {
             njPrintC(NJM_LOCATION(2, 20), "WARNING: RANGE-poly buf is FULL");
         }
+#endif
     }
+#ifdef NONMATCHING
+    if (!budget && collision_mesh_pressure) {
+        budget = __builtin_alloca(sizeof *budget);
+        mesh_plan_pressure(budget, TRUE);
+        goto update_meshes;
+    }
+#endif
     return TRUE;
 }
+
+#ifdef NONMATCHING
+/* A deferred object keeps its mesh record so queries can distinguish pool
+ * pressure from an unknown object. It owns no polygon slots. */
+LINKED_LAST(mesh_plan_pressure)
+static __attribute__((noinline)) Bool
+mesh_plan_pressure(struct mesh_budget *budget, Bool first)
+{
+    int available = collision_polygon_capacity;
+    int i;
+    struct collision_mesh *mesh, *next;
+    world_prioritize_meshes();
+    /* Stable land keeps its transformed polygons. A moving or task-owned
+     * object can change pose or topology without changing its address. */
+    if (!first && mesh_plan_capacity == available && debug_hidden < 0 &&
+        !mesh_stale_object) {
+        int seen = 0;
+        struct collision_mesh *mesh = collision_mesh_list;
+        for (; mesh; mesh = mesh->next) {
+            int rank = mesh->plan.rank - 1;
+            if ((unsigned)rank >= (unsigned)MESH_ENTRIES) {
+                break;
+            }
+            struct world_object *entry = &world_objects[rank];
+            if (!mesh->object || entry->object != mesh->object ||
+                entry->owner || entry->flags != mesh->flags ||
+                (entry->flags & WORLD_MOVES)) {
+                break;
+            }
+            seen++;
+        }
+        if (!mesh && seen == MESH_ENTRIES) {
+            return FALSE;
+        }
+    }
+    /* Charge each tree once, even when several entries reference it. */
+    __builtin_memset(budget, 0, sizeof *budget);
+    for (i = 0; i < MESH_ENTRIES; i++) {
+        unsigned slot = mesh_budget_slot(budget, world_objects[i].object);
+        if (!budget->first[slot]) {
+            budget->first[slot] = i + 1;
+        }
+    }
+    for (mesh = collision_mesh_list; mesh; mesh = mesh->next) {
+        unsigned slot = mesh_budget_slot(budget, mesh->object);
+        int rank = budget->first[slot] - 1;
+        if (rank >= 0 && mesh_plan_capacity == available && mesh->plan.rank &&
+            !world_objects[rank].owner &&
+            !(world_objects[rank].flags & WORLD_MOVES) &&
+            mesh->object != mesh_stale_object) {
+            budget->demand[slot] = mesh->plan.demand;
+            budget->state[slot] = MESH_COUNTED;
+        }
+    }
+    collision_mesh_pressure = FALSE;
+    for (i = 0; i < MESH_ENTRIES; i++) {
+        NJS_OBJECT *object = world_objects[i].object;
+        unsigned slot = mesh_budget_slot(budget, object);
+        if (budget->first[slot] != i + 1) {
+            continue;
+        }
+        int demand = budget->demand[slot];
+        if (!(budget->state[slot] & MESH_COUNTED) ||
+            collision_polygon_capacity >= 65535) {
+            int left = collision_polygon_capacity;
+            demand = mesh_fits(object, &left)
+                         ? collision_polygon_capacity - left
+                         : collision_polygon_capacity + 1;
+            budget->demand[slot] = demand < 65535 ? demand : 65535;
+        }
+        if (demand > available) {
+            budget->state[slot] |= MESH_DENIED;
+            collision_mesh_pressure = TRUE;
+        } else {
+            available -= demand;
+        }
+    }
+    for (mesh = collision_mesh_list; mesh; mesh = next) {
+        next = mesh->next;
+        unsigned slot = mesh_budget_slot(budget, mesh->object);
+        Bool denied = (budget->state[slot] & MESH_DENIED) != 0;
+        int rank = budget->first[slot] - 1;
+        if (rank < 0 || (budget->state[slot] & MESH_VISITED) ||
+            world_objects[rank].flags != mesh->flags ||
+            (world_objects[rank].owner && !denied) ||
+            (first && mesh->out_of_polygons) ||
+            denied != mesh->out_of_polygons) {
+#ifdef DREAMCAST
+            collision_mesh_free_indexed(mesh);
+#else
+            collision_mesh_free(mesh);
+#endif
+        } else {
+            mesh->plan.rank =
+                world_objects[rank].owner || (mesh->flags & WORLD_MOVES)
+                    ? 0
+                    : budget->first[slot];
+            mesh->plan.demand = budget->demand[slot];
+        }
+        if (budget->first[slot]) {
+            budget->state[slot] |= MESH_VISITED;
+        }
+    }
+    mesh_plan_capacity = collision_polygon_capacity;
+    return TRUE;
+}
+#endif
 
 Bool polygon_find_sides(struct sides_query *query, NJS_OBJECT *object,
                         Uint32 flags)
@@ -2179,6 +2696,24 @@ Bool polygon_find_sides(struct sides_query *query, NJS_OBJECT *object,
 }
 
 #ifdef NONMATCHING
+/* Indexed alongside polygon_contacts for the duration of this sweep. */
+static const struct polygon *
+    sweep_faces[POLYGON_CONTACTS] LINKED_LAST_DATA(sweep_faces);
+
+LINKED_LAST(sweep_draw)
+static void sweep_draw(const struct polygon *polygon, shz_vec3_t normal)
+{
+    for (int i = 0; i < 3; i++) {
+        zam_store_vec3(
+            &touch_points[i],
+            shz_vec3_add(zam_load_vec3(polygon->vertex + i), normal));
+    }
+    njDrawTriangle3D(&touch_triangle, 3, NJD_FILL);
+}
+
+#endif
+
+#ifdef NONMATCHING
 /* the index of the meshes that don't move. polygon_find_sides walks a whole
  * mesh, at a cache miss or two a polygon. it looks along z, x and y from each
  * polygon whose first corner is within REACH. polygon.h sends the other
@@ -2253,9 +2788,6 @@ Bool polygon_find_sides(struct sides_query *query, NJS_OBJECT *object,
 #define MESHES_SEEN 64
 /* mesh_boxes.mesh where its mesh is gone */
 #define BOXES_FREE 0xff
-/* what polygon_find_heights adds to a polygon's squared radius for its
- * center's tests, mesh.src's _mesh_margin */
-#define HEIGHTS_MARGIN 900.0F
 /* the most a corner of a mesh with boxes reaches, so its whole units fit a
  * Sint16. a point a search takes boxes for lies within it too */
 #define BOX_FAR 32000.0F
@@ -3071,37 +3603,6 @@ Bool polygon_find_sides_indexed(struct sides_query *query, NJS_OBJECT *object,
     return any;
 }
 
-/* what polygon_find_heights does at each polygon of its walk. its squares and
- * sums are separate FMULs and FADDs, as in mesh.src */
-LINKED_LAST(heights_visit)
-static __attribute__((noinline)) void heights_visit(struct height_query *query,
-                                                    struct polygon *polygon,
-                                                    Sint32 mesh_flags)
-{
-    Float reach = polygon->radius + HEIGHTS_MARGIN;
-    Float x = polygon->center.x - query->pos.x;
-    Float y;
-    Float z;
-
-    x = x * x;
-    if (x > reach) {
-        return;
-    }
-    y = polygon->center.y - query->pos.y;
-    y = y * y;
-    y = y + x;
-    if (y > reach) {
-        return;
-    }
-    z = polygon->center.z - query->pos.z;
-    z = z * z;
-    z = z + y;
-    if (z > reach) {
-        return;
-    }
-    mesh_test_heights(query, polygon, mesh_flags);
-}
-
 /* TRUE where box, or a group, may give polygon_find_heights a surface at the
  * walk's point. that search's test of a polygon works the same edges and
  * normal as the look along y. it wants the edges' products over 0 and the
@@ -3119,107 +3620,42 @@ ALWAYS_INLINE Bool box_heights(const struct box_walk *walk,
                                      (x <= box->span[0] && z <= box->span[2]));
 }
 
-/* the search mesh.h gives the other sources' calls of polygon_find_heights.
- * it takes the shipped walk of the window in its order, to the polygon where
- * it stops. the window holds the polygons whose centers lie within the
- * mesh's span of the point on z. a polygon whose box gives no height goes
- * unread where its group's centers show none stops the walk. an object with
- * no mesh goes to the shipped search. a mesh without whole boxes goes to
- * mesh_find_heights, that search's walk of one mesh */
-LINKED_LAST(polygon_find_heights_indexed)
-Bool polygon_find_heights_indexed(struct height_query *query,
-                                  NJS_OBJECT *object, Uint32 flags)
+/* Group bounds cover every member even when their centers share a bucket
+ * in arbitrary order. Once the group lies beyond the last possible bucket,
+ * every following group in the direction of travel does too. */
+LINKED_LAST(indexed_heights)
+static __attribute__((noinline)) void
+indexed_heights(struct height_query *query, struct box_walk *walk,
+                struct collision_mesh *mesh, Bool back, Float start, Float stop)
 {
-    struct box_arena *arena = arena_held();
-    struct box_walk walk;
-    struct collision_mesh *mesh;
-    struct polygon *polygon;
-    struct polygon_box *boxes;
-    struct group_centers *centers;
-    Sint32 mesh_flags;
-    Float low;
-    Float high;
-    Bool inside;
-    int count;
-    int stop;
-    int at;
-    int g;
-
-    if (arena == NULL) {
-        return polygon_find_heights(query, object, flags);
-    }
-    mesh = index_mesh(arena, object);
-    if (mesh == NULL) {
-        return polygon_find_heights(query, object, flags);
-    }
-    if (!box_walk_start(&walk, arena, mesh, &query->pos)) {
-        return mesh_find_heights(query, mesh);
-    }
-    query->below.found = FALSE;
-    query->above.found = FALSE;
-    query->below.level = query->pos.y - REACH;
-    query->above.level = query->pos.y + REACH;
-    low = query->pos.z - mesh->span;
-    high = query->pos.z + mesh->span;
-    mesh_flags = mesh->flags;
-    boxes = walk.next;
-    count = walk.end - boxes;
-    centers = (struct group_centers *)(walk.end + groups_of(count));
-    at = 0;
-    if (low > mesh->polygons->center.z) {
-        if (!(mesh->last->center.z > high)) {
-            for (at = count - 1; at >= 0;) {
-                g = at / GROUP_BOXES;
-                stop = g * GROUP_BOXES;
-                /* TRUE where none of group g's centers lies under low, so
-                 * none of its polygons stops the walk */
-                inside = (Float)centers[g].low >= low;
-                if (inside && !box_heights(&walk, walk.end + g)) {
-                    at = stop - 1;
-                    continue;
-                }
-                for (; at >= stop; at--) {
-                    if (inside && !box_heights(&walk, &boxes[at])) {
-                        continue;
-                    }
-                    polygon = &polygon_pool[boxes[at].polygon];
-                    if (low > polygon->center.z) {
-                        goto done;
-                    }
-                    heights_visit(query, polygon, mesh_flags);
-                }
-            }
-            goto done;
+    struct polygon_box *boxes = walk->next;
+    int count = walk->end - boxes;
+    int groups = groups_of(count);
+    const struct group_centers *centers =
+        (const struct group_centers *)(walk->end + groups);
+    int step = back ? -1 : 1;
+    int end = back ? -1 : groups;
+    for (int g = back ? groups - 1 : 0; g != end; g += step) {
+        if (back ? centers[g].high < stop : centers[g].low > stop) {
+            break;
         }
-        while (low > polygon_pool[boxes[at].polygon].center.z) {
-            at++;
-        }
-    }
-    while (at < count) {
-        g = at / GROUP_BOXES;
-        stop = (g + 1) * GROUP_BOXES;
-        if (stop > count) {
-            stop = count;
-        }
-        /* TRUE where none of group g's centers reaches high */
-        inside = (Float)centers[g].high <= high;
-        if (inside && !box_heights(&walk, walk.end + g)) {
-            at = stop;
+        if ((back ? centers[g].low > start : centers[g].high < start) ||
+            !box_heights(walk, walk->end + g)) {
             continue;
         }
-        for (; at < stop; at++) {
-            if (inside && !box_heights(&walk, &boxes[at])) {
-                continue;
+        int first = GROUP_BOXES * g;
+        int past = first + GROUP_BOXES;
+        if (past > count) {
+            past = count;
+        }
+        int end_face = back ? first - 1 : past;
+        for (int i = back ? past - 1 : first; i != end_face; i += step) {
+            if (box_heights(walk, &boxes[i])) {
+                heights_visit(query, &polygon_pool[boxes[i].polygon],
+                              mesh->flags);
             }
-            polygon = &polygon_pool[boxes[at].polygon];
-            if (!(high > polygon->center.z)) {
-                goto done;
-            }
-            heights_visit(query, polygon, mesh_flags);
         }
     }
-done:
-    return query->below.found || query->above.found;
 }
 
 /* polygon_sweep's turn, as the shipped code works it. *normal takes the
@@ -3293,79 +3729,61 @@ kept:
     }
 }
 
-/* polygon_sweep's touch of polygon, as the shipped code makes it. the contact
- * comes from the ball's pos and speed in the turned space, the normal and the
- * radius. it goes in touch_polygons with a copy of polygon. returns TRUE where
- * that fills touch_polygons. the sweep runs it seldom, so it stays out of line
- * and links last */
+/* Record this face in world space. The debug draw uses the caller's matrix.
+ * Returning TRUE stops the sweep at the last output slot. */
 LINKED_LAST(sweep_touch)
-static __attribute__((noinline)) Bool sweep_touch(const struct polygon *polygon,
-                                                  const NJS_POINT3 *pos,
-                                                  const NJS_VECTOR *speed,
-                                                  const NJS_VECTOR *normal,
-                                                  Float radius,
-                                                  Uint32 two_sided)
+static __attribute__((noinline)) Bool
+sweep_touch(const struct polygon *polygon, const NJS_POINT3 *pos,
+            const NJS_VECTOR *speed, const NJS_VECTOR *normal, Float radius,
+            Uint32 two_sided, const shz_mat4x4_t *caller)
 {
-    struct touch_polygon *touch = &touch_polygons[touch_polygon_count];
-    struct polygon_contact contact;
+    struct polygon_contact *contact = &polygon_contacts[touch_polygon_count];
     NJS_VECTOR part;
     NJS_POINT3 at;
 
     if (debug_hidden >= 0) {
-        touch_points[0] = polygon->vertex[0];
-        touch_points[1] = polygon->vertex[1];
-        touch_points[2] = polygon->vertex[2];
-        touch_points[0].x += normal->x;
-        touch_points[1].x += normal->x;
-        touch_points[2].x += normal->x;
-        touch_points[0].y += normal->y;
-        touch_points[1].y += normal->y;
-        touch_points[2].y += normal->y;
-        touch_points[0].z += normal->z;
-        touch_points[1].z += normal->z;
-        touch_points[2].z += normal->z;
         njGetMatrix(&touch_matrix);
-        njPopMatrix(1);
-        njDrawTriangle3D(&touch_triangle, 3, NJD_FILL);
-        njPushMatrix(&touch_matrix);
+        shz_xmtrx_load_4x4(caller);
+        sweep_draw(polygon, zam_load_vec3(normal));
+        shz_xmtrx_load_4x4((const shz_mat4x4_t *)&touch_matrix);
     }
-    contact.height = pos->y;
-    contact.height_after = pos->y + speed->y;
-    contact.hit.front = *normal;
+    sweep_faces[touch_polygon_count] = polygon;
+    contact->height = pos->y;
+    contact->height_after = pos->y + speed->y;
+    contact->hit.front = *normal;
     if (two_sided && !(pos->y >= 0.0F)) {
-        contact.hit.normal.x = -normal->x;
-        contact.hit.normal.y = -normal->y;
-        contact.hit.normal.z = -normal->z;
+        contact->hit.normal.x = -normal->x;
+        contact->hit.normal.y = -normal->y;
+        contact->hit.normal.z = -normal->z;
     } else {
-        contact.hit.normal = *normal;
+        contact->hit.normal = *normal;
     }
-    contact.hit.ang_z =
-        -(Angle)(atan2f(contact.hit.normal.x, contact.hit.normal.y) *
+    contact->hit.ang_z =
+        -(Angle)(atan2f(contact->hit.normal.x, contact->hit.normal.y) *
                  ANGLE_PER_RADIAN);
-    contact.hit.ang_x = (Angle)(asinf(contact.hit.normal.z) * ANGLE_PER_RADIAN);
+    contact->hit.ang_x =
+        (Angle)(asinf(contact->hit.normal.z) * ANGLE_PER_RADIAN);
     njInvertMatrix(NULL);
     part.x = pos->x;
     part.y = 0.0F;
     part.z = pos->z;
     njCalcPoint(NULL, &part, &at);
-    contact.hit.point.x = at.x + polygon->vertex[0].x;
-    contact.hit.point.y = at.y + polygon->vertex[0].y;
-    contact.hit.point.z = at.z + polygon->vertex[0].z;
+    contact->hit.point.x = at.x + polygon->vertex[0].x;
+    contact->hit.point.y = at.y + polygon->vertex[0].y;
+    contact->hit.point.z = at.z + polygon->vertex[0].z;
     part.y = radius;
     njCalcPoint(NULL, &part, &at);
-    contact.hit.pos.x = at.x + polygon->vertex[0].x;
-    contact.hit.pos.y = at.y + polygon->vertex[0].y;
-    contact.hit.pos.z = at.z + polygon->vertex[0].z;
+    contact->hit.pos.x = at.x + polygon->vertex[0].x;
+    contact->hit.pos.y = at.y + polygon->vertex[0].y;
+    contact->hit.pos.z = at.z + polygon->vertex[0].z;
     part.x = speed->x;
     part.y = 0.0F;
     part.z = speed->z;
-    njCalcPoint(NULL, &part, &contact.hit.speed);
+    njCalcPoint(NULL, &part, &contact->hit.speed);
     part.x = 0.0F;
     part.y = speed->y;
     part.z = 0.0F;
-    njCalcPoint(NULL, &part, &contact.hit.normal_speed);
-    touch->polygon = *polygon;
-    touch->contact = contact;
+    njCalcPoint(NULL, &part, &contact->hit.normal_speed);
     if (++touch_polygon_count == POLYGON_CONTACTS) {
         if (debug_hidden >= 0) {
             njPrintC(NJM_LOCATION(2, 22), "WARNING: TOUCH-poly buf is FULL");
@@ -3375,41 +3793,3975 @@ static __attribute__((noinline)) Bool sweep_touch(const struct polygon *polygon,
     return FALSE;
 }
 
-/* the shipped sweep, made from the same words by the same operations. the
- * ball's point, speed and radius stay in registers, as nothing the sweep
- * writes is the ball. the shipped code pushes the unit matrix for each
- * triangle and pops it after. where both work, a pop and the next push leave
- * the stack as it was. XMTRX then holds the unit matrix. so once a push works
- * on a stack that held one, later triangles load the unit matrix instead. the
- * last triangle pops. a touch that fills touch_polygons leaves its triangle's
- * matrix pushed, as the shipped break does. the stride's length is tested by
- * its square, as the turn's normal's is */
-Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
+/* Existing overlaps and slides keep the game's half-radius samples. The
+ * whole segment misses the sampled slab if its ends lie beyond one side. */
+ALWAYS_INLINE Bool sweep_samples(const NJS_POINT3 tri[3], const NJS_POINT3 *pos,
+                                 const NJS_VECTOR *speed, Float reach,
+                                 Float length)
+{
+    Float end_y = pos->y + speed->y;
+    NJS_POINT3 at;
+    Float e1, e2, e3;
+    Float spacing = reach * 0.5F;
+    Float travelled = 0.0F;
+    Float squared;
+    NJS_VECTOR stride;
+
+    if ((pos->y > reach && end_y > reach) ||
+        (pos->y < -reach && end_y < -reach)) {
+        return FALSE;
+    }
+    stride = *speed;
+    squared = njScalor2(&stride);
+    if (squared == 0.0F) {
+        stride.x = stride.y = stride.z = 0.0F;
+    } else {
+        zam_store_vec3(&stride, shz_vec3_scale(zam_load_vec3(speed),
+                                               _builtin_fsrra(squared)));
+    }
+    stride.x *= spacing;
+    stride.y *= spacing;
+    stride.z *= spacing;
+    at = *pos;
+    for (;;) {
+        Bool last = travelled >= length;
+        if (last) {
+            at.x = pos->x + speed->x;
+            at.y = end_y;
+            at.z = pos->z + speed->z;
+        }
+        if (njAbs(at.y) <= reach) {
+            e1 = EDGE_SIDE(&tri[0], &tri[1], &at, z, x);
+            e2 = EDGE_SIDE(&tri[1], &tri[2], &at, z, x);
+            e3 = EDGE_SIDE(&tri[2], &tri[0], &at, z, x);
+            if (e1 * e2 >= 0.0F && e2 * e3 >= 0.0F && e1 * e3 >= 0.0F) {
+                return TRUE;
+            }
+        }
+        if (last) {
+            return FALSE;
+        }
+        at.x += stride.x;
+        at.y += stride.y;
+        at.z += stride.z;
+        travelled += spacing;
+    }
+}
+
+#endif
+
+#ifdef NONMATCHING
+/* Test first contact with the actual face. The quantized rotation used for
+ * the game's response can put a shared vertex on the wrong side of an edge.
+ * Measure the sweep relative to the triangle's first vertex. */
+LINKED_LAST(sweep_crosses_face)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+sweep_crosses_face(const struct polygon *polygon,
+                   const struct polygon_ball *ball,
+                   enum polygon_sweep_mode mode)
+{
+    struct impact_triangle face;
+    if (!impact_triangle_init(&face, polygon->vertex)) {
+        return FALSE;
+    }
+    shz_vec3_t pos =
+        shz_vec3_sub(zam_load_vec3(&ball->pos), zam_load_vec3(polygon->vertex));
+    shz_vec3_t speed = zam_load_vec3(&ball->speed);
+    Float height = plane_dot(face.normal, pos),
+          delta = plane_dot(face.normal, speed);
+    if (height < 0.0F && (polygon->attr & NJD_FLAG_DOUBLE_SIDE)) {
+        height = -height;
+        delta = -delta;
+    }
+    Float clearance = height - ball->radius;
+    if (!(clearance > 0.0F && -delta >= clearance) ||
+        (mode == POLYGON_SWEEP_SAMPLES && height + delta >= -ball->radius)) {
+        return FALSE;
+    }
+    Float time = clearance / -delta;
+    return impact_inside(&face, shz_vec3_add(pos, shz_vec3_scale(speed, time)),
+                         ball->radius * 0x1p-16F);
+}
+
+/* Repeated triangles on one plane have a single response. Their stored
+ * height is signed along the winding, even for two-sided geometry. */
+ALWAYS_INLINE Bool sweep_same_plane(int count)
+{
+    const struct polygon_contact *first = &polygon_contacts[0];
+    for (int i = 1; i < count; i++) {
+        const struct polygon_contact *other = &polygon_contacts[i];
+        if (other->hit.normal.x != first->hit.normal.x ||
+            other->hit.normal.y != first->hit.normal.y ||
+            other->hit.normal.z != first->hit.normal.z ||
+            other->hit.front.x != first->hit.front.x ||
+            other->hit.front.y != first->hit.front.y ||
+            other->hit.front.z != first->hit.front.z ||
+            other->height != first->height) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* Only a sphere whose center projects onto the finite face can start a
+ * step constrained by that plane. Edge and vertex contacts have other normals.
+ */
+LINKED_LAST(sweep_start_plane)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+sweep_start_plane(const struct polygon *poly, shz_vec3_t pos, Float radius,
+                  Float tolerance, struct contact_plane *plane)
+{
+    struct impact_triangle face;
+    if (!impact_triangle_init(&face, poly->vertex)) {
+        return FALSE;
+    }
+    shz_vec3_t at = shz_vec3_sub(pos, zam_load_vec3(poly->vertex));
+    shz_vec3_t n = face.normal;
+    Float height = plane_dot(n, at);
+    if (height < 0.0F && (poly->attr & NJD_FLAG_DOUBLE_SIDE)) {
+        n = shz_vec3_scale(n, -1.0F);
+        height = -height;
+    }
+    if (!(height >= 0.0F && height <= radius + tolerance) ||
+        !impact_inside(&face, at, tolerance)) {
+        return FALSE;
+    }
+    *plane = (struct contact_plane){n, radius - height};
+    return TRUE;
+}
+
+static inline Bool normal_before(shz_vec3_t a, shz_vec3_t b)
+{
+    return a.x < b.x ||
+           (a.x == b.x && (a.y < b.y || (a.y == b.y && a.z < b.z)));
+}
+
+LINKED_LAST(sweep_add_plane)
+static __attribute__((noinline)) Bool
+sweep_add_plane(struct contact_plane *planes, int *count, int capacity,
+                struct contact_plane plane)
+{
+    /* Put identical sets through the floating-point solve in the same order. */
+    shz_vec3_t n = plane.normal;
+    int i = 0;
+    for (; i < *count; i++) {
+        shz_vec3_t old = planes[i].normal;
+        if (n.x == old.x && n.y == old.y && n.z == old.z) {
+            if (planes[i].offset < plane.offset) {
+                planes[i].offset = plane.offset;
+            }
+            return TRUE;
+        }
+        if (normal_before(n, old)) {
+            break;
+        }
+    }
+    if (*count == capacity) {
+        return FALSE;
+    }
+    for (int j = *count; j > i; j--) {
+        planes[j] = planes[j - 1];
+    }
+    planes[i] = plane;
+    (*count)++;
+    return TRUE;
+}
+
+LINKED_LAST(sweep_clip_planes)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+sweep_clip_planes(const struct contact_plane *planes, int used,
+                  shz_vec3_t speed, Float radius, Float tolerance,
+                  shz_vec3_t *correction, shz_vec3_t *allowed)
+{
+    /* A crush or a narrow wedge can have no clearance within a diameter.
+     * Hold the center there and allow motion that opens or maintains every
+     * contact, so an open end of the passage remains an escape route. */
+    Bool cleared =
+        planes_project(planes, used, (shz_vec3_t){0}, tolerance, correction) &&
+        plane_dot(*correction, *correction) <= 4.0F * radius * radius;
+    if (!cleared) {
+        *correction = (shz_vec3_t){0};
+    }
+    /* Apply push-out once. Speed can use any clearance that push-out
+     * opened at another face, and can always carry the ball away. */
+    struct contact_plane limits[POLYGON_CONTACTS];
+    for (int i = 0; i < used; i++) {
+        Float gap = planes[i].offset - plane_dot(planes[i].normal, *correction);
+        limits[i] = (struct contact_plane){planes[i].normal,
+                                           cleared && gap < 0.0F ? gap : 0.0F};
+    }
+    if (!planes_project(limits, used, speed, tolerance, allowed)) {
+        /* Every speed constraint admits zero at the resolved center. */
+        *allowed = (shz_vec3_t){0};
+        return FALSE;
+    }
+    return cleared;
+}
+
+/* A sweep also lists triangles encountered later in the step. Only faces
+ * the starting sphere actually overlaps can constrain its initial position. */
+LINKED_LAST(polygon_resolve_corner)
+__attribute__((optimize("fp-contract=off"))) void
+polygon_resolve_corner(struct polygon_ball *ball)
+{
+    struct contact_plane planes[POLYGON_CONTACTS];
+    shz_vec3_t pos = zam_load_vec3(&ball->pos);
+    shz_vec3_t correction, allowed;
+    Float tolerance = ball->radius * (1.0F / 65536.0F);
+    int used = 0;
+    int count = ball->count;
+    /* Filling the output stops the sweep before every face is known. */
+    if (count < 2 || count == POLYGON_CONTACTS || sweep_same_plane(count)) {
+        return;
+    }
+    int i;
+    for (i = 0; i < count; i++) {
+        const struct polygon *poly = sweep_faces[i];
+        struct contact_plane plane;
+        if (!sweep_start_plane(poly, pos, ball->radius, tolerance, &plane)) {
+            return;
+        }
+        sweep_add_plane(planes, &used, POLYGON_CONTACTS, plane);
+    }
+    shz_vec3_t start = shz_vec3_sub(zam_load_vec3(&ball->hit.pos), pos);
+    shz_vec3_t end = shz_vec3_add(start, zam_load_vec3(&ball->hit.speed));
+    i = 0;
+    while (i < used &&
+           plane_dot(planes[i].normal, start) >= planes[i].offset - tolerance &&
+           plane_dot(planes[i].normal, end) >= planes[i].offset - tolerance) {
+        i++;
+    }
+    if (i == used) {
+        return;
+    }
+    sweep_clip_planes(planes, used, zam_load_vec3(&ball->speed), ball->radius,
+                      tolerance, &correction, &allowed);
+    zam_store_vec3(&ball->hit.pos, shz_vec3_add(pos, correction));
+    zam_store_vec3(&ball->hit.speed, allowed);
+    ball->hit.point = polygon_contacts[ball->hit_index].hit.point;
+}
+
+ALWAYS_INLINE struct collision_mesh *sweep_mesh(struct box_arena *arena,
+                                                NJS_OBJECT *object)
+{
+#ifdef DREAMCAST
+    if (arena) {
+        return index_mesh(arena, object);
+    }
+#endif
+    for (struct collision_mesh *mesh = collision_mesh_list; mesh;
+         mesh = mesh->next) {
+        if (mesh->object == object) {
+            return mesh;
+        }
+    }
+    return NULL;
+}
+
+/* The sweep and ground loops keep their copy inline. */
+LINKED_LAST(terrain_mesh)
+static __attribute__((noinline)) struct collision_mesh *
+terrain_mesh(struct box_arena *arena, NJS_OBJECT *object)
+{
+    return sweep_mesh(arena, object);
+}
+
+/* Walk the linked faces until the last bucket that can contain the point.
+ * A list built by direct insertion has no bucket order and no finite stop. */
+LINKED_LAST(list_heights)
+static __attribute__((noinline)) void list_heights(struct height_query *query,
+                                                   struct collision_mesh *mesh,
+                                                   Bool back, Float start,
+                                                   Float stop)
+{
+    struct polygon *polygon = back ? mesh->last : mesh->polygons;
+    const struct polygon *end = back ? mesh->polygons->prev : mesh->last->next;
+    while (polygon != end &&
+           (back ? polygon->center.z > start : polygon->center.z < start)) {
+        polygon = back ? polygon->prev : polygon->next;
+    }
+    for (; polygon != end; polygon = back ? polygon->prev : polygon->next) {
+        Float center = polygon->center.z;
+        if (back ? center < stop : center > stop) {
+            break;
+        }
+        heights_visit(query, polygon, mesh->flags);
+    }
+}
+
+LINKED_LAST(polygon_find_heights_indexed)
+Bool polygon_find_heights_indexed(struct height_query *query,
+                                  NJS_OBJECT *object, Uint32 flags)
+{
+    struct box_arena *arena = arena_held();
+    struct collision_mesh *mesh = sweep_mesh(arena, object);
+    query->below.found = FALSE;
+    query->above.found = FALSE;
+    if (!mesh) {
+        return FALSE;
+    }
+    query->below.level = query->pos.y - REACH;
+    query->above.level = query->pos.y + REACH;
+    if (!mesh->polygons) {
+        return FALSE;
+    }
+    if (mesh->polygons == mesh->last) {
+        heights_visit(query, mesh->polygons, mesh->flags);
+        return query->below.found || query->above.found;
+    }
+    /* Keep the original visit direction for ties. Within a bucket, any
+     * center can precede any other. Only a later bucket can end the walk. */
+    Float z = query->pos.z;
+    Float low = z - mesh->span;
+    Float high = z + mesh->span;
+    Bool back =
+        low > mesh->polygons->center.z && !(mesh->last->center.z > high);
+    /* mesh_add_tree uses 0.3333 for one third when it stores a centroid. */
+    Float pad = (__builtin_fabsf(z) + mesh->span + 1.0F) * 0x1p-12F;
+    low -= pad;
+    high += pad;
+    Float stop = back ? -__builtin_inff() : __builtin_inff();
+    if (mesh->bucketed) {
+        stop = near_bucket_end(mesh, back ? low : high, back);
+    }
+#ifdef DREAMCAST
+    struct box_walk walk;
+    if (arena && mesh->bucketed &&
+        box_walk_start(&walk, arena, mesh, &query->pos)) {
+        indexed_heights(query, &walk, mesh, back, back ? high : low, stop);
+        return query->below.found || query->above.found;
+    }
+#endif
+    list_heights(query, mesh, back, back ? high : low, stop);
+    return query->below.found || query->above.found;
+}
+
+#include "collision/yaw.h"
+
+struct task *polygon_rotating;
+LINKED_LAST(polygon_rotate_with)
+void polygon_rotate_with(struct task *owner,
+                         const struct polygon_yaw_ops *rotation)
+{
+    struct task_forces *forces = (struct task_forces *)owner->force;
+    if (!forces || forces->rotation == rotation) {
+        return;
+    }
+    if (!forces->rotation) {
+        forces->next_rotating = polygon_rotating;
+        polygon_rotating = owner;
+    } else if (!rotation) {
+        struct task_forces *previous = NULL;
+        for (struct task *task = polygon_rotating; task != owner;
+             task = previous->next_rotating) {
+            previous = (struct task_forces *)task->force;
+        }
+        if (previous) {
+            previous->next_rotating = forces->next_rotating;
+        } else {
+            polygon_rotating = forces->next_rotating;
+        }
+        forces->next_rotating = NULL;
+    }
+    forces->rotation = rotation;
+}
+
+struct rotating_hit {
+    struct yaw_contact contact;
+    struct polygon_yaw motion;
+    const struct polygon *tri;
+    struct task *owner;
+    Uint32 flags;
+    Float support_clearance;
+};
+
+/* An object's root sphere encloses its mesh when it has no child or sibling.
+ * Compound meshes take the per-triangle bound below. */
+static Bool yaw_misses(const struct polygon_yaw *pose, shz_vec3_t center,
+                       shz_vec3_t move, Float radius)
+{
+    const NJS_OBJECT *object = pose->object;
+    if (!object->model || object->child || object->sibling) {
+        return FALSE;
+    }
+    Float scale = njAbs(object->scl[0]);
+    for (int i = 1; i < 3; i++) {
+        if (njAbs(object->scl[i]) > scale) {
+            scale = njAbs(object->scl[i]);
+        }
+    }
+    const NJS_POINT3 *c = &object->model->center;
+    Float reach = radius + scale * (object->model->r + njAbs(c->x) +
+                                    njAbs(c->y) + njAbs(c->z));
+    Float length = plane_dot(move, move);
+    Float t = length > 0 ? -plane_dot(center, move) / length : 0;
+    if (t > 0) {
+        center = shz_vec3_add(center, shz_vec3_scale(move, t < 1 ? t : 1));
+    }
+    return plane_dot(center, center) > reach * reach * (1.0F + 0x1p-12F);
+}
+
+LINKED_LAST(rotating_first)
+static enum yaw_result rotating_first(shz_vec3_t center, shz_vec3_t speed,
+                                      Float radius, Float start, Float end,
+                                      struct rotating_hit *hit)
+{
+    struct yaw_hits best = {.contact.time = end,
+                            .unresolved = __builtin_inff(),
+                            .time_tolerance = __builtin_inff()};
+    struct box_arena *arena = arena_held();
+    for (struct task *owner = polygon_rotating; owner;) {
+        struct task_forces *forces = (struct task_forces *)owner->force;
+        struct polygon_yaw pose;
+        forces->rotation->pose(owner, &pose);
+        struct task *current = owner;
+        owner = forces->next_rotating;
+        if (!(current->work->flags & WORLD_TESTED) || !pose.object ||
+            !(pose.turn || pose.travel.x || pose.travel.y || pose.travel.z)) {
+            continue;
+        }
+        shz_vec3_t pivot = zam_load_vec3((const NJS_POINT3 *)pose.object->pos);
+        shz_vec3_t travel = zam_load_vec3(&pose.travel);
+        shz_vec3_t local = shz_vec3_sub(shz_vec3_sub(center, pivot),
+                                        shz_vec3_scale(travel, start));
+        shz_vec3_t relative = shz_vec3_sub(speed, travel);
+        if (yaw_misses(&pose, local, shz_vec3_scale(relative, end - start),
+                       radius)) {
+            continue;
+        }
+        const struct collision_mesh *mesh = terrain_mesh(arena, pose.object);
+        if (!mesh || mesh->out_of_polygons) {
+            hit->contact.safe = hit->contact.time = start;
+            return YAW_UNCERTAIN;
+        }
+        if (!mesh->polygons) {
+            continue;
+        }
+        NJS_VECTOR delta;
+        zam_store_vec3(&delta, relative);
+        struct yaw_path path = {
+            .origin = shz_vec3_sub(local, shz_vec3_scale(relative, start)),
+            .relative = relative,
+            .travel = travel,
+            .turn = (Float)pose.turn,
+            .radius = radius,
+            .tolerance = impact_tolerance(radius, delta)};
+        if (forces->rotation->cast(mesh, pivot, &path, start, end, &best)) {
+            *hit = (struct rotating_hit){best.contact, pose, best.face, current,
+                                         mesh->flags};
+        }
+    }
+    if (best.unresolved <= best.contact.time) {
+        if (best.face &&
+            best.contact.time - best.unresolved <= best.time_tolerance) {
+            if (best.unresolved < hit->contact.safe) {
+                hit->contact.safe = best.unresolved;
+            }
+            return YAW_TOUCH;
+        }
+        hit->contact.safe = hit->contact.time = best.unresolved;
+        return YAW_UNCERTAIN;
+    }
+    return best.face ? YAW_TOUCH : YAW_CLEAR;
+}
+
+/* World entries retain their own flags even when they share a mesh. */
+struct terrain_cursor {
+    struct box_arena *arena;
+    struct near_cursor near;
+    int next, left;
+    Uint32 liquid_mask;
+    Bool ordinary;
+};
+
+LINKED_LAST(terrain_next_triangle)
+static const struct polygon *
+terrain_next_triangle(struct terrain_cursor *cursor)
+{
+    while (!cursor->left) {
+        if (cursor->next == world_count) {
+            return NULL;
+        }
+        const struct world_object *entry = &world_objects[cursor->next++];
+        if (entry->flags & cursor->liquid_mask) {
+            continue;
+        }
+        struct collision_mesh *mesh = sweep_mesh(cursor->arena, entry->object);
+        if (mesh && mesh->near_count) {
+            cursor->near = (struct near_cursor){.group = mesh->near,
+                                                .back = mesh->near_back};
+            cursor->left = mesh->near_count;
+            cursor->ordinary = world_plain_land(entry);
+        }
+    }
+    cursor->left--;
+    return near_next(&cursor->near);
+}
+
+/* Every triangle on a supporting plane shares its clearance, including a
+ * neighbor across a triangulation seam. Compare relative to the start. */
+static inline Bool wall_on_plane(const struct impact_triangle *face,
+                                 shz_vec3_t from,
+                                 const struct contact_plane *planes, int used,
+                                 Float radius, Float tolerance)
+{
+    for (int i = 0; i < used; i++) {
+        Float height = radius - planes[i].offset;
+        int j = 0;
+        for (; j < 3; j++) {
+            shz_vec3_t v = shz_vec3_sub(from, face->v[j]);
+            if (!(njAbs(plane_dot(planes[i].normal, v) - height) <=
+                  tolerance)) {
+                break;
+            }
+        }
+        if (j == 3) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* Unit normals closer than this can represent the same sheet. The vertices
+ * must independently pass its signed-distance test. */
+#define GROUND_PARALLEL 0.99999F
+
+static inline shz_vec3_t ground_face_normal(const struct polygon *tri,
+                                            const struct impact_triangle *face)
+{
+    if ((tri->attr & NJD_FLAG_DOUBLE_SIDE) && face->normal.y < 0.0F) {
+        return shz_vec3_scale(face->normal, -1.0F);
+    }
+    return face->normal;
+}
+
+struct landing {
+    const struct polygon *face;
+    const struct world_object *source, *owner;
+    shz_vec3_t up;
+};
+
+struct stride_contact {
+    shz_vec3_t normal, tangent;
+    Float inward, speed2;
+};
+
+/* All movement within a tick is measured from the original sphere center. */
+struct wall_motion {
+    shz_vec3_t origin, whole, at, velocity, push, normal;
+    Float radius, clearance, floor_y, tolerance, remaining;
+    struct landing land;
+    Float fall_speed, inward;
+    Bool can_land, stride, initial, hit_unclimbable_rim, stalled;
+    Bool owner_probe_hit, hit_moving_rim;
+    Uint32 liquid_mask;
+    struct rotating_hit rotation;
+    const struct polygon *(*next)(struct terrain_cursor *);
+    struct stride_contact *stride_contact;
+};
+
+enum wall_failure { WALL_UNRESOLVED, WALL_FULL, WALL_DEFER };
+
+struct wall_planes {
+    struct contact_plane *plane;
+    int count, capacity;
+    enum wall_failure failure;
+};
+
+static inline Bool wall_add_plane(struct wall_planes *planes,
+                                  struct contact_plane contact)
+{
+    if (sweep_add_plane(planes->plane, &planes->count, planes->capacity,
+                        contact)) {
+        return TRUE;
+    }
+    planes->failure = WALL_FULL;
+    return FALSE;
+}
+
+static inline struct wall_planes
+wall_copy_planes(const struct wall_planes *planes, struct contact_plane *saved)
+{
+    for (int i = 0; i < planes->count; i++) {
+        saved[i] = planes->plane[i];
+    }
+    return (struct wall_planes){saved, planes->count, planes->capacity};
+}
+
+static inline shz_vec3_t wall_relative(const struct wall_motion *motion,
+                                       const struct polygon *tri)
+{
+    return shz_vec3_add(
+        shz_vec3_sub(motion->origin, zam_load_vec3(tri->vertex)), motion->at);
+}
+
+LINKED_LAST(sweep_relative_bounds)
+static __attribute__((noinline)) void
+sweep_relative_bounds(struct sweep_bounds *box, const shz_vec3_t *origin,
+                      shz_vec3_t at, shz_vec3_t move, Float radius)
+{
+    NJS_POINT3 start;
+    NJS_VECTOR speed;
+    zam_store_vec3(&start, shz_vec3_add(*origin, at));
+    zam_store_vec3(&speed, move);
+    sweep_extents(box, start, speed, radius);
+}
+
+static inline void wall_bounds(struct sweep_bounds *box,
+                               const struct wall_motion *motion,
+                               shz_vec3_t move, Float radius)
+{
+    sweep_relative_bounds(box, &motion->origin, motion->at, move, radius);
+}
+
+static inline Bool wall_blocks(const struct terrain_cursor *cursor,
+                               const struct polygon *tri,
+                               const struct impact_triangle *face,
+                               shz_vec3_t from,
+                               const struct wall_motion *motion)
+{
+    return cursor->ordinary && njAbs(face->normal.y) < motion->floor_y &&
+           (!motion->stride || !face->normal.y) &&
+           ((tri->attr & NJD_FLAG_DOUBLE_SIDE) ||
+            plane_dot(face->normal, from) >= -motion->tolerance);
+}
+
+/* A float with magnitude at least 2^23 already has no fractional bits. */
+static inline Float whole_coordinate(Float x)
+{
+    return njAbs(x) < 0x1p23F ? (Float)(int)x : x;
+}
+
+/* A face can span hundreds of units while two impacts are microunits
+ * apart. Keep the sub-unit motion out of the large vertex subtraction. */
+static inline Float sweep_height(shz_vec3_t whole, const struct polygon *tri,
+                                 const struct impact_triangle *face,
+                                 shz_vec3_t from, shz_vec3_t fine)
+{
+    shz_vec3_t n = face->normal;
+    if ((!n.x && (!n.y || !n.z)) || (!n.y && !n.z)) {
+        return plane_dot(n, from);
+    }
+    shz_vec3_t coarse = shz_vec3_sub(whole, zam_load_vec3(tri->vertex));
+    return (plane_dot(coarse, face->cross) + plane_dot(fine, face->cross)) /
+           face->cross_length;
+}
+
+/* Land from above on ordinary terrain. Coplanar neighbors still describe
+ * the same sheet when a wall interrupts the remaining tangent motion. */
+static inline Bool air_floor(const struct wall_motion *motion,
+                             const struct terrain_cursor *cursor, shz_vec3_t up,
+                             Float height)
+{
+    if (!motion->can_land || !cursor->ordinary || up.y < motion->floor_y ||
+        height < 0.0F) {
+        return FALSE;
+    }
+    return height >= motion->radius - motion->tolerance &&
+           (motion->velocity.y < 0.0F || motion->land.face || motion->push.x ||
+            motion->push.y || motion->push.z);
+}
+
+/* Outside the footprint, the top side of a walkable sheet can block the
+ * sphere at its exposed edge without supplying ground under the player. */
+static inline Bool air_floor_rim(const struct wall_motion *motion,
+                                 const struct terrain_cursor *cursor,
+                                 shz_vec3_t up, Float height)
+{
+    return !motion->stride && motion->can_land && cursor->ordinary &&
+           up.y >= motion->floor_y && height >= -motion->tolerance;
+}
+
+/* The step probe can reach a finite floor from its upper side. The
+ * projected path can also cross the footprint after falling below the lip. */
+LINKED_LAST(air_foot_can_step)
+static Bool air_foot_can_step(const struct impact_triangle *face,
+                              shz_vec3_t from, shz_vec3_t move, shz_vec3_t up,
+                              Float height, const struct wall_motion *motion)
+{
+    Float lo, hi;
+    if (!ground_footprint(face, from, move, motion->tolerance, &lo, &hi)) {
+        return FALSE;
+    }
+    Float delta = plane_dot(up, move);
+    Float enter = height + delta * lo;
+    Float leave = height + delta * hi;
+    if (enter < -motion->tolerance && leave < -motion->tolerance) {
+        /* Already embedded in the lip, the foot can still step onto it. */
+        struct contact_plane contact;
+        Float signed_height = up.y == face->normal.y ? height : -height;
+        return height >= -motion->tolerance &&
+               impact_contact_height(face, from, signed_height, motion->radius,
+                                     motion->tolerance,
+                                     &contact) == IMPACT_RIM &&
+               contact.offset > motion->tolerance;
+    }
+    return enter <= motion->clearance || leave <= motion->clearance;
+}
+
+static Bool terrain_same_plane(const struct polygon *anchor, shz_vec3_t up,
+                               const struct polygon *tri, Float tolerance)
+{
+    if (tri == anchor) {
+        return TRUE;
+    }
+    shz_vec3_t origin = zam_load_vec3(anchor->vertex);
+    for (int i = 0; i < 3; i++) {
+        shz_vec3_t relative =
+            shz_vec3_sub(zam_load_vec3(tri->vertex + i), origin);
+        if (njAbs(plane_dot(up, relative)) > tolerance) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static inline Bool landing_same_plane(const struct landing *land,
+                                      const struct polygon *tri, shz_vec3_t up,
+                                      Float tolerance)
+{
+    return plane_dot(up, land->up) >= GROUND_PARALLEL &&
+           terrain_same_plane(land->face, land->up, tri, tolerance);
+}
+
+enum wall_event { WALL_CLEAR, WALL_HIT, WALL_POLICY };
+
+/* Owned terrain keeps its landing and ride response. Its exposed edges
+ * can block an airborne body before either the feet or a face meets it. */
+static inline Bool owned_rims(const struct terrain_cursor *cursor,
+                              const struct wall_motion *motion)
+{
+    const struct world_object *entry = &world_objects[cursor->next - 1];
+    Uint32 allowed = WORLD_SOLID | WORLD_MOVES | WORLD_SIZE | WORLD_TURNED |
+                     WORLD_GRIP_HIGH | WORLD_GRIP_LOW | WORLD_GRIP_LEAST;
+    return !cursor->ordinary && !motion->stride && motion->can_land &&
+           entry->owner && (entry->flags & WORLD_MOVES) &&
+           !(entry->flags & ~allowed) &&
+           (entry->owner->work->flags & WORLD_TESTED);
+}
+
+static Bool rotating_front(const struct world_object *entry);
+
+/* Skip the whole published mesh when its owner supplies a moving cast.
+ * The ordinary walker stays unchanged when the moving list is empty. */
+static const struct polygon *fixed_triangle(struct terrain_cursor *cursor)
+{
+    if (cursor->left) {
+        return terrain_next_triangle(cursor);
+    }
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(cursor))) {
+        if (!rotating_front(&world_objects[cursor->next - 1])) {
+            return tri;
+        }
+        cursor->left = 0;
+    }
+    return NULL;
+}
+
+/* The foot probe can reach a landing before the body hits a wall. Compare
+ * both times on this segment; a slide starts a new search across the world. */
+LINKED_LAST(wall_first_impact)
+static __attribute__((noinline)) enum wall_event
+wall_first_impact(struct wall_motion *motion, shz_vec3_t move, Float *fraction)
+{
+    struct sweep_bounds box;
+    wall_bounds(&box, motion, move, motion->clearance);
+    Float first = 1.0F;
+    Float owner_probe = 2.0F;
+    Bool snap = FALSE;
+    enum wall_event event = WALL_CLEAR;
+    shz_vec3_t fine =
+        shz_vec3_add(shz_vec3_sub(motion->origin, motion->whole), motion->at);
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = motion->liquid_mask};
+    const struct polygon *tri;
+    while ((tri = motion->next(&cursor)) != NULL) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t up = ground_face_normal(tri, &face);
+        /* Tangent travel cannot hit the supporting plane again. The finite
+         * extent of its faces still determines where support ends. */
+        if (motion->land.owner && cursor.ordinary &&
+            landing_same_plane(&motion->land, tri, up, motion->tolerance) &&
+            plane_dot(up, move) >= -motion->tolerance) {
+            continue;
+        }
+        shz_vec3_t from = wall_relative(motion, tri);
+        Bool wall = wall_blocks(&cursor, tri, &face, from, motion);
+        Float signed_height =
+            sweep_height(motion->whole, tri, &face, from, fine);
+        Float above = up.y == face.normal.y ? signed_height : -signed_height;
+        /* A moving solid can lift the body off the floor. While its distance
+         * from that floor increases, the wider foot probe cannot claim it. */
+        if (motion->rotation.owner && cursor.ordinary &&
+            up.y >= motion->floor_y &&
+            above >= motion->radius - motion->tolerance &&
+            plane_dot(up, move) >= 0) {
+            continue;
+        }
+        Bool floor =
+            !wall && !motion->stride && air_floor(motion, &cursor, up, above);
+        Bool owned = owned_rims(&cursor, motion);
+        if (owned) {
+            /* With no physical rim hit, preserve the body's original
+             * response wherever its larger probe would have reached. */
+            Float time;
+            if (!motion->owner_probe_hit && !motion->hit_moving_rim &&
+                impact_time_height(&face, from, move, signed_height,
+                                   motion->clearance, motion->tolerance, FALSE,
+                                   first, &time) &&
+                time < owner_probe) {
+                owner_probe = time;
+            }
+            Bool front = (tri->attr & NJD_FLAG_DOUBLE_SIDE) ||
+                         signed_height >= -motion->tolerance;
+            if (!front) {
+                continue;
+            }
+            /* Descending onto an object's footprint can attach a rider,
+             * even when the sphere reaches a tooth along the way. */
+            if (motion->velocity.y < 0.0F && up.y >= motion->floor_y &&
+                above >= -motion->tolerance &&
+                air_foot_can_step(&face, from, move, up, above, motion)) {
+                first = 0.0F;
+                event = WALL_POLICY;
+                break;
+            }
+        }
+        Bool blocking =
+            owned || wall || floor ||
+            (air_floor_rim(motion, &cursor, up, above) &&
+             !air_foot_can_step(&face, from, move, up, above, motion));
+        /* A physical hit takes precedence. When the feet finish just above
+         * a floor, the character's short landing probe still owns the snap. */
+        if (floor && motion->velocity.y < 0 && !motion->land.face && !snap &&
+            event == WALL_CLEAR) {
+            shz_vec3_t end = shz_vec3_add(from, move);
+            Float height = above + plane_dot(up, move);
+            snap = height > motion->radius + motion->tolerance &&
+                   height <= motion->clearance &&
+                   impact_inside(&face, end, motion->tolerance);
+        }
+        Float radius = blocking ? motion->radius : motion->clearance;
+        Float time;
+        if (impact_time_height(&face, from, move, signed_height, radius,
+                               motion->tolerance, blocking, first, &time) &&
+            (time < first || event == WALL_CLEAR || !blocking)) {
+            event = blocking ? WALL_HIT : WALL_POLICY;
+            first = time;
+            if (!blocking && time == 0.0F) {
+                break;
+            }
+        }
+    }
+    motion->owner_probe_hit |= owner_probe <= first;
+    *fraction = first;
+    return event == WALL_CLEAR && snap ? WALL_POLICY : event;
+}
+
+static Bool ground_prefers(const struct world_object *previous,
+                           const struct world_object *best,
+                           const struct world_object *candidate)
+{
+    if (!best) {
+        return TRUE;
+    }
+    if (previous && (candidate->object == previous->object) !=
+                        (best->object == previous->object)) {
+        return candidate->object == previous->object;
+    }
+    if (candidate->object != best->object) {
+        return (uintptr_t)candidate->object < (uintptr_t)best->object;
+    }
+    return (Uint32)candidate->flags < (Uint32)best->flags;
+}
+
+struct air_contacts {
+    struct landing floor;
+    Bool has_wall_rim, has_unclimbable_rim, rim_blocks, moving_rim;
+    Float floor_offset;
+};
+
+/* Gather faces at the earliest hit before testing their rims. Floor and
+ * moving rims constrain the velocity left after sliding along walls. */
+LINKED_LAST(wall_gather)
+static __attribute__((noinline)) Bool
+wall_gather(const struct wall_motion *motion, const struct wall_planes *faces,
+            struct wall_planes *out, struct air_contacts *hit,
+            const shz_vec3_t *wall_velocity)
+{
+    struct sweep_bounds box;
+    wall_bounds(&box, motion, (shz_vec3_t){0},
+                motion->radius + motion->tolerance);
+    shz_vec3_t fine =
+        shz_vec3_add(shz_vec3_sub(motion->origin, motion->whole), motion->at);
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = motion->liquid_mask};
+    const struct polygon *tri;
+    while ((tri = motion->next(&cursor)) != NULL) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = wall_relative(motion, tri);
+        struct contact_plane contact;
+        Float signed_height =
+            sweep_height(motion->whole, tri, &face, from, fine);
+        enum impact_feature feature =
+            impact_contact_height(&face, from, signed_height, motion->radius,
+                                  motion->tolerance, &contact);
+        if (feature == IMPACT_NONE || (faces && feature != IMPACT_RIM)) {
+            continue;
+        }
+        shz_vec3_t up = ground_face_normal(tri, &face);
+        Float height = up.y == face.normal.y ? signed_height : -signed_height;
+        if (feature == IMPACT_FACE &&
+            (air_floor(motion, &cursor, up, height) ||
+             (motion->initial && motion->can_land && cursor.ordinary &&
+              up.y >= motion->floor_y && height >= 0.0F))) {
+            if (!motion->initial &&
+                njAbs(height - motion->radius) > motion->tolerance) {
+                return FALSE;
+            }
+            const struct world_object *entry = &world_objects[cursor.next - 1];
+            struct landing *land = &hit->floor;
+            if (land->face &&
+                !landing_same_plane(land, tri, up, motion->tolerance)) {
+                return FALSE;
+            }
+            if (ground_prefers(NULL, land->source, entry)) {
+                if (land == &hit->floor) {
+                    hit->floor_offset = motion->radius - height;
+                }
+                *land = (struct landing){tri, entry, entry, up};
+            }
+            continue;
+        }
+        Bool owned = owned_rims(&cursor, motion);
+        if (owned && !(tri->attr & NJD_FLAG_DOUBLE_SIDE) &&
+            signed_height < -motion->tolerance) {
+            continue;
+        }
+        if (owned && feature == IMPACT_FACE) {
+            return FALSE;
+        }
+        Bool unclimbable_rim =
+            feature == IMPACT_RIM &&
+            (owned || air_floor_rim(motion, &cursor, up, height) ||
+             (motion->stride && air_floor(motion, &cursor, up, height)));
+        if (!unclimbable_rim &&
+            !wall_blocks(&cursor, tri, &face, from, motion)) {
+            return FALSE;
+        }
+        if (feature == IMPACT_RIM && !faces) {
+            if (unclimbable_rim) {
+                hit->has_unclimbable_rim = TRUE;
+            } else {
+                hit->has_wall_rim = TRUE;
+            }
+            continue;
+        }
+        if (faces) {
+            if (unclimbable_rim != (wall_velocity != NULL)) {
+                continue;
+            }
+            if (unclimbable_rim) {
+                if (hit->floor.face && landing_same_plane(&hit->floor, tri, up,
+                                                          motion->tolerance)) {
+                    continue;
+                }
+                shz_vec3_t remaining =
+                    shz_vec3_scale(motion->velocity, motion->remaining);
+                if (!owned && air_foot_can_step(&face, from, remaining, up,
+                                                height, motion)) {
+                    return FALSE;
+                }
+                if (contact.offset > motion->tolerance ||
+                    plane_dot(contact.normal, *wall_velocity) <
+                        -motion->tolerance) {
+                    hit->rim_blocks = TRUE;
+                    hit->moving_rim |= owned;
+                }
+            } else if (wall_on_plane(&face, from, faces->plane, faces->count,
+                                     motion->radius, motion->tolerance)) {
+                continue;
+            }
+        }
+        if ((motion->stride && feature == IMPACT_RIM) ||
+            (!unclimbable_rim && njAbs(contact.normal.y) >= motion->floor_y) ||
+            !wall_add_plane(out, contact)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* A supported sphere can already touch the foot probe's larger envelope.
+ * Check ordinary faces at the physical radius. A face met along the push
+ * bounds the new position even when it was clear of the initial sphere. */
+enum push_result { PUSH_CLEAR, PUSH_REFIT, PUSH_DELEGATE };
+
+LINKED_LAST(wall_push_clear)
+static __attribute__((noinline)) enum push_result
+wall_push_clear(const struct wall_motion *motion, shz_vec3_t push,
+                struct wall_planes *contacts)
+{
+    struct sweep_bounds box;
+    wall_bounds(&box, motion, push, motion->clearance);
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = motion->liquid_mask};
+    enum push_result result = PUSH_CLEAR;
+    shz_vec3_t fine =
+        shz_vec3_add(shz_vec3_sub(motion->origin, motion->whole), motion->at);
+    const struct polygon *tri;
+    while ((tri = motion->next(&cursor)) != NULL) {
+        if (sweep_box_misses(&box, tri->vertex)) {
+            continue;
+        }
+        struct impact_triangle face;
+        if (!impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = wall_relative(motion, tri);
+        shz_vec3_t up = ground_face_normal(tri, &face);
+        Float height = sweep_height(motion->whole, tri, &face, from, fine);
+        Float above = up.y == face.normal.y ? height : -height;
+        Bool ordinary =
+            wall_blocks(&cursor, tri, &face, from, motion) ||
+            (cursor.ordinary && motion->can_land && up.y >= motion->floor_y &&
+             above >= -motion->tolerance);
+        Float time;
+        if (!ordinary) {
+            if (impact_time_height(&face, from, push, height, motion->clearance,
+                                   motion->tolerance, FALSE, 1.0F, &time)) {
+                return PUSH_DELEGATE;
+            }
+            continue;
+        }
+        if (wall_on_plane(&face, from, contacts->plane, contacts->count,
+                          motion->radius, motion->tolerance)) {
+            continue;
+        }
+        if (!impact_time_height(&face, from, push, height, motion->radius,
+                                motion->tolerance, TRUE, 1.0F, &time)) {
+            continue;
+        }
+        struct contact_plane contact;
+        shz_vec3_t travel = shz_vec3_scale(push, time);
+        enum impact_feature feature =
+            impact_contact_height(&face, shz_vec3_add(from, travel),
+                                  height + plane_dot(face.normal, travel),
+                                  motion->radius, motion->tolerance, &contact);
+        if (feature == IMPACT_NONE) {
+            return PUSH_DELEGATE;
+        }
+        contact.offset += plane_dot(contact.normal, travel);
+        if (plane_dot(contact.normal, push) >=
+            contact.offset - motion->tolerance) {
+            continue;
+        }
+        if (feature != IMPACT_FACE || !wall_add_plane(contacts, contact)) {
+            return PUSH_DELEGATE;
+        }
+        result = PUSH_REFIT;
+    }
+    return result;
+}
+
+static void landing_advance(struct wall_motion *motion, shz_vec3_t travel);
+
+/* Refit the minimum translation if it would enter another face. No velocity
+ * or support impulse comes from this displacement. The next sweep gathers
+ * the contacts that actually remain at the corrected position. */
+LINKED_LAST(wall_recover)
+static __attribute__((noinline)) Bool wall_recover(struct wall_motion *motion,
+                                                   struct wall_planes *contacts)
+{
+    /* Either side of a collected triangle can add a face during refitting. */
+    int refits = 2 * near_polygon_count;
+    for (int i = 0; i <= refits; i++) {
+        shz_vec3_t push;
+        if (!planes_project(contacts->plane, contacts->count, (shz_vec3_t){0},
+                            motion->tolerance, &push) ||
+            plane_dot(push, push) > 4.0F * motion->radius * motion->radius) {
+            return FALSE;
+        }
+        enum push_result result = wall_push_clear(motion, push, contacts);
+        if (result == PUSH_DELEGATE) {
+            return FALSE;
+        }
+        if (result == PUSH_CLEAR) {
+            if (motion->land.owner) {
+                landing_advance(motion, push);
+                if (!motion->land.owner) {
+                    return FALSE;
+                }
+            }
+            motion->at = shz_vec3_add(motion->at, push);
+            motion->push = push;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* A wall can remove part of the landing velocity too. Project the incoming
+ * velocity once against both constraints, then check whether the ball
+ * actually stays against the supporting face. */
+LINKED_LAST(landing_clip)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+landing_clip(struct wall_motion *motion, struct wall_planes *walls,
+             const struct landing *floor)
+{
+    shz_vec3_t wanted = motion->velocity;
+    Float inward = plane_dot(floor->up, wanted);
+    Bool touching = motion->land.owner != NULL;
+    if (touching && !landing_same_plane(&motion->land, floor->face, floor->up,
+                                        motion->tolerance)) {
+        return FALSE;
+    }
+    Bool level = !floor->up.x && !floor->up.z;
+    shz_vec3_t normal = motion->normal;
+    Float strongest = -motion->tolerance;
+    for (int i = 0; i < walls->count; i++) {
+        struct contact_plane *wall = &walls->plane[i];
+        if (wall->offset > motion->tolerance ||
+            (motion->stride && (normal.x || normal.z) &&
+             plane_dot(normal, wall->normal) < GROUND_PARALLEL)) {
+            return FALSE;
+        }
+        if (wall->normal.y) {
+            level = FALSE;
+        }
+        wall->offset = 0.0F;
+        Float toward = plane_dot(wall->normal, wanted);
+        if (toward < strongest) {
+            normal = wall->normal;
+            strongest = toward;
+        }
+    }
+    shz_vec3_t allowed = wanted;
+    if (level) {
+        if (allowed.y < 0.0F) {
+            allowed.y = 0.0F;
+        }
+    } else if (walls->count) {
+        if (!wall_add_plane(walls, (struct contact_plane){floor->up, 0})) {
+            return FALSE;
+        }
+    } else if (inward < 0.0F) {
+        allowed = shz_vec3_sub(
+            wanted, shz_vec3_scale(floor->up,
+                                   inward / plane_dot(floor->up, floor->up)));
+    }
+    if (walls->count && !planes_project(walls->plane, walls->count, allowed,
+                                        motion->tolerance, &allowed)) {
+        return FALSE;
+    }
+    if (touching && motion->stride_contact &&
+        -strongest > motion->stride_contact->inward &&
+        strongest < -motion->tolerance) {
+        *motion->stride_contact = (struct stride_contact){
+            normal, allowed, -strongest, plane_dot(wanted, wanted)};
+    }
+    if (plane_dot(floor->up, allowed) > motion->tolerance) {
+        motion->land.owner = NULL;
+    } else if (!touching && wanted.y < 0.0F && inward < -motion->tolerance) {
+        motion->land = *floor;
+        motion->fall_speed = wanted.y;
+        motion->inward = inward;
+    }
+    motion->normal = normal;
+    motion->velocity = allowed;
+    return TRUE;
+}
+
+LINKED_LAST(wall_clip_contacts)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+wall_clip_contacts(struct wall_motion *motion, Bool require_overlap,
+                   struct wall_planes *contacts, struct contact_plane *saved)
+{
+    struct air_contacts hit = {0};
+    if (!wall_gather(motion, NULL, contacts, &hit, NULL)) {
+        goto gather_failed;
+    }
+    if (hit.has_wall_rim) {
+        struct wall_planes faces = wall_copy_planes(contacts, saved);
+        if (!wall_gather(motion, &faces, contacts, &hit, NULL)) {
+            goto gather_failed;
+        }
+    }
+    if (hit.has_unclimbable_rim) {
+        struct wall_planes walls = wall_copy_planes(contacts, saved);
+        shz_vec3_t velocity = motion->velocity;
+        if (walls.count && !hit.floor.face) {
+            /* Knuckles keeps his approach to a wall unless an unclimbable
+             * rim also blocks his slide. */
+            for (int i = 0; i < walls.count; i++) {
+                walls.plane[i].offset = 0.0F;
+            }
+            if (!planes_project(walls.plane, walls.count, velocity,
+                                motion->tolerance, &velocity)) {
+                return FALSE;
+            }
+        }
+        if (!wall_gather(motion, &walls, contacts, &hit, &velocity)) {
+            goto gather_failed;
+        }
+    }
+    Bool side_overlap = FALSE;
+    int i;
+    for (i = 0; i < contacts->count; i++) {
+        side_overlap |= contacts->plane[i].offset > motion->tolerance;
+    }
+    if (side_overlap || hit.floor_offset > motion->tolerance) {
+        /* A rising foot can enter a terrace from below. Its step response
+         * still owns that move unless the body also overlaps an obstacle. */
+        if (require_overlap && !side_overlap && motion->velocity.y >= 0.0F) {
+            return FALSE;
+        }
+        if (!motion->initial ||
+            (hit.floor.face &&
+             !wall_add_plane(contacts, (struct contact_plane){
+                                           hit.floor.up, hit.floor_offset}))) {
+            return FALSE;
+        }
+        return wall_recover(motion, contacts);
+    }
+    if (require_overlap) {
+        return FALSE;
+    }
+    if (hit.floor.face) {
+        if (!landing_clip(motion, contacts, &hit.floor)) {
+            return FALSE;
+        }
+        motion->hit_unclimbable_rim |= hit.rim_blocks;
+        motion->hit_moving_rim |= hit.moving_rim;
+        return TRUE;
+    }
+    if (!contacts->count || motion->land.owner) {
+        return FALSE;
+    }
+    Float inward = __builtin_inff();
+    shz_vec3_t normal = motion->normal;
+    for (i = 0; i < contacts->count; i++) {
+        struct contact_plane *plane = &contacts->plane[i];
+        Float dot = plane_dot(plane->normal, motion->velocity);
+        if (dot < inward) {
+            normal = plane->normal;
+            inward = dot;
+        }
+        plane->offset = 0.0F;
+    }
+    if (!planes_project(contacts->plane, contacts->count, motion->velocity,
+                        motion->tolerance, &motion->velocity)) {
+        return FALSE;
+    }
+    motion->normal = normal;
+    motion->hit_unclimbable_rim |= hit.rim_blocks;
+    motion->hit_moving_rim |= hit.moving_rim;
+    return TRUE;
+
+gather_failed:
+    if (contacts->failure != WALL_FULL) {
+        contacts->failure = WALL_DEFER;
+    }
+    return FALSE;
+}
+
+/* A bend can cross many separate faces within one tick. Only repeated
+ * passes at the same time indicate a stalled sweep. The polygon count also
+ * bounds the work when a path repeatedly revisits the same part of a mesh. */
+#define TERRAIN_PROGRESS_INTERVAL 16
+
+static inline Bool terrain_advances(int pass, Float remaining, Float *last)
+{
+    if (!pass || pass % TERRAIN_PROGRESS_INTERVAL) {
+        return TRUE;
+    }
+    if (!(remaining < *last)) {
+        return FALSE;
+    }
+    *last = remaining;
+    return TRUE;
+}
+
+static inline void wall_stop(struct wall_motion *motion)
+{
+    motion->remaining = 0.0F;
+    motion->stalled = TRUE;
+    motion->velocity = (shz_vec3_t){0};
+}
+
+/* Most contacts fit on the stack. Only retry a full manifold when a new
+ * boundary cannot fit. The floor and both sides of a triangle can also
+ * bound an overlap correction after its initial contact. */
+LINKED_LAST(wall_clip_impact)
+static __attribute__((noinline)) Bool
+wall_clip_impact(struct wall_motion *motion, Bool require_overlap)
+{
+    struct contact_plane local[2 * POLYGON_CONTACTS];
+    struct wall_planes planes = {local, 0, POLYGON_CONTACTS};
+    if (wall_clip_contacts(motion, require_overlap, &planes,
+                           local + POLYGON_CONTACTS)) {
+        return TRUE;
+    }
+    if (planes.failure != WALL_FULL) {
+        return FALSE;
+    }
+    int limit = 3 * near_polygon_count + 1;
+    int capacity = POLYGON_CONTACTS;
+    while (capacity < limit) {
+        capacity *= 2;
+        if (capacity > limit) {
+            capacity = limit;
+        }
+        struct contact_plane *space = syMalloc(2 * capacity * sizeof *space);
+        if (!space) {
+            break;
+        }
+        planes = (struct wall_planes){space, 0, capacity};
+        Bool solved = wall_clip_contacts(motion, require_overlap, &planes,
+                                         space + capacity);
+        syFree(space);
+        if (solved) {
+            return TRUE;
+        }
+        if (planes.failure == WALL_DEFER) {
+            return FALSE;
+        }
+        if (planes.failure != WALL_FULL) {
+            break;
+        }
+    }
+    /* A truncated manifold cannot certify more movement. The sweep has
+     * already reached the first impact; retain that pose for this tick. */
+    wall_stop(motion);
+    return TRUE;
+}
+
+/* A touched triangle lies behind the radial contact plane. Over the
+ * remaining time bound how far each of its vertices can cross that plane.
+ * Translation is exact. Yaw's normal acceleration is -omega² dot(arm,n). */
+LINKED_LAST(rotating_clip)
+static Bool rotating_clip(struct wall_motion *motion,
+                          const struct rotating_hit *hit)
+{
+    Float left = motion->remaining;
+    shz_vec3_t n = hit->contact.normal;
+    shz_vec3_t pivot =
+        zam_load_vec3((const NJS_POINT3 *)hit->motion.object->pos);
+    shz_vec3_t travel = zam_load_vec3(&hit->motion.travel);
+    shz_vec3_t center = shz_vec3_sub(
+        shz_vec3_add(shz_vec3_sub(motion->origin, pivot), motion->at),
+        shz_vec3_scale(travel, hit->contact.time));
+    struct yaw_path path = {.turn = hit->motion.turn};
+    struct yaw_sample pose = yaw_at(&path, hit->contact.time);
+    Float omega = path.turn / ANGLE_PER_RADIAN;
+    Float normal_xz = yaw_length(n);
+    Float required = plane_dot(n, hit->contact.velocity);
+    for (int i = 0; left > 0 && i < 3; i++) {
+        shz_vec3_t arm =
+            yaw_turn(shz_vec3_sub(zam_load_vec3(hit->tri->vertex + i), pivot),
+                     pose.sine, pose.cosine);
+        Float clearance =
+            plane_dot(n, shz_vec3_sub(center, arm)) - motion->radius;
+        Float projected = n.x * arm.x + n.z * arm.z;
+        Float max_accel =
+            omega * omega *
+            (njAbs(omega) * left * yaw_length(arm) * normal_xz - projected);
+        Float speed =
+            plane_dot(n, travel) + omega * (n.x * arm.z - n.z * arm.x);
+        Float bound = speed - clearance / left +
+                      (max_accel > 0 ? 0.5F * max_accel * left : 0.0F);
+        if (bound > required) {
+            required = bound;
+        }
+    }
+    struct contact_plane planes[POLYGON_CONTACTS];
+    int count = 1;
+    planes[0] = (struct contact_plane){n, required + motion->tolerance};
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    struct sweep_bounds box;
+    wall_bounds(&box, motion, (shz_vec3_t){0},
+                motion->radius + motion->tolerance);
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = wall_relative(motion, tri);
+        Float height = plane_dot(face.normal, from);
+        if (height < -motion->tolerance &&
+            !(tri->attr & NJD_FLAG_DOUBLE_SIDE)) {
+            continue;
+        }
+        struct contact_plane contact;
+        if (impact_contact_height(&face, from, height, motion->radius,
+                                  motion->tolerance, &contact) == IMPACT_NONE) {
+            continue;
+        }
+        contact.offset = 0;
+        if (!sweep_add_plane(planes, &count, POLYGON_CONTACTS, contact)) {
+            return FALSE;
+        }
+    }
+    shz_vec3_t incoming = shz_vec3_sub(motion->velocity, hit->contact.velocity);
+    if (!planes_project(planes, count, motion->velocity, motion->tolerance,
+                        &motion->velocity)) {
+        return FALSE;
+    }
+    motion->rotation = *hit;
+    if (hit->contact.feature == IMPACT_FACE && n.y >= motion->floor_y &&
+        incoming.y <= 0) {
+        motion->inward = plane_dot(incoming, n);
+        motion->fall_speed = incoming.y;
+        shz_vec3_t relative = shz_vec3_sub(motion->velocity, travel);
+        Float acceleration =
+            njAbs(omega) * (yaw_length(center) + left * yaw_length(relative)) *
+                njAbs(omega) +
+            2 * njAbs(omega) * yaw_length(relative);
+        Float separating =
+            plane_dot(n, shz_vec3_sub(motion->velocity, hit->contact.velocity));
+        motion->rotation.support_clearance =
+            2 * motion->tolerance +
+            left * (separating + 0.5F * left * acceleration);
+    }
+    if (motion->land.owner &&
+        plane_dot(motion->velocity, motion->land.up) > motion->tolerance) {
+        motion->land = (struct landing){0};
+        motion->stride = FALSE;
+    }
+    motion->normal = n;
+    motion->hit_unclimbable_rim = motion->hit_moving_rim = TRUE;
+    return TRUE;
+}
+
+/* The response plane encloses all three moving corners. It can leave a
+ * small gap above the face. Test that final approach against the other
+ * faces in their end poses before putting the feet back on the blade. */
+static Bool rotating_snap_clear(const struct wall_motion *motion,
+                                const struct polygon_yaw *pose,
+                                shz_vec3_t center, shz_vec3_t shift)
+{
+    shz_vec3_t pivot = zam_load_vec3((const NJS_POINT3 *)pose->object->pos);
+    struct yaw_path path = {.turn = pose->turn,
+                            .origin =
+                                shz_vec3_sub(shz_vec3_sub(center, pivot),
+                                             zam_load_vec3(&pose->travel))};
+    if (yaw_misses(pose, path.origin, shift,
+                   motion->radius + motion->tolerance)) {
+        return TRUE;
+    }
+    const struct collision_mesh *mesh =
+        terrain_mesh(arena_held(), pose->object);
+    if (!mesh || mesh->out_of_polygons) {
+        return FALSE;
+    }
+    if (!mesh->polygons) {
+        return TRUE;
+    }
+    struct yaw_sample end = yaw_at(&path, 1);
+    shz_vec3_t move = yaw_turn(shift, -end.sine, end.cosine);
+    struct sweep_bounds box;
+    NJS_VECTOR delta;
+    zam_store_vec3(&delta, move);
+    sweep_relative_bounds(&box, &pivot, end.center, move,
+                          motion->radius + motion->tolerance);
+    Float limit = 1.0F - motion->tolerance / njScalor(&delta);
+    for (const struct polygon *tri = mesh->polygons; tri != mesh->last->next;
+         tri = tri->next) {
+        if (tri == motion->rotation.tri ||
+            sweep_box_misses(&box, tri->vertex)) {
+            continue;
+        }
+        struct impact_triangle face;
+        if (!impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = yaw_from(
+            &path, &end, shz_vec3_sub(zam_load_vec3(tri->vertex), pivot));
+        Float height = plane_dot(face.normal, from);
+        if (!(tri->attr & NJD_FLAG_DOUBLE_SIDE) &&
+            height < -motion->tolerance) {
+            continue;
+        }
+        Float time;
+        if (impact_time_height(&face, from, move, height, motion->radius,
+                               motion->tolerance, TRUE, limit, &time)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* A rim can deflect the body. Only a walkable face under its final
+ * footprint can become the next tick's carrier. */
+static Bool rotating_support(struct wall_motion *motion, shz_vec3_t *up)
+{
+    const struct rotating_hit *hit = &motion->rotation;
+    if (!hit->owner || !hit->support_clearance || motion->stalled ||
+        !motion->can_land || hit->contact.feature != IMPACT_FACE ||
+        hit->contact.normal.y < motion->floor_y) {
+        return FALSE;
+    }
+    shz_vec3_t pivot =
+        zam_load_vec3((const NJS_POINT3 *)hit->motion.object->pos);
+    shz_vec3_t center =
+        shz_vec3_add(shz_vec3_sub(motion->origin, pivot), motion->at);
+    struct yaw_path path = {
+        .turn = hit->motion.turn,
+        .origin = shz_vec3_sub(center, zam_load_vec3(&hit->motion.travel))};
+    struct yaw_sample pose = yaw_at(&path, 1);
+    struct impact_triangle face;
+    if (!impact_triangle_init(&face, hit->tri->vertex)) {
+        return FALSE;
+    }
+    shz_vec3_t from = yaw_from(
+        &path, &pose, shz_vec3_sub(zam_load_vec3(hit->tri->vertex), pivot));
+    shz_vec3_t normal = ground_face_normal(hit->tri, &face);
+    Float gap = plane_dot(normal, from) - motion->radius;
+    if (gap < -2 * motion->tolerance || gap > hit->support_clearance ||
+        gap > motion->radius || impact_outside(&face, from)) {
+        return FALSE;
+    }
+    normal = yaw_turn(normal, pose.sine, pose.cosine);
+    if (gap > 2 * motion->tolerance) {
+        shz_vec3_t shift = shz_vec3_scale(normal, -gap);
+        shz_vec3_t world = shz_vec3_add(motion->origin, motion->at);
+        for (int i = 0; i < world_count; i++) {
+            const struct world_object *entry = &world_objects[i];
+            if (rotating_front(entry) ||
+                (entry->owner && !(entry->owner->work->flags & WORLD_TESTED))) {
+                continue;
+            }
+            struct polygon_yaw fixed = {.object = entry->object};
+            if (!rotating_snap_clear(motion, &fixed, world, shift)) {
+                return FALSE;
+            }
+        }
+        for (struct task *owner = polygon_rotating; owner;) {
+            struct task_forces *forces = (struct task_forces *)owner->force;
+            struct polygon_yaw moving;
+            forces->rotation->pose(owner, &moving);
+            if ((owner->work->flags & WORLD_TESTED) && moving.object &&
+                !rotating_snap_clear(motion, &moving, world, shift)) {
+                return FALSE;
+            }
+            owner = forces->next_rotating;
+        }
+        motion->at = shz_vec3_add(motion->at, shift);
+    }
+    *up = normal;
+    return TRUE;
+}
+
+static Bool rotating_front(const struct world_object *entry)
+{
+    if (!entry->owner) {
+        return FALSE;
+    }
+    for (struct task *task = polygon_rotating; task;) {
+        struct task_forces *forces = (struct task_forces *)task->force;
+        if (entry->owner == task) {
+            struct polygon_yaw pose;
+            forces->rotation->pose(task, &pose);
+            return pose.object == entry->object &&
+                   (pose.turn || pose.travel.x || pose.travel.y ||
+                    pose.travel.z);
+        }
+        task = forces->next_rotating;
+    }
+    return FALSE;
+}
+
+enum wall_result { WALL_SOLVED, WALL_DELEGATE, WALL_WIDEN };
+
+LINKED_LAST(wall_travel)
+static __attribute__((noinline, optimize("fp-contract=off"))) enum wall_result
+wall_travel(struct wall_motion *motion, struct polygon_ball *collected)
+{
+    motion->next = polygon_rotating ? fixed_triangle : terrain_next_triangle;
+    Float reach =
+        njScalor(&collected->speed) + (collected->radius - motion->clearance);
+    shz_vec3_t origin =
+        shz_vec3_sub(motion->origin, zam_load_vec3(&collected->pos));
+    if (reach < 0.0F || plane_dot(origin, origin) > reach * reach) {
+        return WALL_WIDEN;
+    }
+    Float last = motion->remaining;
+    const int limit = TERRAIN_PROGRESS_INTERVAL + 2 * near_polygon_count;
+    for (int hit = 0;
+         hit < limit && terrain_advances(hit, motion->remaining, &last);
+         hit++) {
+        Float time;
+        shz_vec3_t move = shz_vec3_scale(motion->velocity, motion->remaining);
+        motion->initial = hit == 0;
+        enum wall_event event = wall_first_impact(motion, move, &time);
+        struct rotating_hit rotor;
+        enum yaw_result rotating = YAW_CLEAR;
+        if (polygon_rotating && motion->remaining > 0) {
+            Float start = 1.0F - motion->remaining;
+            rotating = rotating_first(shz_vec3_add(motion->origin, motion->at),
+                                      motion->velocity, motion->radius, start,
+                                      start + time * motion->remaining, &rotor);
+            if (rotating != YAW_CLEAR) {
+                time = (rotor.contact.time - start) / motion->remaining;
+                if (time > 1) {
+                    time = 1;
+                }
+                if (time < 0) {
+                    time = 0;
+                }
+            }
+        }
+        motion->initial &= time == 0.0F;
+        shz_vec3_t travel = shz_vec3_scale(move, time);
+        shz_vec3_t next = shz_vec3_add(motion->at, travel);
+        shz_vec3_t extent = shz_vec3_add(origin, next);
+        if (plane_dot(extent, extent) > reach * reach) {
+            return WALL_WIDEN;
+        }
+        if (motion->land.owner) {
+            landing_advance(motion, travel);
+            if (motion->stride && !motion->land.owner) {
+                return WALL_DELEGATE;
+            }
+        }
+        motion->at = next;
+        if (rotating != YAW_CLEAR) {
+            motion->remaining *= 1.0F - time;
+            if (rotating == YAW_UNCERTAIN || !rotating_clip(motion, &rotor)) {
+                motion->hit_moving_rim = TRUE;
+                wall_stop(motion);
+                return WALL_SOLVED;
+            }
+            if (motion->remaining == 0) {
+                return WALL_SOLVED;
+            }
+            continue;
+        }
+        if (event == WALL_POLICY && !motion->initial) {
+            return WALL_DELEGATE;
+        }
+        if (event == WALL_CLEAR) {
+            return WALL_SOLVED;
+        }
+        motion->remaining *= 1.0F - time;
+        /* At the original pose a sole foot-probe hit may coincide with an
+         * actual body overlap. Only a successful positional repair may
+         * restart the query from that pose. */
+        shz_vec3_t at_contact = motion->at;
+        if (!wall_clip_impact(motion, event == WALL_POLICY)) {
+            return WALL_DELEGATE;
+        }
+        extent = shz_vec3_add(origin, motion->at);
+        if (plane_dot(extent, extent) > reach * reach) {
+            motion->push = shz_vec3_sub(motion->push,
+                                        shz_vec3_sub(motion->at, at_contact));
+            motion->at = at_contact;
+            return WALL_WIDEN;
+        }
+        if (motion->remaining == 0.0F) {
+            return WALL_SOLVED;
+        }
+    }
+    wall_stop(motion);
+    return WALL_SOLVED;
+}
+
+LINKED_LAST(polygon_slide_air)
+Bool polygon_slide_air(const struct polygon_ball *ball,
+                       struct polygon_slide *slide,
+                       struct polygon_ball *collected, Float clearance,
+                       Float floor_y, Bool can_land)
+{
+    if (!(ball->radius > 0.0F && clearance >= ball->radius) ||
+        world_count == WORLD_OBJECTS) {
+        return FALSE;
+    }
+    struct wall_motion motion = {
+        .origin = zam_load_vec3(&ball->pos),
+        .velocity = zam_load_vec3(&ball->speed),
+        .remaining = 1.0F,
+        .can_land = can_land,
+        .whole = {.x = whole_coordinate(ball->pos.x),
+                  .y = whole_coordinate(ball->pos.y),
+                  .z = whole_coordinate(ball->pos.z)},
+        .radius = ball->radius,
+        .clearance = clearance,
+        .floor_y = floor_y,
+        .tolerance = impact_tolerance(ball->radius, ball->speed)};
+    enum wall_result result = wall_travel(&motion, collected);
+    Bool widened = result == WALL_WIDEN;
+    if (widened) {
+        struct polygon_ball region = {.pos = ball->pos,
+                                      .speed = ball->speed,
+                                      .radius = 2.0F * ball->radius +
+                                                clearance + motion.tolerance};
+        polygon_collect_near(&region);
+        motion.at = motion.push = motion.normal = (shz_vec3_t){0};
+        motion.land = (struct landing){0};
+        motion.fall_speed = 0;
+        motion.hit_unclimbable_rim = motion.stalled = FALSE;
+        motion.owner_probe_hit = motion.hit_moving_rim = FALSE;
+        motion.rotation = (struct rotating_hit){0};
+        motion.velocity = zam_load_vec3(&ball->speed);
+        motion.remaining = 1.0F;
+        result = world_count < WORLD_OBJECTS ? wall_travel(&motion, &region)
+                                             : WALL_DELEGATE;
+    }
+    if (result == WALL_WIDEN && motion.rotation.owner) {
+        wall_stop(&motion);
+        result = WALL_SOLVED;
+    }
+    if (!motion.stalled && motion.owner_probe_hit && !motion.hit_moving_rim) {
+        result = WALL_DELEGATE;
+    }
+    if (result == WALL_SOLVED) {
+        slide->owner = NULL;
+        slide->support = motion.land.owner ? motion.land.owner->object : NULL;
+        slide->flags = motion.land.owner ? motion.land.owner->flags : 0;
+        slide->fall_speed = motion.fall_speed;
+        slide->hit_unclimbable_rim = motion.hit_unclimbable_rim;
+        slide->stalled = motion.stalled;
+        if (motion.land.owner) {
+            zam_store_vec3(&slide->up, motion.land.up);
+            zam_store_vec3(&slide->normal_speed,
+                           shz_vec3_scale(motion.land.up, motion.inward));
+        }
+        shz_vec3_t up;
+        if (rotating_support(&motion, &up)) {
+            slide->owner = motion.rotation.owner;
+            slide->support = motion.rotation.motion.object;
+            slide->flags = motion.rotation.flags;
+            zam_store_vec3(&slide->up, up);
+            zam_store_vec3(&slide->normal_speed,
+                           shz_vec3_scale(up, motion.inward));
+        }
+        zam_store_vec3(&slide->correction, motion.push);
+        zam_store_vec3(&slide->travel, shz_vec3_sub(motion.at, motion.push));
+        zam_store_vec3(&slide->velocity, motion.velocity);
+        zam_store_vec3(&slide->normal, motion.normal);
+    }
+    if (widened) {
+        polygon_collect_near(collected);
+    }
+    return result == WALL_SOLVED;
+}
+
+/* A private scan leaves both the world's current object list and the
+ * player's collected triangles available to the rest of the movement tick. */
+struct carry_span {
+    const struct polygon *first, *end;
+};
+
+/* Most slides stay inside the first swept box. Remember its triangles so
+ * a contact or crease does not walk the entire mesh again. */
+#define CARRY_CACHED 32
+struct carry_cache {
+    struct sweep_bounds box;
+    const struct polygon *triangles[CARRY_CACHED + 1];
+};
+
+struct carry_path {
+    const struct carry_cache *cache;
+    const struct carry_span *spans;
+    shz_vec3_t origin, whole, at;
+    Float radius, epsilon;
+};
+
+struct carry_scan {
+    const struct polygon *const *cached;
+    const struct carry_span *span;
+    const struct polygon *next, *end;
+    struct sweep_bounds box;
+    shz_vec3_t at, fine;
+};
+
+LINKED_LAST(carry_begin)
+static __attribute__((noinline)) void carry_begin(struct carry_scan *scan,
+                                                  const struct carry_path *path,
+                                                  shz_vec3_t at,
+                                                  shz_vec3_t move)
+{
+    sweep_relative_bounds(&scan->box, &path->origin, at, move,
+                          path->radius + path->epsilon);
+    scan->at = at;
+    scan->fine = shz_vec3_add(shz_vec3_sub(path->origin, path->whole), at);
+    const struct carry_cache *cache = path->cache;
+    scan->cached = NULL;
+    if (cache && scan->box.low.x >= cache->box.low.x &&
+        scan->box.low.y >= cache->box.low.y &&
+        scan->box.low.z >= cache->box.low.z &&
+        scan->box.high.x <= cache->box.high.x &&
+        scan->box.high.y <= cache->box.high.y &&
+        scan->box.high.z <= cache->box.high.z) {
+        scan->cached = cache->triangles;
+    }
+    scan->span = path->spans;
+    scan->next = scan->end = NULL;
+}
+
+LINKED_LAST(carry_next)
+static const struct polygon *carry_next(struct carry_scan *scan)
+{
+    if (scan->cached) {
+        const struct polygon *tri;
+        while ((tri = *scan->cached++)) {
+            if (!sweep_box_misses(&scan->box, tri->vertex)) {
+                return tri;
+            }
+        }
+        return NULL;
+    }
+    for (;;) {
+        while (scan->next == scan->end) {
+            if (!scan->span->first) {
+                return NULL;
+            }
+            scan->next = scan->span->first;
+            scan->end = scan->span++->end;
+        }
+        const struct polygon *tri = scan->next;
+        scan->next = tri->next;
+        if (!sweep_box_misses(&scan->box, tri->vertex)) {
+            return tri;
+        }
+    }
+}
+
+struct carry_face {
+    struct impact_triangle face;
+    shz_vec3_t from;
+    Float height;
+};
+
+LINKED_LAST(carry_face)
+static __attribute__((noinline)) Bool carry_face(const struct carry_path *path,
+                                                 const struct carry_scan *scan,
+                                                 const struct polygon *tri,
+                                                 struct carry_face *f)
+{
+    if (!impact_triangle_init(&f->face, tri->vertex)) {
+        return FALSE;
+    }
+    f->from = shz_vec3_add(
+        shz_vec3_sub(path->origin, zam_load_vec3(tri->vertex)), scan->at);
+    f->height = sweep_height(path->whole, tri, &f->face, f->from, scan->fine);
+    return TRUE;
+}
+
+static inline Bool carry_front(const struct polygon *tri, Float height,
+                               Float epsilon)
+{
+    return (tri->attr & NJD_FLAG_DOUBLE_SIDE) || height >= -epsilon;
+}
+
+/* A sphere already overlapping a sheet can reach the next triangle's edge
+ * while moving along the sheet. Only an exposed rim blocks that motion. */
+LINKED_LAST(carry_covered)
+static __attribute__((noinline)) Bool
+carry_covered(const struct carry_path *path, const struct polygon *rim,
+              shz_vec3_t normal, shz_vec3_t at)
+{
+    struct carry_scan scan;
+    carry_begin(&scan, path, at, (shz_vec3_t){0});
+    const struct polygon *tri;
+    while ((tri = carry_next(&scan))) {
+        struct carry_face f;
+        if (tri != rim && terrain_same_plane(rim, normal, tri, path->epsilon) &&
+            carry_face(path, &scan, tri, &f) &&
+            carry_front(tri, f.height, path->epsilon) &&
+            njAbs(plane_dot(f.face.normal, normal)) >= GROUND_PARALLEL &&
+            impact_inside(&f.face, f.from, path->epsilon)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+LINKED_LAST(carry_first)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+carry_first(struct carry_path *path, shz_vec3_t move, Float *time,
+            struct carry_cache *cache)
+{
+    struct carry_scan scan;
+    carry_begin(&scan, path, path->at, move);
+    const struct polygon *tri;
+    Bool hit = FALSE;
+    int used = 0;
+    while ((tri = carry_next(&scan))) {
+        if (cache) {
+            if (used == CARRY_CACHED) {
+                cache = NULL;
+            } else {
+                cache->triangles[used++] = tri;
+            }
+        }
+        struct carry_face f;
+        Float t;
+        if (!carry_face(path, &scan, tri, &f) ||
+            !impact_time_height(&f.face, f.from, move, f.height, path->radius,
+                                path->epsilon, TRUE, *time, &t)) {
+            continue;
+        }
+        shz_vec3_t step = shz_vec3_scale(move, t);
+        Float height = f.height + plane_dot(f.face.normal, step);
+        if (!carry_front(tri, height, path->epsilon)) {
+            continue;
+        }
+        if (njAbs(height) < path->radius - path->epsilon) {
+            struct contact_plane plane;
+            enum impact_feature feature = impact_contact_height(
+                &f.face, shz_vec3_add(f.from, step), height, path->radius,
+                path->epsilon, &plane);
+            if (feature && ((t == 0.0F &&
+                             plane_dot(plane.normal, move) >= -path->epsilon) ||
+                            (feature == IMPACT_RIM &&
+                             carry_covered(path, tri, f.face.normal,
+                                           shz_vec3_add(path->at, step))))) {
+                continue;
+            }
+        }
+        *time = t;
+        hit = TRUE;
+    }
+    if (cache) {
+        cache->box = scan.box;
+        cache->triangles[used] = NULL;
+        path->cache = cache;
+    }
+    return hit;
+}
+
+/* If the stack fills, each remaining triangle can contribute at most one
+ * more constraint. Count the unvisited candidates before reserving space. */
+LINKED_LAST(carry_planes)
+static __attribute__((noinline)) int carry_planes(const struct carry_path *path,
+                                                  struct wall_planes *planes)
+{
+    struct carry_scan scan;
+    carry_begin(&scan, path, path->at, (shz_vec3_t){0});
+    const struct polygon *tri;
+    while ((tri = carry_next(&scan))) {
+        struct carry_face f;
+        if (!carry_face(path, &scan, tri, &f) ||
+            !carry_front(tri, f.height, path->epsilon)) {
+            continue;
+        }
+        struct contact_plane plane;
+        enum impact_feature feature = impact_contact_height(
+            &f.face, f.from, f.height, path->radius, path->epsilon, &plane);
+        if (feature == IMPACT_NONE ||
+            (feature == IMPACT_RIM &&
+             carry_covered(path, tri, f.face.normal, path->at))) {
+            continue;
+        }
+        plane.offset = 0.0F;
+        if (!wall_add_plane(planes, plane)) {
+            int required = planes->count + 1;
+            while (carry_next(&scan)) {
+                required++;
+            }
+            return required;
+        }
+    }
+    return planes->count;
+}
+
+LINKED_LAST(carry_clip)
+static __attribute__((noinline)) Bool carry_clip(const struct carry_path *path,
+                                                 shz_vec3_t *velocity)
+{
+    struct contact_plane local[POLYGON_CONTACTS];
+    struct wall_planes planes = {local, 0, POLYGON_CONTACTS};
+    int required = carry_planes(path, &planes);
+    if (required <= planes.capacity) {
+        return required && planes_project(local, required, *velocity,
+                                          path->epsilon, velocity);
+    }
+    struct contact_plane *space = syMalloc(required * sizeof *space);
+    if (!space) {
+        return FALSE;
+    }
+    planes = (struct wall_planes){space, 0, required};
+    int count = carry_planes(path, &planes);
+    Bool solved =
+        count && count <= required &&
+        planes_project(space, count, *velocity, path->epsilon, velocity);
+    syFree(space);
+    return solved;
+}
+
+LINKED_LAST(carry_slide)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+carry_slide(struct carry_path *path, shz_vec3_t velocity)
+{
+    struct carry_cache cache;
+    Float remaining = 1.0F;
+    Float last = remaining;
+    for (int i = 0; i < MESH_POLYGONS && terrain_advances(i, remaining, &last);
+         i++) {
+        Float time = 1.0F;
+        shz_vec3_t move = shz_vec3_scale(velocity, remaining);
+        Bool hit = carry_first(path, move, &time, i ? NULL : &cache);
+        path->at = shz_vec3_add(path->at, shz_vec3_scale(move, time));
+        if (!hit || time == 1.0F) {
+            return TRUE;
+        }
+        if (!carry_clip(path, &velocity)) {
+            return FALSE;
+        }
+        if (!velocity.x && !velocity.y && !velocity.z) {
+            return TRUE;
+        }
+        remaining *= 1.0F - time;
+    }
+    return FALSE;
+}
+
+/* Projection against stationary surfaces cannot increase the length of
+ * the requested carry. Its sphere of reach therefore contains every slide. */
+LINKED_LAST(polygon_limit_carry)
+Bool polygon_limit_carry(const NJS_POINT3 *center, Float radius,
+                         NJS_VECTOR *travel)
+{
+    const struct land_table *land = world_collision_land();
+    if (!(radius > 0.0F)) {
+        *travel = (NJS_VECTOR){0};
+        return FALSE;
+    }
+    if (!land || land->count <= 0) {
+        return TRUE;
+    }
+    Float epsilon = impact_tolerance(radius, *travel);
+    Float reach = (njScalor(travel) + radius + epsilon) * (1.0F + 0x1p-20F);
+    shz_vec3_t start = zam_load_vec3(center);
+    const int capacity = land->count < MESHES ? land->count : MESHES;
+    struct carry_span spans[capacity + 1];
+    int used = 0;
+    struct box_arena *arena = arena_held();
+    for (int i = 0; i < land->count; i++) {
+        const struct land_entry *entry = &land->entries[i];
+        /* A wall still blocks a rider when its material changes the
+         * character's own response. Liquid and moving entries keep theirs. */
+        if ((entry->flags & (WORLD_SOLID | WORLD_LIQUID | WORLD_MOVES)) !=
+            WORLD_SOLID) {
+            continue;
+        }
+        shz_vec3_t d = shz_vec3_sub(start, zam_load_vec3(&entry->center));
+        Float bound = reach + entry->radius;
+        if (plane_dot(d, d) > bound * bound * (1.0F + 0x1p-10F)) {
+            continue;
+        }
+        const struct collision_mesh *mesh = terrain_mesh(arena, entry->object);
+        if (!mesh || mesh->out_of_polygons) {
+            *travel = (NJS_VECTOR){0};
+            return FALSE;
+        }
+        if (!mesh->polygons) {
+            continue;
+        }
+        const struct polygon *first = mesh->polygons, *end = mesh->last->next;
+        if (mesh->bucketed) {
+            Float pad =
+                (njAbs(center->z) + mesh->span + reach + 1.0F) * 0x1p-12F;
+            Float low = center->z - mesh->span - reach - pad;
+            Float high = near_bucket_end(
+                mesh, center->z + mesh->span + reach + pad, FALSE);
+            while (first != end && first->center.z < low) {
+                first = first->next;
+            }
+            const struct polygon *stop = first;
+            while (stop != end && stop->center.z <= high) {
+                stop = stop->next;
+            }
+            end = stop;
+        }
+        if (first == end) {
+            continue;
+        }
+        /* Several land entries can name the same object. Each distinct
+         * nonempty span belongs to one of the pool's MESHES records. */
+        int j = 0;
+        while (j < used && spans[j].first != first) {
+            j++;
+        }
+        if (j == used) {
+            spans[used++] = (struct carry_span){first, end};
+        }
+    }
+    if (used) {
+        spans[used] = (struct carry_span){0};
+        struct carry_path path = {.spans = spans,
+                                  .origin = start,
+                                  .whole = {.x = whole_coordinate(start.x),
+                                            .y = whole_coordinate(start.y),
+                                            .z = whole_coordinate(start.z)},
+                                  .radius = radius,
+                                  .epsilon = epsilon};
+        Bool verified = carry_slide(&path, zam_load_vec3(travel));
+        zam_store_vec3(travel, path.at);
+        return verified;
+    }
+    return TRUE;
+}
+
+/* Floors and the wall under Knuckles' hands allow the climb to continue.
+ * An unclimbable object stops the probe without nudging his feet. */
+enum climb_surface { CLIMB_CLEAR, CLIMB_BLOCK, CLIMB_STOP };
+
+static inline enum climb_surface climb_surface(Uint32 flags, shz_vec3_t normal,
+                                               shz_vec3_t up)
+{
+    if (flags & (WORLD_UNCLIMBABLE | WORLD_DEFLECT)) {
+        return CLIMB_STOP;
+    }
+    if (normal.y < -0.86F ||
+        (normal.y < 0.86F && plane_dot(up, normal) <= 0.259F)) {
+        return CLIMB_BLOCK;
+    }
+    return CLIMB_CLEAR;
+}
+
+struct climb_hit {
+    enum climb_surface kind;
+    Float time, distance;
+    shz_vec3_t normal;
+};
+
+static inline Bool climb_before(struct climb_hit a, struct climb_hit b)
+{
+    if (a.kind != b.kind) {
+        return a.kind > b.kind;
+    }
+    if (a.time != b.time) {
+        return a.time < b.time;
+    }
+    if (a.distance != b.distance) {
+        return a.distance < b.distance;
+    }
+    return normal_before(a.normal, b.normal);
+}
+
+/* A rim inside a flat sheet cannot block a climb. A neighbor covers the
+ * rim if it contains the closest point and extends toward the sphere's
+ * projection. The segment to that vertex then starts strictly closer. */
+LINKED_LAST(climb_internal_rim)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+climb_internal_rim(const struct polygon *tri, const struct world_object *entry,
+                   shz_vec3_t normal, shz_vec3_t from, shz_vec3_t radial,
+                   Float tol)
+{
+    shz_vec3_t toward =
+        shz_vec3_sub(radial, shz_vec3_scale(normal, plane_dot(normal, radial)));
+    Float length = njAbs(toward.x) + njAbs(toward.y) + njAbs(toward.z);
+    if (length <= tol) {
+        return FALSE;
+    }
+    shz_vec3_t rim = shz_vec3_sub(from, radial);
+    shz_vec3_t origin = zam_load_vec3(tri->vertex);
+    NJS_POINT3 point;
+    zam_store_vec3(&point, shz_vec3_add(origin, rim));
+    struct sweep_bounds box;
+    sweep_sphere_bounds(&box, point, tol);
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    const struct polygon *other;
+    while ((other = terrain_next_triangle(&cursor))) {
+        if (other == tri || sweep_box_misses(&box, other->vertex)) {
+            continue;
+        }
+        const struct world_object *owner = &world_objects[cursor.next - 1];
+        if (entry != owner && (entry->owner || owner->owner ||
+                               ((entry->flags | owner->flags) & WORLD_MOVES) ||
+                               ((entry->flags ^ owner->flags) &
+                                (WORLD_UNCLIMBABLE | WORLD_DEFLECT)))) {
+            continue;
+        }
+        struct impact_triangle next;
+        if (((tri->attr ^ other->attr) & NJD_FLAG_DOUBLE_SIDE) ||
+            !terrain_same_plane(tri, normal, other, tol) ||
+            !impact_triangle_init(&next, other->vertex)) {
+            continue;
+        }
+        Float facing = plane_dot(normal, next.normal);
+        if ((tri->attr & NJD_FLAG_DOUBLE_SIDE ? njAbs(facing) : facing) <
+            GROUND_PARALLEL) {
+            continue;
+        }
+        shz_vec3_t q = shz_vec3_add(
+            shz_vec3_sub(origin, zam_load_vec3(other->vertex)), rim);
+        if (!impact_inside(&next, q, tol)) {
+            continue;
+        }
+        for (int i = 0; i < 3; i++) {
+            shz_vec3_t direction = shz_vec3_sub(next.v[i], q);
+            Float error = tol * (length + njAbs(direction.x) +
+                                 njAbs(direction.y) + njAbs(direction.z));
+            if (plane_dot(toward, direction) > error) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+struct climb_space {
+    struct sweep_bounds box;
+    shz_vec3_t center, up;
+    Float reach, tolerance;
+};
+
+struct climb_contact {
+    struct contact_plane plane;
+    const struct polygon *rim;
+    const struct world_object *entry;
+    Float distance;
+};
+
+/* The plane at a triangle's nearest point separates the entire triangle.
+ * Its offset is the clearance needed by an overlapping face or the gap an
+ * outside sphere may spend before touching it. */
+LINKED_LAST(climb_plane)
+static __attribute__((noinline, optimize("fp-contract=off"))) Bool
+climb_plane(const struct climb_space *space, const struct polygon *tri,
+            const struct world_object *entry, struct climb_contact *contact)
+{
+    struct contact_plane *plane = &contact->plane;
+    struct impact_triangle face;
+    if (sweep_box_misses(&space->box, tri->vertex) ||
+        !impact_triangle_init(&face, tri->vertex)) {
+        return FALSE;
+    }
+    shz_vec3_t from = shz_vec3_sub(space->center, zam_load_vec3(tri->vertex));
+    Float height = plane_dot(face.normal, from);
+    enum impact_feature feature = impact_contact_height(
+        &face, from, height, space->reach, space->tolerance, plane);
+    if (!feature) {
+        return FALSE;
+    }
+    contact->rim = feature == IMPACT_RIM ? tri : NULL;
+    contact->entry = entry;
+    contact->distance = space->reach - plane->offset;
+    plane->offset -= POLYGON_CLIMB_PUSH;
+    if (plane->offset > 0.0F) {
+        shz_vec3_t normal =
+            height < 0.0F ? shz_vec3_scale(face.normal, -1.0F) : face.normal;
+        if ((height < 0.0F && !(tri->attr & NJD_FLAG_DOUBLE_SIDE)) ||
+            climb_surface(entry->flags, normal, space->up) != CLIMB_BLOCK) {
+            plane->offset = 0.0F;
+        } else if (plane->offset > POLYGON_CLIMB_PUSH) {
+            plane->offset = POLYGON_CLIMB_PUSH;
+        }
+    }
+    return TRUE;
+}
+
+/* Only a rim that would change the correction needs an adjacency check. */
+static Bool climb_exposed(struct climb_contact *contact,
+                          const struct climb_space *space)
+{
+    if (!contact->rim) {
+        return TRUE;
+    }
+    const struct polygon *tri = contact->rim;
+    struct impact_triangle face;
+    impact_triangle_init(&face, tri->vertex);
+    shz_vec3_t from = shz_vec3_sub(space->center, zam_load_vec3(tri->vertex));
+    if (climb_internal_rim(
+            tri, contact->entry, face.normal, from,
+            shz_vec3_scale(contact->plane.normal, contact->distance),
+            space->tolerance)) {
+        return FALSE;
+    }
+    contact->rim = NULL;
+    return TRUE;
+}
+
+/* Add the most violated touching face and solve again. A correction is
+ * accepted only after every collected triangle has checked it. */
+LINKED_LAST(climb_push)
+static __attribute__((noinline, optimize("fp-contract=off"))) void
+climb_push(const struct polygon_ball *ball, shz_vec3_t up, NJS_POINT3 *feet)
+{
+    if (world_count == WORLD_OBJECTS) {
+        return;
+    }
+    struct box_arena *arena = arena_held();
+    for (int i = 0; i < world_count; i++) {
+        struct collision_mesh *mesh =
+            terrain_mesh(arena, world_objects[i].object);
+        if (!mesh || mesh->out_of_polygons) {
+            return;
+        }
+    }
+    struct climb_space space = {.center = zam_load_vec3(&ball->pos),
+                                .up = up,
+                                .reach = ball->radius + POLYGON_CLIMB_PUSH,
+                                .tolerance = ball->radius * 0x1p-16F};
+    sweep_sphere_bounds(&space.box, ball->pos, space.reach);
+    /* A full cache switches later passes back to the mesh. */
+    struct climb_contact nearby[64];
+    struct contact_plane local[POLYGON_CONTACTS], *active = local;
+    int capacity = POLYGON_CONTACTS;
+    int count = 0, saved = 0;
+    Bool complete = TRUE;
+    shz_vec3_t move = {0};
+    for (;;) {
+        struct terrain_cursor cursor = {.arena = arena};
+        struct contact_plane worst = {0};
+        Float deficit = space.tolerance, fraction = 1.0F;
+        int i = 0;
+        for (;;) {
+            struct climb_contact temp, *contact;
+            if (count && complete) {
+                if (i == saved) {
+                    break;
+                }
+                contact = &nearby[i++];
+                if (!contact->entry) {
+                    continue;
+                }
+            } else {
+                const struct polygon *tri = terrain_next_triangle(&cursor);
+                if (!tri) {
+                    break;
+                }
+                contact = &temp;
+                if (!count && complete &&
+                    saved < (int)(sizeof(nearby) / sizeof(*nearby))) {
+                    contact = &nearby[saved];
+                }
+                if (!climb_plane(&space, tri, &world_objects[cursor.next - 1],
+                                 contact)) {
+                    continue;
+                }
+                if (!count) {
+                    if (contact == &temp) {
+                        complete = FALSE;
+                    } else {
+                        saved++;
+                    }
+                }
+            }
+            struct contact_plane plane = contact->plane;
+            Float along = plane_dot(plane.normal, move);
+            if (plane.offset < 0.0F) {
+                if (along < plane.offset) {
+                    Float limit = plane.offset / along;
+                    if (limit < fraction && climb_exposed(contact, &space)) {
+                        fraction = limit;
+                    }
+                }
+                continue;
+            }
+            Float gap = plane.offset - along;
+            if (gap > deficit || (gap == deficit && gap > space.tolerance &&
+                                  normal_before(plane.normal, worst.normal))) {
+                if (climb_exposed(contact, &space)) {
+                    deficit = gap;
+                    worst = plane;
+                } else {
+                    contact->entry = NULL;
+                }
+            }
+        }
+        if (deficit == space.tolerance) {
+            Float squared = plane_dot(move, move);
+            if (squared * fraction * fraction >
+                POLYGON_CLIMB_PUSH * POLYGON_CLIMB_PUSH) {
+                fraction = POLYGON_CLIMB_PUSH / njSqrt(squared);
+            }
+            zam_store_vec3(feet, shz_vec3_add(zam_load_vec3(feet),
+                                              shz_vec3_scale(move, fraction)));
+            break;
+        }
+        int previous = count;
+        if (!sweep_add_plane(active, &count, capacity, worst)) {
+            /* Each triangle supplies at most one normal at a fixed center. */
+            int limit = complete ? saved : near_polygon_count;
+            if (active != local || limit <= count) {
+                break;
+            }
+            struct contact_plane *more = syMalloc(limit * sizeof *more);
+            if (!more) {
+                break;
+            }
+            for (int j = 0; j < count; j++) {
+                more[j] = local[j];
+            }
+            active = more;
+            capacity = limit;
+            continue;
+        }
+        if (count == previous || !planes_project(active, count, (shz_vec3_t){0},
+                                                 space.tolerance, &move)) {
+            break;
+        }
+    }
+    if (active != local) {
+        syFree(active);
+    }
+}
+
+LINKED_LAST(polygon_block_climb)
+__attribute__((optimize("fp-contract=off"))) Bool polygon_block_climb(
+    struct polygon_ball *ball, const NJS_VECTOR *wall_up, NJS_POINT3 *idle_feet)
+{
+    shz_vec3_t up = zam_load_vec3(wall_up);
+    shz_vec3_t start = zam_load_vec3(&ball->pos);
+    shz_vec3_t move = zam_load_vec3(&ball->speed);
+    Float tolerance = impact_tolerance(ball->radius, ball->speed);
+    struct sweep_bounds box;
+    sweep_bounds(&box, ball);
+    struct climb_hit best = {0};
+    Float tangent = (njAbs(move.x) + njAbs(move.y) + njAbs(move.z)) * 0x1p-18F;
+    Bool moving = move.x || move.y || move.z;
+    Bool penetrates = FALSE;
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        Uint32 flags = world_objects[cursor.next - 1].flags;
+        shz_vec3_t from = shz_vec3_sub(start, zam_load_vec3(tri->vertex));
+        Float height = plane_dot(face.normal, from);
+        Bool both = tri->attr & NJD_FLAG_DOUBLE_SIDE;
+        shz_vec3_t normal = height < 0.0F && both
+                                ? shz_vec3_scale(face.normal, -1.0F)
+                                : face.normal;
+        enum climb_surface kind = climb_surface(flags, normal, up);
+        Float delta = plane_dot(face.normal, move);
+        if (kind == CLIMB_CLEAR &&
+            !(both && (height < 0.0F) != (height + delta < 0.0F))) {
+            continue;
+        }
+        if (!both && height < 0.0F && height + delta < 0.0F) {
+            continue;
+        }
+        /* At equal priority only a hit at the start can tie a zero-time
+         * hit. An idle correction still needs evidence of penetration. */
+        struct climb_hit first = {kind, 0.0F, njAbs(height), normal};
+        if (debug_hidden < 0 && kind != CLIMB_CLEAR &&
+            (!idle_feet || penetrates || best.kind == CLIMB_STOP) &&
+            !climb_before(first, best)) {
+            continue;
+        }
+        Float time;
+        struct contact_plane plane;
+        enum impact_feature feature =
+            impact_cast(&face, from, move, height, ball->radius, tolerance,
+                        FALSE, 1.0F, &time, &plane);
+        if (!feature) {
+            continue;
+        }
+        Float at = height + time * delta;
+        if (!both && at < 0.0F) {
+            continue;
+        }
+        if (both && (height < 0.0F) != (at < 0.0F)) {
+            normal = shz_vec3_scale(normal, -1.0F);
+            kind = climb_surface(flags, normal, up);
+        }
+        if (kind == CLIMB_CLEAR) {
+            continue;
+        }
+        if (kind == CLIMB_BLOCK &&
+            (time == 0.0F || (height < 0.0F ? delta : -delta) <= tangent)) {
+            shz_vec3_t pos = from;
+            if (feature == IMPACT_LATER) {
+                pos = shz_vec3_add(from, shz_vec3_scale(move, time));
+                feature = impact_contact_height(&face, pos, at, ball->radius,
+                                                tolerance, &plane);
+            }
+            /* A straight move already separating from a convex triangle
+             * can only increase its distance. */
+            if (time == 0.0F &&
+                (!feature || (moving ? plane_dot(plane.normal, move) >= -tangent
+                                     : plane.offset <= tolerance))) {
+                continue;
+            }
+            if (moving && feature == IMPACT_RIM &&
+                climb_internal_rim(
+                    tri, &world_objects[cursor.next - 1], face.normal, pos,
+                    shz_vec3_scale(plane.normal, ball->radius - plane.offset),
+                    tolerance)) {
+                continue;
+            }
+            if (time == 0.0F && plane.offset > tolerance) {
+                penetrates = TRUE;
+            }
+        }
+        if (debug_hidden >= 0) {
+            NJS_MATRIX caller;
+            njGetMatrix(&caller);
+            sweep_draw(tri, face.normal);
+            njSetMatrix(NULL, &caller);
+        }
+        struct climb_hit hit = {kind, time, njAbs(at), normal};
+        if (climb_before(hit, best)) {
+            best = hit;
+        }
+    }
+    if (best.kind != CLIMB_CLEAR) {
+        zam_store_vec3(&ball->hit.normal, best.normal);
+    }
+    if (best.kind == CLIMB_BLOCK && idle_feet && penetrates) {
+        climb_push(ball, up, idle_feet);
+    }
+    return best.kind != CLIMB_CLEAR;
+}
+
+/* Work in the starting foot's frame. Repeatedly adding a short slide to a
+ * large world coordinate would change the answer when a face is split. */
+struct ground_path {
+    shz_vec3_t origin, center, up, speed;
+    const struct polygon *plane;
+    const struct world_object *owner;
+    Float radius, snap, turn_cosine, epsilon;
+    Uint32 liquid_mask;
+};
+
+/* A two-sided sheet keeps the face the runner was already standing on,
+ * including where a loop turns it past vertical. */
+static inline shz_vec3_t support_normal(const struct polygon *tri,
+                                        const struct impact_triangle *face,
+                                        shz_vec3_t up)
+{
+    if ((tri->attr & NJD_FLAG_DOUBLE_SIDE) && plane_dot(face->normal, up) < 0) {
+        return shz_vec3_scale(face->normal, -1.0F);
+    }
+    return face->normal;
+}
+
+static inline void ground_bounds(struct sweep_bounds *box,
+                                 const struct ground_path *p, shz_vec3_t at,
+                                 shz_vec3_t move, Float radius)
+{
+    sweep_relative_bounds(box, &p->origin, at, move, radius);
+}
+
+static inline shz_vec3_t ground_from(const struct ground_path *path,
+                                     const struct polygon *tri, shz_vec3_t at)
+{
+    return shz_vec3_add(shz_vec3_sub(path->origin, zam_load_vec3(tri->vertex)),
+                        at);
+}
+
+/* The previous owner and normal identify the sheet under the starting foot.
+ * Stacked faces on one object can have the same normal at different heights. */
+LINKED_LAST(ground_anchor)
+static __attribute__((noinline)) Bool ground_anchor(struct ground_path *p,
+                                                    NJS_OBJECT *previous)
+{
+    struct collision_mesh *mesh = sweep_mesh(arena_held(), previous);
+    if (!mesh || !mesh->near_count) {
+        return FALSE;
+    }
+    struct near_cursor cursor = {.group = mesh->near, .back = mesh->near_back};
+    struct sweep_bounds box;
+    ground_bounds(&box, p, (shz_vec3_t){0}, (shz_vec3_t){0},
+                  p->snap + p->epsilon);
+    shz_vec3_t up = p->up;
+    Float nearest = __builtin_inff();
+    Bool ambiguous = FALSE;
+    for (int i = 0; i < mesh->near_count; i++) {
+        const struct polygon *tri = near_next(&cursor);
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t n = support_normal(tri, &face, p->up);
+        if (plane_dot(n, up) < 0.9999F) {
+            continue;
+        }
+        shz_vec3_t from = ground_from(p, tri, (shz_vec3_t){0});
+        Float height = plane_dot(n, from);
+        if (njAbs(height) > p->snap + p->epsilon ||
+            !impact_inside(&face, from, p->epsilon)) {
+            continue;
+        }
+        Float distance = njAbs(height);
+        if (distance < nearest) {
+            ambiguous = FALSE;
+        } else if (distance == nearest) {
+            if (plane_dot(p->up, n) < GROUND_PARALLEL ||
+                !terrain_same_plane(p->plane, p->up, tri, p->epsilon)) {
+                ambiguous = TRUE;
+            }
+            if ((uintptr_t)tri >= (uintptr_t)p->plane) {
+                continue;
+            }
+        } else {
+            continue;
+        }
+        nearest = distance;
+        p->plane = tri;
+        p->up = n;
+        p->center = shz_vec3_scale(n, p->radius - height);
+    }
+    return p->plane && !ambiguous;
+}
+
+/* A sphere moving on the support's offset plane can graze an edge of a
+ * triangle below it. That edge cannot block the tangent motion. */
+static Bool ground_below_plane(const struct ground_path *p,
+                               const struct polygon *tri, shz_vec3_t contact)
+{
+    for (int i = 0; i < 3; i++) {
+        shz_vec3_t from = shz_vec3_sub(
+            shz_vec3_sub(zam_load_vec3(tri->vertex + i), p->origin), contact);
+        if (plane_dot(p->up, from) > p->epsilon) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* The snap that finds a starting sheet must also leave the body a clear
+ * route to that sheet. An overhang or a moving solid can occupy this space. */
+LINKED_LAST(ground_snap_clear)
+static __attribute__((noinline)) Bool ground_snap_clear(
+    const struct ground_path *p, shz_vec3_t original, shz_vec3_t contact)
+{
+    shz_vec3_t correction = shz_vec3_sub(p->center, original);
+    if (plane_dot(correction, correction) <= p->epsilon * p->epsilon) {
+        return TRUE;
+    }
+    struct sweep_bounds box;
+    ground_bounds(&box, p, original, correction, p->radius + p->epsilon);
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = p->liquid_mask};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        if (sweep_box_misses(&box, tri->vertex)) {
+            continue;
+        }
+        struct impact_triangle face;
+        if (!impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        Float facing = plane_dot(p->up, face.normal);
+        if (p->plane && cursor.ordinary &&
+            (facing > GROUND_PARALLEL || ((tri->attr & NJD_FLAG_DOUBLE_SIDE) &&
+                                          facing < -GROUND_PARALLEL)) &&
+            terrain_same_plane(p->plane, p->up, tri, p->epsilon)) {
+            continue;
+        }
+        Float t;
+        if (impact_time(&face, ground_from(p, tri, original), correction,
+                        p->radius, p->epsilon, FALSE, 1.0F, &t)) {
+            if (cursor.ordinary && ground_below_plane(p, tri, contact) &&
+                plane_dot(p->up, shz_vec3_sub(original, contact)) >=
+                    p->radius - p->epsilon &&
+                plane_dot(p->up, shz_vec3_sub(p->center, contact)) >=
+                    p->radius - p->epsilon) {
+                continue;
+            }
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+struct ground_event {
+    const struct world_object *owner;
+    const struct polygon *tri;
+    shz_vec3_t up;
+    Float time;
+    Bool blocked;
+};
+
+/* A long strip can arrive as more disjoint spans than fit in the workspace.
+ * Scan its remaining suffix only if a discarded interval can extend the
+ * connected prefix. Each pass reaches farther or establishes the first gap. */
+LINKED_LAST(ground_extend)
+static Float ground_extend(const struct ground_path *p, shz_vec3_t foot,
+                           shz_vec3_t move, Float from,
+                           const struct world_object **end_owner)
+{
+    struct sweep_bounds box;
+    ground_bounds(&box, p, foot, move, p->epsilon);
+    for (;;) {
+        struct ground_spans spans;
+        spans.count = 0;
+        spans.omitted = 1.0F;
+        struct terrain_cursor cursor = {.arena = arena_held()};
+        const struct polygon *tri;
+        while ((tri = terrain_next_triangle(&cursor))) {
+            struct impact_triangle face;
+            if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex) ||
+                !terrain_same_plane(p->plane, p->up, tri, p->epsilon) ||
+                !impact_triangle_init(&face, tri->vertex) ||
+                plane_dot(support_normal(tri, &face, p->up), p->up) <
+                    GROUND_PARALLEL) {
+                continue;
+            }
+            Float lo, hi;
+            if (ground_interval(&face, ground_from(p, tri, foot), move,
+                                p->epsilon, &lo, &hi) &&
+                hi > from) {
+                ground_add_span(&spans, lo < from ? from : lo, hi);
+                const struct world_object *entry =
+                    &world_objects[cursor.next - 1];
+                if (end_owner && hi == 1 &&
+                    ground_prefers(p->owner, *end_owner, entry)) {
+                    *end_owner = entry;
+                }
+            }
+        }
+        Float end = ground_prefix(&spans, from);
+        if (end == from || end >= 1.0F || end < spans.omitted) {
+            return end;
+        }
+        from = end;
+    }
+}
+
+/* A single-sided face only blocks from its front. When testing a raised
+ * stance, skip the tread and the material beneath its supporting plane. */
+LINKED_LAST(step_clear_fraction)
+static __attribute__((cold)) Float
+step_clear_fraction(const struct ground_path *p, shz_vec3_t at,
+                    shz_vec3_t travel, const shz_vec3_t *tread, Bool *underside)
+{
+    struct sweep_bounds box;
+    ground_bounds(&box, p, at, travel, p->radius + p->epsilon);
+    Float first = 1.0F;
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = p->liquid_mask};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            (tread && ground_below_plane(p, tri, *tread)) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = ground_from(p, tri, at);
+        Float height = plane_dot(face.normal, from);
+        Float time;
+        if (height < -p->epsilon && !(tri->attr & NJD_FLAG_DOUBLE_SIDE)) {
+            if (underside && face.normal.y > 0 &&
+                impact_time_height(&face, from, travel, height, p->radius,
+                                   p->epsilon, FALSE, 1, &time)) {
+                *underside = TRUE;
+            }
+            continue;
+        }
+        if (impact_time_height(&face, from, travel, height, p->radius,
+                               p->epsilon, TRUE, first, &time)) {
+            first = time;
+        }
+    }
+    return first;
+}
+
+/* If reaching a raised tread would press the body into an overhang,
+ * its exposed rim blocks the approach on the lower floor. */
+LINKED_LAST(polygon_step_clearance)
+__attribute__((cold)) Bool polygon_step_clearance(
+    const struct polygon_ball *body, NJS_OBJECT *previous, Float turn_cosine,
+    Uint32 liquid_mask, struct ground_step *step)
+{
+    if (body->normal.x || body->normal.y != 1 || body->normal.z ||
+        body->speed.y) {
+        return FALSE;
+    }
+    struct ground_path p = {.origin = zam_load_vec3(&body->pos),
+                            .center = {.y = body->radius},
+                            .speed = zam_load_vec3(&body->speed),
+                            .up = {.y = 1},
+                            .liquid_mask = liquid_mask,
+                            .radius = body->radius,
+                            .epsilon =
+                                impact_tolerance(body->radius, body->speed)};
+    struct polygon_ball region = *body;
+    region.pos.y += p.radius;
+    /* A rim can lie one radius ahead of first contact and one radius up. */
+    region.radius =
+        (p.speed.x || p.speed.z ? 3 * p.radius : p.radius) + p.epsilon;
+    if (!polygon_collect_near(&region) || world_count == WORLD_OBJECTS) {
+        return FALSE;
+    }
+    struct box_arena *arena = arena_held();
+    for (int i = 0; i < world_count; i++) {
+        if (world_objects[i].flags & liquid_mask) {
+            continue;
+        }
+        const struct collision_mesh *mesh =
+            terrain_mesh(arena, world_objects[i].object);
+        if (!mesh || mesh->out_of_polygons ||
+            (mesh->near_count && !world_plain_land(&world_objects[i]))) {
+            return FALSE;
+        }
+        if (world_objects[i].object == previous) {
+            p.owner = &world_objects[i];
+        }
+    }
+    if (!p.owner || !ground_anchor(&p, previous)) {
+        return FALSE;
+    }
+    struct sweep_bounds box;
+    ground_bounds(&box, &p, p.center, p.speed, p.radius + p.epsilon);
+    struct terrain_cursor cursor = {.arena = arena, .liquid_mask = liquid_mask};
+    const struct polygon *tri;
+    Float first = 1.0F;
+    shz_vec3_t wall = {0};
+    const struct world_object *support = NULL;
+    Float rise = 0.0F;
+    Bool below = FALSE;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = ground_from(&p, tri, p.center);
+        Float height = plane_dot(face.normal, from);
+        shz_vec3_t up = height < 0 && (tri->attr & NJD_FLAG_DOUBLE_SIDE)
+                            ? shz_vec3_scale(face.normal, -1)
+                            : face.normal;
+        if (up.y >= turn_cosine && height < -p.epsilon &&
+            !(tri->attr & NJD_FLAG_DOUBLE_SIDE)) {
+            Float time;
+            if (impact_time_height(&face, from, p.speed, height, p.radius,
+                                   p.epsilon, FALSE, 1, &time)) {
+                below = TRUE;
+            }
+            continue;
+        }
+        if (up.y < turn_cosine || plane_dot(up, from) < 0 ||
+            ground_below_plane(&p, tri, (shz_vec3_t){0})) {
+            continue;
+        }
+        Float time;
+        if (!impact_time_height(&face, from, p.speed, height, p.radius,
+                                p.epsilon, TRUE, first, &time)) {
+            continue;
+        }
+        shz_vec3_t approach = shz_vec3_scale(p.speed, time);
+        struct contact_plane rim;
+        if (impact_contact(&face, shz_vec3_add(from, approach), p.radius,
+                           p.epsilon, &rim) != IMPACT_RIM ||
+            plane_dot(rim.normal, p.speed) >= -p.epsilon) {
+            continue;
+        }
+        shz_vec3_t at = shz_vec3_add(p.center, approach);
+        shz_vec3_t edge =
+            shz_vec3_sub(at, shz_vec3_scale(rim.normal, p.radius - rim.offset));
+        if (edge.y <= p.epsilon || edge.y > p.radius) {
+            continue;
+        }
+        shz_vec3_t stance = shz_vec3_add(edge, shz_vec3_scale(up, p.radius));
+        /* When the requested foot reaches this tread, clear the whole
+         * stride above it. A short approach still tests the lip itself. */
+        shz_vec3_t end = shz_vec3_add(p.center, p.speed);
+        end.y += (p.radius - plane_dot(up, shz_vec3_sub(end, edge))) / up.y;
+        Bool enters =
+            impact_inside(&face, ground_from(&p, tri, end), p.epsilon);
+        if (enters) {
+            stance = end;
+        }
+        shz_vec3_t raised = at;
+        raised.y = stance.y;
+        struct ground_path tread = p;
+        tread.up = up;
+        Bool underside = FALSE;
+        if (step_clear_fraction(&tread, at, shz_vec3_sub(raised, at), &edge,
+                                &underside) == 1.0F &&
+            step_clear_fraction(&tread, raised, shz_vec3_sub(stance, raised),
+                                &edge, &underside) == 1.0F) {
+            const struct world_object *owner = &world_objects[cursor.next - 1];
+            if (underside && enters && up.y == 1.0F &&
+                (!time || step_clear_fraction(&p, p.center, approach, NULL,
+                                              NULL) == 1.0F) &&
+                (edge.y > rise ||
+                 (edge.y == rise && ground_prefers(p.owner, support, owner)))) {
+                support = owner;
+                rise = edge.y;
+            }
+            continue;
+        }
+        first = time;
+        wall = rim.normal;
+        wall.y = 0;
+    }
+    if (!(wall.x || wall.z)) {
+        /* From underneath, an overlapping one-sided sheet cannot supply
+         * ground. Keep the reachable tread while the body passes below it. */
+        if (!support &&
+            (!below ||
+             step_clear_fraction(&p, p.center, p.speed, NULL, NULL) < 1.0F ||
+             ground_extend(&p, (shz_vec3_t){0}, p.speed, 0, &support) < 1.0F)) {
+            return FALSE;
+        }
+        *step = (struct ground_step){.velocity = body->speed,
+                                     .normal = body->normal,
+                                     .support = support->object,
+                                     .flags = support->flags};
+        zam_store_vec3(&step->feet, shz_vec3_add(p.origin, p.speed));
+        step->feet.y += rise;
+        return TRUE;
+    }
+    wall = shz_vec3_scale(wall, 1.0F / njSqrt(plane_dot(wall, wall)));
+    shz_vec3_t advance = shz_vec3_scale(p.speed, first);
+    Float entry = step_clear_fraction(&p, p.center, advance, NULL, NULL);
+    advance = shz_vec3_scale(advance, entry);
+    shz_vec3_t at = shz_vec3_add(p.center, advance);
+    shz_vec3_t slide =
+        shz_vec3_sub(p.speed, shz_vec3_scale(wall, plane_dot(p.speed, wall)));
+    shz_vec3_t rest = shz_vec3_scale(slide, 1.0F - first);
+    support = NULL;
+    if (ground_extend(&p, (shz_vec3_t){0}, advance, 0, &support) < 1.0F) {
+        return FALSE;
+    }
+    if (entry < 1.0F) {
+        slide = rest = (shz_vec3_t){0};
+    } else if (rest.x || rest.z) {
+        Float clear = step_clear_fraction(&p, at, rest, NULL, NULL);
+        if (clear < 1.0F) {
+            rest = shz_vec3_scale(rest, clear);
+            slide = (shz_vec3_t){0};
+        }
+        if (ground_extend(&p, advance, rest, 0, &support) < 1.0F) {
+            slide = rest = (shz_vec3_t){0};
+        }
+    }
+    zam_store_vec3(&step->feet,
+                   shz_vec3_add(p.origin, shz_vec3_add(advance, rest)));
+    zam_store_vec3(&step->velocity, slide);
+    zam_store_vec3(&step->wall, wall);
+    step->normal = body->normal;
+    step->moving_contact = FALSE;
+    step->owner = NULL;
+    step->support = support->object;
+    step->flags = support->flags;
+    step->stalled = FALSE;
+    step->turned_wall = FALSE;
+    return TRUE;
+}
+
+/* The center can slide beyond the finite floor it landed on this tick.
+ * Follow the union of its coplanar faces until the first uncovered point. */
+LINKED_LAST(landing_advance)
+static __attribute__((noinline)) void
+landing_advance(struct wall_motion *motion, shz_vec3_t travel)
+{
+    struct landing *land = &motion->land;
+    struct impact_triangle face;
+    impact_triangle_init(&face, land->face->vertex);
+    shz_vec3_t from = wall_relative(motion, land->face);
+    if (land->source == land->owner &&
+        impact_inside(&face, from, motion->tolerance) &&
+        impact_inside(&face, shz_vec3_add(from, travel), motion->tolerance)) {
+        return;
+    }
+    struct ground_path p = {.origin = motion->origin,
+                            .up = land->up,
+                            .plane = land->face,
+                            .owner = land->owner,
+                            .epsilon = motion->tolerance};
+    shz_vec3_t foot =
+        shz_vec3_sub(motion->at, shz_vec3_scale(land->up, motion->radius));
+    const struct world_object *end = NULL;
+    land->owner = ground_extend(&p, foot, travel, 0, &end) == 1.0F ? end : NULL;
+}
+
+/* Ordinary floors can supply a shared edge. Everything else retains its
+ * own collision response, including the game's larger step probe. */
+LINKED_LAST(ground_segment)
+static __attribute__((noinline)) Bool ground_segment(
+    const struct ground_path *p, shz_vec3_t move, struct ground_event *event,
+    struct ground_spans *spans, const struct world_object **end_owner)
+{
+    struct sweep_bounds box;
+    Float clearance = p->radius + p->snap + p->epsilon;
+    ground_bounds(&box, p, p->center, move, clearance);
+    struct terrain_cursor cursor = {.arena = arena_held(),
+                                    .liquid_mask = p->liquid_mask};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        const struct world_object *owner = &world_objects[cursor.next - 1];
+        shz_vec3_t from = ground_from(p, tri, p->center);
+        shz_vec3_t n = support_normal(tri, &face, p->up);
+        /* The previous sheet sets the frame for a continuation. A sharp
+         * corner blocks, and ground_join verifies each turn's shared edge. */
+        Float facing = plane_dot(n, p->up);
+        Bool walkable = cursor.ordinary && facing >= p->turn_cosine;
+        if (walkable && facing > GROUND_PARALLEL &&
+            terrain_same_plane(p->plane, p->up, tri, p->epsilon)) {
+            shz_vec3_t foot =
+                shz_vec3_sub(from, shz_vec3_scale(p->up, p->radius));
+            Float lo, hi;
+            if (ground_interval(&face, foot, move, p->epsilon, &lo, &hi)) {
+                ground_add_span(spans, lo, hi);
+                if (hi == 1.0F && ground_prefers(p->owner, *end_owner, owner)) {
+                    *end_owner = owner;
+                }
+            }
+            continue;
+        }
+        Float time;
+        if (!impact_time(&face, from, move, walkable ? p->radius : clearance,
+                         p->epsilon, walkable, event->time, &time)) {
+            continue;
+        }
+        if (walkable &&
+            ground_below_plane(
+                p, tri,
+                shz_vec3_sub(zam_load_vec3(p->plane->vertex), p->origin))) {
+            continue;
+        }
+        struct contact_plane contact;
+        Bool join = walkable &&
+                    impact_contact(
+                        &face, shz_vec3_add(from, shz_vec3_scale(move, time)),
+                        p->radius, p->epsilon, &contact) == IMPACT_FACE &&
+                    contact.offset <= p->epsilon &&
+                    plane_dot(contact.normal, n) > GROUND_PARALLEL;
+        if (time == event->time && event->tri) {
+            if (event->blocked ||
+                (join && plane_dot(event->up, n) < GROUND_PARALLEL)) {
+                event->blocked = TRUE;
+                continue;
+            }
+            if (join && (uintptr_t)event->tri < (uintptr_t)tri) {
+                continue;
+            }
+        }
+        event->time = time;
+        event->tri = tri;
+        event->owner = owner;
+        event->up = n;
+        event->blocked = !join;
+        if (!join && time == 0.0F) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* Two nearly parallel planes determine a crease poorly in float. Project
+ * the estimated crossing onto a finite edge from the mesh. The caller then
+ * checks that both sheets actually reach the same edge. */
+static Bool ground_locate_edge(const struct ground_path *p,
+                               const struct polygon *tri,
+                               const struct ground_event *hit,
+                               Float uncertainty, shz_vec3_t *crease,
+                               struct ground_edge *line)
+{
+    if (!terrain_same_plane(p->plane, p->up, tri, p->epsilon)) {
+        return FALSE;
+    }
+    shz_vec3_t opposite = zam_load_vec3(hit->tri->vertex);
+    shz_vec3_t a[3];
+    Float height[3];
+    int i;
+    for (i = 0; i < 3; i++) {
+        a[i] = zam_load_vec3(tri->vertex + i);
+        height[i] = plane_dot(hit->up, shz_vec3_sub(a[i], opposite));
+    }
+    for (i = 0; i < 3; i++) {
+        int next = (i + 1) % 3;
+        if (njAbs(height[i]) > p->epsilon || njAbs(height[next]) > p->epsilon ||
+            height[(i + 2) % 3] <= p->epsilon) {
+            continue;
+        }
+        shz_vec3_t edge = shz_vec3_sub(a[next], a[i]);
+        shz_vec3_t from = shz_vec3_add(shz_vec3_sub(p->origin, a[i]), *crease);
+        Float length2 = plane_dot(edge, edge);
+        if (!(length2 > 0.0F)) {
+            continue;
+        }
+        Float fraction = capsule_fraction(plane_dot(from, edge), length2);
+        shz_vec3_t offset = shz_vec3_sub(shz_vec3_scale(edge, fraction), from);
+        if (plane_dot(offset, offset) <= uncertainty * uncertainty) {
+            *crease = shz_vec3_add(*crease, offset);
+            *line = (struct ground_edge){a[i], edge, length2};
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* At an inside bend the center touches both offset planes. Their common
+ * edge passes through q. Require overlapping finite edge lengths there on
+ * both sheets; coincident infinite planes or a shared vertex do not suffice. */
+LINKED_LAST(ground_join)
+static __attribute__((noinline)) Bool
+ground_join(const struct ground_path *p, const struct ground_event *hit)
+{
+    shz_vec3_t axis = plane_cross(p->up, hit->up);
+    Float scale = plane_dot(axis, axis);
+    if (!(scale > 0.0F)) {
+        return FALSE;
+    }
+    shz_vec3_t q = shz_vec3_sub(
+        p->center,
+        shz_vec3_scale(shz_vec3_add(p->up, hit->up),
+                       p->radius / (1.0F + plane_dot(p->up, hit->up))));
+    struct sweep_bounds box;
+    ground_bounds(&box, p, q, (shz_vec3_t){0}, p->radius + p->epsilon);
+    struct ground_edge line;
+    Float uncertainty = p->epsilon * (2.0F + 1.0F / njSqrt(scale));
+    if (!ground_locate_edge(p, p->plane, hit, uncertainty, &q, &line)) {
+        struct terrain_cursor search = {.arena = arena_held()};
+        const struct polygon *tri;
+        while ((tri = terrain_next_triangle(&search))) {
+            if (search.ordinary && !sweep_box_misses(&box, tri->vertex) &&
+                ground_locate_edge(p, tri, hit, uncertainty, &q, &line)) {
+                break;
+            }
+        }
+        if (!tri) {
+            return FALSE;
+        }
+    }
+    axis = shz_vec3_scale(line.direction, 1.0F / njSqrt(line.length2));
+    int edges[2] = {0};
+    struct ground_spans coverage[2];
+    for (int i = 0; i < 2; i++) {
+        coverage[i].count = 0;
+        coverage[i].omitted = 1.0F;
+    }
+
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t from = ground_from(p, tri, q);
+        shz_vec3_t v[3];
+        for (int i = 0; i < 3; i++) {
+            v[i] = shz_vec3_sub(face.v[i], from);
+        }
+        for (int side = 0; side < 2; side++) {
+            shz_vec3_t n = side ? hit->up : p->up,
+                       other = side ? p->up : hit->up;
+            if (njAbs(plane_dot(n, v[0])) > p->epsilon ||
+                njAbs(plane_dot(n, v[1])) > p->epsilon ||
+                njAbs(plane_dot(n, v[2])) > p->epsilon) {
+                continue;
+            }
+            Float facing = plane_dot(n, face.normal);
+            if (facing < GROUND_PARALLEL &&
+                !((tri->attr & NJD_FLAG_DOUBLE_SIDE) &&
+                  facing < -GROUND_PARALLEL)) {
+                continue;
+            }
+            /* Both contact points must reach this crease on their sheets.
+             * A strip ending before the crease leaves a real gap. */
+            shz_vec3_t foot =
+                shz_vec3_sub(p->center, shz_vec3_scale(n, p->radius));
+            Float lo, hi;
+            if (ground_interval(&face, from, shz_vec3_sub(foot, q), p->epsilon,
+                                &lo, &hi)) {
+                ground_add_span(&coverage[side], lo, hi);
+            }
+            edges[side] |= ground_edge_sides(&line, axis, tri->vertex, v, n,
+                                             other, p->epsilon);
+        }
+        if ((edges[0] & edges[1]) &&
+            ground_prefix(&coverage[0], 0.0F) == 1.0F &&
+            ground_prefix(&coverage[1], 0.0F) == 1.0F) {
+            return TRUE;
+        }
+    }
+    if (edges[0] & edges[1]) {
+        for (int side = 0; side < 2; side++) {
+            Float end = ground_prefix(&coverage[side], 0.0F);
+            if (end == 1.0F) {
+                continue;
+            }
+            if (end < coverage[side].omitted) {
+                return FALSE;
+            }
+            struct ground_path sheet = *p;
+            if (side) {
+                sheet.plane = hit->tri;
+                sheet.up = hit->up;
+            }
+            shz_vec3_t foot =
+                shz_vec3_sub(p->center, shz_vec3_scale(sheet.up, p->radius));
+            if (ground_extend(&sheet, q, shz_vec3_sub(foot, q), end, NULL) <
+                1.0F) {
+                return FALSE;
+            }
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* The contact runs along the crease while the center turns. Cover that
+ * finite length on both sides, including a join split into shorter edges.
+ * Stationary contact still requires a shared length beside the crossing. */
+LINKED_LAST(ground_shares_crest)
+static __attribute__((noinline)) Bool ground_shares_crest(
+    const struct ground_path *p, shz_vec3_t source_up,
+    const struct ground_edge *line, shz_vec3_t q, shz_vec3_t axis, Float drift,
+    const struct polygon *next, shz_vec3_t n)
+{
+    Float margin = 4.0F * p->epsilon;
+    if (drift < 0.0F) {
+        drift = -drift;
+        axis = shz_vec3_scale(axis, -1.0F);
+    }
+    struct sweep_bounds box;
+    ground_bounds(&box, p, q, shz_vec3_scale(axis, drift), margin);
+    Float reach[2] = {0, 0};
+    unsigned sides[2] = {0, 0};
+    for (;;) {
+        Float previous[2] = {reach[0], reach[1]};
+        struct terrain_cursor cursor = {.arena = arena_held()};
+        const struct polygon *tri;
+        while ((tri = terrain_next_triangle(&cursor))) {
+            struct impact_triangle face;
+            if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex) ||
+                !impact_triangle_init(&face, tri->vertex)) {
+                continue;
+            }
+            int side;
+            shz_vec3_t normal = ground_face_normal(tri, &face), other;
+            if (plane_dot(normal, source_up) >= GROUND_PARALLEL &&
+                terrain_same_plane(p->plane, source_up, tri, p->epsilon)) {
+                side = 0;
+                other = n;
+            } else if (plane_dot(normal, n) >= GROUND_PARALLEL &&
+                       terrain_same_plane(next, n, tri, p->epsilon)) {
+                side = 1;
+                other = source_up;
+            } else {
+                continue;
+            }
+            shz_vec3_t from = ground_from(p, tri, q);
+            for (int i = 0; i < 3; i++) {
+                int j = (i + 1) % 3;
+                if (!ground_on_edge_line(line, tri->vertex + i, margin) ||
+                    !ground_on_edge_line(line, tri->vertex + j, margin) ||
+                    plane_dot(other, shz_vec3_sub(face.v[(i + 2) % 3], from)) >=
+                        -margin) {
+                    continue;
+                }
+                Float a = plane_dot(axis, shz_vec3_sub(face.v[i], from));
+                Float b = plane_dot(axis, shz_vec3_sub(face.v[j], from));
+                if (a > b) {
+                    Float swap = a;
+                    a = b;
+                    b = swap;
+                }
+                if (a <= margin && b >= -margin) {
+                    sides[side] |= (a < -margin) | ((b > margin) << 1);
+                }
+                if (a <= reach[side] + margin && b > reach[side]) {
+                    reach[side] = b;
+                }
+            }
+        }
+        if (reach[0] + margin >= drift && reach[1] + margin >= drift) {
+            return (sides[0] & sides[1]) != 0;
+        }
+        if (previous[0] == reach[0] && previous[1] == reach[1]) {
+            return FALSE;
+        }
+    }
+}
+
+/* A continuous support frame turns its tangent without losing speed. */
+static inline shz_vec3_t ground_turn_speed(const struct ground_path *p,
+                                           shz_vec3_t next)
+{
+    Float turn = plane_dot(p->speed, next) / (1.0F + plane_dot(p->up, next));
+    return shz_vec3_sub(p->speed,
+                        shz_vec3_scale(shz_vec3_add(p->up, next), turn));
+}
+
+LINKED_LAST(ground_same_vertex)
+static __attribute__((noinline)) Bool ground_same_vertex(const NJS_POINT3 *a,
+                                                         const NJS_POINT3 *b)
+{
+    return a->x == b->x && a->y == b->y && a->z == b->z;
+}
+
+/* Find the source triangle at the lip, which can lie past the starting
+ * triangle. The two sheets must occupy opposite sides of the same edge. */
+LINKED_LAST(ground_welded_edge)
+static __attribute__((noinline, cold)) Bool
+ground_welded_edge(const struct ground_path *p, const struct polygon *next,
+                   shz_vec3_t lip, const struct sweep_bounds *box)
+{
+    for (int i = 0; i < 3; i++) {
+        const NJS_POINT3 *a = next->vertex + i;
+        const NJS_POINT3 *b = next->vertex + (i + 1) % 3;
+        shz_vec3_t start = zam_load_vec3(a);
+        shz_vec3_t edge = shz_vec3_sub(zam_load_vec3(b), start);
+        shz_vec3_t from = shz_vec3_add(shz_vec3_sub(p->origin, start), lip);
+        Float t =
+            capsule_fraction(plane_dot(from, edge), plane_dot(edge, edge));
+        shz_vec3_t gap = shz_vec3_sub(from, shz_vec3_scale(edge, t));
+        if (plane_dot(gap, gap) > 16.0F * p->epsilon * p->epsilon) {
+            continue;
+        }
+        shz_vec3_t across = plane_cross(p->up, edge);
+        shz_vec3_t tip =
+            shz_vec3_sub(zam_load_vec3(next->vertex + (i + 2) % 3), start);
+        Float side = plane_dot(across, tip);
+        if (!(side * plane_dot(across, p->speed) > 0.0F)) {
+            continue;
+        }
+        struct terrain_cursor cursor = {.arena = arena_held()};
+        const struct polygon *tri;
+        while ((tri = terrain_next_triangle(&cursor))) {
+            if (!cursor.ordinary || tri == next ||
+                sweep_box_misses(box, tri->vertex)) {
+                continue;
+            }
+            int ai = -1, bi = -1;
+            for (int j = 0; j < 3; j++) {
+                if (ground_same_vertex(a, tri->vertex + j)) {
+                    ai = j;
+                } else if (ground_same_vertex(b, tri->vertex + j)) {
+                    bi = j;
+                }
+            }
+            if (ai < 0 || bi < 0 ||
+                !terrain_same_plane(p->plane, p->up, tri, p->epsilon)) {
+                continue;
+            }
+            shz_vec3_t other =
+                shz_vec3_sub(zam_load_vec3(tri->vertex + 3 - ai - bi), start);
+            /* A source edge in vertex order gives its signed area along up. */
+            Float facing = plane_dot(across, other);
+            if (side * facing < 0.0F &&
+                ((tri->attr & NJD_FLAG_DOUBLE_SIDE) ||
+                 ((ai + 1) % 3 == bi ? facing > 0.0F : facing < 0.0F))) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+enum crest_step { CREST_RELEASE, CREST_SNAP, CREST_FOLLOW };
+
+/* One tick of gravity can turn a running tangent onto a gently departing
+ * sheet. A sharper crest needs gravity to hold the body on the rounded edge
+ * itself. The original ground snap handles those slow turns. */
+LINKED_LAST(ground_crest)
+static __attribute__((noinline, cold)) enum crest_step
+ground_crest(struct ground_path *path, shz_vec3_t source_up, shz_vec3_t lip,
+             Float *gravity, Float *left, const struct world_object *previous)
+{
+    Float margin = 4.0F * path->epsilon;
+    struct sweep_bounds box;
+    ground_bounds(&box, path, lip, (shz_vec3_t){0}, margin);
+    struct ground_event hit = {0};
+    shz_vec3_t foot = {0}, contact = {0};
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    const struct polygon *tri;
+    while ((tri = terrain_next_triangle(&cursor))) {
+        if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex)) {
+            continue;
+        }
+        struct impact_triangle face;
+        if (!impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t n = support_normal(tri, &face, path->up);
+        Float cosine = plane_dot(path->up, n);
+        Float outward = plane_dot(path->speed, n);
+        shz_vec3_t from = ground_from(path, tri, lip);
+        if (njAbs(plane_dot(n, from)) > margin ||
+            !impact_inside(&face, from, margin)) {
+            continue;
+        }
+        shz_vec3_t difference = shz_vec3_sub(path->up, n);
+        /* A welded fold smaller than the body's contact tolerance can use
+         * the shared foot directly. Keep its outgoing tangent and support. */
+        if (!previous &&
+            !terrain_same_plane(path->plane, path->up, tri, path->epsilon) &&
+            plane_dot(difference, difference) * path->radius * path->radius <=
+                path->epsilon * path->epsilon &&
+            (outward <= 0.0F || (n.y > 0.0F && outward <= *gravity * n.y)) &&
+            ground_welded_edge(path, tri, lip, &box)) {
+            if (hit.tri &&
+                !terrain_same_plane(hit.tri, hit.up, tri, path->epsilon)) {
+                return CREST_SNAP;
+            }
+            const struct world_object *owner = &world_objects[cursor.next - 1];
+            if (!hit.tri || ground_prefers(path->owner, hit.owner, owner)) {
+                hit = (struct ground_event){owner, tri, n, 0, FALSE};
+                contact = lip;
+                foot = shz_vec3_sub(lip, shz_vec3_scale(n, plane_dot(n, from)));
+            }
+            continue;
+        }
+        if (path->up.y <= 0.0F || n.y <= 0.0F || cosine < path->turn_cosine ||
+            outward <= 0.0F) {
+            continue;
+        }
+        Float half =
+            (0.5F * path->radius * plane_dot(difference, difference)) / outward;
+        Bool gentle = outward <= *gravity * n.y;
+        if (!gentle && outward * outward > *gravity * path->up.y *
+                                               path->radius *
+                                               (1.0F - cosine * cosine)) {
+            continue;
+        }
+        for (int i = 0; i < 3; i++) {
+            int j = (i + 1) % 3;
+            shz_vec3_t a = shz_vec3_sub(face.v[i], from);
+            shz_vec3_t b = shz_vec3_sub(face.v[j], from);
+            shz_vec3_t c = shz_vec3_sub(face.v[(i + 2) % 3], from);
+            if (njAbs(plane_dot(path->up, a)) > margin ||
+                njAbs(plane_dot(path->up, b)) > margin ||
+                plane_dot(path->up, c) >= -margin) {
+                continue;
+            }
+            struct ground_edge edge = {.start = zam_load_vec3(tri->vertex + i),
+                                       .direction =
+                                           shz_vec3_sub(face.v[j], face.v[i])};
+            edge.length2 = plane_dot(edge.direction, edge.direction);
+            if (!(edge.length2 > 0)) {
+                continue;
+            }
+            Float length = njSqrt(edge.length2);
+            shz_vec3_t axis = shz_vec3_scale(edge.direction, 1.0F / length);
+            Float along = -plane_dot(axis, a);
+            shz_vec3_t offset = shz_vec3_add(a, shz_vec3_scale(axis, along));
+            if (plane_dot(offset, offset) > margin * margin) {
+                continue;
+            }
+            shz_vec3_t q = shz_vec3_add(lip, offset);
+            Float span = 2.0F * half;
+            Float drift =
+                plane_dot(axis, path->speed) * (*left < span ? *left : span);
+            if (!ground_shares_crest(path, source_up, &edge, q, axis, drift,
+                                     tri, n)) {
+                continue;
+            }
+            if (!gentle || span > 1.0F) {
+                return CREST_SNAP;
+            }
+            if (hit.tri &&
+                (plane_dot(n, hit.up) < GROUND_PARALLEL ||
+                 !terrain_same_plane(hit.tri, hit.up, tri, margin))) {
+                return CREST_SNAP;
+            }
+            const struct world_object *owner = &world_objects[cursor.next - 1];
+            if (hit.tri && !ground_prefers(path->owner, hit.owner, owner)) {
+                continue;
+            }
+            hit = (struct ground_event){owner, tri, n, span, FALSE};
+            foot = shz_vec3_add(q, shz_vec3_scale(axis, drift));
+            contact = q;
+        }
+    }
+    if (!hit.tri) {
+        return CREST_RELEASE;
+    }
+    if (previous && path->owner != previous && hit.owner != previous) {
+        return CREST_SNAP;
+    }
+    Float duration = hit.time;
+    shz_vec3_t up = hit.up;
+    if (duration > *left) {
+        /* tan(angle/2) is proportional to the time spent on the two
+         * tangents. The new radial normal also locates the stance next tick. */
+        Float u = *left / duration;
+        Float cosine = plane_dot(path->up, up);
+        shz_vec3_t delta = shz_vec3_sub(up, path->up);
+        Float k = 0.5F * plane_dot(delta, delta) / (1.0F + cosine);
+        Float a = 1.0F / (1.0F + u * u * k);
+        shz_vec3_t tangent = shz_vec3_sub(up, shz_vec3_scale(path->up, cosine));
+        up = shz_vec3_add(shz_vec3_scale(path->up, (1.0F - u * u * k) * a),
+                          shz_vec3_scale(tangent, u * (1.0F + k) * a));
+        duration = *left;
+    }
+    shz_vec3_t entry =
+        shz_vec3_add(contact, shz_vec3_scale(path->up, path->radius));
+    shz_vec3_t midway =
+        shz_vec3_add(entry, shz_vec3_scale(path->speed, duration * 0.5F));
+    /* The two tangents stay outside the rounded edge. Each has its own
+     * supporting half-space even when the tick ends between both faces. */
+    path->center = midway;
+    path->plane = NULL;
+    if (previous && !ground_snap_clear(path, entry, contact)) {
+        return CREST_SNAP;
+    }
+    Float outward = plane_dot(path->speed, up);
+    if (outward > 0.0F && up.y > 0.0F) {
+        *gravity -= outward / up.y;
+    }
+    path->speed = ground_turn_speed(path, up);
+    path->center = shz_vec3_add(foot, shz_vec3_scale(up, path->radius));
+    path->up = up;
+    if (!ground_snap_clear(path, midway, foot)) {
+        return CREST_SNAP;
+    }
+    if (duration == hit.time) {
+        path->plane = hit.tri;
+        path->owner = hit.owner;
+    }
+    *left -= duration;
+    return CREST_FOLLOW;
+}
+
+/* A rounded stance keeps its foot on the physical crease. Reconstruct the
+ * incident sheet from that foot, its radial normal and the tangent motion.
+ * ground_crest then proves both finite edges again before taking the turn. */
+LINKED_LAST(ground_resume_crest)
+static __attribute__((noinline)) Bool ground_resume_crest(struct ground_path *p,
+                                                          Float *gravity,
+                                                          Float *remaining)
+{
+    const struct world_object *previous = p->owner;
+    struct sweep_bounds box;
+    Float margin = 4.0F * p->epsilon;
+    ground_bounds(&box, p, (shz_vec3_t){0}, (shz_vec3_t){0}, margin);
+    struct terrain_cursor cursor = {.arena = arena_held()};
+    const struct polygon *tri;
+    p->plane = NULL;
+    shz_vec3_t source = {0};
+    while ((tri = terrain_next_triangle(&cursor))) {
+        struct impact_triangle face;
+        if (!cursor.ordinary || sweep_box_misses(&box, tri->vertex) ||
+            !impact_triangle_init(&face, tri->vertex)) {
+            continue;
+        }
+        shz_vec3_t n = support_normal(tri, &face, p->up);
+        shz_vec3_t from = ground_from(p, tri, (shz_vec3_t){0});
+        if (n.y <= 0.0F || p->up.y <= 0.0F || plane_dot(n, p->speed) >= 0.0F ||
+            plane_dot(n, p->up) < p->turn_cosine ||
+            njAbs(plane_dot(n, from)) > margin ||
+            !impact_inside(&face, from, margin)) {
+            continue;
+        }
+        for (int i = 0; i < 3; i++) {
+            int j = (i + 1) % 3;
+            shz_vec3_t a = shz_vec3_sub(face.v[i], from);
+            shz_vec3_t b = shz_vec3_sub(face.v[j], from);
+            if (njAbs(plane_dot(p->up, a)) > margin ||
+                njAbs(plane_dot(p->up, b)) > margin ||
+                plane_dot(p->up, shz_vec3_sub(face.v[(i + 2) % 3], from)) >=
+                    -margin) {
+                continue;
+            }
+            if (p->plane &&
+                (plane_dot(source, n) < GROUND_PARALLEL ||
+                 !terrain_same_plane(p->plane, source, tri, margin))) {
+                return FALSE;
+            }
+            const struct world_object *owner = &world_objects[cursor.next - 1];
+            if (!p->plane || ground_prefers(previous, p->owner, owner)) {
+                p->plane = tri;
+                p->owner = owner;
+                source = n;
+            }
+            break;
+        }
+    }
+    if (!p->plane) {
+        return FALSE;
+    }
+    return ground_crest(p, source, (shz_vec3_t){0}, gravity, remaining,
+                        previous) == CREST_FOLLOW;
+}
+
+/* Resolve the rest of a stride from the supported center already reached.
+ * On an unturned floor the foot probe can still defer to stepping. */
+LINKED_LAST(ground_wall_sweep)
+static __attribute__((noinline)) enum wall_result
+ground_wall_sweep(const struct ground_path *p, struct polygon_ball *region,
+                  NJS_OBJECT *previous, Float clearance, Float remaining,
+                  Bool turned, struct ground_step *step)
+{
+    struct box_arena *arena = arena_held();
+    const struct world_object *owner = NULL;
+    for (int i = 0; i < world_count; i++) {
+        if (world_objects[i].flags & p->liquid_mask) {
+            continue;
+        }
+        const struct collision_mesh *mesh =
+            sweep_mesh(arena, world_objects[i].object);
+        if (!mesh || mesh->out_of_polygons) {
+            return WALL_DELEGATE;
+        }
+        if (world_objects[i].object == previous) {
+            owner = &world_objects[i];
+        }
+    }
+    if (!owner || world_count == WORLD_OBJECTS) {
+        return WALL_DELEGATE;
+    }
+    shz_vec3_t origin = zam_load_vec3(&region->pos);
+    struct stride_contact contact = {0};
+    struct wall_motion motion = {
+        .origin = origin,
+        .whole = {whole_coordinate(origin.x), whole_coordinate(origin.y),
+                  whole_coordinate(origin.z)},
+        .at = shz_vec3_add(shz_vec3_sub(p->origin, origin), p->center),
+        .velocity = p->speed,
+        .radius = p->radius,
+        .clearance = clearance,
+        .floor_y = p->turn_cosine,
+        .tolerance = p->epsilon,
+        .remaining = remaining,
+        .land = {p->plane, owner, owner, p->up},
+        .can_land = TRUE,
+        .stride = !turned,
+        .liquid_mask = p->liquid_mask,
+        .stride_contact = turned ? &contact : NULL};
+    enum wall_result result = wall_travel(&motion, region);
+    if (result == WALL_WIDEN && motion.rotation.owner) {
+        wall_stop(&motion);
+        result = WALL_SOLVED;
+    }
+    if (result != WALL_SOLVED) {
+        return result;
+    }
+    if (!turned &&
+        !(motion.stalled || motion.rotation.owner || motion.normal.x ||
+          motion.normal.z || motion.push.x || motion.push.z)) {
+        return WALL_DELEGATE;
+    }
+    shz_vec3_t up = motion.land.owner ? motion.land.up : p->up;
+    step->moving_contact = motion.hit_moving_rim;
+    step->owner = NULL;
+    step->support = motion.land.owner ? motion.land.owner->object : NULL;
+    step->flags = motion.land.owner ? motion.land.owner->flags : 0;
+    if (rotating_support(&motion, &up)) {
+        step->support = motion.rotation.motion.object;
+        step->flags = motion.rotation.flags;
+        step->owner = motion.rotation.owner;
+    }
+    shz_vec3_t feet = shz_vec3_sub(shz_vec3_add(origin, motion.at),
+                                   shz_vec3_scale(up, p->radius));
+    zam_store_vec3(&step->feet, feet);
+    zam_store_vec3(&step->velocity, motion.velocity);
+    zam_store_vec3(&step->wall, contact.inward > 0 ? contact.normal
+                                : motion.stalled   ? (shz_vec3_t){0}
+                                                   : motion.normal);
+    zam_store_vec3(&step->normal, up);
+    step->stalled = motion.stalled;
+    step->turned_wall = turned;
+    step->wall_impact = contact.inward;
+    step->entry_speed2 = contact.speed2;
+    zam_store_vec3(&step->wall_tangent, contact.tangent);
+    return WALL_SOLVED;
+}
+
+LINKED_LAST(ground_wall_step)
+static __attribute__((noinline)) Bool
+ground_wall_step(const struct ground_path *p, struct polygon_ball *region,
+                 NJS_OBJECT *previous, Float clearance, Float remaining,
+                 Bool turned, struct ground_step *step)
+{
+    if (turned) {
+        clearance = p->radius;
+    } else {
+        if (p->up.x || p->up.y <= 0 || p->up.z || clearance < p->radius) {
+            return FALSE;
+        }
+        clearance = (clearance > p->radius + p->snap ? clearance
+                                                     : p->radius + p->snap) +
+                    p->epsilon;
+    }
+    enum wall_result result = ground_wall_sweep(p, region, previous, clearance,
+                                                remaining, turned, step);
+    if (turned && result == WALL_WIDEN) {
+        struct polygon_ball wider = *region;
+        wider.radius += 2.0F * p->radius;
+        polygon_collect_near(&wider);
+        result = ground_wall_sweep(p, &wider, previous, clearance, remaining,
+                                   TRUE, step);
+        polygon_collect_near(region);
+    }
+    return result == WALL_SOLVED;
+}
+
+LINKED_LAST(polygon_follow_ground)
+Bool polygon_follow_ground(const struct polygon_ball *body,
+                           NJS_OBJECT *previous, Float snap, Float turn_cosine,
+                           Float gravity, Float clearance, Uint32 liquid_mask,
+                           struct ground_step *step)
+{
+    struct ground_path path = {.origin = zam_load_vec3(&body->pos),
+                               .up = zam_load_vec3(&body->normal),
+                               .speed = zam_load_vec3(&body->speed),
+                               .radius = body->radius,
+                               .snap = snap,
+                               .liquid_mask = liquid_mask,
+                               .turn_cosine = turn_cosine,
+                               .epsilon =
+                                   impact_tolerance(body->radius, body->speed)};
+    /* The controller rebuilds its tangent through two truncated Ninja angles.
+     * Each axis can leave up to one angle unit of outward velocity. */
+    Float tangent_error =
+        path.epsilon +
+        (2.0F / ANGLE_PER_RADIAN) *
+            (njAbs(path.speed.x) + njAbs(path.speed.y) + njAbs(path.speed.z));
+    if (!(body->radius > 0.0F && turn_cosine > 0.0F && turn_cosine <= 1.0F &&
+          snap >= 0.0F && gravity >= 0.0F &&
+          njAbs(plane_dot(path.up, path.up) - 1.0F) <= 0.0002F) ||
+        plane_dot(path.up, path.speed) > tangent_error) {
+        return FALSE;
+    }
+    /* Snapping can move the center by snap plus the change in its radius
+     * offset. The anchor accepts unit normals with dot product >= 0.9999. */
+    shz_vec3_t original = shz_vec3_scale(path.up, path.radius);
+    struct polygon_ball region;
+    zam_store_vec3(&region.pos, shz_vec3_add(path.origin, original));
+    region.speed = body->speed;
+    region.radius = 1.025F * body->radius + 2.0F * snap + path.epsilon;
+    if (!polygon_collect_near(&region) || world_count == WORLD_OBJECTS) {
+        return FALSE;
+    }
+    for (int i = 0; i < world_count; i++) {
+        if (world_objects[i].object == previous &&
+            !(world_objects[i].flags & liquid_mask)) {
+            if (!world_plain_land(&world_objects[i])) {
+                return FALSE;
+            }
+            path.owner = &world_objects[i];
+        }
+    }
+    if (!path.owner) {
+        return FALSE;
+    }
+    Float remaining = 1.0F, last = remaining;
+    const int limit = TERRAIN_PROGRESS_INTERVAL + 2 * near_polygon_count;
+    Bool stalled = FALSE;
+    const struct world_object *support;
+    shz_vec3_t initial_up = path.up;
+    Bool has_face = ground_anchor(&path, previous);
+    shz_vec3_t difference =
+        shz_vec3_scale(shz_vec3_sub(path.up, initial_up), path.radius);
+    if (!has_face ||
+        plane_dot(difference, difference) > path.epsilon * path.epsilon) {
+        struct ground_path rim = path;
+        rim.up = initial_up;
+        Float budget = gravity;
+        Float inward = plane_dot(rim.up, rim.speed);
+        rim.speed = shz_vec3_sub(rim.speed, shz_vec3_scale(rim.up, inward));
+        if (ground_resume_crest(&rim, &budget, &remaining)) {
+            path = rim;
+            gravity = budget;
+            if (remaining == 0.0F) {
+                support = path.owner;
+                goto finish;
+            }
+            goto walk;
+        }
+        remaining = 1.0F;
+    }
+    if (!has_face ||
+        !ground_snap_clear(
+            &path, original,
+            shz_vec3_sub(zam_load_vec3(path.plane->vertex), path.origin))) {
+        return FALSE;
+    }
+    Float inward = plane_dot(path.speed, path.up);
+    if (inward > tangent_error) {
+        return FALSE;
+    }
+    path.speed = shz_vec3_sub(path.speed, shz_vec3_scale(path.up, inward));
+    if (polygon_rotating) {
+        struct rotating_hit hit;
+        enum yaw_result result =
+            rotating_first(shz_vec3_add(path.origin, path.center), path.speed,
+                           path.radius, 0, 1, &hit);
+        if (result != YAW_CLEAR) {
+            if (result == YAW_TOUCH) {
+                /* The original collector covers self-motion. The blade can
+                 * carry the rest of the stride outside that neighborhood. */
+                shz_vec3_t v = hit.contact.velocity;
+                region.radius += 2.0F * njSqrt(plane_dot(v, v)) + path.radius;
+                polygon_collect_near(&region);
+            }
+            /* A banked runner meets the blade with the body sphere even
+             * before crossing another terrain face in this stride. */
+            Bool banked = path.up.x || path.up.z || path.up.y <= 0.0F;
+            return ground_wall_step(&path, &region, previous, clearance, 1.0F,
+                                    banked, step);
+        }
+    }
+walk:
+    for (int turn = 0; turn < limit && terrain_advances(turn, remaining, &last);
+         turn++) {
+        shz_vec3_t move = shz_vec3_scale(path.speed, remaining);
+        struct ground_event hit = {.time = 1.0F};
+        struct ground_spans spans;
+        spans.count = 0;
+        spans.omitted = 1.0F;
+        const struct world_object *end_owner = NULL;
+        Bool turned = turn || remaining < 1.0F;
+        if (!ground_segment(&path, move, &hit, &spans, &end_owner) ||
+            hit.blocked) {
+            if (!hit.tri || !world_plain_land(hit.owner) ||
+                (turned ? njAbs(hit.up.y) >= path.turn_cosine
+                        : hit.up.y != 0.0F)) {
+                return FALSE;
+            }
+            goto wall;
+        }
+        if (!spans.count || spans.span[0].lo > 0.0F) {
+            return FALSE;
+        }
+        Float support_end = spans.span[0].hi;
+        shz_vec3_t foot =
+            shz_vec3_sub(path.center, shz_vec3_scale(path.up, path.radius));
+        if (support_end < hit.time && support_end >= spans.omitted) {
+            support_end = ground_extend(&path, foot, move, support_end, NULL);
+        }
+        if (!hit.tri && support_end < 1.0F) {
+            shz_vec3_t lip =
+                shz_vec3_add(foot, shz_vec3_scale(move, support_end));
+            Float left = remaining * (1.0F - support_end);
+            enum crest_step crest =
+                ground_crest(&path, path.up, lip, &gravity, &left, NULL);
+            if (crest == CREST_SNAP) {
+                return FALSE;
+            }
+            if (crest == CREST_FOLLOW) {
+                remaining = left;
+                if (remaining == 0.0F) {
+                    support = path.owner;
+                    goto finish;
+                }
+                continue;
+            }
+        }
+        shz_vec3_t start = path.center;
+        path.center = shz_vec3_add(start, shz_vec3_scale(move, hit.time));
+        if (hit.tri) {
+            if (support_end < hit.time || !ground_join(&path, &hit)) {
+                if (!turned || njAbs(hit.up.y) >= path.turn_cosine ||
+                    !world_plain_land(hit.owner)) {
+                    return FALSE;
+                }
+                /* A wall can meet the turning angle without sharing an edge. */
+                path.center = start;
+                goto wall;
+            }
+            /* Rotate the cross-edge tangent into the new plane. The shared
+             * edge component and the length of the velocity are preserved. */
+            path.speed = ground_turn_speed(&path, hit.up);
+            path.up = hit.up;
+            path.plane = hit.tri;
+            path.owner = hit.owner;
+            remaining *= 1.0F - hit.time;
+            continue;
+        }
+        support = support_end == 1.0F ? end_owner : NULL;
+        goto finish;
+
+    wall:
+        if (ground_wall_step(&path, &region, path.owner->object, clearance,
+                             remaining, turned, step)) {
+            return TRUE;
+        }
+        if (!turned) {
+            return FALSE;
+        }
+        break;
+    }
+    /* The last accepted face still supports the feet when a guard runs out. */
+    support = path.owner;
+    path.speed = (shz_vec3_t){0};
+    stalled = TRUE;
+
+finish:
+    step->stalled = stalled;
+    zam_store_vec3(
+        &step->feet,
+        shz_vec3_add(
+            path.origin,
+            shz_vec3_sub(path.center, shz_vec3_scale(path.up, path.radius))));
+    zam_store_vec3(&step->velocity, path.speed);
+    zam_store_vec3(&step->normal, path.up);
+    step->wall = (NJS_VECTOR){0};
+    step->moving_contact = FALSE;
+    step->owner = NULL;
+    step->turned_wall = FALSE;
+    step->support = support ? support->object : NULL;
+    step->flags = support ? support->flags : 0;
+    return TRUE;
+}
+
+#endif
+
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+#define POLYGON_SH4_SWEEP
+#endif
+#endif
+
+#ifdef POLYGON_SH4_SWEEP
+/* The caller seeds the sum with the first contact. */
+LINKED_LAST(sweep_average)
+static __attribute__((noinline)) void sweep_average(struct polygon_hit *out,
+                                                    int count, Float weight)
+{
+    for (int i = 1; i < count; i++) {
+        const struct polygon_hit *hit = &polygon_contacts[i].hit;
+        out->point.x += hit->point.x;
+        out->point.y += hit->point.y;
+        out->point.z += hit->point.z;
+        out->pos.x += hit->pos.x;
+        out->pos.y += hit->pos.y;
+        out->pos.z += hit->pos.z;
+    }
+    out->point.x *= weight;
+    out->point.y *= weight;
+    out->point.z *= weight;
+    out->pos.x *= weight;
+    out->pos.y *= weight;
+    out->pos.z *= weight;
+}
+
+/* The sweep kernel starts at this loop. It turns XMTRX into each triangle's
+ * frame and restores the caller even when the contact list fills. */
+__attribute__((section(".text.polygon_sweep"))) Bool polygon_sweep_for(
+    struct polygon_ball *ball, NJS_OBJECT *object, enum polygon_sweep_mode mode)
 {
     struct box_arena *arena;
     struct collision_mesh *mesh;
-    struct polygon **near;
+    struct near_cursor cursor;
+    struct sweep_bounds box;
     struct polygon *polygon;
-    struct touch_polygon *touched;
-    struct polygon_contact *listed;
-    struct polygon_contact *hit_contact;
-    Bool held;
+    shz_mat4x4_t caller;
     Bool hit;
-    Bool more;
     Uint32 two_sided;
     int count;
     int nearest;
     int i;
     Float reach;
     Float length;
-    Float spacing;
-    Float travelled;
+    Bool test_crossing;
     Float radius;
     Float height;
-    Float scale;
-    Float e1;
-    Float e2;
-    Float e3;
     Float x0;
     Float y0;
     Float z0;
@@ -3419,37 +7771,31 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     NJS_POINT3 pos;
     NJS_VECTOR speed;
     NJS_VECTOR normal;
-    NJS_VECTOR stride;
-    Float stride_squared;
-    NJS_POINT3 at;
 
     reach = ball->radius;
     if (reach <= 0.0F) {
         return FALSE;
     }
     touch_polygon_count = 0;
-    length = njScalor(&ball->speed);
-    spacing = reach * 0.5F;
     arena = arena_held();
-    if (arena != NULL) {
-        mesh = index_mesh(arena, object);
-    } else {
-        for (mesh = collision_mesh_list; mesh != NULL; mesh = mesh->next) {
-            if (mesh->object == object) {
-                break;
-            }
-        }
-    }
-    if (mesh == NULL) {
+    mesh = sweep_mesh(arena, object);
+    if (mesh == NULL || mesh->near_count == 0) {
         return FALSE;
     }
+    length = njScalor(&ball->speed);
+    test_crossing =
+        length > (mode == POLYGON_SWEEP_SAMPLES ? 2.0F * ball->radius : 0.0F);
     from = ball->pos;
     moved = ball->speed;
-    held = FALSE;
+    shz_xmtrx_store_4x4(&caller);
     tri[0].x = tri[0].y = tri[0].z = 0.0F;
-    for (count = mesh->near_count, near = mesh->near; count > 0;
-         count--, near++) {
-        polygon = *near;
+    sweep_bounds(&box, ball);
+    cursor = (struct near_cursor){.group = mesh->near, .back = mesh->near_back};
+    for (count = mesh->near_count; count > 0; count--) {
+        polygon = near_next(&cursor);
+        if (sweep_box_misses(&box, polygon->vertex)) {
+            continue;
+        }
         x0 = polygon->vertex[0].x;
         y0 = polygon->vertex[0].y;
         z0 = polygon->vertex[0].z;
@@ -3463,11 +7809,7 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
         pos.y = from.y - y0;
         pos.z = from.z - z0;
         speed = moved;
-        if (held) {
-            shz_xmtrx_load_4x4((const shz_mat4x4_t *)&_unit_matrix_);
-        } else {
-            held = njPushMatrix(&_unit_matrix_) && _stack_size_ > 1;
-        }
+        shz_xmtrx_load_4x4((const shz_mat4x4_t *)&_unit_matrix_);
         sweep_turn(tri,
                    &sweep_turns[(Uint32)(polygon - polygon_pool) % TURN_SETS *
                                 TURN_WAYS],
@@ -3482,105 +7824,36 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
                 radius *= -1.0F;
             }
         }
-        hit = FALSE;
-        stride = speed;
-        stride_squared = njScalor2(&stride);
-        if (stride_squared == 0.0F) {
-            stride.x = stride.y = stride.z = 0.0F;
-        } else {
-            zam_store_vec3(&stride,
-                           shz_vec3_scale(zam_load_vec3(&stride),
-                                          _builtin_fsrra(stride_squared)));
+        hit = sweep_samples(tri, &pos, &speed, reach, length);
+        if (!hit && test_crossing) {
+            hit = sweep_crosses_face(polygon, ball, mode);
         }
-        stride.x *= spacing;
-        stride.y *= spacing;
-        stride.z *= spacing;
-        travelled = 0.0F;
-        at = pos;
-        for (;;) {
-            more = TRUE;
-            if (travelled >= length) {
-                more = FALSE;
-                at.x = pos.x + speed.x;
-                at.y = pos.y + speed.y;
-                at.z = pos.z + speed.z;
-            }
-            if (njAbs(at.y) <= reach) {
-                e1 = EDGE_SIDE(&tri[0], &tri[1], &at, z, x);
-                e2 = EDGE_SIDE(&tri[1], &tri[2], &at, z, x);
-                e3 = EDGE_SIDE(&tri[2], &tri[0], &at, z, x);
-                if (e1 * e2 >= 0.0F && e2 * e3 >= 0.0F && e1 * e3 >= 0.0F) {
-                    hit = TRUE;
-                    break;
-                }
-            }
-            if (!more) {
-                break;
-            }
-            at.x += stride.x;
-            at.y += stride.y;
-            at.z += stride.z;
-            travelled += spacing;
-        }
-        if (hit &&
-            sweep_touch(polygon, &pos, &speed, &normal, radius, two_sided)) {
-            /* this side keeps the play of the shipped sweep's bug tag: the
-             * break leaves this triangle's matrix pushed */
+        if (hit && sweep_touch(polygon, &pos, &speed, &normal, radius,
+                               two_sided, &caller)) {
             break;
         }
-        if (!held || count == 1) {
-            njPopMatrix(1);
-        }
     }
+    shz_xmtrx_load_4x4(&caller);
     count = touch_polygon_count;
     if (count < 1) {
         return FALSE;
     }
     nearest = 0;
-    height = touch_polygons[0].contact.height_after;
-    for (i = 1, touched = &touch_polygons[1]; i < count; i++, touched++) {
-        if (height > touched->contact.height_after) {
-            height = touched->contact.height_after;
+    height = polygon_contacts[0].height_after;
+    for (i = 1; i < count; i++) {
+        if (height > polygon_contacts[i].height_after) {
+            height = polygon_contacts[i].height_after;
             nearest = i;
         }
     }
-    for (i = count, touched = touch_polygons, listed = polygon_contacts; i > 0;
-         i--, touched++, listed++) {
-        *listed = touched->contact;
-    }
     ball->count = count;
     ball->hit_index = nearest;
-    hit_contact = &touch_polygons[nearest].contact;
-    ball->hit.ang_x = hit_contact->hit.ang_x;
-    ball->hit.ang_z = hit_contact->hit.ang_z;
-    ball->hit.front = hit_contact->hit.front;
-    ball->hit.normal = hit_contact->hit.normal;
-    ball->hit.speed = hit_contact->hit.speed;
-    ball->hit.normal_speed = hit_contact->hit.normal_speed;
-    if (count == 1) {
-        ball->hit.point = hit_contact->hit.point;
-        ball->hit.pos = hit_contact->hit.pos;
-    } else {
-        touched = touch_polygons;
-        ball->hit.point = touched->contact.hit.point;
-        ball->hit.pos = touched->contact.hit.pos;
-        touched++;
-        for (i = count - 1; i > 0; i--) {
-            ball->hit.point.x += touched->contact.hit.point.x;
-            ball->hit.point.y += touched->contact.hit.point.y;
-            ball->hit.point.z += touched->contact.hit.point.z;
-            ball->hit.pos.x += touched->contact.hit.pos.x;
-            ball->hit.pos.y += touched->contact.hit.pos.y;
-            ball->hit.pos.z += touched->contact.hit.pos.z;
-            touched++;
-        }
-        scale = 1.0F / (Float)count;
-        ball->hit.point.x *= scale;
-        ball->hit.point.y *= scale;
-        ball->hit.point.z *= scale;
-        ball->hit.pos.x *= scale;
-        ball->hit.pos.y *= scale;
-        ball->hit.pos.z *= scale;
+    ball->hit = polygon_contacts[nearest].hit;
+    if (count > 1) {
+        Float weight = 1.0F / (Float)count;
+        ball->hit.point = polygon_contacts[0].hit.point;
+        ball->hit.pos = polygon_contacts[0].hit.pos;
+        sweep_average(&ball->hit, count, weight);
     }
     return TRUE;
 }
@@ -3590,7 +7863,12 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
  * to 0x8c02a5e4), and x0 and y0 FR4 and FR5 (0x8c02a630, 0x8c02a636).
  * without them all, each pair trades and 69 of 1121 words differ. without
  * any one of them alone, 11 to 197 words differ */
+#ifdef NONMATCHING
+Bool polygon_sweep_for(struct polygon_ball *ball, NJS_OBJECT *object,
+                       enum polygon_sweep_mode mode)
+#else
 Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
+#endif
 {
     struct collision_mesh *mesh;
     struct polygon **near;
@@ -3606,6 +7884,9 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     int nearest;
     int i;
     Float length;
+#ifdef NONMATCHING
+    Bool test_crossing;
+#endif
     Float spacing;
     Float travelled;
     Float radius;
@@ -3628,6 +7909,10 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     }
     touch_polygon_count = 0;
     length = njScalor(&ball->speed);
+#ifdef NONMATCHING
+    test_crossing =
+        length > (mode == POLYGON_SWEEP_SAMPLES ? 2.0F * ball->radius : 0.0F);
+#endif
     spacing = ball->radius * 0.5F;
     touch = touch_polygons;
     found = FALSE;
@@ -3642,8 +7927,26 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
     if (!found) {
         return FALSE;
     }
+#ifdef NONMATCHING
+    if (mesh->near_count == 0) {
+        return FALSE;
+    }
+    NJS_MATRIX caller;
+    njGetMatrix(&caller);
+    struct sweep_bounds box;
+    sweep_bounds(&box, ball);
+    struct near_cursor cursor = {.group = mesh->near, .back = mesh->near_back};
+    struct polygon *candidate;
+    near = &candidate;
+    for (count = mesh->near_count; count > 0; count--) {
+        candidate = near_next(&cursor);
+        if (sweep_box_misses(&box, candidate->vertex)) {
+            continue;
+        }
+#else
     for (count = mesh->near_count, near = mesh->near; count > 0;
          count--, near++) {
+#endif
         Float *v0;
         Float *v1;
         Float *v2;
@@ -3693,7 +7996,11 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
         pos.y = ball->pos.y - y0;
         pos.z = ball->pos.z - z0;
         speed = ball->speed;
+#ifdef NONMATCHING
+        njSetMatrix(NULL, &_unit_matrix_);
+#else
         njPushMatrix(&_unit_matrix_);
+#endif
         /* @hack type: each point's x converted back to its NJS_POINT3, as in
          * sweep_model; as (const char *)&tri[0] and so on, 227 of 1121 words
          * differ */
@@ -3766,7 +8073,15 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
             WEIGH(spacing);
             WEIGH(spacing);
         }
+#ifdef NONMATCHING
+        if (!hit && test_crossing) {
+            hit = sweep_crosses_face(candidate, ball, mode);
+        }
+#endif
         if (hit) {
+#ifdef NONMATCHING
+            sweep_faces[touch_polygon_count] = candidate;
+#endif
             if (debug_hidden >= 0) {
                 touch_points[0] = (*near)->vertex[0];
                 touch_points[1] = (*near)->vertex[1];
@@ -3781,9 +8096,17 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
                 touch_points[1].z += normal.z;
                 touch_points[2].z += normal.z;
                 njGetMatrix(&touch_matrix);
+#ifdef NONMATCHING
+                njSetMatrix(NULL, &caller);
+#else
                 njPopMatrix(1);
+#endif
                 njDrawTriangle3D(&touch_triangle, 3, NJD_FILL);
+#ifdef NONMATCHING
+                njSetMatrix(NULL, &touch_matrix);
+#else
                 njPushMatrix(&touch_matrix);
+#endif
             }
             contact.height = pos.y;
             contact.height_after = pos.y + speed.y;
@@ -3855,10 +8178,15 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
                 break;
             }
         }
+#ifdef NONMATCHING
+    }
+    njSetMatrix(NULL, &caller);
+#else
         njPopMatrix(1);
         WEIGH(&njPrintC);
         WEIGH(&atan2f);
     }
+#endif
     count = touch_polygon_count;
     if (count < 1) {
         return FALSE;
@@ -3912,6 +8240,14 @@ Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
         ball->hit.pos.z *= scale;
     }
     return TRUE;
+}
+#endif
+
+#ifdef NONMATCHING
+LINKED_LAST(polygon_sweep)
+Bool polygon_sweep(struct polygon_ball *ball, NJS_OBJECT *object, Uint32 flags)
+{
+    return polygon_sweep_for(ball, object, POLYGON_SWEEP_MOTION);
 }
 #endif
 
@@ -5080,6 +9416,17 @@ Bool polygon_find_model_sides(struct sides_query *query, NJS_OBJECT *object,
     return any;
 }
 
+#ifdef NONMATCHING
+/* Height queries also visit models already in world space. */
+static __attribute__((noinline)) Bool
+height_strip_batch(struct mesh_strip *strip, const NJS_OBJECT *object)
+{
+    const NJS_OBJECT *unturned =
+        (object->evalflags & EVAL_UNTURNED) == EVAL_UNTURNED ? object : NULL;
+    return mesh_strip_batch(strip, unturned);
+}
+#endif
+
 Bool polygon_find_model_heights(struct height_query *query, NJS_OBJECT *object)
 {
     NJS_POINT3 *v0;
@@ -5091,7 +9438,11 @@ Bool polygon_find_model_heights(struct height_query *query, NJS_OBJECT *object)
     struct surface *side;
     NJS_MODEL *source;
     NJS_MODEL model;
+#ifdef NONMATCHING
+    struct mesh_strip strip;
+#else
     struct strip strip;
+#endif
     NJS_VECTOR normal;
     Float e1;
     Float e2;
@@ -5139,7 +9490,13 @@ Bool polygon_find_model_heights(struct height_query *query, NJS_OBJECT *object)
         }
         strips = model.meshsets->nbMesh;
         strip.indices = model.meshsets->meshes;
-        while (strips != 0) {
+#ifdef NONMATCHING
+        strip.left = 0;
+        strip.strips = strips;
+        while (height_strip_batch(&strip, object)) {
+            reversed = strip.reversed;
+#else
+        for (; strips != 0; strips--) {
             if ((object->evalflags & EVAL_UNIT) == EVAL_UNIT) {
                 reversed = strip_next_plain(&strip);
             } else if ((object->evalflags & EVAL_UNTURNED) == EVAL_UNTURNED) {
@@ -5147,6 +9504,7 @@ Bool polygon_find_model_heights(struct height_query *query, NJS_OBJECT *object)
             } else {
                 reversed = strip_next(&strip);
             }
+#endif
             for (i = 0, v0 = &strip.points[0], v1 = &strip.points[1],
                 v2 = &strip.points[2];
                  i < strip.count - 2; i++, v0 = v1, v1 = v2, v2++) {
@@ -5199,7 +9557,6 @@ Bool polygon_find_model_heights(struct height_query *query, NJS_OBJECT *object)
                     }
                 } while (0);
             }
-            strips--;
         }
         model.meshsets++;
         model.nbMeshset--;

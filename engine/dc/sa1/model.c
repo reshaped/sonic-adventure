@@ -222,7 +222,7 @@ _Static_assert(sizeof(struct point) == 16, "a point isn't 16 bytes");
  * reads its literal pools through it. config/1st_read/kernel.txt lays out
  * the code the draws run first, then the object walks', which call the
  * draws, then the sweep's, whose pools no draw reads. the draws' scratch in
- * _nj_vertex_buf_ starts at the first line in the set of polygon_sweep's
+ * _nj_vertex_buf_ starts at the first line in the set of polygon_sweep_for's
  * first whole line, or in set OC_SETS / 2 where that set lies under it,
  * or in set OC_SETS - 2 where that set is the cache's last.
  * project_points' first pass writes that line, the points start on the

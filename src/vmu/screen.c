@@ -87,6 +87,12 @@ struct vmu_state {
     struct vmu_screen screens[SCREENS];
 };
 
+#ifdef NONMATCHING
+#ifdef DREAMCAST
+/* These pictures and the Casinopolis race route fit in the gap before .bss. */
+LINKED_LAST_DATA(chao_pictures)
+#endif
+#endif
 static const Uint8 chao_pictures[CHAO_PICTURES][CHAO_BYTES] = {
 #include "vmu/screen/chao_pictures.inc"
 };

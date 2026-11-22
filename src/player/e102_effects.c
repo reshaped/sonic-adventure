@@ -5,6 +5,9 @@
 #include <stdlib.h>
 
 #include "collision/collision.h"
+#ifdef NONMATCHING
+#include "collision/ground.h"
+#endif
 #include "collision/mesh.h"
 #include "collision/polygon.h"
 #include "collision/world.h"
@@ -79,6 +82,11 @@ void e102_bob_booster(struct task_work *work, struct player *record,
 
 Uint32 e102_floor_flags(struct task_work *work)
 {
+#ifdef NONMATCHING
+    struct surface nearest;
+    return ground_nearest_surface(&work->pos, FALSE, &nearest) ? nearest.flags
+                                                               : 0;
+#else
     struct floor_query query;
     NJS_VECTOR away;
     struct world_object *objects;
@@ -136,6 +144,7 @@ Uint32 e102_floor_flags(struct task_work *work)
         }
     }
     return flags;
+#endif
 }
 
 /* the turns that send a spark off. its yaw is back from the way it faces,
