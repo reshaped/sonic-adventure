@@ -25,7 +25,7 @@ typedef float f32;
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-/* the logs: notices and above go to stderr under HOST_SOUND_LOG */
+/* the logs, which the port leaves silent (xbox/host/pc/sound.cpp) */
 void flycast_log(const char *kind, const char *format, ...) __attribute__((format(printf, 2, 3)));
 #define DEBUG_LOG(type, ...) ((void)0)
 #define INFO_LOG(type, ...) flycast_log("info", __VA_ARGS__)

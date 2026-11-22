@@ -4,7 +4,7 @@
 
 /* the port layer's memory, past the console's 16 MB of RAM in area 3, which
  * the host maps with RAM, and at the store queues as RAM is: Kamui's lists
- * live here. its 27 MB, and 5 MB more for a movie, with RAM's 16 MB fit
+ * live here. its 18.5 MB, and 5 MB more for a movie, with RAM's 16 MB fit
  * the Xbox's 64 MB with the code areas, sound RAM, the host and its
  * textures: the lists are sized by their use, and the renderer's tables at
  * three times and more the most a frame has needed (render.c) */
@@ -14,10 +14,14 @@
  * Xbox host doesn't: the player takes its room through host_api's
  * movie_memory as a movie starts. the lists by ListType: opaque, its modifier
  * volumes, translucent, its modifiers, punch-through. the game draws no
- * modifier volumes, and the most a frame has put in the others is 0.8 MB
- * opaque and 176 KB translucent */
-#define PORT_LIST_SIZES {0x00200000u, 0x00010000u, 0x00100000u, 0x00010000u, 0x00100000u}
-#define PORT_LISTS_SIZE 0x00420000u
+ * modifier volumes. since the models and sprites go to the host as runs,
+ * the lists hold their headers and the runs' marks: the most a frame put in
+ * them in Speed Highway's third act, on the console, is 82 KB opaque, 44 KB
+ * translucent and none punch-through. 512 KB in all, the opaque 256, the
+ * translucent 192 and the punch-through 32. a list past its room runs into
+ * the next, and the last into video memory: kmRender logs it */
+#define PORT_LIST_SIZES {0x00040000u, 0x00004000u, 0x00030000u, 0x00004000u, 0x00008000u}
+#define PORT_LISTS_SIZE 0x00080000u
 #define PORT_LISTS PORT_MEMORY
 #define PORT_VRAM (PORT_MEMORY + PORT_LISTS_SIZE)
 #define PORT_VRAM_SIZE 0x00800000u
@@ -25,8 +29,8 @@
 #define PORT_RENDER (PORT_VRAM + PORT_VRAM_SIZE)
 #define PORT_RENDER_SIZE 0x00a00000u
 /* what of it the renderer's tables use, and the Xbox host maps: the rest is
- * address space only */
-#define PORT_RENDER_USED 0x00400000u
+ * address space only. 3.5 MB: the tables take 3,511 KB (render.c) */
+#define PORT_RENDER_USED 0x00380000u
 #define PORT_MOVIE (PORT_RENDER + PORT_RENDER_SIZE)
 #define PORT_MOVIE_SIZE 0x00500000u
 #define PORT_MEMORY_SIZE (PORT_MOVIE + PORT_MOVIE_SIZE - PORT_MEMORY)
@@ -138,13 +142,21 @@ extern volatile int port_report;
 /* a place to put player 0 at as it enters a stage and act, as a restart
  * point does (stage_place_player, under XBOX), taken once. the report gives
  * the HOST_POKE that sets it: armed, then the stage, the act, the place's
- * x, y and z as their floats' bits, and the angles */
+ * x, y and z as their floats' bits, the angles, the character, and enter:
+ * set, the menus' first step enters the stage and act as the trial menu
+ * does, as that character (port_place_enter), so a report's place is
+ * reached without a pad's script */
 struct port_place {
     int armed;
     int stage, act;
     float pos[3];
     int ang[3];
+    int character;
+    int enter;
 };
+/* src/main.c's, under XBOX, at the menus' step: TRUE once where port_place
+ * asks for its stage to be entered, with the stage, act and character set */
+int port_place_enter(void);
 extern volatile struct port_place port_place;
 /* the frame's end: render.c's call at the end of port_render, with the
  * renderer's time and its parts in timestamp counts */

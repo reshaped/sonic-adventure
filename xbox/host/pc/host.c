@@ -387,19 +387,6 @@ static int raw_host_card_exists(int drive)
     return stat(path, &st) == 0;
 }
 
-/* HOST_CARD_DELAY=US: each card call takes US microseconds longer, as a
- * slower machine's files take, the Xbox's under xemu */
-static void card_delay(void)
-{
-    static int delay = -1;
-
-    if (delay < 0) {
-        delay = getenv("HOST_CARD_DELAY") != NULL ? atoi(getenv("HOST_CARD_DELAY")) : 0;
-    }
-    if (delay > 0) {
-        usleep((useconds_t)delay);
-    }
-}
 
 static int raw_host_card_read(int drive, unsigned block, void *to)
 {
@@ -407,7 +394,6 @@ static int raw_host_card_read(int drive, unsigned block, void *to)
     FILE *file;
     int ok;
 
-    card_delay();
     card_path(drive, path, sizeof path);
     file = fopen(path, "rb");
     if (file == NULL) {
@@ -424,7 +410,6 @@ static int raw_host_card_write(int drive, unsigned block, const void *from)
     FILE *file;
     int ok;
 
-    card_delay();
     mkdir(saves_dir, 0777);
     card_path(drive, path, sizeof path);
     file = fopen(path, "r+b");
@@ -658,27 +643,6 @@ static void on_alarm(int signal, siginfo_t *info, void *context)
     (void)signal;
     (void)info;
     blanks++;
-    /* every five seconds, where the game is */
-    if (blanks % 300 == 0 && getenv("HOST_WHERE") != NULL) {
-        ucontext_t *uc = context;
-        uint32_t *frame = (uint32_t *)(uintptr_t)uc->uc_mcontext.gregs[REG_EBP];
-        int depth;
-
-        report("at", (uint32_t)uc->uc_mcontext.gregs[REG_EIP]);
-        uint32_t low = (uint32_t)uc->uc_mcontext.gregs[REG_ESP];
-
-        /* a frame lies above the stack pointer, within a megabyte of it,
-         * or in the game's RAM, where its fibers' and threads' stacks are */
-        for (depth = 0; depth < 8; depth++) {
-            uint32_t at = (uint32_t)(uintptr_t)frame;
-
-            if (!((at >= low && at - low < 0x100000) || (at >= RAM && at + 8 <= RAM + RAM_SIZE_KNOWN))) {
-                break;
-            }
-            report("  from", frame[1]);
-            frame = (uint32_t *)(uintptr_t)frame[0];
-        }
-    }
     if (watch != NULL) {
         check_watch();
     }
@@ -711,83 +675,6 @@ static void on_alarm(int signal, siginfo_t *info, void *context)
     }
 }
 
-/* HOST_BREAK=ADDRESS: a hardware watchpoint on the word at ADDRESS, which
- * reports each write to it, where the writer was, as SIGIO */
-static void on_break(int signal, siginfo_t *info, void *context)
-{
-    static int hits;
-    ucontext_t *uc = context;
-    uint32_t *frame = (uint32_t *)(uintptr_t)uc->uc_mcontext.gregs[REG_EBP];
-    uint32_t low = (uint32_t)uc->uc_mcontext.gregs[REG_ESP];
-    int depth;
-
-    (void)signal;
-    (void)info;
-    if (++hits > 400) {
-        return;
-    }
-    fprintf(stderr, "host: write at blank %u, value %08x\n", blanks,
-            *(uint32_t *)(uintptr_t)strtoul(getenv("HOST_BREAK"), NULL, 0));
-    report("  by", (uint32_t)uc->uc_mcontext.gregs[REG_EIP]);
-    if ((uint32_t)uc->uc_mcontext.gregs[REG_EIP] < CODE || (uint32_t)uc->uc_mcontext.gregs[REG_EIP] >= 0x10400000u) {
-        /* a host library's write: the game's return addresses on the stack */
-        uint32_t *word = (uint32_t *)(uintptr_t)low;
-        int found = 0;
-        int k;
-
-        for (k = 0; k < 4096 && found < 6; k++) {
-            if (word[k] >= CODE && word[k] < 0x10400000u) {
-                report("  under", word[k]);
-                found++;
-            }
-        }
-        return;
-    }
-    for (depth = 0; depth < 5; depth++) {
-        uint32_t at = (uint32_t)(uintptr_t)frame;
-
-        if (!((at >= low && at - low < 0x100000) || (at >= RAM && at + 8 <= RAM + RAM_SIZE_KNOWN))) {
-            break;
-        }
-        report("  from", frame[1]);
-        frame = (uint32_t *)(uintptr_t)frame[0];
-    }
-}
-
-static void set_break(const char *address)
-{
-    struct perf_event_attr attr;
-    struct sigaction action;
-    int fd;
-    struct f_owner_ex owner;
-
-    memset(&attr, 0, sizeof attr);
-    attr.type = PERF_TYPE_BREAKPOINT;
-    attr.size = sizeof attr;
-    attr.bp_type = HW_BREAKPOINT_W;
-    attr.bp_addr = strtoul(address, NULL, 0);
-    attr.bp_len = HW_BREAKPOINT_LEN_4;
-    attr.sample_period = 1;
-    attr.wakeup_events = 1;
-    attr.exclude_kernel = 1;
-    attr.exclude_hv = 1;
-    fd = (int)syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0);
-    if (fd < 0) {
-        fprintf(stderr, "host: no watchpoint: %s\n", strerror(errno));
-        return;
-    }
-    memset(&action, 0, sizeof action);
-    action.sa_sigaction = on_break;
-    action.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK;
-    sigaction(SIGIO, &action, NULL);
-    fcntl(fd, F_SETFL, O_ASYNC);
-    fcntl(fd, F_SETSIG, SIGIO);
-    owner.type = F_OWNER_TID;
-    owner.pid = (pid_t)syscall(SYS_gettid);
-    fcntl(fd, F_SETOWN_EX, &owner);
-    fprintf(stderr, "host: watching writes to %s\n", address);
-}
-
 static void host_set_interrupt(const struct host_interrupt *with)
 {
     static char alternate[0x10000];
@@ -811,9 +698,6 @@ static void host_set_interrupt(const struct host_interrupt *with)
     stack.ss_size = sizeof alternate;
     stack.ss_flags = 0;
     sigaltstack(&stack, NULL);
-    if (getenv("HOST_BREAK") != NULL) {
-        set_break(getenv("HOST_BREAK"));
-    }
     memset(&alarm, 0, sizeof alarm);
     alarm.sa_sigaction = on_alarm;
     alarm.sa_flags = SA_RESTART | SA_ONSTACK | SA_SIGINFO;
@@ -963,21 +847,13 @@ static void host_video_draw(const struct host_draw *draw, const unsigned short *
     leave_host();
 }
 
-/* the Xbox's pack, where HOST_PACK names one (video.c). HOST_TEXTURE_KEYS=1
- * logs each key the renderer asks for and whether the pack has it */
+/* the Xbox's pack, where HOST_PACK names one (video.c) */
 static int host_video_texture_packed(unsigned id, unsigned key_lo, unsigned key_hi)
 {
-    static int log_keys = -1;
     int found;
 
     host_busy++;
-    if (log_keys < 0) {
-        log_keys = getenv("HOST_TEXTURE_KEYS") != NULL;
-    }
     found = video_texture_packed(id, key_lo, key_hi, have_video);
-    if (log_keys) {
-        fprintf(stderr, "host: texture key %08x%08x id %u%s\n", key_hi, key_lo, id, found ? " packed" : "");
-    }
     leave_host();
     return found;
 }
@@ -1054,9 +930,6 @@ static void host_video_vertices(const struct host_vertex *vertices, int count)
     leave_host();
 }
 
-/* HOST_DUMP: at each shot, the renderer logs the next frame's strips */
-static volatile int *dump_flag;
-
 /* HOST_SHOT=BLANK,...: the frame that shows at each BLANK, as
  * build/pc/shot_BLANK.ppm */
 static const char *shots;
@@ -1075,9 +948,6 @@ static void host_video_present(void)
             }
             snprintf(path, sizeof path, "build/pc/shot_%s%u.ppm", frame_clock != NULL ? "f" : "", at);
             video_shot(path);
-            if (getenv("HOST_DUMP") != NULL && dump_flag != NULL) {
-                *dump_flag = atoi(getenv("HOST_DUMP")) > 1 ? 2 : 1;
-            }
             fprintf(stderr, "host: %s at blank %u, frame %u\n", path, blanks, frame_clock != NULL ? *frame_clock : 0);
             shots = *end == ',' ? end + 1 : end;
         }
@@ -1388,7 +1258,6 @@ int main(int argc, char **argv)
         *(struct host_api **)HOST_API_SLOT = &thunked;
     }
     watched_mode = (volatile int *)(uintptr_t)symbol_address(&main_symbols, "game_mode");
-    dump_flag = (volatile int *)(uintptr_t)symbol_address(&main_symbols, "port_render_dump");
     if (getenv("HOST_CLOCK") != NULL && strcmp(getenv("HOST_CLOCK"), "frames") == 0) {
         frame_clock = (volatile uint32_t *)(uintptr_t)symbol_address(&main_symbols, "_nj_vsync_count_");
         if (frame_clock == NULL) {

@@ -35,6 +35,13 @@ int port_run_begin(struct run_vertex **vertices, int *vertex_room, Uint16 **indi
 struct run_part *port_run_parts(int *room);
 void port_run_end(int run, int vertices, int indices, int part_total, const Float transform[12], Float rhw_near,
                   Float rhw_mid, unsigned serial);
+/* a translucent run's vertices' depths, for the renderer's sort by triangle,
+ * which reads them in cached memory, not the run's vertices, which lie in
+ * the host's write-combined memory that the CPU reads uncached: where they
+ * go and their room, then the run's, once port_run_end or port_run_kept
+ * made it (xbox/port/render.c) */
+Float *port_run_depths(int *room);
+void port_run_depths_take(int run, int vertices);
 extern volatile int port_gpu_models;
 /* port_gpu_models' bits: the walk's projected meshsets, and SA1's screen
  * polygons, 2D polygons and lines */
@@ -50,6 +57,15 @@ extern volatile int port_gpu_models;
 extern const Float port_screen_rows[12];
 #define SCREEN_SERIAL 0xffffffffu
 
+/* the open strip's vertices that are numbers, as emit_vertex wrote them, by
+ * their place modulo EMIT_GOOD: bit 0 x and y, bit 1 z. emit_strip_end reads
+ * these, not the run's vertices, which lie in write-combined memory: read
+ * back, each load went to the memory uncached. a strip longer than EMIT_GOOD
+ * reads its vertices */
+#define EMIT_GOOD 1024
+#define EMIT_GOOD_XY 1u
+#define EMIT_GOOD_Z 2u
+
 struct port_emit {
     Bool on;
     Bool overflow;
@@ -64,6 +80,11 @@ struct port_emit {
     int strip_first;
     Float strip_near;
     Float rhw_near, rhw_sum;
+    /* a sorted run's vertices' depths (port_run_depths), or null: past
+     * their room the run has none */
+    Float *depths;
+    int depth_room;
+    Uint8 good[EMIT_GOOD];
     /* a sprite's colors, from its header's intensity colors (emit_face):
      * the tile accelerator's sprite vertices hold an intensity of 1, and the
      * header the colors they take */
@@ -82,6 +103,7 @@ static inline void emit_strip_end(void)
 {
     struct port_emit *e = &port_emit;
     int from = e->index_count;
+    Bool noted = e->count - e->strip_first <= EMIT_GOOD;
     int k;
 
     for (k = e->strip_first + 2; k < e->count; k++) {
@@ -94,10 +116,15 @@ static inline void emit_strip_end(void)
         }
         /* a corner of no number draws as a wedge across the screen on the
          * NV2A, where the PowerVR shows nothing */
-        if (!__builtin_isfinite(e->out[a].x) || !__builtin_isfinite(e->out[a].y) ||
-            !__builtin_isfinite(e->out[b].x) || !__builtin_isfinite(e->out[b].y) ||
-            !__builtin_isfinite(e->out[k].x) || !__builtin_isfinite(e->out[k].y) ||
-            !__builtin_isfinite(e->out[k].z)) {
+        if (noted) {
+            if (!(e->good[a % EMIT_GOOD] & EMIT_GOOD_XY) || !(e->good[b % EMIT_GOOD] & EMIT_GOOD_XY) ||
+                (e->good[k % EMIT_GOOD] & (EMIT_GOOD_XY | EMIT_GOOD_Z)) != (EMIT_GOOD_XY | EMIT_GOOD_Z)) {
+                continue;
+            }
+        } else if (!__builtin_isfinite(e->out[a].x) || !__builtin_isfinite(e->out[a].y) ||
+                   !__builtin_isfinite(e->out[b].x) || !__builtin_isfinite(e->out[b].y) ||
+                   !__builtin_isfinite(e->out[k].x) || !__builtin_isfinite(e->out[k].y) ||
+                   !__builtin_isfinite(e->out[k].z)) {
             continue;
         }
         e->indices[e->index_count++] = (Uint16)a;
@@ -124,7 +151,7 @@ static inline void emit_vertex(Float x, Float y, Float rhw, Float u, Float v, Ui
 {
     struct port_emit *e = &port_emit;
     struct run_vertex *out;
-    Float z;
+    Float z, xz, yz;
 
     if (e->overflow) {
         return;
@@ -134,9 +161,22 @@ static inline void emit_vertex(Float x, Float y, Float rhw, Float u, Float v, Ui
         return;
     }
     z = 1.0F / rhw;
+    xz = x * z;
+    yz = y * z;
+    /* noted as written: the run's memory is read back uncached */
+    e->good[e->count % EMIT_GOOD] = (Uint8)((__builtin_isfinite(xz) && __builtin_isfinite(yz) ? EMIT_GOOD_XY : 0) |
+                                            (__builtin_isfinite(z) ? EMIT_GOOD_Z : 0));
+    if (e->depths != NULL) {
+        /* the screen rows' third row takes z as it is */
+        if (e->count < e->depth_room) {
+            e->depths[e->count] = z;
+        } else {
+            e->depths = NULL;
+        }
+    }
     out = &e->out[e->count++];
-    out->x = x * z;
-    out->y = y * z;
+    out->x = xz;
+    out->y = yz;
     out->z = z;
     out->u = u;
     out->v = v;
@@ -173,6 +213,8 @@ static inline Bool emit_begin(Bool sorted, int bit)
     if (sorted && e->part_room == 0) {
         return FALSE;
     }
+    e->depth_room = 0;
+    e->depths = sorted ? port_run_depths(&e->depth_room) : NULL;
     e->run = run;
     e->sorted = sorted;
     e->on = TRUE;
@@ -295,6 +337,9 @@ static inline Uint32 *emit_end(Uint32 *at)
     }
     port_run_end(e->run, e->count, e->index_count, e->part_count, port_screen_rows, e->rhw_near,
                  e->rhw_sum / (Float)e->count, SCREEN_SERIAL);
+    if (e->depths != NULL) {
+        port_run_depths_take(e->run, e->count);
+    }
     at[0] = PARA_MODEL;
     at[1] = (Uint32)e->run;
     for (k = 2; k < 8; k++) {

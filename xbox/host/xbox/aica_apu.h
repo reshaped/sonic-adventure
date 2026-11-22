@@ -10,14 +10,10 @@ int aica_apu_open(const void *sound_ram);
 void aica_apu_blank(void);
 void aica_apu_report(void);
 void aica_apu_report_memory(void);
-void aica_apu_silence(void);
 /* the game opens the bank file name, in capitals without its folder: its
  * samples from the sound pack, where there is one. from a host call, where
  * a file may be read */
 void aica_apu_preload(const char *name);
-/* HOST_STREAM_PROBE=1: each blank, the streams' rings the game writes as
- * they play, against where their voices play, logged once a second */
-void aica_apu_probe(int on);
 
 #ifdef __cplusplus
 }

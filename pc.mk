@@ -290,7 +290,7 @@ build/pc/disc/images.txt: build/pc/link/report.txt tools/pcdisc.py tools/images.
 PC_FLYCAST := xbox/third_party/flycast
 PC_FLYCAST_SOURCES := $(addprefix $(PC_FLYCAST)/core/hw/,aica/aica.cpp aica/aica_if.cpp aica/aica_mem.cpp \
 	aica/sgc_if.cpp aica/dsp.cpp aica/dsp_interp.cpp aica/dsp_x86.cpp arm7/arm7.cpp arm7/arm_mem.cpp) \
-	xbox/host/pc/sound.cpp xbox/host/pc/dsp_check.cpp
+	xbox/host/pc/sound.cpp
 PC_FLYCAST_OBJECTS := $(patsubst %.cpp,build/pc/host_sound/%.o,$(PC_FLYCAST_SOURCES))
 PC_CXX ?= clang++
 build/pc/host_sound/%.o: %.cpp $(wildcard $(PC_FLYCAST)/shim/*.h $(PC_FLYCAST)/shim/*/*.h $(PC_FLYCAST)/shim/*/*/*.h \

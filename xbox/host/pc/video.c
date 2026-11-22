@@ -410,14 +410,7 @@ void video_vertices3(const struct host_vertex *vertices, int count, const float 
 struct host_vertex *video_arena(int *vertices)
 {
     static struct host_vertex room[0x8000];
-    /* HOST_ARENA=N: an arena of N vertices, for a test of the drawer past
-     * its room (model.c's gpu_fits), as the Xbox's 20,000 fills */
-    const char *size = getenv("HOST_ARENA");
-
     *vertices = 0x8000;
-    if (size != NULL && atoi(size) > 0 && atoi(size) < 0x8000) {
-        *vertices = atoi(size);
-    }
     return room;
 }
 
@@ -510,17 +503,11 @@ static void draw_with(const struct host_draw *draw, const struct host_vertex *ve
     }
     /* a model's triangles culled as the renderer culls the screen's: 2
      * drops the counterclockwise as the screen shows them, which are GL's
-     * counterclockwise too, its front faces here; HOST_CULL_FLIP=1 swaps
-     * the two */
+     * counterclockwise too, its front faces here */
     if (model && (draw->cull == 2 || draw->cull == 3)) {
-        static int flip = -1;
-
-        if (flip < 0) {
-            flip = getenv("HOST_CULL_FLIP") != NULL;
-        }
         glEnable(GL_CULL_FACE);
         glFrontFace(GL_CCW);
-        glCullFace((draw->cull == 2) != flip ? GL_FRONT : GL_BACK);
+        glCullFace(draw->cull == 2 ? GL_FRONT : GL_BACK);
     } else {
         glDisable(GL_CULL_FACE);
     }
@@ -644,10 +631,6 @@ static void poll(void)
             unsigned bit = 0;
 
             int down = event.type == SDL_KEYDOWN;
-
-            if (down && !event.key.repeat && getenv("HOST_KEYLOG") != NULL) {
-                fprintf(stderr, "host: key %s\n", SDL_GetKeyName(event.key.keysym.sym));
-            }
 
             switch (event.key.keysym.sym) {
             case SDLK_UP:

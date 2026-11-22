@@ -54,10 +54,10 @@
  * vertex programs scale by c[78] to the display's pixels, the port's 16:9
  * on (host.c), so that the picture is the anamorphic 16:9 the TV would
  * have stretched. no antialiased surface: the scene draws on pbkit's back
- * buffer, of two, with pbkit's depth buffer. its color is 32 bits, or
- * R5G6B5 with HOST_720P_COLOR=16, which halves the frame buffers (the
- * NV2A's rule on a 16-bit color with a 32-bit depth is untried on a
- * console).
+ * buffer, of two, with pbkit's depth buffer. its color is R5G6B5, which
+ * halves the frame buffers (the NV2A's rule on a 16-bit color with a 32-bit
+ * depth is untried on a console); where the dashboard refuses 720p, the
+ * picture is 480p at 32 bits.
  *
  * HOST_SHOT frames are copied, as R5G6B5, to buffers that run.sh finds in
  * the guest's memory by the log's "shot" lines, at 640 by 480: a 720p
@@ -102,18 +102,22 @@ void pb_assign_tile(int tile_index, DWORD tile_addr, DWORD tile_size, DWORD tile
 
 /* the vertex layout the NV2A reads: 13 words */
 
-/* one room of contiguous memory holds the ring and, after it, two arenas
- * for the models' vertices (video_arena), so that one set of vertex arrays
- * reaches all three and an index is 16 bits */
-/* the ring and the two arenas share 65,536 vertices, as many as 16-bit
- * indices reach. because busy stages filled smaller arenas, and models past
- * them took the slower lists' path, the ring is 12,000 (a frame's lists used
- * under 9,600) and each arena 26,768. a list may take the ring but 1,024,
- * and its clips what is left (video_vertices) */
-#define ARENA_VERTICES 26768u
-#define RING_SIZE (12000u * sizeof(struct host_vertex))
-#define ROOM_SIZE (RING_SIZE + 2 * ARENA_VERTICES * sizeof(struct host_vertex))
+/* the ring (video_vertices) and the two arenas for the models' vertices
+ * (video_arena) are rooms of contiguous memory of their own, as the store
+ * is: the vertex arrays point at the one the draws name (set_attributes),
+ * and an index, 16 bits, counts from its room's start. the arenas share
+ * one room, whose 16-bit indices reach both. the lists' vertices took 2,832
+ * at the most in Speed Highway's third act, now that the models and
+ * sprites go to the host as runs, but Ice Cap once sent 8,703 at once
+ * (video_vertices), so the ring is 10,000, 273 KB. a list may take the ring
+ * but 1,024, and its clips what is left. the arenas, which a busy act filled
+ * to 23,394 of 26,768, are 29,768 each */
+#define ARENA_VERTICES 29768u
+#define ARENAS_SIZE (2 * ARENA_VERTICES * sizeof(struct host_vertex))
+#define RING_VERTICES 10000u
+#define RING_SIZE (RING_VERTICES * sizeof(struct host_vertex))
 static struct host_vertex *ring;
+static struct host_vertex *arenas;
 /* the kept models' vertices (video_store), which hold from frame to frame,
  * in a room of their own: the vertex arrays point at the one room or the
  * other (set_attributes), as the draws name vertices of each */
@@ -124,13 +128,13 @@ static struct host_vertex *ring;
 static struct host_vertex *store;
 static const struct host_vertex *arrays_at; /* where the vertex arrays point: ring, store, or null for nowhere yet */
 static unsigned ring_used; /* in vertices */
-#define RING_VERTICES (RING_SIZE / sizeof(struct host_vertex))
 
 /* the push buffer's room, which a frame may outgrow: the host counts what it
  * pushes, and waits and starts it again near its end, a frame's hitch.
- * because pbkit's default 512 KB filled in busy stages, it is 1 MB, a power
- * of two as pbkit needs, room the sound's pool gave up (aica_apu.c) */
-#define PUSH_SIZE 0x100000
+ * because pbkit's default 512 KB filled in busy stages, and 1 MB came to
+ * 937 KB in Speed Highway's third act, it is 2 MB, a power of two as pbkit
+ * needs, from the room Kamui's lists gave up (xbox/port/port.h) */
+#define PUSH_SIZE 0x200000
 static unsigned pushed;
 /* for the report: the most a frame pushed and put in the ring, and the
  * times either filled within a frame and waited for the NV2A to start over */
@@ -156,27 +160,31 @@ struct texture {
     int pack_index; /* the pack's entry it names, plus 1, or 0: read again if its block is evicted */
 };
 
-/* the antialiased surface and its depth buffer, where msaa is on */
-#define AA_WIDTH (WIDTH * 2)
-#define AA_PITCH (AA_WIDTH * 4)
+/* the scene's surface and its depth buffer, which every mode draws the
+ * scene on (target_scene), and the resolve then copies to pbkit's back
+ * buffer: twice the game's width with antialiasing (msaa, two samples a
+ * pixel), else the display's size, in the display's color. so only the
+ * resolve and the bloom draw on the back buffer, once the display has
+ * left it (finish_frame) */
 #define RESOLVE_TEXTURE (TEXTURES - 1)
+static unsigned scene_w, scene_h, scene_pitch;
+/* the two buffers' sizes, each a whole number of 16 KB, as a tile wants */
+#define TILE_ROUND(bytes) (((bytes) + 0x3fffu) & ~0x3fffu)
+static unsigned scene_color_size, scene_depth_size;
 static int msaa, vsync;
 /* the display: 640 by 480, or 1280 by 720 (HOST_720P), its back buffer
  * R5G6B5 where out_16 */
 static int hd, out_16;
-static int depth_bottom_on = 1; /* HOST_DEPTH_BOTTOM=0: no bottom piece, for a test */
 static unsigned out_w = WIDTH, out_h = HEIGHT;
-static int double_buffered; /* pbkit has two frame buffers (pb_back_buffers), not three */
 static DWORD shown_queued_at = ~0u; /* pbkit's blank count as the last frame was queued to show (show_pending) */
 static unsigned off_screen_waits; /* swaps that came more than a blank late (wait_off_screen), for the report */
 static int frame_unfinished; /* the last present's frame awaits its resolve and bloom (finish_frame) */
-static UCHAR *aa_color, *aa_depth;
+static UCHAR *scene_color, *scene_depth;
 static int depth_noting = 1; /* video_vertices notes the vertices' rhw */
 /* the guard band's reach past the screen's sides: narrower on the
  * antialiased surface, where the NV2A doubles x */
 static float guard_x = 512.0F;
-/* the guard band above and below, and HOST_GUARD=N, which sets both reaches
- * to N of the game's pixels, for a test on the console */
+/* the guard band above and below */
 static float guard_y = 512.0F;
 static struct texture textures[TEXTURES];
 const char *setting(const char *key);
@@ -205,17 +213,21 @@ static struct block {
 } blocks[BLOCKS];
 static int block_first = -1;
 static unsigned video_frame = 1;
-static int vertex_check; /* HOST_VERTEX_CHECK: video_begin's check_frame */
 static unsigned texture_evictions;
 static int *pack_slot; /* each pack entry's block, plus 1, or 0 */
 static void block_evict(int b);
 
 /* the textures' pool: what's free, but 1.5 MB for the host and 2.5 MB for
  * the video memory the game's writes may yet take (the host's vram_commit:
- * the textures the pack lacks) */
+ * the textures the pack lacks), and 10 MB at the most.
+ * Speed Highway's third act used 6,637 KB of 12,672 with none evicted: the
+ * rest stays free, for the host's other rooms and a movie's. the report
+ * counts the evictions of a stage that needs more */
+#define POOL_MOST (10u << 20)
 static void pool_take(void)
 {
     MM_STATISTICS stats;
+    unsigned most = POOL_MOST;
 
     memset(&stats, 0, sizeof stats);
     stats.Length = sizeof stats;
@@ -223,6 +235,9 @@ static void pool_take(void)
     unsigned leave = 0x400000 + pool_given;
 
     pool_size = stats.AvailablePages * 4096 > leave + 0x100000 ? stats.AvailablePages * 4096 - leave : 0;
+    if (pool_size > most) {
+        pool_size = most;
+    }
     pool_size &= ~0xffffu;
     pool = NULL;
     /* the largest piece that's in one, if all of it isn't */
@@ -236,12 +251,6 @@ static void pool_take(void)
     }
 }
 static int textures_lost;
-/* HOST_VIDEO_DUMP=FRAME: the draws from that frame on, 40 of them */
-static unsigned dump_frame;
-static int dump_lit; /* HOST_VIDEO_DUMP_LIT=1: the dump's lines are the lit draws' alone */
-static int dump_most = 40; /* HOST_VIDEO_DUMP_LINES: the dump's lines */
-static int dump_on_report; /* HOST_VIDEO_DUMP_REPORT=1: a report dumps the next frame's draws */
-static int dump_lines;
 /* counts the log reports */
 static unsigned texture_uploads, texture_uploads_new, texture_drops, texture_packed, texture_preloads, texture_reloads;
 
@@ -315,9 +324,6 @@ static unsigned bloom_strength, bloom_threshold; /* of 255 */
 #define FOG_TEXELS 4096
 #define FOG_RAMP 256
 static UCHAR *fog_texels; /* the table's texture, then the ramp */
-/* HOST_FOG_TABLE=0: no table fog, and its texture never made or bound, to
- * tell whether a fault on a console is the table texture's */
-static int fog_table_on = 1;
 static int last_fog_stage = -1;
 static unsigned last_fog_factor = 1; /* no color: an alpha of 0 */
 static int frame_constants = 1, fog_constants = 1; /* fog_constants: the table changed, and its texture is to fill */
@@ -369,7 +375,6 @@ static int shots_due; /* shots of the frame presented, for video_begin to take *
 static void take_shot(unsigned frame, USHORT *shot);
 static USHORT *shot_buffers[SHOTS];
 static int shot_count, shots_done;
-static unsigned burst_count; /* HOST_SHOT_BURST's buffers, after shot_count's, not yet given frames */
 unsigned host_script_now(void);
 
 /* the push buffer's open block: a draw's pushes continue it, and it goes to
@@ -380,6 +385,80 @@ unsigned host_script_now(void);
 #define KICK_BYTES 0x4000
 static uint32_t *open_block; /* where the open block's next push goes */
 static unsigned unkicked; /* its bytes */
+
+/* HOST_GPU_PROFILE=1: the NV2A's own time for each part of a picture. each
+ * kick of the push buffer (push_kick) waits until the NV2A is idle, and the
+ * wait counts in the part its pushes were for; a change of part kicks, and
+ * nothing else does (no KICK_BYTES). so a part's time is the NV2A's alone,
+ * with no wait for the CPU in it, but the two no longer overlap: the frame
+ * rate falls, and the parts' sum is more than an unprofiled picture's by
+ * the NV2A's start and drain at each wait. so each picture also times an
+ * empty wait, a push of one NO_OPERATION, and the report takes that mean
+ * off each wait of a part. the parts: the clear and the frame's setup, the
+ * movie, the three lists, each split into draws of the lists' vertices and
+ * of models, the stage's sky (host.h's sky, in any list), then the resolve
+ * and the bloom. the translucent's depth passes
+ * (draw_strips) count in it: they alternate with its draws, strip by strip,
+ * and a part of their own waited at each, which made the profile mostly
+ * waits. =2 also times each draw of one picture a second alone, the depth
+ * passes named apart, and keeps the costliest for the report */
+enum { GPU_CLEAR, GPU_MOVIE, GPU_OPAQUE, GPU_PUNCH, GPU_TRANSLUCENT, GPU_DEPTH, GPU_SKY, GPU_RESOLVE, GPU_BLOOM, GPU_SECTIONS };
+#define GPU_PARTS (GPU_SECTIONS * 2) /* a section's draws of the lists' vertices, then of models */
+#define GPU_TOP 16
+struct gpu_draw {
+    ULONGLONG ticks;
+    unsigned waits;
+    unsigned texture;
+    unsigned triangles, vertices;
+    unsigned char part, src_blend, dst_blend, punch_through, depth_write, cull, clip_mode, lit;
+};
+static int gpu_profile;
+static int gpu_part = -1; /* the part the pushes now count in, or none */
+static ULONGLONG gpu_frequency; /* the performance counter's */
+static ULONGLONG gpu_frame_ticks[GPU_PARTS], gpu_sum_ticks[GPU_PARTS], gpu_most_ticks[GPU_PARTS];
+static unsigned gpu_frame_draws[GPU_PARTS], gpu_sum_draws[GPU_PARTS];
+static unsigned gpu_frame_waits[GPU_PARTS], gpu_sum_waits[GPU_PARTS];
+static ULONGLONG gpu_empty_ticks; /* the empty waits' (gpu_picture_end), one a picture */
+static unsigned gpu_empty_count;
+static unsigned gpu_frame_triangles[GPU_PARTS], gpu_sum_triangles[GPU_PARTS];
+static ULONGLONG gpu_sum_all, gpu_most_all;
+static unsigned gpu_pictures, gpu_waits;
+static int gpu_each; /* this picture's draws are timed each alone (=2) */
+static struct gpu_draw gpu_open; /* the draw being timed */
+static int gpu_open_on;
+static struct gpu_draw gpu_top[GPU_TOP], gpu_kept[GPU_TOP]; /* this picture's costliest, and the last timed one's */
+static int gpu_top_count, gpu_kept_count;
+static unsigned gpu_each_draws, gpu_kept_draws, gpu_kept_frame;
+static ULONGLONG gpu_each_ticks, gpu_kept_ticks;
+
+/* wait for the NV2A to finish what was kicked, at PASSIVE_LEVEL as
+ * wait_idle, and count the wait in the part and the draw being timed */
+static void gpu_wait(void)
+{
+    KIRQL was = KeGetCurrentIrql();
+    ULONGLONG before;
+    ULONGLONG took;
+
+    if (was > PASSIVE_LEVEL) {
+        KfLowerIrql(PASSIVE_LEVEL);
+    }
+    before = KeQueryPerformanceCounter();
+    while (pb_busy()) {
+    }
+    took = KeQueryPerformanceCounter() - before;
+    if (was > PASSIVE_LEVEL) {
+        KfRaiseIrql(was);
+    }
+    gpu_waits++;
+    if (gpu_part >= 0) {
+        gpu_frame_ticks[gpu_part] += took;
+        gpu_frame_waits[gpu_part]++;
+    }
+    if (gpu_open_on) {
+        gpu_open.ticks += took;
+        gpu_open.waits++;
+    }
+}
 
 static uint32_t *push_begin(void)
 {
@@ -395,6 +474,9 @@ static void push_kick(void)
         pb_end(open_block);
         open_block = NULL;
         unkicked = 0;
+        if (gpu_profile) {
+            gpu_wait();
+        }
     }
 }
 
@@ -403,7 +485,7 @@ static void push_end(uint32_t *start, uint32_t *p)
     pushed += (unsigned)(p - start) * 4;
     unkicked += (unsigned)(p - start) * 4;
     open_block = p;
-    if (unkicked >= KICK_BYTES) {
+    if (unkicked >= KICK_BYTES && !gpu_profile) {
         push_kick();
     }
 }
@@ -422,14 +504,12 @@ static int block_short; /* fewer than the renderer gave: some indices name none 
  * pushed by last_rows_id. a model's triangles are culled by the NV2A, as
  * last_cull says */
 static unsigned model_base, model_count;
-static const struct host_vertex *model_room; /* the ring's room or the store */
+static const struct host_vertex *model_room; /* the ring, the arenas or the store */
 /* the arena the port writes the next frame's models into, 0 or 1: the
  * other holds the models of the frame being drawn, which the NV2A may
  * still read after the present. video_begin swaps them */
 static unsigned arena_write;
-/* HOST_SYNC_PRESENT=1: a present waits for the NV2A to finish the frame,
- * shows it and waits for the display's blank, as it did. else it leaves
- * the NV2A drawing while the game makes the next frame, and the frame is
+/* a present leaves the NV2A drawing while the game makes the next frame, and the frame is
  * shown (pbkit's pb_finished) as the next one begins, when the NV2A has
  * finished it: so at the blank after the game's own frame deadline, each
  * frame alike. (shown as the NV2A finished it, some blanks came before it
@@ -437,7 +517,6 @@ static unsigned arena_write;
  * frames a second by the count.) frame_pending is that frame, and
  * pending_blanks the blanks since its present: where no frame follows, as
  * across a load, the host's chores show it (video_idle_present) */
-static int sync_present;
 static int frame_pending;
 static unsigned pending_blanks;
 static float model_rows[16]; /* the rows, then 1, 0, 0, 0 */
@@ -448,7 +527,6 @@ static unsigned rows_id = 1;
 static unsigned last_rows_id = ~0u;
 static const float *model_rows_from; /* the transform they were copied from */
 static int last_cull = -1;
-static int cull_flip; /* HOST_CULL_FLIP=1: the other faces */
 static unsigned model_vertices_in, model_draws; /* for the profile */
 static unsigned char block_outside[0x10000];
 
@@ -460,7 +538,7 @@ static unsigned char block_outside[0x10000];
 static int pending_open;
 static int pending_carry = -1;
 static unsigned draws_in, draws_out; /* draw_batch's calls, and the draws pushed, for the profile */
-static void set_attributes(const struct host_vertex *room);
+static void set_attributes(const struct host_vertex *room, int formats);
 
 static void flush_pending(void)
 {
@@ -480,6 +558,156 @@ static void flush_pending(void)
     pending_open = 0;
 }
 
+/* time less waits empty waits' mean (gpu_picture_end), to none at the least */
+static ULONGLONG gpu_less_waits(ULONGLONG ticks, unsigned waits)
+{
+    ULONGLONG cost = gpu_empty_count != 0 ? gpu_empty_ticks * waits / gpu_empty_count : 0;
+
+    return ticks > cost ? ticks - cost : 0;
+}
+
+/* the draw timed alone, done: among the picture's costliest, by insertion */
+static void gpu_close_draw(void)
+{
+    int k;
+
+    if (!gpu_open_on) {
+        return;
+    }
+    gpu_open_on = 0;
+    gpu_open.ticks = gpu_less_waits(gpu_open.ticks, gpu_open.waits);
+    gpu_each_draws++;
+    gpu_each_ticks += gpu_open.ticks;
+    for (k = gpu_top_count < GPU_TOP ? gpu_top_count++ : GPU_TOP; k > 0 && gpu_top[k - 1].ticks < gpu_open.ticks; k--) {
+        if (k < GPU_TOP) {
+            gpu_top[k] = gpu_top[k - 1];
+        }
+    }
+    if (k < GPU_TOP) {
+        gpu_top[k] = gpu_open;
+    }
+}
+
+/* the pushes from here count in part, or in none (-1): what's pushed so far
+ * goes to the NV2A, and push_kick's wait counts it in the last part */
+static void gpu_part_set(int part)
+{
+    if (!gpu_profile || (part == gpu_part && !gpu_open_on)) {
+        return;
+    }
+    flush_pending();
+    push_kick();
+    gpu_close_draw();
+    gpu_part = part;
+}
+
+/* a draw of video_draw or video_draw3 begins: its part, by the list it came
+ * from, and with =2 a draw timed alone. the resolve's and the bloom's own
+ * draws stay theirs */
+static void gpu_draw_begin(const struct host_draw *draw, int model, int count)
+{
+    int section;
+    int part;
+
+    if (!gpu_profile || gpu_part >= GPU_RESOLVE * 2) {
+        return;
+    }
+    section = draw->sky         ? GPU_SKY
+              : draw->list == 1 ? GPU_OPAQUE
+              : draw->list == 2 ? GPU_PUNCH
+              : draw->list == 3 ? (draw->src_blend == 0 && draw->dst_blend == 1 ? GPU_DEPTH : GPU_TRANSLUCENT)
+                                : GPU_MOVIE;
+    /* the depth passes in the translucent's part; a draw keeps its name */
+    part = (section == GPU_DEPTH ? GPU_TRANSLUCENT : section) * 2 + (model != 0);
+    gpu_part_set(part);
+    gpu_frame_draws[part]++;
+    gpu_frame_triangles[part] += (unsigned)count / 3;
+    if (gpu_each) {
+        gpu_open.ticks = 0;
+        gpu_open.waits = 0;
+        gpu_open.texture = draw->texture;
+        gpu_open.triangles = (unsigned)count / 3;
+        gpu_open.vertices = model ? model_count : 0;
+        gpu_open.part = (unsigned char)(section * 2 + (model != 0));
+        gpu_open.src_blend = draw->src_blend;
+        gpu_open.dst_blend = draw->dst_blend;
+        gpu_open.punch_through = draw->punch_through;
+        gpu_open.depth_write = draw->depth_write;
+        gpu_open.cull = draw->cull;
+        gpu_open.clip_mode = draw->clip_mode;
+        gpu_open.lit = model && lit_item != NULL;
+        gpu_open_on = 1;
+    }
+}
+
+/* a picture's parts are done (video_begin, its resolve and bloom drawn):
+ * into the sums, and the next picture's draws timed alone, one a second */
+static void gpu_picture_end(void)
+{
+    ULONGLONG all = 0;
+    int k;
+
+    if (!gpu_profile) {
+        return;
+    }
+    gpu_part_set(-1);
+    {
+        /* an empty wait, the NV2A idle: what a wait costs of itself */
+        uint32_t *p = push_begin();
+        uint32_t *start = p;
+        ULONGLONG before = gpu_frame_ticks[0];
+        unsigned waits = gpu_waits;
+
+        p = pb_push1(p, NV097_NO_OPERATION, 0);
+        push_end(start, p);
+        gpu_part = 0;
+        push_kick();
+        gpu_part = -1;
+        gpu_empty_ticks += gpu_frame_ticks[0] - before;
+        gpu_empty_count++;
+        gpu_frame_ticks[0] = before;
+        gpu_frame_waits[0]--;
+        gpu_waits = waits;
+    }
+    for (k = 0; k < GPU_PARTS; k++) {
+        gpu_frame_ticks[k] = gpu_less_waits(gpu_frame_ticks[k], gpu_frame_waits[k]);
+        all += gpu_frame_ticks[k];
+    }
+    if (all != 0 || gpu_frame_waits[GPU_CLEAR * 2] != 0) {
+        for (k = 0; k < GPU_PARTS; k++) {
+            gpu_sum_ticks[k] += gpu_frame_ticks[k];
+            if (gpu_frame_ticks[k] > gpu_most_ticks[k]) {
+                gpu_most_ticks[k] = gpu_frame_ticks[k];
+            }
+            gpu_sum_draws[k] += gpu_frame_draws[k];
+            gpu_sum_waits[k] += gpu_frame_waits[k];
+            gpu_sum_triangles[k] += gpu_frame_triangles[k];
+        }
+        gpu_sum_all += all;
+        if (all > gpu_most_all) {
+            gpu_most_all = all;
+        }
+        gpu_pictures++;
+    }
+    memset(gpu_frame_ticks, 0, sizeof gpu_frame_ticks);
+    memset(gpu_frame_draws, 0, sizeof gpu_frame_draws);
+    memset(gpu_frame_waits, 0, sizeof gpu_frame_waits);
+    memset(gpu_frame_triangles, 0, sizeof gpu_frame_triangles);
+    if (gpu_each) {
+        gpu_each = 0;
+        memcpy(gpu_kept, gpu_top, sizeof gpu_top);
+        gpu_kept_count = gpu_top_count;
+        gpu_kept_draws = gpu_each_draws;
+        gpu_kept_ticks = gpu_each_ticks;
+        gpu_kept_frame = video_frame;
+    } else if (gpu_profile == 2 && video_frame % 60 == 0) {
+        gpu_each = 1;
+        gpu_top_count = 0;
+        gpu_each_draws = 0;
+        gpu_each_ticks = 0;
+    }
+}
+
 /* count indices, each from room's vertex base, room the ring or the store,
  * onto the open draw, which it begins if none is */
 static void push_indices(const unsigned short *indices, int count, unsigned base, const struct host_vertex *room)
@@ -493,7 +721,10 @@ static void push_indices(const unsigned short *indices, int count, unsigned base
     }
     if (room != arrays_at) {
         flush_pending();
-        set_attributes(room);
+        /* the formats once a push buffer, as arrays_at is null after a
+         * reset; a move between the rooms, which the sorted translucent
+         * draws make some hundreds of times a frame, only the offsets */
+        set_attributes(room, arrays_at == NULL);
         arrays_at = room;
     }
     if (!pending_open) {
@@ -578,32 +809,37 @@ static void wait_idle(void)
 static void push_control(uint32_t **pp);
 static void push_constants(uint32_t **pp, unsigned n, const float *v, unsigned count);
 
-/* after pbkit's pb_target_back_buffer: the antialiased surface as the
- * target, and its depth buffer, both through the DMA object of all of
- * memory, pbkit's 3, which its textures and vertices go through */
+/* the display's color format, as pbkit's back buffer has it */
+static unsigned out_color_format(void)
+{
+    return out_16 ? NV097_SET_SURFACE_FORMAT_COLOR_LE_R5G6B5 : NV097_SET_SURFACE_FORMAT_COLOR_LE_A8R8G8B8;
+}
+
+/* the scene's surface as the target, and its depth buffer, both through
+ * the DMA object of all of memory, pbkit's 3, which its textures and
+ * vertices go through. the clip is in the display's pixels: with two
+ * samples a pixel the NV2A doubles x itself */
 static void target_scene(void)
 {
     uint32_t *p;
     uint32_t *start;
 
-    if (!msaa) {
-        return;
-    }
     p = start = push_begin();
     p = pb_push1(p, NV097_SET_CONTEXT_DMA_COLOR, 3);
     p = pb_push1(p, NV097_SET_CONTEXT_DMA_ZETA, 3);
     p = pb_push1(p, NV097_SET_SURFACE_PITCH,
-                 MASK(NV097_SET_SURFACE_PITCH_COLOR, AA_PITCH) | MASK(NV097_SET_SURFACE_PITCH_ZETA, AA_PITCH));
-    p = pb_push1(p, NV097_SET_SURFACE_COLOR_OFFSET, MmGetPhysicalAddress(aa_color) & 0x03ffffff);
-    p = pb_push1(p, NV097_SET_SURFACE_ZETA_OFFSET, MmGetPhysicalAddress(aa_depth) & 0x03ffffff);
+                 MASK(NV097_SET_SURFACE_PITCH_COLOR, scene_pitch) | MASK(NV097_SET_SURFACE_PITCH_ZETA, scene_w * 4));
+    p = pb_push1(p, NV097_SET_SURFACE_COLOR_OFFSET, MmGetPhysicalAddress(scene_color) & 0x03ffffff);
+    p = pb_push1(p, NV097_SET_SURFACE_ZETA_OFFSET, MmGetPhysicalAddress(scene_depth) & 0x03ffffff);
     p = pb_push1(p, NV097_SET_SURFACE_FORMAT,
-                 MASK(NV097_SET_SURFACE_FORMAT_COLOR, NV097_SET_SURFACE_FORMAT_COLOR_LE_A8R8G8B8) |
+                 MASK(NV097_SET_SURFACE_FORMAT_COLOR, out_color_format()) |
                      MASK(NV097_SET_SURFACE_FORMAT_ZETA, NV097_SET_SURFACE_FORMAT_ZETA_Z24S8) |
                      MASK(NV097_SET_SURFACE_FORMAT_TYPE, NV097_SET_SURFACE_FORMAT_TYPE_PITCH) |
                      MASK(NV097_SET_SURFACE_FORMAT_ANTI_ALIASING,
-                          NV097_SET_SURFACE_FORMAT_ANTI_ALIASING_CENTER_CORNER_2));
-    p = pb_push1(p, NV097_SET_SURFACE_CLIP_HORIZONTAL, WIDTH << 16);
-    p = pb_push1(p, NV097_SET_SURFACE_CLIP_VERTICAL, HEIGHT << 16);
+                          msaa ? NV097_SET_SURFACE_FORMAT_ANTI_ALIASING_CENTER_CORNER_2
+                               : NV097_SET_SURFACE_FORMAT_ANTI_ALIASING_CENTER_1));
+    p = pb_push1(p, NV097_SET_SURFACE_CLIP_HORIZONTAL, out_w << 16);
+    p = pb_push1(p, NV097_SET_SURFACE_CLIP_VERTICAL, out_h << 16);
     push_end(start, p);
 }
 
@@ -775,8 +1011,9 @@ static void load_vertex_program(void)
     }
 }
 
-/* the attributes the vertex program reads, at room's start */
-static void set_attributes(const struct host_vertex *room)
+/* the attributes the vertex program reads, at room's start: their formats
+ * too where formats is TRUE, which every room shares */
+static void set_attributes(const struct host_vertex *room, int formats)
 {
     static const struct {
         int index, type, size, offset;
@@ -796,15 +1033,19 @@ static void set_attributes(const struct host_vertex *room)
     int k;
 
     p = start = push_begin();
-    pb_push(p++, NV097_SET_VERTEX_DATA_ARRAY_FORMAT, 16);
-    for (k = 0; k < 16; k++) {
-        *p++ = NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE_F;
+    if (formats) {
+        pb_push(p++, NV097_SET_VERTEX_DATA_ARRAY_FORMAT, 16);
+        for (k = 0; k < 16; k++) {
+            *p++ = NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE_F;
+        }
     }
     for (k = 0; k < 5; k++) {
-        p = pb_push1(p, NV097_SET_VERTEX_DATA_ARRAY_FORMAT + used[k].index * 4,
-                     MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE, used[k].type) |
-                         MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_SIZE, used[k].size) |
-                         MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_STRIDE, sizeof(struct host_vertex)));
+        if (formats) {
+            p = pb_push1(p, NV097_SET_VERTEX_DATA_ARRAY_FORMAT + used[k].index * 4,
+                         MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE, used[k].type) |
+                             MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_SIZE, used[k].size) |
+                             MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_STRIDE, sizeof(struct host_vertex)));
+        }
         p = pb_push1(p, NV097_SET_VERTEX_DATA_ARRAY_OFFSET + used[k].index * 4,
                      (base + (ULONG)used[k].offset) & 0x03ffffff);
     }
@@ -818,18 +1059,17 @@ int video_open(void)
     const char *setting(const char *key);
 
     pb_size(PUSH_SIZE);
-    /* two frame buffers, not pbkit's three, where the scene has the
-     * antialiased surface (xbox/third_party/nxdk-pbkit-back-buffers.patch):
-     * pbkit's back buffer takes only the resolve and the bloom, at the
-     * frame's end, which wait for the last frame's swap (video_present).
-     * 1.2 MB back to the textures' pool. HOST_TRIPLE_BUFFER=1 keeps three */
+    /* pbkit's three frame buffers in every mode: the front buffer and two
+     * back buffers, so that a frame can be queued while the last one waits
+     * for its swap, as a split frame's two pictures a blank apart are. two,
+     * which a pbkit patch gave, saved 1.2 MB the memory no longer needs */
     int want_hd = setting("HOST_720P") != NULL && strtoul(setting("HOST_720P"), NULL, 10) != 0;
     DWORD encoder = XVideoGetEncoderSettings();
 
     if (want_hd) {
         /* 720p where the dashboard allows it: XVideoListModes, which
          * XVideoSetMode walks, lists it only then (and for the HDTV pack) */
-        out_16 = setting("HOST_720P_COLOR") != NULL && strtoul(setting("HOST_720P_COLOR"), NULL, 10) == 16;
+        out_16 = 1;
         pb_set_color_format(out_16 ? NV097_SET_SURFACE_FORMAT_COLOR_LE_R5G6B5 : NV097_SET_SURFACE_FORMAT_COLOR_LE_A8R8G8B8,
                             false);
         hd = (encoder & VIDEO_MODE_720P) != 0 && XVideoSetMode(1280, 720, out_16 ? 16 : 32, REFRESH_DEFAULT);
@@ -846,9 +1086,6 @@ int video_open(void)
         bloom_w = 160;
         bloom_h = 90;
     }
-    double_buffered = (hd || setting("HOST_MSAA") == NULL || strtoul(setting("HOST_MSAA"), NULL, 10) != 0) &&
-                      (setting("HOST_TRIPLE_BUFFER") == NULL || strtoul(setting("HOST_TRIPLE_BUFFER"), NULL, 10) == 0);
-    pb_back_buffers(double_buffered ? 1 : 2);
     if (!hd) {
         XVideoSetMode(WIDTH, HEIGHT, 32, REFRESH_DEFAULT);
     }
@@ -871,7 +1108,8 @@ int video_open(void)
             MmFreeContiguousMemory(fb);
         }
     }
-    ring = MmAllocateContiguousMemoryEx(ROOM_SIZE, 0, 0x03ffb000, 0, PAGE_READWRITE | PAGE_WRITECOMBINE);
+    ring = MmAllocateContiguousMemoryEx(RING_SIZE, 0, 0x03ffb000, 0, PAGE_READWRITE | PAGE_WRITECOMBINE);
+    arenas = MmAllocateContiguousMemoryEx(ARENAS_SIZE, 0, 0x03ffb000, 0, PAGE_READWRITE | PAGE_WRITECOMBINE);
     store = MmAllocateContiguousMemoryEx(STORE_VERTICES * sizeof(struct host_vertex), 0, 0x03ffb000, 0,
                                          PAGE_READWRITE | PAGE_WRITECOMBINE);
     if (store == NULL) {
@@ -904,7 +1142,6 @@ int video_open(void)
         }
         host_log_line("host: video: bloom %lu%%, over %lu%%\n", bloom_strength != 0 ? strength : 0, threshold);
     }
-    fog_table_on = setting("HOST_FOG_TABLE") == NULL || strtoul(setting("HOST_FOG_TABLE"), NULL, 10) != 0;
     fog_texels = MmAllocateContiguousMemoryEx(FOG_TEXELS + FOG_RAMP, 0, 0x03ffb000, 0x1000, PAGE_READWRITE);
     if (fog_texels != NULL) {
         int k;
@@ -914,7 +1151,6 @@ int video_open(void)
             fog_texels[FOG_TEXELS + k] = (UCHAR)k;
         }
     }
-    sync_present = setting("HOST_SYNC_PRESENT") != NULL && strtoul(setting("HOST_SYNC_PRESENT"), NULL, 10) != 0;
     list = (char *)setting("HOST_SHOT");
     while (list != NULL && *list != '\0' && shot_count < SHOTS) {
         char *end;
@@ -926,39 +1162,52 @@ int video_open(void)
         }
         list = *end == ',' ? end + 1 : (char *)"";
     }
-    cull_flip = setting("HOST_CULL_FLIP") != NULL;
-    depth_bottom_on = setting("HOST_DEPTH_BOTTOM") == NULL || strtoul(setting("HOST_DEPTH_BOTTOM"), NULL, 10) != 0;
     vsync = setting("HOST_VSYNC") == NULL || strtoul(setting("HOST_VSYNC"), NULL, 10) != 0;
-    if (!hd && (setting("HOST_MSAA") == NULL || strtoul(setting("HOST_MSAA"), NULL, 10) != 0)) {
-        aa_color = MmAllocateContiguousMemoryEx(AA_PITCH * HEIGHT, 0, 0x03ffb000, 0x1000, PAGE_READWRITE | PAGE_WRITECOMBINE);
-        aa_depth = MmAllocateContiguousMemoryEx(AA_PITCH * HEIGHT, 0, 0x03ffb000, 0x1000, PAGE_READWRITE | PAGE_WRITECOMBINE);
-        if (aa_color != NULL && aa_depth != NULL) {
-            msaa = 1;
-            guard_x = 256.0F;
-        } else {
-            host_log_line("host: video: no memory for the antialiased surface\n");
-            if (aa_color != NULL) {
-                MmFreeContiguousMemory(aa_color);
-            }
-            if (aa_depth != NULL) {
-                MmFreeContiguousMemory(aa_depth);
-            }
+    /* the scene's surface: with antialiasing (not at 720p) twice the game's
+     * width, else the display's size; where memory refuses the doubled one,
+     * the display's */
+    msaa = !hd && (setting("HOST_MSAA") == NULL || strtoul(setting("HOST_MSAA"), NULL, 10) != 0);
+    for (;;) {
+        scene_w = msaa ? WIDTH * 2 : out_w;
+        scene_h = out_h;
+        scene_pitch = scene_w * (out_16 ? 2 : 4);
+        scene_color_size = TILE_ROUND(scene_pitch * scene_h);
+        scene_depth_size = TILE_ROUND(scene_w * 4 * scene_h);
+        /* 16 KB aligned, for their tiles (scene_tiles) */
+        scene_color = MmAllocateContiguousMemoryEx(scene_color_size, 0, 0x03ffb000, 0x4000,
+                                                   PAGE_READWRITE | PAGE_WRITECOMBINE);
+        scene_depth = MmAllocateContiguousMemoryEx(scene_depth_size, 0, 0x03ffb000, 0x4000,
+                                                   PAGE_READWRITE | PAGE_WRITECOMBINE);
+        if (scene_color != NULL && scene_depth != NULL) {
+            break;
         }
+        if (scene_color != NULL) {
+            MmFreeContiguousMemory(scene_color);
+        }
+        if (scene_depth != NULL) {
+            MmFreeContiguousMemory(scene_depth);
+        }
+        scene_color = scene_depth = NULL;
+        if (!msaa) {
+            host_log_line("host: no memory for the scene's surface, %ux%u\n", scene_w, scene_h);
+            return -1;
+        }
+        host_log_line("host: video: no memory for the antialiased surface: one sample a pixel\n");
+        msaa = 0;
+    }
+    if (msaa) {
+        guard_x = 256.0F;
     }
     if (hd) {
         /* the guard band past the screen's sides, as with antialiasing: the
          * NV2A's pixels are twice the game's across */
         guard_x = 256.0F;
     }
-    if (setting("HOST_GUARD") != NULL) {
-        guard_x = guard_y = (float)strtoul(setting("HOST_GUARD"), NULL, 10);
-        host_log_line("host: video: the guard band %d pixels past the screen\n", (int)guard_x);
-    }
     host_log_line("host: video: %ux%u, %s, %s\n", out_w, out_h, msaa ? "two samples a pixel" : "one sample a pixel",
                   vsync ? "each frame waits for its blank" : "frames don't wait for the blank");
-    if (msaa) {
-        /* pbkit's depth buffer, 1.2 MB, which nothing draws on where the
-         * scene has the antialiased surface's (target_scene): the passes on
+    {
+        /* pbkit's depth buffer, 1.2 MB (3.7 MB at 720p), which nothing draws
+         * on: the scene has its surface's (target_scene), and the passes on
          * pbkit's back buffer after it, the resolve and the bloom, neither
          * test nor write depth. pbkit gives out no address for it, but shows
          * it on the screen for its debugging, and the display's start then
@@ -978,46 +1227,41 @@ int video_open(void)
             host_log_line("host: video: pbkit's depth buffer at 0x%08lx freed\n", at);
         }
     }
+    {
+        /* the scene's buffers as the NV2A's tiles, as pbkit sets its own:
+         * the depth buffer as tile 1, pbkit's depth buffer's, with Z
+         * compression (flags 0x80000000, compression tags from 0; 0x04000000,
+         * 32-bit depth), which reads and writes a 4 by 4 block of like depth
+         * as a few words, and clears it fast; the color as tile 2, which
+         * pbkit leaves free without extra buffers, for the memory's banks.
+         * a tile is the memory controller's: the CPU and the textures that
+         * read the color (the resolve) see it as plain lines. the pitches,
+         * 2560 or 5120 bytes, are among those a tile takes */
+        pb_assign_tile(1, MmGetPhysicalAddress(scene_depth) & 0x03ffffff, scene_depth_size, scene_w * 4, 0, 0,
+                       0x84000001);
+        pb_assign_tile(2, MmGetPhysicalAddress(scene_color) & 0x03ffffff, scene_color_size, scene_pitch, 0, 0, 0);
+        host_log_line("host: video: the scene's depth buffer tiled with Z compression, its color tiled\n");
+    }
     pack_open();
     pool_take();
-    if (ring == NULL || pool == NULL || fog_texels == NULL) {
+    if (ring == NULL || arenas == NULL || pool == NULL || fog_texels == NULL) {
         host_log_line("host: no memory for the vertices or the textures\n");
         return -1;
     }
-    if (setting("HOST_VIDEO_DUMP_REPORT") != NULL && strtoul(setting("HOST_VIDEO_DUMP_REPORT"), NULL, 10) != 0) {
-        /* each report (the pad's Back) dumps the frame after it, its draws
-         * up to HOST_VIDEO_DUMP_LINES (200 here), the way to see on the
-         * console what xemu draws right */
-        dump_on_report = 1;
-        dump_most = 200;
-        if (setting("HOST_VIDEO_DUMP_LINES") != NULL) {
-            dump_most = (int)strtoul(setting("HOST_VIDEO_DUMP_LINES"), NULL, 10);
+    if (setting("HOST_GPU_PROFILE") != NULL) {
+        gpu_profile = (int)strtoul(setting("HOST_GPU_PROFILE"), NULL, 10);
+        gpu_frequency = KeQueryPerformanceFrequency();
+        if (gpu_profile != 0) {
+            host_log_line("host: video: the GPU profile on (HOST_GPU_PROFILE=%d): each part of a picture drawn alone, "
+                          "the frame rate lower%s\n",
+                          gpu_profile, gpu_profile == 2 ? "; each draw of a picture a second timed alone" : "");
         }
     }
-    if (setting("HOST_VIDEO_DUMP") != NULL) {
-        dump_frame = (unsigned)strtoul(setting("HOST_VIDEO_DUMP"), NULL, 10);
-        if (setting("HOST_VIDEO_DUMP_LINES") != NULL) {
-            dump_most = (int)strtoul(setting("HOST_VIDEO_DUMP_LINES"), NULL, 10);
-        }
-        dump_lit = setting("HOST_VIDEO_DUMP_LIT") != NULL && setting("HOST_VIDEO_DUMP_LIT")[0] == '1';
-    }
-    vertex_check = setting("HOST_VERTEX_CHECK") != NULL && setting("HOST_VERTEX_CHECK")[0] == '1';
-    /* HOST_SHOT_BURST=N: the buffers of the shots each report takes of the
-     * N frames after it (video_shot_burst), taken after the pool's, which
-     * they would otherwise make smaller */
-    if (setting("HOST_SHOT_BURST") != NULL) {
-        unsigned want = (unsigned)strtoul(setting("HOST_SHOT_BURST"), NULL, 10);
-
-        while (burst_count < want && shot_count + burst_count < SHOTS &&
-               (shot_buffers[shot_count + burst_count] =
-                    MmAllocateContiguousMemoryEx(WIDTH * HEIGHT * 2, 0, 0x03ffffff, 0, PAGE_READWRITE)) != NULL) {
-            burst_count++;
-        }
-        host_log_line("host: video: %u shots after a report\n", burst_count);
-    }
-    host_log_line("host: video: %u KB for textures, %u KB for vertices, %u KB for the kept models', %d shots\n",
-                  pool_size >> 10, (unsigned)(ROOM_SIZE >> 10),
-                  store != NULL ? (unsigned)(STORE_VERTICES * sizeof(struct host_vertex) >> 10) : 0, shot_count);
+    host_log_line("host: video: %u KB for textures, %u KB for the lists' vertices, %u KB for the models' arenas, %u KB "
+                  "for the kept models', %u KB of push buffer, %d shots\n",
+                  pool_size >> 10, (unsigned)(RING_SIZE >> 10), (unsigned)(ARENAS_SIZE >> 10),
+                  store != NULL ? (unsigned)(STORE_VERTICES * sizeof(struct host_vertex) >> 10) : 0,
+                  (unsigned)(PUSH_SIZE >> 10), shot_count);
     load_vertex_program();
     return 0;
 }
@@ -1059,11 +1303,12 @@ static void push_control(uint32_t **pp)
  * where two were meant */
 /* the frame the last present left, onto pbkit's back buffer: the
  * antialiased surface's resolve, then the bloom, as the next frame begins,
- * before it is shown (show_pending, video_idle_present). with two frame
- * buffers (pb_back_buffers) the back buffer is the one the display showed
- * until the last frame's swap, at the blank after it was queued: a frame
- * of 30 a second has long passed it here, where a wait at the present cost
- * some 10 ms a frame. the NV2A draws the next frame's scene on the
+ * before it is shown (show_pending, video_idle_present). of the three
+ * frame buffers the back buffer is the one the display shows only where
+ * two swaps are still queued, as a frame ran ahead of the blanks: the
+ * resolve then waits for the display to leave it (wait_off_screen), which
+ * is no wait otherwise, where a wait at the present cost some 10 ms a
+ * frame. the NV2A draws the next frame's scene on the
  * antialiased surface after the resolve has read it, in the order sent.
  * (the NV2A's own wait for the swap, FLIP_STALL, froze xemu) */
 static void resolve(void);
@@ -1077,10 +1322,10 @@ static void finish_frame(void)
         return;
     }
     frame_unfinished = 0;
-    if (double_buffered && shown_queued_at != ~0u) {
+    if (shown_queued_at != ~0u) {
         /* the resolve and the bloom draw on the back buffer, which the
-         * display shows until the last frame's swap: wait until it shows
-         * the other (wait_off_screen), not for one blank. the swap comes at
+         * display may show until a queued swap: wait until it shows
+         * another (wait_off_screen), not for one blank. the swap comes at
          * the first blank after the NV2A has finished the last frame:
          * because a swap can slip, a wait of one blank let the resolve draw
          * over the picture on the screen, a flash */
@@ -1095,21 +1340,23 @@ static void finish_frame(void)
         }
     }
     shown_queued_at = ~0u;
-    if (msaa) {
-        resolve();
-    }
+    gpu_part_set(GPU_RESOLVE * 2);
+    resolve();
+    gpu_part_set(GPU_BLOOM * 2);
     bloom();
     flush_pending();
     push_kick();
+    gpu_part_set(-1);
 }
 
-/* with two frame buffers and no antialiased surface (720p, HOST_MSAA=0,
- * or its memory refused), the scene draws on the back buffer from the
- * start: the buffer the display shows until the swap of the frame just
- * queued. pbkit swaps at the first blank after the NV2A has finished that
- * frame, which may be blanks after the queue where the frame was heavy.
- * because waiting one blank only drew the next frame on the buffer on the
- * screen, a flicker, wait until the display starts elsewhere */
+/* of the three frame buffers the back buffer is the screen's only where
+ * two swaps are still queued: pbkit swaps at the first blank after the
+ * NV2A has finished a frame, which may be blanks after the queue where the
+ * frame was heavy, and 60 frames a second queues a picture a blank. drawn
+ * on while the screen showed it, half the screen flickered (when the scene
+ * drew on the back buffer, as it did without antialiasing), so the resolve
+ * waits until the display starts elsewhere: no wait where the queue hasn't
+ * run ahead */
 #define DISPLAY_START (*(volatile ULONG *)(0xfd000000u + 0x00600800u))
 /* the swap's wait by design, in timestamp counts, since video_begin's
  * start: because at 720p every frame waits for its swap, host.c leaves it
@@ -1173,16 +1420,8 @@ static void show_pending(void)
         }
         frame_pending = 0;
         shown_queued_at = pb_get_vbl_counter();
-        if (double_buffered && !msaa) {
-            wait_off_screen();
-            shown_queued_at = ~0u;
-        }
     } else {
         pb_target_back_buffer();
-        if (double_buffered && !msaa) {
-            /* the last frame shown by video_idle_present: its swap too */
-            wait_off_screen();
-        }
     }
     while (pb_busy()) {
     }
@@ -1193,10 +1432,8 @@ static void show_pending(void)
 }
 
 /* pbkit's back buffer as the surface, without pbkit's software interrupts
- * (show_pending): through DMA 3, all of memory, as the antialiased surface
- * is, its depth the antialiased surface's, which the passes on it neither
- * test nor write. antialiasing only: without it, pbkit's depth buffer is
- * the scene's, and pb_target_back_buffer the way to it */
+ * (show_pending): through DMA 3, all of memory, as the scene's surface is,
+ * its depth the scene's, which the passes on it neither test nor write */
 static void target_back_buffer(uint32_t **pp)
 {
     uint32_t *p = *pp;
@@ -1204,11 +1441,11 @@ static void target_back_buffer(uint32_t **pp)
     p = pb_push1(p, NV097_SET_CONTEXT_DMA_COLOR, 3);
     p = pb_push1(p, NV097_SET_CONTEXT_DMA_ZETA, 3);
     p = pb_push1(p, NV097_SET_SURFACE_PITCH,
-                 MASK(NV097_SET_SURFACE_PITCH_COLOR, pb_back_buffer_pitch()) | MASK(NV097_SET_SURFACE_PITCH_ZETA, AA_PITCH));
+                 MASK(NV097_SET_SURFACE_PITCH_COLOR, pb_back_buffer_pitch()) | MASK(NV097_SET_SURFACE_PITCH_ZETA, scene_w * 4));
     p = pb_push1(p, NV097_SET_SURFACE_COLOR_OFFSET, MmGetPhysicalAddress(pb_back_buffer()) & 0x03ffffff);
-    p = pb_push1(p, NV097_SET_SURFACE_ZETA_OFFSET, MmGetPhysicalAddress(aa_depth) & 0x03ffffff);
+    p = pb_push1(p, NV097_SET_SURFACE_ZETA_OFFSET, MmGetPhysicalAddress(scene_depth) & 0x03ffffff);
     p = pb_push1(p, NV097_SET_SURFACE_FORMAT,
-                 MASK(NV097_SET_SURFACE_FORMAT_COLOR, NV097_SET_SURFACE_FORMAT_COLOR_LE_A8R8G8B8) |
+                 MASK(NV097_SET_SURFACE_FORMAT_COLOR, out_color_format()) |
                      MASK(NV097_SET_SURFACE_FORMAT_ZETA, NV097_SET_SURFACE_FORMAT_ZETA_Z24S8) |
                      MASK(NV097_SET_SURFACE_FORMAT_TYPE, NV097_SET_SURFACE_FORMAT_TYPE_PITCH));
     *pp = p;
@@ -1227,221 +1464,6 @@ void video_idle_present(void)
     }
 }
 
-/* the vertex check (HOST_VERTEX_CHECK=1; off by default, as the CPU reads
- * the write-combined vertex memory uncached, twice a frame): the models' vertices
- * the NV2A reads from the port's memory, the arenas and the store, must
- * hold from their draw until the NV2A has drawn them (render.c's kept
- * models, video_arena). each model's vertices are summed as they are
- * drawn, and summed again at the next video_begin, once the NV2A has
- * finished: a sum that differs is a write while the NV2A could read them,
- * logged with the draw's place and the frame. it also logs a model drawn
- * from the arena the port writes the next frame's models into, and
- * vertices or transforms that are no number: each a cause of a model drawn
- * for one frame in another place or shape */
-#define CHECKS 4096
-static struct vertex_checked {
-    const struct host_vertex *vertices;
-    unsigned count;
-    uint32_t sum;
-    unsigned texture;
-    float row[4];
-} checks[CHECKS];
-static unsigned check_count;
-static unsigned check_writes, check_wrong_arena, check_no_number, check_dropped, check_past_guard; /* so far, for the report */
-#define CHECK_GUARD_X 256.0F
-#define CHECK_GUARD_Y 512.0F
-#define CHECK_SLACK 32.0F
-static unsigned check_lines; /* logged, of CHECK_LINES */
-#define CHECK_LINES 64
-
-static uint32_t vertex_sum(const struct host_vertex *vertices, unsigned count)
-{
-    const uint32_t *w = (const uint32_t *)vertices;
-    size_t words = (size_t)count * (sizeof(struct host_vertex) / 4);
-    uint32_t h = 0x811c9dc5u;
-    size_t k;
-
-    for (k = 0; k < words; k++) {
-        h = ((h << 5) | (h >> 27)) + w[k];
-    }
-    return h;
-}
-
-/* a float's bits whose exponent is all ones: infinite, or no number */
-static int no_number(const float *f)
-{
-    uint32_t bits;
-
-    memcpy(&bits, f, 4);
-    return (bits & 0x7f800000u) == 0x7f800000u;
-}
-
-/* where vertices are, for the log: "store+N", "arena A+N" */
-static void vertex_place(const struct host_vertex *vertices, char *out)
-{
-    const char *digits = "0123456789";
-    unsigned at;
-    char number[12];
-    int n = 0;
-
-    if (store != NULL && vertices >= store && vertices < store + STORE_VERTICES) {
-        at = (unsigned)(vertices - store);
-        strcpy(out, "store+");
-    } else if (vertices >= ring + RING_VERTICES && vertices < ring + RING_VERTICES + 2 * ARENA_VERTICES) {
-        at = (unsigned)(vertices - ring - RING_VERTICES);
-        strcpy(out, at >= ARENA_VERTICES ? "arena 1+" : "arena 0+");
-        at %= ARENA_VERTICES;
-    } else {
-        strcpy(out, "elsewhere");
-        return;
-    }
-    do {
-        number[n++] = digits[at % 10];
-        at /= 10;
-    } while (at != 0);
-    out += strlen(out);
-    while (n > 0) {
-        *out++ = number[--n];
-    }
-    *out = '\0';
-}
-
-static void check_line(const char *what, const struct vertex_checked *c, unsigned detail)
-{
-    char place[32];
-
-    if (check_lines >= CHECK_LINES) {
-        return;
-    }
-    if (++check_lines == CHECK_LINES) {
-        host_log_line("host: vertex check: no more lines this run (the report counts them)\n");
-    }
-    vertex_place(c->vertices, place);
-    /* thousandths: the C library's printf takes no floats */
-    host_log_line("host: vertex check: %s (%u): %u vertices at %s, texture %u, row %d %d %d %d, frame %u, video "
-                  "frame %u\n",
-                  what, detail, c->count, place, c->texture, (int)(c->row[0] * 1000.0F), (int)(c->row[1] * 1000.0F),
-                  (int)(c->row[2] * 1000.0F), (int)(c->row[3] * 1000.0F), host_script_now(), video_frame);
-}
-
-/* a model's vertices as they are drawn (video_draw_items) */
-static void check_draw(const struct host_item *item)
-{
-    const struct host_vertex *v = item->vertices;
-    unsigned n = item->vertex_count > 0 ? (unsigned)item->vertex_count : 0;
-    struct vertex_checked c;
-    unsigned bad = 0, k;
-    const struct host_vertex *write_arena = ring + RING_VERTICES + arena_write * ARENA_VERTICES;
-
-    if (n == 0) {
-        return;
-    }
-    c.vertices = v;
-    c.count = n;
-    c.texture = item->draw.texture;
-    for (k = 0; k < 4; k++) {
-        c.row[k] = item->transform[k];
-    }
-    if (v >= write_arena && v < write_arena + ARENA_VERTICES) {
-        /* the next frame's: the port writes over them as the NV2A draws */
-        check_wrong_arena++;
-        check_line("a model from the next frame's arena", &c, 0);
-    }
-    for (k = 0; k < 12; k++) {
-        bad += no_number(&item->transform[k]);
-    }
-    if (bad != 0) {
-        check_no_number++;
-        check_line("a transform of no number", &c, bad);
-    }
-    bad = 0;
-    for (k = 0; k < n; k++) {
-        bad += no_number(&v[k].x) | no_number(&v[k].y) | no_number(&v[k].rhw);
-    }
-    if (bad != 0) {
-        check_no_number++;
-        check_line("vertices of no number", &c, bad);
-    } else {
-        /* the drawer sends a model only where each point is in front of
-         * the eye and within its guard of the screen, 256 pixels across
-         * and 512 above and below (model.c's GPU_GUARD_X and _Y, by the
-         * model's sphere or box): each point turned by the transform, as
-         * the vertex program turns it, and one past the guard by more
-         * than CHECK_SLACK pixels, or behind the eye, logged with the
-         * farthest. a model drawn in another place or shape for a frame
-         * would show here, if its points were its own */
-        const float *t = item->transform;
-        unsigned worst = 0;
-        float worst_by = 0.0F, worst_x = 0.0F, worst_y = 0.0F, worst_z = 0.0F;
-
-        for (k = 0; k < n; k++) {
-            float px = v[k].x, py = v[k].y, pz = v[k].rhw;
-            float z = t[8] * px + t[9] * py + t[10] * pz + t[11];
-            float x, y, by = 0.0F;
-
-            if (!(z > 0.0F)) {
-                by = 1.0e9F;
-                x = y = 0.0F;
-            } else {
-                x = (t[0] * px + t[1] * py + t[2] * pz + t[3]) / z;
-                y = (t[4] * px + t[5] * py + t[6] * pz + t[7]) / z;
-                if (x < -CHECK_GUARD_X) {
-                    by = -CHECK_GUARD_X - x;
-                } else if (x > (float)WIDTH + CHECK_GUARD_X) {
-                    by = x - (float)WIDTH - CHECK_GUARD_X;
-                }
-                if (y < -CHECK_GUARD_Y && -CHECK_GUARD_Y - y > by) {
-                    by = -CHECK_GUARD_Y - y;
-                } else if (y > (float)HEIGHT + CHECK_GUARD_Y && y - (float)HEIGHT - CHECK_GUARD_Y > by) {
-                    by = y - (float)HEIGHT - CHECK_GUARD_Y;
-                }
-            }
-            if (by > CHECK_SLACK) {
-                bad++;
-                if (by > worst_by) {
-                    worst_by = by;
-                    worst = k;
-                    worst_x = x;
-                    worst_y = y;
-                    worst_z = z;
-                }
-            }
-        }
-        if (bad != 0) {
-            check_past_guard++;
-            check_line("a model past the drawer's guard", &c, bad);
-            if (check_lines < CHECK_LINES) {
-                host_log_line("host: vertex check:   the farthest, vertex %u of %u: screen %d %d, depth %d "
-                              "(thousandths; depth 0 is behind the eye), point %d %d %d\n",
-                              worst, n, (int)(worst_x * 1000.0F), (int)(worst_y * 1000.0F), (int)(worst_z * 1000.0F),
-                              (int)(v[worst].x * 1000.0F), (int)(v[worst].y * 1000.0F), (int)(v[worst].rhw * 1000.0F));
-            }
-        }
-    }
-    if (check_count == CHECKS) {
-        check_dropped++;
-        return;
-    }
-    c.sum = vertex_sum(v, n);
-    checks[check_count++] = c;
-}
-
-/* the last frame's models, the NV2A finished: each as it was drawn */
-static void check_frame(void)
-{
-    unsigned k;
-
-    for (k = 0; k < check_count; k++) {
-        const struct vertex_checked *c = &checks[k];
-
-        if (vertex_sum(c->vertices, c->count) != c->sum) {
-            check_writes++;
-            check_line("written while the NV2A could read them, after their draw", c, k);
-        }
-    }
-    check_count = 0;
-}
-
 void video_begin(unsigned clear)
 {
     uint32_t *p;
@@ -1449,9 +1471,6 @@ void video_begin(unsigned clear)
 
     video_swap_wait_tsc = 0;
     wait_idle();
-    if (vertex_check) {
-        check_frame();
-    }
     /* the frames before are drawn: their textures' blocks may go */
     video_frame++;
     if (ring_used > most_ring) {
@@ -1462,6 +1481,10 @@ void video_begin(unsigned clear)
     }
     pb_reset();
     show_pending();
+    /* the last picture's parts are all drawn, its resolve and bloom with
+     * them: this one's begin */
+    gpu_picture_end();
+    gpu_part_set(GPU_CLEAR * 2);
     pushed = 0;
     ring_used = 0;
     block_count = 0;
@@ -1486,8 +1509,7 @@ void video_begin(unsigned clear)
 
         push_constants(&p, 78, scale, 1);
     }
-    /* R5G6B5 at 720p with HOST_720P_COLOR=16: dithered, as the PowerVR's
-     * 16-bit frames are */
+    /* R5G6B5 at 720p: dithered, as the PowerVR's 16-bit frames are */
     p = pb_push1(p, NV097_SET_DITHER_ENABLE, out_16);
     p = pb_push1(p, NV097_SET_SURFACE_CLIP_HORIZONTAL, out_w << 16);
     p = pb_push1(p, NV097_SET_SURFACE_CLIP_VERTICAL, out_h << 16);
@@ -1897,16 +1919,13 @@ void video_movie_frame(unsigned id, int width, int height, const unsigned char *
     }
 }
 
-/* the pack's header and entries, where the disc has one. HOST_NO_PACK=1
- * leaves it out, and the renderer decodes every texture */
+/* the pack's header and entries, where the disc has one; without it, the
+ * renderer decodes every texture */
 static void pack_open(void)
 {
     struct texpack_header header;
     DWORD got;
 
-    if (setting("HOST_NO_PACK") != NULL) {
-        return;
-    }
     pack_file = CreateFileA("D:\\textures.pak", GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                             FILE_ATTRIBUTE_NORMAL, NULL);
     if (pack_file == INVALID_HANDLE_VALUE) {
@@ -2151,7 +2170,7 @@ static void depth_next(void)
          * did (Station Square's awning, rhw 0.0069 to 0.0082, at 2^-7) */
         knee.u = (uint32_t)(e + 4 < 254 ? e + 4 : 254) << 23;
         /* the bottom piece, where the lower piece holds well above it */
-        float bottom = depth_bottom_on && (knee.f >= most * 0.5F ? most : knee.f) > DEPTH_BOTTOM_RHW * 4.0F
+        float bottom = (knee.f >= most * 0.5F ? most : knee.f) > DEPTH_BOTTOM_RHW * 4.0F
                            ? DEPTH_BOTTOM_RHW
                            : 0.0F;
 
@@ -2446,7 +2465,7 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
                                     lit->light[1] != last_light[1] || lit->light[2] != last_light[2]);
     /* the fog: the table's texture and color under modes 0 and 3, the
      * ramp's and the vertex fog's under 1, and the ramp at 0 under 2 */
-    int fog_stage = (draw->fog == 0 || draw->fog == 3) && fog_table_on ? 1 : 2;
+    int fog_stage = draw->fog == 0 || draw->fog == 3 ? 1 : 2;
     unsigned fog_factor = 0xff000000u | (draw->fog == 1 ? fog_vertex_color : fog_table_color);
     int blend = draw->src_blend << 4 | draw->dst_blend;
     int depth = draw->depth_compare << 1 | draw->depth_write;
@@ -2459,7 +2478,6 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
                              (draw->use_alpha ? 1u << 14 : 0) | (draw->use_offset ? 1u << 15 : 0);
     float constants[12];
     int new_constants = 0;
-    const struct host_vertex *out = &room[base + (count > 0 ? indices[0] : 0)];
     uint32_t *p;
     uint32_t *start;
 
@@ -2469,23 +2487,6 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
     /* the indices' words, and a state's at most */
     make_room((unsigned)count * 2 + 0x1000);
     draws_in++;
-    if (dump_frame != 0 && host_script_now() >= dump_frame && dump_lines < dump_most && (!dump_lit || lit != NULL)) {
-        dump_lines++;
-        if (lit != NULL) {
-            host_log_line("host: lit draw: palette slot %d, light %d %d %d (thousandths), cull %d, model %d\n", lit_index,
-                          (int)(lit->light[0] * 1000.0F), (int)(lit->light[1] * 1000.0F), (int)(lit->light[2] * 1000.0F),
-                          cull, model);
-        }
-        /* in thousandths: the C library's printf takes no floats */
-#define MILLI(f) ((int)((f) * 1000.0F))
-        host_log_line("host: draw %d: texture %u %ux%u format 0x%x scale %d %d program %d fog %d blend %d/%d "
-                      "depth %d/%d clip %d; v0 %d %d rhw %d uv %d %d base %08x offset %08x\n",
-                      count, draw->texture, t != NULL ? 1u << t->log_w : 0, t != NULL ? 1u << t->log_h : 0,
-                      t != NULL ? t->format : 0, MILLI(t != NULL ? t->u_scale : 1.0F), MILLI(t != NULL ? t->v_scale : 1.0F), program, draw->fog,
-                      draw->src_blend, draw->dst_blend, draw->depth_compare, draw->depth_write, clip,
-                      MILLI(out[0].x), MILLI(out[0].y), MILLI(out[0].rhw * 1000.0F), MILLI(out[0].u),
-                      MILLI(out[0].v), out[0].base, out[0].offset);
-    }
     unsigned address_u = draw->clamp_u ? 3 : draw->flip_u ? 2 : 1;
     unsigned address_v = draw->clamp_v ? 3 : draw->flip_v ? 2 : 1;
     unsigned sampling = address_u | address_v << 8 | (draw->filter ? 1u << 16 : 0);
@@ -2525,7 +2526,7 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
         }
         last_constants_key = constants_key;
     }
-    changes = new_constants || new_rows || cull != last_cull || frame_constants || (fog_constants && fog_table_on) ||
+    changes = new_constants || new_rows || cull != last_cull || frame_constants || fog_constants ||
               vertex_program != last_vertex_program || new_light || lit_index != last_lit ||
               fog_stage != last_fog_stage || fog_factor != last_fog_factor || program != last_program ||
                   (t != NULL && (last_texture != draw->texture || last_sampling != sampling)) ||
@@ -2540,7 +2541,7 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
         return;
     }
     flush_pending();
-    if (fog_constants && fog_table_on) {
+    if (fog_constants) {
         fill_fog_texture();
         fog_constants = 0;
     }
@@ -2577,7 +2578,7 @@ static void draw_batch(const struct host_draw *draw, const unsigned short *indic
         if (cull != 0) {
             p = pb_push1(p, NV097_SET_FRONT_FACE, NV097_SET_FRONT_FACE_V_CCW);
             p = pb_push1(p, NV097_SET_CULL_FACE,
-                         (cull == 2) != cull_flip ? NV097_SET_CULL_FACE_V_FRONT : NV097_SET_CULL_FACE_V_BACK);
+                         cull == 2 ? NV097_SET_CULL_FACE_V_FRONT : NV097_SET_CULL_FACE_V_BACK);
         }
         last_cull = cull;
     }
@@ -2731,9 +2732,10 @@ static void take_shot(unsigned frame, USHORT *shot)
                   HEIGHT);
 }
 
-/* the antialiased surface onto pbkit's back buffer: a quad over the
- * screen with the surface as its texture, each pixel between its two
- * samples, where the bilinear filter gives their mean */
+/* the scene's surface onto pbkit's back buffer: a quad over the screen
+ * with the surface as its texture. with antialiasing each pixel lies
+ * between its two samples, where the bilinear filter gives their mean;
+ * else each pixel takes its own texel, at its middle, by point sampling */
 static void resolve(void)
 {
     static const unsigned short corners[6] = {0, 1, 2, 1, 3, 2};
@@ -2747,19 +2749,19 @@ static void resolve(void)
     flush_pending();
     p = start = push_begin();
     target_back_buffer(&p);
-    p = pb_push1(p, NV097_SET_SURFACE_CLIP_HORIZONTAL, WIDTH << 16);
-    p = pb_push1(p, NV097_SET_SURFACE_CLIP_VERTICAL, HEIGHT << 16);
+    p = pb_push1(p, NV097_SET_SURFACE_CLIP_HORIZONTAL, out_w << 16);
+    p = pb_push1(p, NV097_SET_SURFACE_CLIP_VERTICAL, out_h << 16);
     push_end(start, p);
     memset(t, 0, sizeof *t);
-    t->texels = aa_color;
-    t->bytes = AA_PITCH * HEIGHT;
-    t->format = NV097_SET_TEXTURE_FORMAT_COLOR_LU_IMAGE_X8R8G8B8;
+    t->texels = scene_color;
+    t->bytes = scene_color_size;
+    t->format = out_16 ? NV097_SET_TEXTURE_FORMAT_COLOR_LU_IMAGE_R5G6B5 : NV097_SET_TEXTURE_FORMAT_COLOR_LU_IMAGE_X8R8G8B8;
     t->levels = 1;
-    t->u_scale = (float)AA_WIDTH;
-    t->v_scale = (float)HEIGHT;
-    t->pitch = AA_PITCH;
-    t->rect_w = AA_WIDTH;
-    t->rect_h = HEIGHT;
+    t->u_scale = (float)scene_w;
+    t->v_scale = (float)scene_h;
+    t->pitch = scene_pitch;
+    t->rect_w = scene_w;
+    t->rect_h = scene_h;
     last_texture = ~0u, constants_stale();
     for (k = 0; k < 4; k++) {
         quad[k].x = (k & 1) ? (float)WIDTH : 0.0F;
@@ -2776,7 +2778,7 @@ static void resolve(void)
     draw.depth_compare = 7;
     draw.ignore_texture_alpha = 1;
     draw.clamp_u = draw.clamp_v = 1;
-    draw.filter = 1;
+    draw.filter = (unsigned char)msaa;
     draw.fog = 2;
     depth_noting = 0;
     video_vertices(quad, 4);
@@ -2814,17 +2816,13 @@ static void bloom_pass(const struct bloom_image *from, const struct bloom_image 
     int k;
 
     flush_pending();
-    if (to->texels == NULL && !msaa) {
-        push_kick();
-        pb_target_back_buffer();
-    }
     make_room(0x1000);
     if (ring_used + 4 > RING_VERTICES) {
         wait_idle();
         ring_used = 0;
     }
     p = start = push_begin();
-    if (to->texels == NULL && msaa) {
+    if (to->texels == NULL) {
         target_back_buffer(&p);
     }
     if (to->texels != NULL) {
@@ -2990,87 +2988,27 @@ int video_blank_flagged(void)
 void video_present(void)
 {
     depth_next();
-    if (sync_present) {
-        if (msaa) {
-            resolve();
-        }
-        bloom();
-    } else {
-        /* the resolve and the bloom onto pbkit's back buffer as the next
-         * frame begins (finish_frame) */
-        frame_unfinished = 1;
+    /* the resolve and the bloom onto pbkit's back buffer as the next frame
+     * begins (finish_frame). the frame's last draws go to the NV2A, which
+     * draws on while the game makes the next frame: video_begin shows it
+     * then. a shot is taken when the next frame begins, once the NV2A has
+     * drawn this one, which video_begin waits for in any case: a wait here
+     * would hide what only shows while the NV2A draws a frame as the game
+     * makes the next (shots_due) */
+    frame_unfinished = 1;
+    shots_due = 0;
+    while (shots_done + shots_due < shot_count && host_script_now() >= shot_frames[shots_done + shots_due]) {
+        shots_due++;
     }
-    if (!sync_present) {
-        /* the frame's last draws go to the NV2A, which draws on while the
-         * game makes the next frame: video_begin shows it then. a shot
-         * needs the frame drawn */
-        /* a shot is taken when the next frame begins, once the NV2A has
-         * drawn this one, which video_begin waits for in any case: a wait
-         * here would hide what only shows while the NV2A draws a frame as
-         * the game makes the next (shots_due) */
-        shots_due = 0;
-        while (shots_done + shots_due < shot_count && host_script_now() >= shot_frames[shots_done + shots_due]) {
-            shots_due++;
-        }
-        flush_pending();
-        push_kick();
-        frame_pending = 1;
-        pending_blanks = 0;
-        return;
-    }
-    wait_idle();
-    while (shots_done < shot_count && host_script_now() >= shot_frames[shots_done]) {
-        take_shot(shot_frames[shots_done], shot_buffers[shots_done]);
-        shots_done++;
-    }
-    {
-        ULONGLONG before = KeQueryPerformanceCounter();
-
-        while (pb_finished()) {
-        }
-        /* until the display's blank, where pbkit shows the frame: the next
-         * is drawn on the buffer the display has left */
-        if (double_buffered && !msaa) {
-            wait_off_screen();
-        } else if (vsync) {
-            DWORD shown = pb_get_vbl_counter();
-            int tries;
-
-            for (tries = 0; tries < 4 && pb_get_vbl_counter() == shown; tries++) {
-                pb_wait_for_vbl();
-            }
-        }
-        video_blank_wait_ticks += KeQueryPerformanceCounter() - before;
-    }
-}
-
-/* a report's shots (host.c, with the pad's Back, which xemu's keyboard
- * gives as Backspace): the frames from the next on, as many as
- * HOST_SHOT_BURST kept buffers for, as the screen shows them. once: their
- * buffers are what run.sh reads back. frames by HOST_CLOCK=frames'
- * count, else by blanks */
-void video_shot_burst(void)
-{
-    unsigned k, from = host_script_now() + 1;
-
-    if (dump_on_report) {
-        /* the next frame's draws, from its start */
-        dump_frame = from;
-        dump_lines = 0;
-        host_log_line("host: video: the draws of frame %u follow\n", from);
-    }
-
-    if (burst_count == 0 || shots_done < shot_count) {
-        return;
-    }
-    for (k = 0; k < burst_count; k++) {
-        shot_frames[shot_count++] = from + k;
-    }
-    host_log_line("host: video: shots of frames %u to %u\n", from, from + burst_count - 1);
-    burst_count = 0;
+    flush_pending();
+    push_kick();
+    frame_pending = 1;
+    pending_blanks = 0;
 }
 
 /* the textures' log line, every ten seconds or so, from the host's chores */
+static void gpu_report(const char *prefix);
+
 void video_report(void)
 {
     static unsigned last_evictions, last_reloads, last_preloads;
@@ -3089,7 +3027,77 @@ void video_report(void)
     draws_in = draws_out = 0;
     model_draws = model_vertices_in = 0;
     lit_draws = lit_uploads = 0;
+    gpu_report("host:");
+    memset(gpu_sum_ticks, 0, sizeof gpu_sum_ticks);
+    memset(gpu_most_ticks, 0, sizeof gpu_most_ticks);
+    memset(gpu_sum_draws, 0, sizeof gpu_sum_draws);
+    memset(gpu_sum_waits, 0, sizeof gpu_sum_waits);
+    memset(gpu_sum_triangles, 0, sizeof gpu_sum_triangles);
+    gpu_sum_all = gpu_most_all = 0;
+    gpu_pictures = gpu_waits = 0;
 }
+
+int video_gpu_profiling(void)
+{
+    return gpu_profile != 0;
+}
+
+/* the GPU profile's lines, under prefix: each part's mean and most a
+ * picture, in microseconds, its draws' and triangles' mean, and with =2
+ * the costliest draws of the last picture timed draw by draw */
+static void gpu_report(const char *prefix)
+{
+    static const char *const names[GPU_SECTIONS] = {"clear and setup", "movie", "opaque", "punch-through",
+                                                    "translucent", "translucent depth passes", "sky", "resolve",
+                                                    "bloom"};
+    static const char *const kinds[2] = {"list vertices", "models"};
+    unsigned n = gpu_pictures ? gpu_pictures : 1;
+    ULONGLONG hz = gpu_frequency ? gpu_frequency : 1;
+    int k;
+
+#define US(ticks) ((unsigned long)((ticks) * 1000000ull / hz))
+    if (!gpu_profile) {
+        return;
+    }
+    host_log_line("%s GPU profile, each part drawn alone: %u pictures, %u waits a picture, an empty wait %lu.%lu us, "
+                  "taken off each; the NV2A's us a picture, mean / most: all %lu / %lu\n",
+                  prefix, gpu_pictures, gpu_waits / n,
+                  gpu_empty_count ? US(gpu_empty_ticks * 10 / gpu_empty_count) / 10 : 0,
+                  gpu_empty_count ? US(gpu_empty_ticks * 10 / gpu_empty_count) % 10 : 0, US(gpu_sum_all / n),
+                  US(gpu_most_all));
+    for (k = 0; k < GPU_PARTS; k++) {
+        if (gpu_sum_ticks[k] == 0 && gpu_sum_draws[k] == 0) {
+            continue;
+        }
+        if (k / 2 == GPU_CLEAR || k / 2 >= GPU_RESOLVE) {
+            host_log_line("%s   %s: %lu / %lu\n", prefix, names[k / 2], US(gpu_sum_ticks[k] / n),
+                          US(gpu_most_ticks[k]));
+        } else {
+            host_log_line("%s   %s, %s: %lu / %lu; %u draws, %u triangles, %u waits a picture\n", prefix,
+                          names[k / 2], kinds[k & 1], US(gpu_sum_ticks[k] / n), US(gpu_most_ticks[k]),
+                          gpu_sum_draws[k] / n, gpu_sum_triangles[k] / n, gpu_sum_waits[k] / n);
+        }
+    }
+    if (gpu_kept_count != 0) {
+        host_log_line("%s GPU profile, each draw alone, video frame %u (%u frames ago): %u draws, %lu us; the "
+                      "costliest:\n",
+                      prefix, gpu_kept_frame, video_frame - gpu_kept_frame, gpu_kept_draws,
+                      US(gpu_kept_ticks));
+        for (k = 0; k < gpu_kept_count; k++) {
+            const struct gpu_draw *d = &gpu_kept[k];
+            const struct texture *t = d->texture != 0 && d->texture < TEXTURES ? &textures[d->texture] : NULL;
+
+            host_log_line("%s   %lu us: %s, %s%s, %u triangles, %u vertices; texture %u %ux%u; blend %u/%u, alpha test %u, "
+                          "depth write %u, cull %u, clip %u\n",
+                          prefix, US(d->ticks), names[d->part / 2], kinds[d->part & 1],
+                          d->lit ? " lit" : "", d->triangles, d->vertices, d->texture,
+                          t != NULL && t->texels != NULL ? 1u << t->log_w : 0,
+                          t != NULL && t->texels != NULL ? 1u << t->log_h : 0, d->src_blend, d->dst_blend,
+                          d->punch_through, d->depth_write, d->cull, d->clip_mode);
+        }
+    }
+}
+#undef US
 
 /* the report's lines (host.c): the textures' pool and the vertices' rooms */
 void video_report_memory(void)
@@ -3111,72 +3119,11 @@ void video_report_memory(void)
     host_log_line("report: lit models' palettes: the most uploaded in a frame %u of %u slots, a slot taken from a draw of "
                   "the same frame %u times\n",
                   lit_most_frame, (unsigned)LIT_TEXTURES, lit_overwrites);
-    host_log_line("report: vertex check %s: %u models' vertices written while the NV2A could read them, %u drawn from "
-                  "the next frame's arena, %u with vertices or a transform of no number, %u past the drawer's guard or "
-                  "behind the eye, %u not checked (a frame past %u)\n",
-                  vertex_check ? "on" : "off", check_writes, check_wrong_arena, check_no_number, check_past_guard,
-                  check_dropped, (unsigned)CHECKS);
     host_log_line("report: models' arenas 2 x %u vertices, kept models' store %u vertices%s; antialiasing %s; "
                   "%ux%u, %u swaps waited for past a blank so far, %u past 8 blanks\n",
                   (unsigned)ARENA_VERTICES, store != NULL ? (unsigned)STORE_VERTICES : 0, store != NULL ? "" : " (none)",
                   msaa ? "on" : "off", out_w, out_h, off_screen_waits, off_screen_late);
-}
-
-/* HOST_VIDEO_TEST: a frame of known content, shot as f0, before the game:
- * a 256 by 256 texture whose red grows to the right and green downward,
- * on a quad over the screen's left 320 by 240, and the same quad
- * untextured in the base colors' corners, red, green, blue and white, at
- * the right. a fault in the texture path or the vertices shows in it */
-void video_test(void)
-{
-    static unsigned texels[256 * 256];
-    struct host_vertex quad[6];
-    struct host_draw draw;
-    static const float corners[6][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 0}, {1, 1}, {0, 1}};
-    static const unsigned colors[6] = {0xffff0000, 0xff00ff00, 0xff0000ff, 0xffff0000, 0xff0000ff, 0xffffffff};
-    static const unsigned short test_indices[6] = {0, 1, 2, 3, 4, 5};
-    int k;
-
-    for (k = 0; k < 256 * 256; k++) {
-        texels[k] = 0xff000000u | (unsigned)(k % 256) << 16 | (unsigned)(k / 256) << 8 | ((k / 256) / 32 + (k % 256) / 32) % 2 * 255u;
-    }
-    video_texture(1, 256, 256, texels);
-    memset(&draw, 0, sizeof draw);
-    draw.src_blend = 1;
-    draw.depth_compare = 7;
-    draw.shading = 1;
-    draw.fog = 2;
-    video_begin(0x202020);
-    for (k = 0; k < 6; k++) {
-        quad[k].x = 20 + corners[k][0] * 300;
-        quad[k].y = 20 + corners[k][1] * 300;
-        quad[k].rhw = 1.0F;
-        quad[k].u = corners[k][0];
-        quad[k].v = corners[k][1];
-        quad[k].base = 0xffffffff;
-        quad[k].offset = 0;
-    }
-    draw.texture = 1;
-    video_vertices(quad, 6);
-    video_draw(&draw, test_indices, 6);
-    for (k = 0; k < 6; k++) {
-        quad[k].x += 320;
-        quad[k].base = colors[k];
-    }
-    draw.texture = 0;
-    video_vertices(quad, 6);
-    video_draw(&draw, test_indices, 6);
-    if (msaa) {
-        resolve();
-    }
-    wait_idle();
-    if (shot_count < SHOTS) {
-        take_shot(0, MmAllocateContiguousMemoryEx(WIDTH * HEIGHT * 2, 0, 0x03ffffff, 0, PAGE_READWRITE));
-    }
-    while (pb_finished()) {
-    }
-    memset(textures, 0, sizeof textures);
-    pack_forget();
+    gpu_report("report:");
 }
 
 /* the guard band: a real NV2A takes the vertex program's position in screen
@@ -3320,7 +3267,7 @@ void video_vertices(const struct host_vertex *vertices, int count)
     }
     /* a list as long as leaves the ring 1,024 vertices for its clips: half
      * the ring was the bound once, and a list past it lost its other
-     * vertices, which drew the 3D gone. with the ring of 12,000, a list may
+     * vertices, which drew the 3D gone. with the ring of 10,000, a list may
      * take more than the clips' room of half again, which it took before
      * (Ice Cap's 8,703 at once): its clips then take what is left */
     if (n + 1024 > RING_VERTICES) {
@@ -3408,11 +3355,11 @@ void video_vertices3(const struct host_vertex *vertices, int count, const float 
     if (n == 0) {
         return;
     }
-    if (vertices >= ring + RING_VERTICES && vertices + n <= ring + RING_VERTICES + 2 * ARENA_VERTICES) {
+    if (arenas != NULL && vertices >= arenas && vertices + n <= arenas + 2 * ARENA_VERTICES) {
         /* in an arena, where the port wrote them: drawn from there */
         model_set_rows(transform);
-        model_room = ring;
-        model_base = (unsigned)(vertices - ring);
+        model_room = arenas;
+        model_base = (unsigned)(vertices - arenas);
         model_count = n;
         model_vertices_in += n;
         goto noted;
@@ -3489,12 +3436,6 @@ void video_draw_items(const struct host_item *items, int count)
             have = item->vertices;
             have_transform = item->transform;
         }
-        if (vertex_check && item->vertices == have && k > 0 && items[k - 1].vertices == have &&
-            items[k - 1].transform == item->transform) {
-            /* a meshset after the first of one model's vertices: checked */
-        } else if (vertex_check) {
-            check_draw(item);
-        }
         lit_item = item->palette != NULL && lit_texels != NULL ? item : NULL;
         video_draw3(&item->draw, item->indices, item->count);
         lit_item = NULL;
@@ -3510,7 +3451,7 @@ struct host_vertex *video_store(int *vertices)
 struct host_vertex *video_arena(int *vertices)
 {
     *vertices = (int)ARENA_VERTICES;
-    return ring == NULL ? NULL : ring + RING_VERTICES + arena_write * ARENA_VERTICES;
+    return arenas == NULL ? NULL : arenas + arena_write * ARENA_VERTICES;
 }
 
 void video_draw3(const struct host_draw *draw, const unsigned short *indices, int count)
@@ -3520,6 +3461,7 @@ void video_draw3(const struct host_draw *draw, const unsigned short *indices, in
         return;
     }
     model_draws++;
+    gpu_draw_begin(draw, 1, count);
     draw_batch(draw, indices, count, model_base, 1, model_room);
 }
 
@@ -3532,6 +3474,7 @@ void video_draw(const struct host_draw *draw, const unsigned short *indices, int
     if (block_count == 0) {
         return;
     }
+    gpu_draw_begin(draw, 0, count);
     if (!block_any_outside && !block_short) {
         draw_batch(draw, indices, count, block_base, 0, ring);
         return;
@@ -3594,4 +3537,4 @@ void video_draw(const struct host_draw *draw, const unsigned short *indices, int
     }
 }
 
-_Static_assert(RING_SIZE / sizeof(struct host_vertex) + 2 * ARENA_VERTICES <= 0x10000, "an index is 16 bits");
+_Static_assert(RING_VERTICES <= 0x10000 && 2 * ARENA_VERTICES <= 0x10000, "an index is 16 bits, from its room's start");

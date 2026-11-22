@@ -29,13 +29,7 @@ static struct reading {
     int y;
     int l;
     int r;
-    int right_y; /* the right stick's up and down, -128 to 127, down more */
 } readings[PORTS];
-
-/* port A's right stick, up and down, as of the game's last
- * pdExecPeripheralServer: -128 to 127, down more, 0 at rest or without one.
- * the camera's height (src/camera/camera.c, under XBOX) */
-int port_right_y;
 
 /* the support bits of the console's standard controller, its buttons, both
  * triggers and one stick, which are PDD_DEV_CONTROLLER's: the game takes a
@@ -67,9 +61,6 @@ static void update(int k)
     if (in->r >= 0x80) {
         buttons |= PDD_DGT_TR;
     }
-    if (k == 0) {
-        port_right_y = in->right_y;
-    }
     per->id = PDD_DEV_CONTROLLER;
     per->support = CONTROLLER_SUPPORT;
     per->old = was;
@@ -90,11 +81,6 @@ static void read_port(int k)
     struct reading *in = &readings[k];
 
     in->buttons = HOST->pad_read(k, &in->x, &in->y, &in->l, &in->r);
-    in->right_y = 0;
-    if (in->buttons != ~0u && (in->buttons & HOST_PAD_RIGHT_Y)) {
-        in->right_y = (int)(in->buttons >> 24) - 128;
-        in->buttons &= HOST_PAD_RIGHT_Y - 1;
-    }
 }
 
 /* the vertical blank's reading, which system.c runs ahead of the chains */

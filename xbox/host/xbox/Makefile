@@ -4,7 +4,7 @@ XBE_TITLE = Sonic\ Adventure
 # nxdk-audio's checkout, which run.sh clones and patches
 NXAUDIO = $(or $(NXDK_AUDIO_DIR),$(HOME)/refs/nxdk-audio)
 FLYCAST = $(CURDIR)/../../third_party/flycast
-SRCS = $(CURDIR)/host.c $(CURDIR)/video.c $(CURDIR)/audio.c $(CURDIR)/string.c \
+SRCS = $(CURDIR)/host.c $(CURDIR)/video.c $(CURDIR)/string.c \
 	$(NXAUDIO)/audio_core.c $(NXAUDIO)/audio_buffer.c $(NXAUDIO)/audio_voice.c
 # SOUND=y, the default, builds the AICA in (sound_xbox.cpp, aica_apu.c,
 # Flycast's core). SOUND=n leaves it out and its registers read 0, under

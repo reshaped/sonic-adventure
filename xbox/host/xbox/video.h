@@ -26,14 +26,14 @@ int video_blank_locked(void);
 unsigned video_blank_count(void);
 int video_blank_flagged(void);
 void video_draw(const struct host_draw *draw, const unsigned short *indices, int count);
+/* HOST_GPU_PROFILE's on: frames slow by design (host.c logs no slow calls) */
+int video_gpu_profiling(void);
 void video_present(void);
 void video_fog(unsigned table_color, unsigned vertex_color, float density, const unsigned short table[128]);
 int video_textures_lost(void);
 void *video_movie_memory(unsigned size);
 void video_report(void);
 void video_report_memory(void);
-void video_shot_burst(void);
 int video_give_memory(unsigned bytes);
-void video_test(void);
 
 #endif

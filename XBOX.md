@@ -8,6 +8,7 @@ The port of this byte-matching decompilation of *Sonic Adventure* (JP, HDR-0001,
 - [Target resolution](#target-resolution)
 - [New features](#new-features)
 - [Known issues](#known-issues)
+- [Fixed bugs](#fixed-bugs)
 - [Debug flags](#debug-flags)
 - [Experimental flags](#experimental-flags)
 - [Building](#building)
@@ -35,10 +36,10 @@ Checks that must keep passing:
 - **The port layer** (`xbox/port/`) stands in for the SDK's hardware layers: interrupts and timers, disc files, pads, fibers, Kamui's lists and video memory, the renderer, movies, math, the overlay and the reports.
 - **Two hosts:** a native PC program (SDL2 and OpenGL, `xbox/host/pc/`) for debugging and headless runs, and the Xbox XBE (nxdk and pbkit, `xbox/host/xbox/`).
 - **Graphics on the NV2A:** the PowerVR's lists drawn through pbkit with a vertex program and ten combiner programs; per-pixel table fog; two-sample antialiasing; a subtle bloom in stages; textures converted ahead of time to the NV2A's formats (DXT1/DXT3, swizzled 16-bit for 2D art), with mipmaps where the Dreamcast has them.
-- **Models on the NV2A:** a model that needs no clipping is transformed by the NV2A from vertices the drawer writes into an arena (2 × 26,768 vertices). Models that haven't changed are kept in a store and neither shaded nor written again; kept models with normals are lit by the NV2A through a palette texture. A meshset that doesn't fit the arena goes through the lists whole.
+- **Models on the NV2A:** a model that needs no clipping is transformed by the NV2A from vertices the drawer writes into an arena (2 × 29,768 vertices, in a room of their own beside the lists' vertex ring). Models that haven't changed are kept in a store and neither shaded nor written again; kept models with normals are lit by the NV2A through a palette texture. A meshset that doesn't fit the arena goes through the lists whole.
 - **Translucency:** the translucent list sorted back to front per triangle; alpha-blended strips draw with a separate depth pass; additive strips draw last.
 - **Sound:** the disc's own sound driver (masaru.drv) runs, translated ahead of time from ARM to native code, over Flycast's AICA registers and timers. On the Xbox the channels play on the MCPX APU's hardware voices, from samples converted ahead of time into a sound pack. The music's ADX streams are decoded by the game's own ADX library.
-- **Movies:** Sofdec's player replaced by pl_mpeg, with the ADX audio as the clock; on the Xbox they play from `movies.pak`.
+- **Movies:** Sofdec's player replaced by pl_mpeg's demuxer and libmpeg2's decoder (its MMX and MMXEXT IDCT and motion compensation, as XBMC used on the Xbox), with the ADX audio as the clock; on the Xbox they play from `movies.pak`, each frame a linear 16-bit texture the host fills from its planes in one pass.
 - **Packaging:** `make xbox` updates the console's folder in place: eight files, of which a build changes one or two. `make xbox-disc` creates an ISO, but this is untested at the moment.
 - **SH-4 math, original behavior:** Ninja's math bodies, the game's assembly (`math.src`, `vector.src`, `mesh.src` and the rest) and SHC's inline bodies are C in `xbox/`, each checked bit for bit against the original assembly under `qemu-sh4` (`xbox/test/`).
 
@@ -49,19 +50,19 @@ Checks that must keep passing:
 - **`struct host_api`** (`xbox/port/host.h`) is the line between the shared port and the two hosts: files, time, the blank, pads, cards, video, AICA registers, stats.
 - **Floats:** SSE single precision in the SH-4's mode (rounding toward zero, flush to zero, denormals as zero), set by each host before `main`; the x87 at 53 bits and rounding toward zero for FIPR's and FTRV's double sums, as Flycast computes them. FSRRA is exact here; FSCA uses the console's own table.
 - **`xbox/include/sh4.h`:** the port's XMTRX and its models of FIPR, FTRV, FSRRA, FSCA, FTRC and FMAC. `ninja.h` includes it under `XBOX` in place of `ninja_zam.h`. FIPR and FTRV are x87 asm in `xbox/include/sse/sh4_sse.h`, bit-identical to the C they replaced.
-- **The blank** interrupts the game's thread through the port's interrupt entry, as the console's does; the game's speed follows the SH-4's timer, which the port models.
+- **The blank** interrupts the game's thread through the port's interrupt entry, as the console's does; the game's speed follows the SH-4's timer, which the port models. On the Xbox the host breaks in from the kernel's clock interrupt, wherever the game is; its trampoline saves the x87/SSE state (FXSAVE) before its own chores, whose sound emulation computes in those registers. Without that, the game resumed on the chores' values, and objects and land pieces dropped out for a frame on the console alone. Host code at interrupt level must not touch x87/SSE outside that save.
 
 ## Target resolution
 
-- **640×480**, 4:3, the Dreamcast's own resolution, with **two-sample antialiasing** (a 1280×480 surface resolved to the screen), double-buffered with vsync, at the game's 30 frames a second.
+- **640×480**, 4:3, the Dreamcast's own resolution, with **two-sample antialiasing** (a 1280×480 surface resolved to the screen), triple-buffered with vsync, at the game's 30 frames a second.
 - **16:9:** the port can squeeze the picture for a widescreen TV (`port_toggles[TOGGLE_WIDE]`, flipped from the overlay).
-- **720p** (`HOST_720P=1`, where the dashboard allows it): the game's 640×480 scene scaled to 1280×720, with 16:9 on and no antialiasing (experimental).
+- **720p** (`HOST_720P=1`, where the dashboard allows it): the game's 640×480 scene scaled to 1280×720 on a 1280×720 surface copied to the screen, with 16:9 on and no antialiasing (experimental).
 
 ## New features
 
 Features the Dreamcast version doesn't have:
 
-- **Right stick camera:** left and right turn the camera as the triggers do; up and down raise and lower it around a point above the player, easing back when released.
+- **Right stick camera:** left and right turn the camera as the triggers do, past a 20% dead zone; up and down do nothing.
 - **Analog dead zone** on the left stick (12% by default, `HOST_DEADZONE=PERCENT`), as the Xbox joystick tends to drift more than the DC's.
 - **Bloom** in stages and fields (`HOST_BLOOM`, `HOST_BLOOM_THRESHOLD`).
 - **On-screen performance overlay** (`HOST_OVERLAY`, on by default) and **reports** on the pad's Back button (see Debug flags).
@@ -69,9 +70,24 @@ Features the Dreamcast version doesn't have:
 
 ## Known issues
 
-- **Scenery drawn wrong for a frame:** some scenery can flicker or appear in the wrong place for a single frame. This has been noted, and a fix is being worked on.
-- **Movies** are on by default but not yet confirmed on a console.
+- **Land at the draw radius:** a land piece right at the edge of the stage's draw radius can blink for a frame while the camera hovers on that edge, as on the Dreamcast (a mountain's piece on Emerald Coast's last cliff, with the camera pitched down). It is the game's own land selection, left as the console has it.
+- **Movies** are on by default; their frame rate on a console with libmpeg2 is not yet confirmed (pl_mpeg's decoder reached some 27 of 30).
 - **The translucent sort** is per triangle, where the PowerVR's is per pixel: crossing triangles can sort wrong.
+
+## Fixed bugs
+
+- **Objects and land vanishing for a frame (console only).** Springs, palms, rocks, rings, item boxes, the land's pieces and the sea dropped out for a single frame, mid-screen, with their steps run; on Emerald Coast up to 23 objects at once, or a piece of the sea drawn black. The PC host never showed it. The cause was the blank's trampoline on the Xbox host (`xbox/host/xbox/host.c`): it ran the host's own chores, the sound's ARM7 and AICA emulation above all, before the port's interrupt entry saved the x87/SSE state, so the chores' float work overwrote whatever the game had in its XMM and x87 registers wherever the blank broke in, and the game resumed on those values (a view test or a matrix wrong for a frame). The PC was spared because Linux saves the FPU state for a signal handler. The trampoline now saves the state with FXSAVE before the chores, runs them with an empty x87 stack and the game's control words, and restores it after. Confirmed on a console at 60 frames a second, with antialiasing off.
+- **The split frame's pacing at 60 frames a second.** Kamui's statistics left the render's time at 0, so `src/system/present.c`'s split judged frames to fit that ran late, and the split ended and engaged by turns. `xbox/port/kamui.c` now gives the render's length, the lists read and handed to the host, as the console's Kamui gives the tile accelerator's intake.
+- **The translucent sort's reads of write-combined memory.** The sort by triangle and the strips' checks of their vertices read the runs' vertices back from the host's write-combined memory, which the CPU reads uncached. The drawer now keeps the depths and the vertices' validity in cached memory as it writes them (`xbox/engine/sa1/emit.h`, `port_run_depths`).
+- **Memory.** Kamui's lists take 512 KB instead of 4.1 MB, the arena of models has a room of its own beside the lists' vertex ring, the push buffer is 2 MB, and pbkit's own three frame buffers are used, so the back-buffer patch to nxdk is gone.
+
+Changes made with these fixes:
+
+- **The right stick's up and down** no longer raise and lower the camera: they do nothing, as the console's pad has no such stick. Left and right still turn it, past a 20% dead zone.
+- **The sky** is drawn last of the opaque list, and profiled apart (`port_sky_task`).
+- **720p** always uses 16-bit color; where the dashboard refuses 720p, the picture is 480p at 32 bits.
+- **The draw distance setting** (`HOST_DRAW_DISTANCE`) is gone: a distance other than the console's broke some levels. The land, the far clip and the range objects are made at are the console's again.
+- **Test switches removed** once the bugs above were found: the blank's holds (`HOST_BLANK_DEFER`, `HOST_BLANK_PARTS`), the flash and land detector (`HOST_FLASH_WATCH`, which freed about 18 KB of `1ST_READ.BIN`'s data), the old waiting present (`HOST_SYNC_PRESENT`), the vertex check, the draw dumps, the hardware write watches, the audio and video tests, the sound tests and probes, and the renderer's and present's on/off switches (`HOST_KEEP`, `HOST_SORT`, `HOST_GPU_MODELS`, `HOST_SKY_LAST`, `HOST_TILES`, `HOST_FOG_TABLE`, `HOST_DEPTH_BOTTOM`, `HOST_GUARD`, `HOST_CULL_FLIP`, `HOST_DEPTH_FIXED`, `HOST_TEXTURE_RECHECK`, `HOST_TEXTURE_POOL`, `HOST_IDLE_PRESENT`, `HOST_PRESENT_WAIT`, `HOST_BLANK_LOCK`, among others). What they turned on or off is now fixed at its default. The renderer's model paths and the translucent sort's mode can still be set with `HOST_POKE` (`port_gpu_models`, `port_sort_triangles`).
 
 ## Debug flags
 
@@ -86,24 +102,9 @@ Logging and reports:
 | `HOST_CRASH_LOG=0` | no log written at a fault, halt or stall (on by default) |
 | `HOST_LOG_FILE=1` | writes the log every 10 seconds |
 | `HOST_PROFILE=1` | the profile every 600 blanks: frame rate, sampled functions, counts, the sound's cost |
-| `HOST_SOUND_PROFILE=1`, `HOST_SOUND_LOG=1`, `HOST_AICA_READS=1` | the sound's cost, its state once a second, the ARM7's register reads |
-| `HOST_STREAM_PROBE=1` | the music streams' rings once a second: chunks the voice played again unwritten (stale), the game's lead over the voice (Xbox) |
+| `HOST_GPU_PROFILE=1` | the NV2A's time for each part of a picture (clear, movie, each list's draws of list vertices and of models, with the translucent depth passes in the translucent's, resolve, bloom), each part drawn alone, an empty wait's cost taken off each wait, in the log every 10 s and in reports; the frame rate falls, and no slow host calls are logged (Xbox) |
+| `HOST_GPU_PROFILE=2` | as 1, and one picture a second timed draw by draw: the 16 costliest draws in the report (Xbox) |
 | `HOST_WATCH=SYMBOL` | logs a 1ST_READ.BIN variable when it changes |
-| `HOST_BREAK=SYMBOL[+OFFSET]` | a hardware write watch on a variable (Xbox) |
-| `HOST_WHERE=1` | prints where the game is every five seconds (PC) |
-
-Drawing checks:
-
-| Setting | Effect |
-| --- | --- |
-| `HOST_VERTEX_CHECK=1` | checks the models' vertices against what the NV2A reads, and kept models against their data (slow) |
-| `HOST_VIDEO_DUMP=FRAME`, `HOST_VIDEO_DUMP_LINES=N`, `HOST_VIDEO_DUMP_LIT=1` | logs the draws' state from that frame (Xbox) |
-| `HOST_VIDEO_DUMP_REPORT=1` | each report also dumps the next frame's draws (Xbox) |
-| `HOST_DUMP=1` / `2` | with `HOST_SHOT`, logs the next frame's strips / and vertices (PC) |
-| `HOST_GPU_MODELS=N` | which draws the NV2A takes as the port's runs: bit 0 opaque models, 1 translucent, 2 kept, 3 the box test, 4 lit by the NV2A, 5 the walk's projected and clipped meshsets, 6 SA1's other live draws: sprites, screen polygons, 2D polygons and lines, 3D lines, Ninja's print and easy models (127 by default; 0 sends every model through the lists) |
-| `HOST_ARENA=N` | the models' arena in vertices, to test the drawer past its room (PC) |
-| `HOST_FOG_TABLE=0`, `HOST_DEPTH_BOTTOM=0`, `HOST_GUARD=N`, `HOST_CULL_FLIP=1` | the fog table, the depth's bottom piece, the guard band, the culled face (for tests) |
-| `HOST_NO_PACK=1`, `HOST_PACK=PATH`, `HOST_TEXTURE_KEYS=1` | textures without the pack, the pack to use (PC), the keys asked for |
 
 Scripting and capture:
 
@@ -113,14 +114,11 @@ Scripting and capture:
 | `HOST_PADS=600:8,610:0,2400:0/128/0` | scripts controller A: `PDD_DGT_` bits in hex, optional `/X/Y` stick |
 | `HOST_POKE=300:menu_state+0:1:1` | writes a 1ST_READ.BIN variable at a blank (this one opens every stage); a report's `port_place` line restarts at its place |
 | `HOST_SHOT=F,...` | saves those frames (`build/pc/shot_N.ppm` on the PC, PNGs from xemu) |
-| `HOST_SHOT_BURST=N` | the first Back also shoots the N frames after it (Xbox) |
 | `HOST_QUIT=N` | quits at blank or frame N |
 | `HOST_HEADLESS=1`, `HOST_SCALE=2`, `HOST_SLOW=3` | no window, a doubled window, console time three times slower (PC) |
-| `HOST_SAVES=DIR`, `HOST_CARD_DELAY=US` | where the card files go, a delay per card call (PC) |
+| `HOST_SAVES=DIR` | where the card files go (PC) |
+| `HOST_PACK=PATH` | the texture pack to use (PC) |
 | `HOST_WAV=PATH`, `HOST_SOUND_RECORD=PATH` | the sound to a WAV, or the game's side of the AICA recorded for `sndreplay` (PC) |
-| `HOST_AUDIO_TEST=1`, `HOST_VIDEO_TEST=1` | the hosts' audio and video tests |
-| `HOST_DEBUG_PAGE=N` | the game's own debug page (1 collisions and particles, 3 sound slots) |
-| `HOST_SILENT=1`, `HOST_SOUND_FREEZE_AT=N`, `HOST_SOUND_NO_IDLE=1`, `HOST_DSP_CHECK=SECOND`, `HOST_SOUND_PACK=0` | sound tests: no AICA (hangs the game), freeze the sound, run the driver's idle loop, check the DSP, no sound pack |
 
 Pokes of note: `port_movie_skip+0:1`, `port_overlay+0:1`, `port_profile+0:1`, `port_report+0:1`, `port_gpu_models+0:N`, `port_sweep_cap+0:1` (widen far collision sweeps), `port_sort_triangles+0:N` (the translucent sort: 0 by strip, 1 by a triangle's nearest vertex, 2 by its middle).
 
@@ -131,12 +129,10 @@ The watch (on whenever reports are): logs frames in play that draw under four fi
 | Setting | Effect |
 | --- | --- |
 | `HOST_60FPS=1` | 60 frames a second: each stage frame split into two pictures |
-| `HOST_720P=1`, `HOST_720P_COLOR=16` | 1280×720 output, 16:9, no antialiasing; 16-bit color |
+| `HOST_720P=1` | 1280×720 output, 16:9, no antialiasing, 16-bit color |
 | `HOST_MOVIES=0` | skips the movies (on by default where `movies.pak` is on the console) |
-| `HOST_MSAA=0` | no antialiasing |
-| `HOST_TRIPLE_BUFFER=1` | three frame buffers instead of two |
-| `HOST_SYNC_PRESENT=1` | the old waiting present (uneven on the console) |
-| `HOST_VSYNC=0`, `HOST_BLANK_LOCK=0` | doesn't wait for the blank; the clock's blanks instead of the display's |
+| `HOST_MSAA=0` | no antialiasing: the scene on a 640×480 surface, copied to the screen as the antialiased one is resolved |
+| `HOST_VSYNC=0` | doesn't wait for the blank: the clock's blanks instead of the display's |
 | `HOST_BLOOM=PERCENT`, `HOST_BLOOM_THRESHOLD=PERCENT` | the bloom's strength (40, 0 for none) and threshold (75) |
 | `HOST_DEADZONE=PERCENT` | the left stick's dead zone (12) |
 | `HOST_OVERLAY=0` | no on-screen figures |
@@ -158,7 +154,7 @@ make xbox-disc          # and build/xbox/sonic.iso from it
 ```
 
 - Expected: `xbox-pc-test` reports `compiled 3355 of 3357 objects` (the loader's `kmsurfac` workaround and `syCache`, which the port replaces); `xbox-pc-test-link` reports `253 images linked; 0 over their areas`.
-- The Xbox host builds with nxdk at `~/refs/nxdk` (`NXDK_DIR`). `xbox/host/xbox/run.sh` applies the port's two pbkit patches (`xbox/third_party/nxdk-pbkit-back-buffers.patch` and `xbox/third_party/nxdk-pbkit-lost-swap.patch`) to that checkout once. It clones nxdk-audio from https://github.com/Ryzee119/nxdk-audio to `~/refs/nxdk-audio` (`NXDK_AUDIO_DIR`) at the port's revision and applies `xbox/third_party/nxdk-audio-loop-start.patch` once.
+- The Xbox host builds with nxdk at `~/refs/nxdk` (`NXDK_DIR`). `xbox/host/xbox/run.sh` applies the port's pbkit patch, `xbox/third_party/nxdk-pbkit-lost-swap.patch`, to that checkout once. It clones nxdk-audio from https://github.com/Ryzee119/nxdk-audio to `~/refs/nxdk-audio` (`NXDK_AUDIO_DIR`) at the port's revision and applies `xbox/third_party/nxdk-audio-loop-start.patch` once.
 - On native Linux, run `build/xbox/sonic.iso` in a Linux build of xemu by hand: `run.sh`'s automated xemu runs drive the Windows xemu through PowerShell.
 - The PC host's keyboard: arrows the stick; I, J, K, L the d-pad; Z, X, A, S are A, B, X, Y; Q, W the triggers; Enter Start; Esc quits.
 
@@ -174,7 +170,7 @@ make xbox-disc          # and build/xbox/sonic.iso from it
 
 - **A renderer without the tile accelerator's lists:** runs handed straight to the host instead of written into Kamui's lists and read back.
 - **More work on the NV2A:** clipping by the NV2A instead of the drawer.
-- **Performance:** a profiled console run after the x87 FIPR and FTRV; packed SSE where the original's operations are separate floats; the push buffer (937 of 1,024 KB in Speed Highway's third act).
+- **Performance:** a profiled console run after the x87 FIPR and FTRV; packed SSE where the original's operations are separate floats; the push buffer, now 2 MB (937 KB of the old 1 MB in Speed Highway's third act).
 - **Memory:** account for the free pages; give the textures' pool and the arenas more room.
 - **Movies:** their room, and a run on the console.
 - **Tooling:** a set of frames compared on the PC by one command; the sound compared with Flycast again; an FTP push to the console.

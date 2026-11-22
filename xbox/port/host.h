@@ -39,6 +39,11 @@ struct host_draw {
      * else neither. the rectangle runs from x0, y0 to x1, y1, exclusive, in
      * the console's pixels */
     unsigned char clip_mode;
+    /* the Kamui list the draw came from, for the host's GPU profile: 1 the
+     * opaque, 2 the punch-through, 3 the translucent, 0 none (the movie) */
+    unsigned char list;
+    /* the draw is the stage's sky's, its backdrop, for the profile */
+    unsigned char sky;
     float alpha_ref;
     unsigned short clip_x0, clip_y0, clip_x1, clip_y1;
 };
@@ -211,11 +216,6 @@ struct host_api {
  * grows from nothing to the full throw at the rim, in the stick's direction,
  * with no step at the dead zone's edge */
 #define HOST_STICK_DEAD 12 /* percent of the throw, the hosts' default */
-/* pad_read's buttons: where this bit is set, bits 24 to 31 are the right
- * stick's up and down, 0 to 255, 128 at rest, down more, which the
- * console's pad hasn't (the Xbox host's; the port's camera height) */
-#define HOST_PAD_RIGHT_Y (1u << 23)
-
 static inline void host_stick(int sx, int sy, int dead, int *x, int *y)
 {
     unsigned square = (unsigned)(sx * sx) + (unsigned)(sy * sy);

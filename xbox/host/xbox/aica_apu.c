@@ -163,16 +163,6 @@ int aica_apu_position(int channel)
     return (int)(nxAudioVoiceGetPlaybackOffset(&v->voice) / 2);
 }
 
-/* every voice stopped, as the host freezes the sound (host.c) */
-void aica_apu_silence(void)
-{
-    int k;
-
-    for (k = 0; k < CHANNELS; k++) {
-        aica_apu_stop(k);
-    }
-}
-
 static float gain(uint32_t att)
 {
     return att >= 255 ? 0.0F : powf(2.0F, -(float)att / 16.0F);
@@ -507,148 +497,6 @@ static void start(int k)
     starts++;
 }
 
-/* HOST_STREAM_PROBE: a stream is a long loop of PCM16 that plays from sound
- * RAM while the game rewrites it ahead of the voice (aica_apu_position). for
- * each, the probe keeps a copy of the ring, finds the chunks the game wrote
- * since the last blank, and stamps each chunk with the blank it was last
- * written and last played in. a chunk the voice plays again with no write
- * since it last played is stale, the old audio a second time, which clicks:
- * the game's writes fell behind, as while a load blocks it. a chunk written
- * in the stretch the voice played this blank is late: mostly the game's
- * refill just behind the voice, which is harmless. the lead is how far
- * ahead of the voice the nearest write landed, in samples */
-#define PROBE_STREAMS 4
-#define PROBE_CHUNK 64
-#define PROBE_MOST 0x20000
-
-struct probe {
-    int used;
-    int channel;
-    uint32_t sa, lsa, lea;
-    int16_t *shadow;
-    uint32_t *written, *played;
-    int last;
-    unsigned stale, late, writes, wraps;
-    uint32_t lead_min, lead_max;
-};
-
-static int probe_on;
-static unsigned probe_blank;
-static struct probe probes[PROBE_STREAMS];
-
-void aica_apu_probe(int on)
-{
-    probe_on = on;
-    probe_blank = 1;
-    host_log_line("host: audio: the stream probe is %s\n", on ? "on" : "off");
-}
-
-static struct probe *probe_for(int channel, const struct aica_channel *c)
-{
-    struct probe *free_slot = NULL;
-    uint32_t chunks = (c->lea - c->lsa) / PROBE_CHUNK;
-    int k;
-
-    for (k = 0; k < PROBE_STREAMS; k++) {
-        struct probe *p = &probes[k];
-
-        if (p->used && p->channel == channel && p->sa == c->sa && p->lsa == c->lsa && p->lea == c->lea) {
-            return p;
-        }
-        if (free_slot == NULL && (!p->used || p->channel == channel)) {
-            free_slot = p;
-        }
-    }
-    if (free_slot == NULL || chunks == 0 || c->lea - c->lsa > PROBE_MOST) {
-        return NULL;
-    }
-    free(free_slot->shadow);
-    free(free_slot->written);
-    free(free_slot->played);
-    memset(free_slot, 0, sizeof *free_slot);
-    free_slot->shadow = malloc((c->lea - c->lsa) * 2);
-    free_slot->written = calloc(chunks, sizeof(uint32_t));
-    free_slot->played = calloc(chunks, sizeof(uint32_t));
-    if (free_slot->shadow == NULL || free_slot->written == NULL || free_slot->played == NULL) {
-        return NULL;
-    }
-    free_slot->used = 1;
-    free_slot->channel = channel;
-    free_slot->sa = c->sa;
-    free_slot->lsa = c->lsa;
-    free_slot->lea = c->lea;
-    free_slot->last = -1;
-    free_slot->lead_min = 0xffffffffu;
-    memcpy(free_slot->shadow, sound_ram + ((c->sa + c->lsa * 2) & 0x1ffffe), (c->lea - c->lsa) * 2);
-    host_log_line("host: audio: probe: channel %d's ring at 0x%06lx, %lu samples\n", channel,
-                  (unsigned long)(c->sa + c->lsa * 2), (unsigned long)(c->lea - c->lsa));
-    return free_slot;
-}
-
-static void probe_stream(int channel, struct voice *v, const struct aica_channel *c)
-{
-    struct probe *p = probe_for(channel, c);
-    uint32_t len, chunks, at, i;
-    int pos;
-    const int16_t *ring;
-
-    if (p == NULL) {
-        return;
-    }
-    len = c->lea - c->lsa;
-    chunks = len / PROBE_CHUNK;
-    ring = (const int16_t *)(sound_ram + ((c->sa + c->lsa * 2) & 0x1ffffe));
-    pos = (int)(nxAudioVoiceGetPlaybackOffset(&v->voice) / 2) - (int)c->lsa;
-    if (pos < 0 || (uint32_t)pos >= len) {
-        return;
-    }
-    /* the chunks the voice played since the last blank, last to pos */
-    if (p->last >= 0) {
-        uint32_t from = (uint32_t)p->last / PROBE_CHUNK, to = (uint32_t)pos / PROBE_CHUNK;
-
-        if ((uint32_t)pos < (uint32_t)p->last) {
-            p->wraps++;
-        }
-        for (i = from; i != to; i = (i + 1) % chunks) {
-            if (p->played[i] != 0 && p->written[i] < p->played[i]) {
-                p->stale++;
-            }
-            p->played[i] = probe_blank;
-        }
-    }
-    /* the chunks the game wrote since the last blank */
-    for (i = 0; i < chunks; i++) {
-        at = i * PROBE_CHUNK;
-        if (memcmp(ring + at, p->shadow + at, PROBE_CHUNK * 2) != 0) {
-            uint32_t lead = (at + len - (uint32_t)pos) % len;
-
-            memcpy(p->shadow + at, ring + at, PROBE_CHUNK * 2);
-            p->written[i] = probe_blank;
-            p->writes++;
-            if (p->played[i] == probe_blank) {
-                p->late++;
-            }
-            if (lead < p->lead_min) {
-                p->lead_min = lead;
-            }
-            if (lead > p->lead_max) {
-                p->lead_max = lead;
-            }
-        }
-    }
-    p->last = pos;
-    if (probe_blank % 60 == 0) {
-        host_log_line("host: audio: probe: channel %d at %d of %lu: %u stale, %u late, %u chunks written, "
-                      "lead %lu to %lu, %u wraps\n",
-                      channel, pos, (unsigned long)len, p->stale, p->late, p->writes,
-                      (unsigned long)(p->lead_min == 0xffffffffu ? 0 : p->lead_min), (unsigned long)p->lead_max,
-                      p->wraps);
-        p->stale = p->late = p->writes = p->wraps = 0;
-        p->lead_min = 0xffffffffu;
-        p->lead_max = 0;
-    }
-}
-
 void aica_apu_blank(void)
 {
     int k;
@@ -703,13 +551,7 @@ void aica_apu_blank(void)
                 v->att_right = c.att_right;
                 nxAudioVoiceSetChannelGain(&v->voice, gain(c.att_left), gain(c.att_right), 0.0F, 0.0F, 0.0F, 0.0F);
             }
-            if (probe_on && c.pcms == 0 && c.lpctl && c.lea > c.lsa && c.lea - c.lsa >= 4096) {
-                probe_stream(k, v, &c);
-            }
         }
-    }
-    if (probe_on) {
-        probe_blank++;
     }
 }
 

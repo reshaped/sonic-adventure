@@ -31,6 +31,11 @@
 #include "system/must_load.h" /* NOLINT(misc-include-cleaner) */
 #include "system/pad.h"
 #include "system/sbinit.h"
+
+#ifdef XBOX
+/* xbox/port/report.c's: TRUE once where a report's place asks for its stage */
+int port_place_enter(void);
+#endif
 #include "system/texture.h"
 #include "system/timer.h"
 #include "vmu/screen.h"
@@ -347,6 +352,13 @@ int game_mode_step(void)
         ++game_mode;
         /* fall through */
     case GAME_MODE_MENU_RUN:
+#ifdef XBOX
+        /* a report's place (xbox/port/report.c's port_place_enter): its
+         * stage entered as the trial menu enters one */
+        if (port_place_enter()) {
+            result = MENU_TRIAL;
+        } else
+#endif
         result = ADVERTISE->step(&menu_entrance);
         switch (result) {
         /* @hack redundant: a case the default would take, whose break has
