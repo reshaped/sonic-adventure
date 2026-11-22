@@ -3085,14 +3085,28 @@ static void stage_create_task(void)
     return; /* NOLINT(readability-redundant-control-flow) */
 }
 
+#ifdef XBOX
+/* the stage's sky task, which draws its backdrop, for the port's renderer
+ * (xbox/port/render.c): its draws are told apart there, profiled and drawn
+ * last of the opaque */
+extern void *port_sky_task;
+#endif
+
 static void stage_create_sky(void)
 {
     struct back_color *color = &back_colors[stage_current];
 
     njSetBackColor(color->col1, color->col2, color->col3);
+#ifdef XBOX
+    port_sky_task = NULL;
+    if (sky_steps[stage_current] != NULL) {
+        port_sky_task = task_create(TASK_WORK, 2, sky_steps[stage_current]);
+    }
+#else
     if (sky_steps[stage_current] != NULL) {
         task_create(TASK_WORK, 2, sky_steps[stage_current]);
     }
+#endif
 }
 
 void set_character(Sint16 character)

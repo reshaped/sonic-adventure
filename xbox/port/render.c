@@ -112,17 +112,17 @@ extern volatile struct kmi_device_extension kmiDeviceExtension;
  * indices into them, then the strips, each with the state it draws with,
  * and their drawing order */
 #define DECODED ((Uint32 *)PORT_RENDER)
-/* the tables' sizes. the most a frame has needed in Emerald Coast and
- * Station Square (render's "the most so far" log line) is 6875 strips,
- * 40860 vertices and a texture of 512 by 256, on the PC. tables cut to 4 MB
- * (512 by 512, 0x14000, 0x4000) brought the ADX hang (XBOX.md) to the
- * main menu under xemu, by timing, so they stay at 10 MB for now. full_once
- * logs one that fills */
+/* the tables' sizes, which PORT_RENDER_USED holds (the assert below).
+ * full_once logs one that fills, and the report gives the most a frame
+ * used of each. since the models and sprites go to the host as runs, the
+ * lists hold few vertices: 2,832 at the most in Speed Highway's third act,
+ * on the console, with 1,703 strips and 40,362 indices */
 #define DECODED_MAX (512 * 512)
 #define VERTICES ((struct host_vertex *)(PORT_RENDER + DECODED_MAX * 4))
-/* a frame's vertices number some 16,000 in Emerald Coast and its triangles'
- * indices 34,000. an index is 16 bits, from its list's first vertex */
-#define VERTICES_MAX 0x8000
+/* a frame's vertices in the lists: 12,288, room for a list as long as Ice
+ * Cap's 8,703 at once, before the runs. an index is 16 bits, from its
+ * list's first vertex */
+#define VERTICES_MAX 0x3000
 /* the models' vertices, which the host transforms, are in the host's
  * memory, host_api's video_arena, asked for as a frame's first run begins:
  * the drawer writes them where the host's graphics chip reads them */
@@ -147,6 +147,8 @@ struct strip {
  * vertices in VERTICES3, its triangles' indices in INDICES, from its first
  * vertex, and its transform, as host_api's video_vertices3 takes them */
 #define RUNS_MAX 4096
+extern volatile int port_sky_drawing;
+
 static struct run {
     const struct host_vertex *vertices; /* in the host's arena, or its store for a kept model's */
     int count;
@@ -160,8 +162,12 @@ static struct run {
      * and the light in the model's space; else null */
     const Uint32 *palette;
     float light[3];
+    /* its vertices' depths in DEPTHS (port_run_depths_take), or null */
+    const float *depths;
+    int sky; /* made while the stage's sky task drew (port_sky_drawing) */
 } runs[RUNS_MAX];
 static int run_count;
+static int depth_count; /* in DEPTHS */
 static int vertex3_count;
 /* a translucent run's strips, each with the 1/z of its nearest vertex: the
  * translucent list sorts each by it, as it sorts the strips it reads */
@@ -193,6 +199,14 @@ static int part_count;
 #define KEPT_SETS 16
 #define KEPT_INDICES ((Uint16 *)(ORDER + STRIPS_MAX))
 #define KEPT ((struct kept *)(KEPT_INDICES + STORE_MAX * 3))
+/* the translucent runs' vertices' depths in view space, a float each, as
+ * the drawer computes them from the model's points (port_run_depths): the
+ * sort by triangle keys by them, here in cached memory, where the runs'
+ * vertices lie in the host's arena or store, memory written through
+ * write-combining, which the CPU reads uncached. a run past the table has
+ * none, and the sort reads its vertices */
+#define DEPTHS_MAX 0x4000
+#define DEPTHS ((float *)(KEPT + KEPT_MAX))
 /* a kept model's meshset: its vertices, from the model's first, its
  * indices, and its polygons' words and uvs, for the drawer's checks */
 struct keep_set {
@@ -223,7 +237,7 @@ struct kept {
 };
 _Static_assert(DECODED_MAX * 4 + VERTICES_MAX * sizeof(struct host_vertex) + INDICES_MAX * 2 +
                        STRIPS_MAX * (sizeof(struct strip) + 4) + STORE_MAX * 3 * 2 +
-                       KEPT_MAX * sizeof(struct kept) <=
+                       KEPT_MAX * sizeof(struct kept) + DEPTHS_MAX * sizeof(float) <=
                    PORT_RENDER_USED,
                "the renderer's tables outgrow its room");
 _Static_assert(VERTICES_MAX <= 0x10000, "an index is 16 bits");
@@ -293,6 +307,8 @@ struct cached {
 };
 static struct cached cache[CACHE_SIZE];
 static Uint32 frame_number;
+/* a texture decoded from video memory is read again only when a write marks
+ * its pages (newest_page) */
 
 static float word_float(Uint32 word)
 {
@@ -689,6 +705,10 @@ static void header_state(struct state *st)
     d->ignore_texture_alpha = (tsp & TSP_IGNORE_TEX_ALPHA) != 0;
     d->use_offset = (st->pcw & PCW_OFFSET) != 0;
     d->punch_through = st->list == LIST_PUNCH_THROUGH;
+    d->list = (unsigned char)(st->list == LIST_OPAQUE        ? 1
+                              : st->list == LIST_PUNCH_THROUGH ? 2
+                              : st->list == LIST_TRANSLUCENT   ? 3
+                                                               : 0);
     d->clamp_u = (tsp & TSP_CLAMP_U) != 0;
     d->clamp_v = (tsp & TSP_CLAMP_V) != 0;
     d->flip_u = (tsp & TSP_FLIP_U) != 0;
@@ -1082,6 +1102,27 @@ void port_runs_reset(void)
     run_count = 0;
     part_count = 0;
     lit_count = 0;
+    depth_count = 0;
+}
+
+/* where the drawer writes a translucent run's vertices' depths, a float
+ * each in view space, by the run's transform's third row, and the room
+ * for them */
+float *port_run_depths(int *room)
+{
+    *room = DEPTHS_MAX - depth_count;
+    return DEPTHS + depth_count;
+}
+
+/* the depths port_run_depths gave, vertices of them, are the run's, which
+ * port_run_end or port_run_kept just made */
+void port_run_depths_take(int run, int vertices)
+{
+    if (run < 0 || run != run_count - 1 || vertices <= 0 || vertices > DEPTHS_MAX - depth_count) {
+        return;
+    }
+    runs[run].depths = DEPTHS + depth_count;
+    depth_count += vertices;
 }
 
 /* the identity rows of a run of points already on the screen
@@ -1159,6 +1200,8 @@ void port_run_end(int run, int vertices, int indices, int part_total, const floa
     r->serial = serial;
     r->shared = run > 0 && runs[run - 1].serial == serial ? runs[run - 1].shared : run;
     r->palette = NULL;
+    r->depths = NULL;
+    r->sky = port_sky_drawing;
     vertex3_count += vertices;
     index_count += indices;
     run_count++;
@@ -1473,6 +1516,8 @@ int port_run_kept(int id, int set, int part_total, const float transform[12], fl
     r->serial = serial;
     r->shared = run > 0 && runs[run - 1].serial == serial ? runs[run - 1].shared : run;
     r->palette = NULL;
+    r->depths = NULL;
+    r->sky = port_sky_drawing;
     k->used = port_keep_frame();
     run_count++;
     return run;
@@ -1577,25 +1622,9 @@ int port_keep_never(const void *model)
     return 0;
 }
 
-/* HOST_VERTEX_CHECK=1: model.c's full sum at each kept hit */
-volatile int port_keep_check;
-static unsigned kept_stale;
 
 /* a kept record whose few probed words matched its model but whose whole
  * data didn't: the first 32 of a run logged */
-void port_keep_stale(const void *model, int id)
-{
-    static char line[256]; /* static: the game's stacks are small */
-
-    if (++kept_stale > 32) {
-        return;
-    }
-    sprintf(line, "render: kept models: record %d of model 0x%08x is stale, though its probe held (built at frame %u, "
-                  "%d vertices at store+%d); frame %u",
-            id, (unsigned)model, (unsigned)KEPT[id].info.built, KEPT[id].count, KEPT[id].first, frame_number + 1);
-    port_log(line);
-}
-
 /* the store's records, checked once a frame: in address order, none over
  * another or past the store, each linked both ways, their sum store_used,
  * and every record that says it is in the store among them. a record's
@@ -1687,8 +1716,6 @@ static void kept_sweep(void)
 #define REG_FOG_DENSITY 0x0b8
 #define REG_FOG_TABLE 0x200
 
-extern volatile int port_render_dump;
-
 static void send_fog(void)
 {
     static unsigned short table[128];
@@ -1705,14 +1732,6 @@ static void send_fog(void)
     }
     for (k = 0; k < 128; k++) {
         table[k] = (unsigned short)port_register(REG_FOG_TABLE + k * 4);
-    }
-    if (port_render_dump) {
-        static char line[200];
-
-        sprintf(line, "fog: color %08lx vertex %08lx density %08lx table %04x %04x %04x %04x %04x %04x", (unsigned long)port_register(REG_FOG_TABLE_COLOR),
-                (unsigned long)port_register(REG_FOG_VERTEX_COLOR), (unsigned long)density, table[0], table[32], table[64],
-                table[96], table[120], table[127]);
-        port_log(line);
     }
     HOST->video_fog(port_register(REG_FOG_TABLE_COLOR), port_register(REG_FOG_VERTEX_COLOR), scale, table);
 }
@@ -1859,6 +1878,7 @@ static void draw_item(const struct strip *s, const Uint16 *indices, int count)
         item->rhw_near = run->rhw_near;
         item->rhw_mid = run->rhw_mid;
         item->palette = run->palette;
+        item->draw.sky = (unsigned char)run->sky;
         item->light[0] = run->light[0];
         item->light[1] = run->light[1];
         item->light[2] = run->light[2];
@@ -1924,8 +1944,16 @@ static float triangle_depth(const struct strip *s, const Uint16 *at, int middle)
     float z[3];
     int i;
 
-    if (s->run >= 0) {
-        /* a model's point, in its space: its z by the transform's third row */
+    if (s->run >= 0 && runs[s->run].depths != NULL) {
+        /* the depths the drawer noted, in cached memory */
+        const float *d = runs[s->run].depths;
+
+        z[0] = d[at[0]];
+        z[1] = d[at[1]];
+        z[2] = d[at[2]];
+    } else if (s->run >= 0) {
+        /* a model's point, in its space: its z by the transform's third
+         * row, read from the host's memory, which the CPU reads uncached */
         const struct run *run = &runs[s->run];
         const float *t = runs[run->shared].transform + 8;
 
@@ -2062,6 +2090,79 @@ static int draw_triangles(int first, int last)
     return 1;
 }
 
+/* the stage's sky task (src/stage/stage.c's stage_create_sky), and whether
+ * its draws are running now (src/system/present.c): the model runs made
+ * then are the backdrop's */
+void *port_sky_task;
+volatile int port_sky_drawing;
+static unsigned sky_moved; /* frames whose sky sky_order moved, for the profile */
+
+static int sky_strip(const struct strip *s)
+{
+    return s->run >= 0 && runs[s->run].sky;
+}
+
+/* a strip whose place in the order counts: no depth written, or a test
+ * other than the near one (rhw greater, or greater or equal) */
+static int order_counts(const struct strip *s)
+{
+    return !s->draw.depth_write || (s->draw.depth_compare != 4 && s->draw.depth_compare != 6);
+}
+
+/* an unsorted list's order with its sky later: the PowerVR draws what's
+ * hidden for nothing, the NV2A pays for each pixel. the sky, drawn mid
+ * frame (its task is level 2), was drawn over by the strips after it, and
+ * drew its own pixels over those before, which then failed the depth test.
+ * drawn after the other strips it fails the test where they lie, which the
+ * NV2A tells sooner than it draws them. the order holds to the first strip
+ * after the sky whose place counts (order_counts), which draws over the sky
+ * by its order: the sky's strips before it go just before it, and it and
+ * everything after it as they were. where a sky strip's own place counts
+ * (a sky drawn without depth, which everything draws over), nothing moves.
+ * FALSE where nothing moved, and order is left for the caller */
+static int sky_order(int first, int last, int *count)
+{
+    int sky_first = -1;
+    int cut;
+    int n = 0;
+    int k;
+
+    for (k = first; k < last; k++) {
+        if (sky_strip(&strips[k])) {
+            if (order_counts(&strips[k])) {
+                return FALSE;
+            }
+            if (sky_first < 0) {
+                sky_first = k;
+            }
+        }
+    }
+    if (sky_first < 0) {
+        return FALSE;
+    }
+    for (cut = sky_first; cut < last; cut++) {
+        if (!sky_strip(&strips[cut]) && order_counts(&strips[cut])) {
+            break;
+        }
+    }
+    for (k = first; k < cut; k++) {
+        if (!sky_strip(&strips[k])) {
+            order[n++] = k;
+        }
+    }
+    for (k = sky_first; k < cut; k++) {
+        if (sky_strip(&strips[k])) {
+            order[n++] = k;
+        }
+    }
+    for (k = cut; k < last; k++) {
+        order[n++] = k;
+    }
+    *count = n;
+    sky_moved++;
+    return TRUE;
+}
+
 static void draw_strips(int first, int last, int sorted)
 {
     int k;
@@ -2082,8 +2183,10 @@ static void draw_strips(int first, int last, int sorted)
             return;
         }
     }
-    for (k = first; k < last; k++) {
-        order[n++] = k;
+    if (sorted || !sky_order(first, last, &n)) {
+        for (k = first; k < last; k++) {
+            order[n++] = k;
+        }
     }
     if (sorted) {
         unsigned long long at = port_profile ? __builtin_ia32_rdtsc() : 0;
@@ -2112,45 +2215,6 @@ static void draw_strips(int first, int last, int sorted)
     if (item_count != 0) {
         HOST->video_draw_items(items, item_count);
         item_count = 0;
-    }
-}
-
-/* set by the host, HOST_DUMP: log the next frame's strips, a line each, and
- * at 2 their vertices */
-volatile int port_render_dump;
-
-static void dump_strips(int list, int first, int last)
-{
-    static char line[320];
-    int k;
-
-    for (k = first; k < last; k++) {
-        const struct strip *st = &strips[k];
-        const Uint16 *at = INDICES + st->first;
-#define v_(i) (st->run >= 0 ? &runs[st->run].vertices[at[i]] : &VERTICES[list_first + at[i]])
-        float lo = v_(0)->rhw, hi = v_(0)->rhw;
-        float x0 = v_(0)->x, x1 = v_(0)->x, y0 = v_(0)->y, y1 = v_(0)->y;
-        int i;
-
-        for (i = 0; i < st->count; i++) {
-            lo = v_(i)->rhw < lo ? v_(i)->rhw : lo;
-            hi = v_(i)->rhw > hi ? v_(i)->rhw : hi;
-            x0 = v_(i)->x < x0 ? v_(i)->x : x0;
-            x1 = v_(i)->x > x1 ? v_(i)->x : x1;
-            y0 = v_(i)->y < y0 ? v_(i)->y : y0;
-            y1 = v_(i)->y > y1 ? v_(i)->y : y1;
-        }
-        sprintf(line, "dump: list %d strip %d tris %d depth %d zw %d blend %d/%d tex %u shade %d clip %d fog %d rhw %d..%d e-6 xy %d,%d..%d,%d",
-                list, k, st->count / 3, st->draw.depth_compare, st->draw.depth_write, st->draw.src_blend,
-                st->draw.dst_blend, st->draw.texture, st->draw.shading, st->draw.clip_mode, st->draw.fog, (int)(lo * 1e6F),
-                (int)(hi * 1e6F), (int)x0, (int)y0, (int)x1, (int)y1);
-        port_log(line);
-        /* HOST_DUMP=2: each vertex too */
-        for (i = 0; port_render_dump > 1 && i < st->count; i++) {
-            sprintf(line, "dump:   v %.1f,%.1f rhw %g uv %g,%g base %08x offset %08x", v_(i)->x, v_(i)->y, v_(i)->rhw,
-                    v_(i)->u, v_(i)->v, v_(i)->base, v_(i)->offset);
-            port_log(line);
-        }
     }
 }
 
@@ -2201,11 +2265,7 @@ void port_render(PKMDWORD starts[LISTS], PKMDWORD ends[LISTS])
         if (port_profile) {
             draws_tsc += __builtin_ia32_rdtsc() - at;
         }
-        if (port_render_dump) {
-            dump_strips(list, first, strip_count);
-        }
     }
-    port_render_dump = 0;
     /* the runs are drawn: the drawer starts the next render's */
     if (index_count > most_indices) {
         most_indices = index_count;
@@ -2355,9 +2415,10 @@ void port_render(PKMDWORD starts[LISTS], PKMDWORD ends[LISTS])
             }
             headers_same = 0;
             sprintf(counts, "render: the translucent sort: %u triangles a frame, in %u draws; %u triangles of no number "
-                            "dropped in 60 frames",
-                    tris_sorted / 60, tris_batches / 60, nonfinite_triangles);
+                            "dropped in 60 frames; the sky drawn last of its list %u times",
+                    tris_sorted / 60, tris_batches / 60, nonfinite_triangles, sky_moved);
             nonfinite_triangles = 0;
+            sky_moved = 0;
             if (logging) {
                 port_log(counts);
             }
@@ -2404,9 +2465,8 @@ void port_render_tables(void)
     sprintf(line, "report:   lit palettes %d of %d in a frame at the most; runs lit by another's palette, the table full, %u",
             lit_most, LIT_PALETTES, lit_full);
     port_log(line);
-    sprintf(line, "report:   kept models' store: %d of %d vertices now; %u builds, %u drops, %u evictions so far; %u "
-                  "stale records the probe passed (HOST_VERTEX_CHECK=1)",
-            store_used, store_room, kept_made, kept_dropped, kept_evicted, kept_stale);
+    sprintf(line, "report:   kept models' store: %d of %d vertices now; %u builds, %u drops, %u evictions so far",
+            store_used, store_room, kept_made, kept_dropped, kept_evicted);
     port_log(line);
     for (k = 0; k < LISTS; k++) {
         if (k == LIST_OPAQUE_MODIFIER || k == LIST_TRANSLUCENT_MODIFIER) {

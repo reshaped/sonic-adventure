@@ -20,8 +20,11 @@ struct port_shown port_shown;
  * keep_lit); bit 5: the meshsets the walk projects and clips itself, and
  * bit 6 SA1's screen polygons, 2D polygons and lines, as runs of points
  * already on the screen rather than the lists' vertices
- * (xbox/engine/sa1/emit.h) */
-volatile int port_gpu_models = 127;
+ * (xbox/engine/sa1/emit.h); bit 7: a model the host can't take whole, as
+ * one that crosses the near plane, split by triangle (model.c's gpu_split):
+ * the host takes those past the near plane and within the guard band, and
+ * the drawer clips the rest */
+volatile int port_gpu_models = 255;
 /* src/collision/polygon.c's cap on a far sweep's steps: 0, none, as the
  * console has none (the sweep is logged); 1 widens them */
 volatile int port_sweep_cap = 0;

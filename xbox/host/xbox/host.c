@@ -67,7 +67,6 @@
 #include "../../port/host.h"
 #include "../../port/port.h"
 #include "video.h"
-#include "audio.h"
 #include "aica_apu.h"
 
 #ifdef HOST_WITH_SOUND
@@ -99,16 +98,9 @@ static void xbox_sound_write(unsigned offset, unsigned value, int size)
 static void aica_apu_report(void)
 {
 }
-static void aica_apu_silence(void)
-{
-}
 static void aica_apu_preload(const char *name)
 {
     (void)name;
-}
-static void aica_apu_probe(int on)
-{
-    (void)on;
 }
 static void xbox_sound_report(void)
 {
@@ -814,6 +806,7 @@ static ULONG symbol_address(struct symbols *in, const char *name)
     return 0;
 }
 
+
 static const char *nearest(struct symbols *in, ULONG address, ULONG *past)
 {
     const char *best = NULL;
@@ -934,7 +927,8 @@ static void leave_host(void)
             for (k = 0; k < 32; k++) {
                 total += k == 8 ? 0 : frame_kind_tsc[k];
             }
-            if (total > 14000ull * per_us) {
+            /* the GPU profile's frames are all slow by design: not logged */
+            if (total > 14000ull * per_us && !video_gpu_profiling()) {
                 int best[3] = {-1, -1, -1}, j;
                 char line[256];
                 int at = 0;
@@ -975,7 +969,7 @@ static void leave_host(void)
         frame_kind_calls[call_kind]++;
         /* the blank's wait (wait_vblank) is a wait by design, and the NV2A's
          * at a frame's begin common: because they filled the log, not logged */
-        if (call_kind != 8 && took > (call_kind == 15 ? 12000ull : 4000ull) * tsc_per_us()) {
+        if (call_kind != 8 && took > (call_kind == 15 ? 12000ull : 4000ull) * tsc_per_us() && !video_gpu_profiling()) {
             logf_("host: a %s of %lu us, at blank %u, frame %u\n", host_call_names[call_kind],
                   (ULONG)(took / tsc_per_us()), blanks, host_names_frame());
         }
@@ -1107,13 +1101,11 @@ static void *raw_file_open(const char *path)
     }
     {
         /* a sound bank: its samples converted ahead, from the sound pack
-         * (aica_apu.c), read here where the game is loading anyway.
-         * HOST_SOUND_PACK=0 leaves them to their key ons */
+         * (aica_apu.c), read here where the game is loading anyway */
         size_t length = strlen(name);
         const char *base = strrchr(name, '/');
 
-        if (have_sound && length > 4 && strcmp(name + length - 4, ".MLT") == 0 &&
-            (setting("HOST_SOUND_PACK") == NULL || strtoul(setting("HOST_SOUND_PACK"), NULL, 10) != 0)) {
+        if (have_sound && length > 4 && strcmp(name + length - 4, ".MLT") == 0) {
             aica_apu_preload(base != NULL ? base + 1 : name);
         }
     }
@@ -1291,7 +1283,6 @@ static unsigned scripted_buttons(int *x, int *y)
 static int have_pads;
 static SDL_GameController *pad;
 static volatile int report_wanted; /* the pad's Back, for blank_chores */
-static int sound_frozen;
 
 static void pads_open(void)
 {
@@ -1333,6 +1324,11 @@ static void to_dashboard(void)
     }
     HalReturnToFirmware(HalRebootRoutine);
 }
+
+/* the right stick's dead zone, percent of its throw across: wider than the
+ * left stick's (HOST_STICK_DEAD), so that a thumb resting on it turns the
+ * camera less */
+#define RIGHT_STICK_DEAD 20
 
 static unsigned pad_buttons(int *x, int *y, int *l, int *r)
 {
@@ -1422,7 +1418,7 @@ static unsigned pad_buttons(int *x, int *y, int *l, int *r)
          * as the triggers do: its left as L, its right as R, by how far
          * past the dead zone, the deeper of stick and trigger taken */
         int across = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX);
-        int dead = 32767 * HOST_STICK_DEAD / 100;
+        int dead = 32767 * RIGHT_STICK_DEAD / 100;
         int depth = across < 0 ? -across : across;
 
         if (depth > dead) {
@@ -1435,24 +1431,6 @@ static unsigned pad_buttons(int *x, int *y, int *l, int *r)
                 *r = value;
             }
         }
-    }
-    {
-        /* the right stick's up and down, the camera's height (the port's
-         * camera.c, under XBOX): past the dead zone, 0 to 255 with 128 at
-         * rest, in bits 24 to 31, bit 23 saying they are there
-         * (HOST_PAD_RIGHT_Y, xbox/port/host.h). down is more */
-        int down = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY);
-        int dead = 32767 * HOST_STICK_DEAD / 100;
-        int depth = down < 0 ? -down : down;
-        int value = 128;
-
-        if (depth > dead) {
-            int past = (depth - dead) * 127 / (32767 - dead);
-
-            past = past > 127 ? 127 : past;
-            value = down < 0 ? 128 - past : 128 + past;
-        }
-        buttons |= HOST_PAD_RIGHT_Y | (unsigned)value << 24;
     }
     return buttons;
 }
@@ -1791,14 +1769,31 @@ __asm__(".text\n"
         "    jmp *_clock_original\n"
         /* where a redirected blank resumes the game's thread: on the port's
          * interrupt stack, the host's chores, then the port's entry, every
-         * register and the flags as the interrupt found them */
+         * register and the flags as the interrupt found them.
+         *
+         * the x87 and SSE state too: the game may be anywhere, with values
+         * live in its XMM and x87 registers, and the chores' sound
+         * emulation computes in them. the port's entry saves that state
+         * only after the chores, so without the FXSAVE here they ran over
+         * it, and the game resumed on their values: a view test or a
+         * matrix gone wrong for a frame, the stage's objects and the land
+         * dropped. the chores run as from a host call: an empty x87 stack,
+         * the game's control word and MXCSR */
         ".globl _blank_trampoline\n"
         "_blank_trampoline:\n"
         "    movl _blank_stack_top, %esp\n"
         "    pushfl\n"
         "    pushal\n"
         "    cld\n"
+        "    movl %esp, %ebx\n"
+        "    subl $512, %esp\n"
+        "    andl $-16, %esp\n"
+        "    fxsave (%esp)\n"
+        "    fninit\n"
+        "    fldcw (%esp)\n"
         "    call _blank_chores_c\n"
+        "    fxrstor (%esp)\n"
+        "    movl %ebx, %esp\n"
         "    popal\n"
         "    popfl\n"
         "    jmp *_blank_entry\n"
@@ -2130,8 +2125,8 @@ static void report_host_part(void)
     logf_("report: video memory backed: %u KB of %u\n", vram_committed >> 10, (unsigned)(PORT_VRAM_SIZE >> 10));
     if (have_sound) {
         aica_apu_report_memory();
-        logf_("report: sound: the most one blank's chores took since the last report %lu us%s\n",
-              (ULONG)(sound_most_ticks * 1000000 / frequency), sound_frozen ? " (frozen now)" : "");
+        logf_("report: sound: the most one blank's chores took since the last report %lu us\n",
+              (ULONG)(sound_most_ticks * 1000000 / frequency));
     }
     sound_most_ticks = 0;
     logf_("report: the log: %u of %u KB\n", log_length >> 10, LOG_SIZE >> 10);
@@ -2211,9 +2206,6 @@ static void report_step(void)
               frames_rendered != NULL ? (unsigned)*frames_rendered : 0);
         report_asked = blanks;
         report_stage = 1;
-        if (have_video) {
-            video_shot_burst();
-        }
         if (port_report_flag != NULL) {
             *port_report_flag = 1;
         }
@@ -2346,43 +2338,17 @@ static void blank_chores(void)
 
     /* the sound: the ARM7 and the channels' model for the blanks since the
      * last chores, the APU's voices after them */
-    /* the sound frozen: the ARM7 and the channels don't run, their state
-     * stays as it was, which the game's sound calls read on, and the voices
-     * stop. HOST_SOUND_FREEZE_AT=N freezes it at frame N, for the sound's
-     * cost against the game's rate */
-    {
-        static unsigned freeze_at = ~0u;
-        static int checked;
-
-        if (!checked) {
-            checked = 1;
-            if (setting("HOST_SOUND_FREEZE_AT") != NULL) {
-                freeze_at = (unsigned)strtoul(setting("HOST_SOUND_FREEZE_AT"), NULL, 10);
-            }
-        }
-        if (have_sound && script_now() >= freeze_at) {
-            freeze_at = ~0u;
-            sound_frozen = !sound_frozen;
-            if (sound_frozen) {
-                aica_apu_silence();
-            }
-            logf_("host: sound %s at blank %u, frame %u\n", sound_frozen ? "frozen" : "running again", blanks,
-                  frames_rendered != NULL ? (unsigned)*frames_rendered : 0);
-        }
-    }
     if (have_video) {
         video_idle_present();
     }
     if (have_sound && blanks != sound_blanks) {
-        if (!sound_frozen) {
-            ULONGLONG before = KeQueryPerformanceCounter();
+        ULONGLONG before = KeQueryPerformanceCounter();
 
-            xbox_sound_blanks(blanks - sound_blanks);
-            before = KeQueryPerformanceCounter() - before;
-            sound_total_ticks += before;
-            if (before > sound_most_ticks) {
-                sound_most_ticks = before;
-            }
+        xbox_sound_blanks(blanks - sound_blanks);
+        before = KeQueryPerformanceCounter() - before;
+        sound_total_ticks += before;
+        if (before > sound_most_ticks) {
+            sound_most_ticks = before;
         }
         sound_blanks = blanks;
     }
@@ -2663,70 +2629,6 @@ void fault_report(ULONG *frame)
     halt("stopped at the fault");
 }
 
-/* HOST_BREAK=SYMBOL or SYMBOL+OFFSET, of 1ST_READ.BIN: a watch on the four
- * bytes there by the CPU's debug registers, as the PC host's HOST_BREAK.
- * each write traps after it, and the log names the writer and the word as
- * written, 64 times at most. the trap comes on whatever stack the writer
- * has, so its report runs on one of its own */
-static ULONG watch_address;
-static unsigned watch_hits;
-static char watch_stack[0x4000] __attribute__((aligned(16)));
-char *watch_stack_top = watch_stack + sizeof watch_stack;
-
-void watch_report(ULONG *frame)
-{
-    /* pushal's eight registers, then eip, cs and eflags */
-    __asm__ volatile("xorl %%eax, %%eax; movl %%eax, %%db6" : : : "eax");
-    if (watch_hits < 64) {
-        watch_hits++;
-        logf_("host: write %u to 0x%08lx: it holds %08lx now, blank %u\n", watch_hits, watch_address,
-              *(volatile ULONG *)watch_address, blanks);
-        report("  written before", frame[8]);
-        report("  called from", ((ULONG *)frame[2])[1]);
-    }
-}
-
-void watch_trap(void);
-__asm__(".text\n"
-        ".globl _watch_trap\n"
-        "_watch_trap:\n"
-        "    pushal\n"
-        "    cld\n"
-        "    movl %esp, %esi\n"
-        "    movl _watch_stack_top, %esp\n"
-        "    pushl %esi\n"
-        "    call _watch_report\n"
-        "    movl %esi, %esp\n"
-        "    popal\n"
-        "    iret\n");
-
-static void set_gate(int vector, void (*handler)(void));
-
-static void watch_open(void)
-{
-    const char *what = setting("HOST_BREAK");
-    char name[96];
-    const char *plus;
-    ULONG address;
-
-    if (what == NULL) {
-        return;
-    }
-    plus = strchr(what, '+');
-    snprintf(name, sizeof name, "%.*s", plus != NULL ? (int)(plus - what) : (int)strlen(what), what);
-    address = symbol_address(&main_symbols, name);
-    if (address == 0) {
-        logf_("host: HOST_BREAK: 1st_read has no %s\n", name);
-        return;
-    }
-    watch_address = (address + (plus != NULL ? strtoul(plus + 1, NULL, 0) : 0)) & ~3ul;
-    set_gate(1, watch_trap);
-    /* DR0 the address; DR7: its enables, a write, four bytes */
-    __asm__ volatile("movl %0, %%db0" : : "r"(watch_address));
-    __asm__ volatile("movl %0, %%db7" : : "r"(0x000d0303ul));
-    logf_("host: watching 0x%08lx for writes: it holds %08lx\n", watch_address, *(volatile ULONG *)watch_address);
-}
-
 static void set_gate(int vector, void (*handler)(void))
 {
     struct {
@@ -2797,10 +2699,7 @@ static DWORD __stdcall run_game(LPVOID unused)
         logf_("host: reports on Back %s, the log written at a fault or a stall %s, every 10 seconds %s\n",
               report_on ? "on" : "off", crash_log ? "on" : "off", log_file ? "on" : "off");
     }
-    /* the port's figures on the screen (port.h's port_overlay).
-     * HOST_DEBUG_PAGE=N: the game's own debug page, 1 its
-     * collisions' and particles' times, 2 the drawer's counts, 3 the
-     * sound's slots */
+    /* the port's figures on the screen (port.h's port_overlay) */
     /* on unless HOST_OVERLAY=0, so that a host.txt without the line, or
      * none, still shows them */
     {
@@ -2812,15 +2711,6 @@ static DWORD __stdcall run_game(LPVOID unused)
         }
         logf_("host: the figures on the screen are %s%s\n", on ? "on" : "off",
               overlay == 0 ? ", but the game's images have no port_overlay: they are older than this host" : "");
-    }
-    /* HOST_VERTEX_CHECK=1: video.c's check of the models' vertices, and
-     * the drawer's full sum at each kept hit (render.c's port_keep_check) */
-    if (setting("HOST_VERTEX_CHECK") != NULL && setting("HOST_VERTEX_CHECK")[0] == '1') {
-        ULONG keep_check = symbol_address(&main_symbols, "port_keep_check");
-
-        if (keep_check != 0) {
-            *(volatile int *)keep_check = 1;
-        }
     }
     /* the settings as read, for a host.txt that isn't the one meant */
     {
@@ -2834,34 +2724,22 @@ static DWORD __stdcall run_game(LPVOID unused)
             line = strchr(line, '\0') + 1;
         }
     }
-    if (setting("HOST_DEBUG_PAGE") != NULL) {
-        ULONG page = symbol_address(&main_symbols, "debug_page");
-
-        if (page != 0) {
-            *(volatile int *)page = (int)strtoul(setting("HOST_DEBUG_PAGE"), NULL, 10);
-        }
-    }
-    /* HOST_GPU_MODELS=N: port.h's port_gpu_models, 0 for the game's drawer
-     * to project every model itself, 1 for the host to take the opaque
-     * meshsets alone */
-    if (setting("HOST_GPU_MODELS") != NULL) {
-        ULONG gpu = symbol_address(&main_symbols, "port_gpu_models");
-
-        if (gpu != 0) {
-            *(volatile int *)gpu = (int)strtoul(setting("HOST_GPU_MODELS"), NULL, 10);
-        }
-    }
-    /* HOST_60FPS=1: the GCC port's experimental 60 frames a second
-     * (gcc/src/system/port.h's port_toggles[TOGGLE_FAST], which L, R and
-     * the d-pad's down flip in play): a stage's frame split into two
-     * pictures, in play only and where gcc/src/system/pace.c allows it */
+    /* HOST_60FPS=1: the experimental 60 frames a second (src/system/port.h's
+     * port_toggles[TOGGLE_FAST], which L, R and the d-pad's down flip in
+     * play): a stage's frame split into two pictures, in play only and where
+     * src/system/pace.c allows it. port_chosen[TOGGLE_FAST] marks it chosen,
+     * as the chord does: else a save's load (src/save/save.c's) puts back the
+     * save's own state, and the split went off with the first save loaded */
     if (setting("HOST_60FPS") != NULL && strtoul(setting("HOST_60FPS"), NULL, 10) != 0) {
         ULONG toggles = symbol_address(&main_symbols, "port_toggles");
+        ULONG chosen = symbol_address(&main_symbols, "port_chosen");
 
-        if (toggles != 0) {
+        if (toggles != 0 && chosen != 0) {
             ((volatile int *)toggles)[2] = 1;
+            ((volatile int *)chosen)[2] = 1;
         }
-        logf_("host: 60 frames a second %s\n", toggles != 0 ? "on" : "asked for, but the images have no port_toggles");
+        logf_("host: 60 frames a second %s\n",
+              toggles != 0 && chosen != 0 ? "on" : "asked for, but the images have no port_toggles or port_chosen");
     }
     if (setting("HOST_MOVIES") == NULL || packs[PACK_MOVIES].count == 0) {
         ULONG skip = symbol_address(&main_symbols, "port_movie_skip");
@@ -2870,7 +2748,6 @@ static DWORD __stdcall run_game(LPVOID unused)
             *(volatile int *)skip = 1;
         }
     }
-    watch_open();
     logf_("host: running main at 0x%08lx, MXCSR 0x%04x\n", (ULONG)game_main, fpu_as_console());
     KeRaiseIrqlToDpcLevel();
     game_main();
@@ -2938,20 +2815,10 @@ int main(void)
         halt("can't load 1st_read");
     }
     read_images();
-    if (setting("HOST_AUDIO_TEST") != NULL) {
-        if (audio_open() == 0) {
-            audio_test();
-        }
-        halt("the audio test is done");
-    }
     pads_open();
-    /* the AICA, on the APU; HOST_SILENT=1 leaves it out, its registers
-     * reading 0, which hangs the game's ADX streams. the sound opens first:
-     * video takes what memory is left for its textures */
-    have_sound = setting("HOST_SILENT") == NULL && xbox_sound_open(sound_ram_kernel) == 0;
-    if (have_sound && setting("HOST_STREAM_PROBE") != NULL) {
-        aica_apu_probe(1);
-    }
+    /* the AICA, on the APU. the sound opens first: video takes what memory
+     * is left for its textures */
+    have_sound = xbox_sound_open(sound_ram_kernel) == 0;
     have_video = setting("HOST_HEADLESS") == NULL && video_open() == 0;
     if (have_video && video_hd()) {
         /* 720p's picture is 16:9: the port's own (port_toggles[TOGGLE_WIDE],
@@ -2965,14 +2832,8 @@ int main(void)
         }
         logf_("host: 720p: 16:9 %s\n", toggles != 0 ? "on" : "asked for, but the images have no port_toggles");
     }
-    /* HOST_BLANK_LOCK=0 keeps the clock's blanks */
-    blank_from_display = have_video && video_blank_locked() &&
-                         (setting("HOST_BLANK_LOCK") == NULL || strtoul(setting("HOST_BLANK_LOCK"), NULL, 10) != 0);
+    blank_from_display = have_video && video_blank_locked();
     logf_("host: the blanks are %s\n", blank_from_display ? "the display's" : "the clock's");
-    if (have_video && setting("HOST_VIDEO_TEST") != NULL) {
-        video_test();
-        halt("the video test is done");
-    }
     pad_script = setting("HOST_PADS");
     pokes = setting("HOST_POKE");
     watch = setting("HOST_WATCH");

@@ -241,7 +241,7 @@ void avoidRaceCondition()
 
 #if defined(FLYCAST_AICA_ONLY) && defined(FLYCAST_PROFILE)
 /* the port: what the ARM7 and the sample's step take, in the CPU's
- * timestamp counts, for HOST_SOUND_PROFILE (xbox/host/pc/sound.cpp) */
+ * timestamp counts, for the profile */
 unsigned long long profile_arm, profile_step;
 #endif
 

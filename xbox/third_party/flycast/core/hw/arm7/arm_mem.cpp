@@ -49,8 +49,7 @@ void e68k_AcceptInterrupt()
 
 //Reg reads from arm side ..
 #if defined(FLYCAST_AICA_ONLY) && defined(FLYCAST_PROFILE)
-/* the port: the ARM7's reads of the AICA's registers, by 4-byte word, for
- * HOST_AICA_READS (xbox/host/pc/sound.cpp) */
+/* the port: the ARM7's reads of the AICA's registers, by 4-byte word */
 unsigned profile_reads[0x8000 / 4];
 #endif
 

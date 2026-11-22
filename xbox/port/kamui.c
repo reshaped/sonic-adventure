@@ -28,11 +28,14 @@
  * writes, the frame buffers' clears and the tile accelerator's region
  * arrays, which nothing of the port reads, go nowhere */
 #include <kamui.h>
+#include <kmistat.h>
 #include <sg_xpt.h>
 
 #include "xbox/port/host.h"
 #include "xbox/port/port.h"
 #include "xbox/port/texhash.h"
+
+Uint32 syTmrGetCount(void); /* shinobi.h's, xbox/port/system.c's */
 
 #define LISTS 5
 static const Uint32 list_sizes[LISTS] = PORT_LIST_SIZES;
@@ -48,7 +51,7 @@ static Uint32 list_offset(int k)
 }
 #define LIST_SIZE(k) (list_sizes[k])
 #define LIST_BASE(k) ((PKMDWORD)(PORT_LISTS + list_offset(k)))
-_Static_assert(0x00200000u + 0x00010000u + 0x00100000u + 0x00010000u + 0x00100000u == PORT_LISTS_SIZE,
+_Static_assert(0x00040000u + 0x00004000u + 0x00030000u + 0x00004000u + 0x00008000u == PORT_LISTS_SIZE,
                "PORT_LISTS_SIZE is the lists' sizes' sum");
 
 volatile struct kmi_device_extension kmiDeviceExtension;
@@ -627,7 +630,23 @@ KMSTATUS kmRender(void)
             port_log("kamui: a list outgrew its size in PORT_LIST_SIZES");
         }
     }
-    port_render(kmi_list_starts, ends);
+    /* the render's length, as the console's Kamui gives its transfer's to
+     * the tile accelerator (kmiIntStatisticData's ta_start and ta_time), on
+     * syTmrGetCount's clock: src/system/present.c's split takes ta_time as a
+     * picture's intake, which each half of a split frame must leave room
+     * for. here the render is the CPU's, the lists read and the draws handed
+     * to the host, with the host's wait for its graphics chip: some 5 ms a
+     * picture, which a split's pacing counted as none (kmiIntStatisticData
+     * stayed 0), so that frames it judged to fit ran late, and the split
+     * ended and engaged by turns. the PowerVR's render, render_time, has no
+     * like here: the host's chip draws after, and its wait is in this one */
+    {
+        Uint32 started = syTmrGetCount();
+
+        port_render(kmi_list_starts, ends);
+        kmiIntStatisticData.ta_start = started;
+        kmiIntStatisticData.ta_time = syTmrGetCount() - started;
+    }
     start_lists();
     if (eov_callback != NULL) {
         eov_callback(eov_argument);
