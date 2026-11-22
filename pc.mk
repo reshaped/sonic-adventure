@@ -249,14 +249,28 @@ $(PC_PORT_OBJ): build/pc/port/%.o: xbox/port/%.c xbox/port/host.h xbox/port/port
 	$(Q)$(call pc,$(PORT_INC))
 -include $(PC_PORT_OBJ:.o=.d)
 
+# libmpeg2's decoder (xbox/third_party/libmpeg2/), the movies' MPEG video
+# (xbox/port/movie.c), which links into 1ST_READ.BIN's image with the port
+# layer. vendored C, at -O2 and without the game's warnings, as freestanding
+# as the port: the SDK's stdlib.h and string.h, with NONMATCHING's size_t,
+# and port/'s inttypes.h
+PC_MPEG2_C := $(addprefix xbox/third_party/libmpeg2/,alloc.c header.c decode.c slice.c motion_comp.c idct.c \
+	motion_comp_mmx.c idct_mmx.c cpu_accel.c cpu_state.c)
+PC_MPEG2_OBJ := $(PC_MPEG2_C:xbox/third_party/%.c=build/pc/third_party/%.o)
+$(PC_MPEG2_OBJ): build/pc/third_party/%.o: xbox/third_party/%.c $(wildcard xbox/third_party/libmpeg2/*.h) pc.mk
+	@$(call status,clang,$<)
+	$(Q)mkdir -p $(@D) && $(PC_CC) $(PC_TARGET) -O2 -w -DNONMATCHING -DXBOX -Ixbox/third_party/libmpeg2/port \
+		-Isdk/include -c -o $@ $<
+
 # make xbox-pc-test-link links every image for x86 by make dc's spec, with
 # tools/pclink.py, under build/pc/link/, which build/pc/link/report.txt
 # sums up: config/pc.mk's PC_DROPPED out, the port layer into 1st_read, and
 # stubs for what nothing defines yet. make dc must have written the spec
-build/pc/link/report.txt: $(PC_OBJ) $(PC_PORT_OBJ) build/dc/link/spec.txt tools/pclink.py
+build/pc/link/report.txt: $(PC_OBJ) $(PC_PORT_OBJ) $(PC_MPEG2_OBJ) build/dc/link/spec.txt tools/pclink.py
 	@$(call status,link,build/pc/link/)
 	$(Q)python3 tools/pclink.py build/dc/link/spec.txt build/pc/link $(PC_DROPPED:%=--drop '%') \
-		$(PC_SKIPPED:%=--skip %) $(PC_PORT_OBJ:%=--add 1st_read=%) $(PC_STUBBED:%=--stubs %)
+		$(PC_SKIPPED:%=--skip %) $(PC_PORT_OBJ:%=--add 1st_read=%) $(PC_MPEG2_OBJ:%=--add 1st_read=%) \
+		$(PC_STUBBED:%=--stubs %)
 xbox-pc-test-link: build/pc/link/report.txt
 
 # build/pc/disc/: the x86 images as the disc's files, by tools/pcdisc.py,

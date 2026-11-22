@@ -137,6 +137,10 @@ ln -f xbox/host/xbox/bin/default.xbe build/xbox/textures.pak build/xbox/sounds.p
         for default in HOST_PROFILE=0 HOST_LOG_FILE=0 HOST_REPORT=1 HOST_CRASH_LOG=1; do
             printf '%s\n' "$@" | grep -q "^${default%%=*}=" || echo "$default"
         done
+    else
+        # xemu's emulated CPU is too slow for the movies: a run skips them
+        # unless it says HOST_MOVIES=1
+        printf '%s\n' "$@" | grep -q "^HOST_MOVIES=" || echo "HOST_MOVIES=0"
     fi
     for setting in "$@"; do
         echo "$setting"

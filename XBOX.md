@@ -38,7 +38,7 @@ Checks that must keep passing:
 - **Models on the NV2A:** a model that needs no clipping is transformed by the NV2A from vertices the drawer writes into an arena (2 × 26,768 vertices). Models that haven't changed are kept in a store and neither shaded nor written again; kept models with normals are lit by the NV2A through a palette texture. A meshset that doesn't fit the arena goes through the lists whole.
 - **Translucency:** the translucent list sorted back to front per triangle; alpha-blended strips draw with a separate depth pass; additive strips draw last.
 - **Sound:** the disc's own sound driver (masaru.drv) runs, translated ahead of time from ARM to native code, over Flycast's AICA registers and timers. On the Xbox the channels play on the MCPX APU's hardware voices, from samples converted ahead of time into a sound pack. The music's ADX streams are decoded by the game's own ADX library.
-- **Movies:** Sofdec's player replaced by pl_mpeg, with the ADX audio as the clock (off by default on the Xbox, for now).
+- **Movies:** Sofdec's player replaced by pl_mpeg, with the ADX audio as the clock; on the Xbox they play from `movies.pak`.
 - **Packaging:** `make xbox` updates the console's folder in place: eight files, of which a build changes one or two. `make xbox-disc` creates an ISO, but this is untested at the moment.
 - **SH-4 math, original behavior:** Ninja's math bodies, the game's assembly (`math.src`, `vector.src`, `mesh.src` and the rest) and SHC's inline bodies are C in `xbox/`, each checked bit for bit against the original assembly under `qemu-sh4` (`xbox/test/`).
 
@@ -70,7 +70,7 @@ Features the Dreamcast version doesn't have:
 ## Known issues
 
 - **Scenery drawn wrong for a frame:** some scenery can flicker or appear in the wrong place for a single frame. This has been noted, and a fix is being worked on.
-- **Movies** are off by default: untested on the console.
+- **Movies** are on by default but not yet confirmed on a console.
 - **The translucent sort** is per triangle, where the PowerVR's is per pixel: crossing triangles can sort wrong.
 
 ## Debug flags
@@ -132,7 +132,7 @@ The watch (on whenever reports are): logs frames in play that draw under four fi
 | --- | --- |
 | `HOST_60FPS=1` | 60 frames a second: each stage frame split into two pictures |
 | `HOST_720P=1`, `HOST_720P_COLOR=16` | 1280×720 output, 16:9, no antialiasing; 16-bit color |
-| `HOST_MOVIES=1` | plays the movies (needs `movies.pak`) |
+| `HOST_MOVIES=0` | skips the movies (on by default where `movies.pak` is on the console) |
 | `HOST_MSAA=0` | no antialiasing |
 | `HOST_TRIPLE_BUFFER=1` | three frame buffers instead of two |
 | `HOST_SYNC_PRESENT=1` | the old waiting present (uneven on the console) |

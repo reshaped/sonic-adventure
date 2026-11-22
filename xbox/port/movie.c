@@ -1,11 +1,16 @@
 /* Sofdec, CRI's movie player, on the port's side: the mwPly calls
- * modules/movie/movie.c makes, over pl_mpeg, which make pc links into
- * 1ST_READ.BIN in place of the movie image's modules/movie/sdk/. the movie
- * image's own code, its fades, skips and timing, is the console's.
+ * modules/movie/movie.c makes, over pl_mpeg's demuxer and libmpeg2's
+ * decoder, which make pc links into 1ST_READ.BIN in place of the movie
+ * image's modules/movie/sdk/. the movie image's own code, its fades, skips
+ * and timing, is the console's.
  *
  * a player streams its SFD, an MPEG-1 system stream, from the disc through
- * the host's file calls, and pl_mpeg demuxes it and decodes its video, 320
- * pixels across for a picture the console shows 640 across.
+ * the host's file calls. pl_mpeg demuxes it, and libmpeg2
+ * (xbox/third_party/libmpeg2/) decodes its video, 320 pixels across for a
+ * picture the console shows 640 across, with its MMX and MMXEXT IDCT and
+ * motion compensation, the Pentium III's: XBMC played DVDs on the Xbox with
+ * it. pl_mpeg's own decoder, all C, ran the opening at some 27 frames a
+ * second of its 30 on a console
  *
  * the SFD's audio is an ADX stream, in the MPEG audio packets of stream
  * 0xc0, which the console's ADX library plays, as Sofdec's SFADXT does: a
@@ -17,12 +22,13 @@
  * clock counts the blanks on from there.
  *
  * mwPlyStartFrame, which the movie's loop calls each frame, sets the
- * movie's clock, and mwPlyExecServer decodes the frames due by then. the latest frame is a
- * texture, which xbox/port/render.c draws under each frame's lists, at the
+ * movie's clock, and mwPlyExecServer decodes the pictures due by then. the
+ * latest goes to the host as its planes (host_api's video_movie_frame), a
+ * texture which xbox/port/render.c draws under each frame's lists, at the
  * player's brightness, as Sofdec's renderer draws it.
  *
- * pl_mpeg's memory is the room host_api's movie_memory gives, which each
- * player starts empty, and gives back when it ends */
+ * pl_mpeg's and libmpeg2's memory is the room host_api's movie_memory
+ * gives, which each player starts empty, and gives back when it ends */
 #include <kamui.h>
 #include <shinobi.h>
 #include <sg_ov.h>
@@ -37,10 +43,8 @@
 OVS_LIB_OBJ mwg_gsc_libhdl;
 OVS_LIB_OBJ mwg_sj_rbf_libhdl;
 
-/* pl_mpeg's allocator: a bump of PORT_MOVIE, emptied per player, below the
- * room the latest frame's ARGB takes at its top. a block keeps its size
- * ahead of it, for realloc */
-#define FRAME_BYTES (640 * 480 * 4)
+/* pl_mpeg's allocator: a bump of PORT_MOVIE, emptied per player. a block
+ * keeps its size ahead of it, for realloc */
 static Uint8 *movie_next;
 static Uint8 *movie_room; /* PORT_MOVIE_SIZE bytes, while a movie plays */
 
@@ -49,7 +53,7 @@ static void *movie_alloc(Uint32 size)
     Uint32 *block;
 
     size = (size + 15) & ~15u;
-    if (movie_next == NULL || movie_next + size + 16 > movie_room + PORT_MOVIE_SIZE - FRAME_BYTES) {
+    if (movie_next == NULL || movie_next + size + 16 > movie_room + PORT_MOVIE_SIZE) {
         port_log("movie: out of memory");
         return NULL;
     }
@@ -89,10 +93,35 @@ static void movie_free(void *p)
 #define PL_MPEG_IMPLEMENTATION
 #include "xbox/third_party/pl_mpeg.h"
 
-/* the movie texture's id, past the renderer's texture cache's */
+#include "xbox/third_party/libmpeg2/mpeg2.h"
+
+/* libmpeg2's memory, from the same room, at the 64 bytes its blocks want.
+ * the room is emptied per player, so a free does nothing */
+static void *mpeg2_room(unsigned size, mpeg2_alloc_t reason)
+{
+    Uint8 *p = movie_alloc((Uint32)size + 64);
+
+    (void)reason;
+    return p != NULL ? (void *)(((Uint32)p + 63) & ~63u) : NULL;
+}
+
+static int mpeg2_room_free(void *p)
+{
+    (void)p;
+    return 1;
+}
+
+/* the movie's two textures' ids, past the renderer's texture cache's: a
+ * frame goes to the one the last frame didn't, so that its upload never
+ * waits for the NV2A to finish drawing the last */
 #define MOVIE_TEXTURE 2000
-/* how much of a stream the probe reads for its streams */
-#define PROBE_BYTES (256 * 1024)
+/* the video's packets, MPEG's video stream 0 */
+#define VIDEO_PACKETS 0xe0
+/* the pictures the decoder may fall behind the clock before it skips the
+ * B-pictures, as Sofdec drops frames: some 0.2 s at 30 a second */
+#define CATCH_UP 6
+/* 27 MHz, the unit of a sequence's frame period, by a blank of 1/60 s */
+#define PERIOD_PER_BLANK 450000u
 
 /* the SFD's audio: its packets' stream, and the ADX stream's memory. the
  * ring holds the packets' data, about 1.5 s of a stereo stream at 44.1 kHz,
@@ -118,7 +147,14 @@ struct movie_source {
 
 struct movie_player {
     MW_PLY_OBJ object;
-    plm_t *plm;
+    /* the video: its demuxer, libmpeg2's decoder and its state, the frame
+     * period of 27 MHz, the pictures decoded and whether the stream ended */
+    plm_demux_t *video_demux;
+    mpeg2dec_t *mpeg2;
+    const mpeg2_info_t *info;
+    Uint32 frame_period;
+    Uint32 pictures;
+    int video_ended;
     void *file;
     Sint32 size;
     struct movie_source video, audio_source;
@@ -140,9 +176,9 @@ struct movie_player {
     Sint32 bright;
     Uint32 start_blank; /* port_blanks at its start */
     Uint32 blanks; /* the blanks the movie has played */
-    Uint32 decoded; /* the blanks decoded to */
     int width, height;
     int has_frame;
+    int texture; /* 0 or 1: the latest frame's of the two textures */
 };
 
 void *port_gdfs_take_file(GDFS gdfs);
@@ -157,7 +193,7 @@ int port_movie_frame(unsigned *texture, int *width, int *height, int *bright)
     if (!player.has_frame || player.stat == MWE_PLY_STAT_STOP) {
         return 0;
     }
-    *texture = MOVIE_TEXTURE;
+    *texture = MOVIE_TEXTURE + (unsigned)player.texture;
     *width = player.width;
     *height = player.height;
     *bright = player.bright;
@@ -205,28 +241,74 @@ static size_t tell(plm_buffer_t *buffer, void *user)
     return ((struct movie_source *)user)->offset;
 }
 
-static void on_video(plm_t *plm, plm_frame_t *frame, void *user)
+/* the next packet of the video, or null for none yet, or at the end */
+static plm_packet_t *video_packet(struct movie_player *self)
 {
-    struct movie_player *self = user;
-    Uint32 *texels = (Uint32 *)(movie_room + PORT_MOVIE_SIZE) - frame->width * frame->height;
-    unsigned k;
+    for (;;) {
+        plm_packet_t *packet = plm_demux_decode(self->video_demux);
 
-    (void)plm;
-    plm_frame_to_bgra(frame, (uint8_t *)texels, (int)frame->width * 4);
-    for (k = 0; k < frame->width * frame->height; k++) {
-        texels[k] |= 0xff000000u;
+        if (packet == NULL) {
+            self->video_ended = plm_buffer_has_ended(self->video_demux->buffer);
+            return NULL;
+        }
+        if (packet->type == VIDEO_PACKETS) {
+            return packet;
+        }
     }
-    self->width = (int)frame->width;
-    self->height = (int)frame->height;
-    HOST->video_texture(MOVIE_TEXTURE, self->width, self->height, (const unsigned *)texels);
-    if (!self->has_frame) {
-        static char line[64];
-        int sprintf(char *, const char *, ...);
+}
 
-        sprintf(line, "movie: %dx%d", self->width, self->height);
-        port_log(line);
+/* decode up to the due picture, giving libmpeg2 the packets it asks for.
+ * the last picture shown, if the last decoded shows one, goes to the host
+ * once, from its planes, into the texture the last frame didn't take */
+static void video_decode(struct movie_player *self, Uint32 due)
+{
+    const mpeg2_fbuf_t *shown = NULL;
+
+    mpeg2_skip(self->mpeg2, (Sint32)(due - self->pictures) > CATCH_UP);
+    while (self->pictures < due && !self->video_ended) {
+        plm_packet_t *packet;
+
+        switch (mpeg2_parse(self->mpeg2)) {
+        case STATE_BUFFER:
+            packet = video_packet(self);
+            if (packet == NULL) {
+                goto done;
+            }
+            mpeg2_buffer(self->mpeg2, packet->data, packet->data + packet->length);
+            break;
+        case STATE_SEQUENCE:
+            if (self->info->sequence->frame_period != 0) {
+                self->frame_period = self->info->sequence->frame_period;
+            }
+            break;
+        case STATE_SLICE:
+        case STATE_END:
+        case STATE_INVALID_END:
+            self->pictures++;
+            shown = self->info->display_fbuf;
+            break;
+        default:
+            break;
+        }
     }
-    self->has_frame = 1;
+done:
+    if (shown != NULL && self->info->sequence != NULL) {
+        const mpeg2_sequence_t *sequence = self->info->sequence;
+
+        self->width = (int)sequence->picture_width;
+        self->height = (int)sequence->picture_height;
+        self->texture = self->has_frame ? self->texture ^ 1 : 0;
+        HOST->video_movie_frame(MOVIE_TEXTURE + (unsigned)self->texture, self->width, self->height, shown->buf[0],
+                                shown->buf[1], shown->buf[2], (int)sequence->width, (int)sequence->chroma_width);
+        if (!self->has_frame) {
+            static char line[64];
+            int sprintf(char *, const char *, ...);
+
+            sprintf(line, "movie: %dx%d", self->width, self->height);
+            port_log(line);
+        }
+        self->has_frame = 1;
+    }
 }
 
 /* the ADX stream's end, and the ring's */
@@ -337,7 +419,11 @@ static void player_destroy(MWPLY ply)
         HOST->file_close(self->file);
         self->file = NULL;
     }
-    self->plm = NULL;
+    if (self->mpeg2 != NULL) {
+        mpeg2_close(self->mpeg2);
+        self->mpeg2 = NULL;
+    }
+    self->video_demux = NULL;
     self->stat = MWE_PLY_STAT_STOP;
     self->has_frame = 0;
     if (movie_room != NULL) {
@@ -388,30 +474,22 @@ static void player_start_fname(MWPLY ply, Sint8 *fname)
     if (buffer == NULL) {
         return;
     }
-    self->plm = plm_create_with_buffer(buffer, 1);
-    if (self->plm == NULL) {
+    self->video_demux = plm_demux_create(buffer, 1);
+    /* libmpeg2's MMX and MMXEXT code, the Pentium III's, which it doesn't
+     * detect here (config.h), and its memory from the room */
+    mpeg2_accel(MPEG2_ACCEL_X86_MMX | MPEG2_ACCEL_X86_MMXEXT);
+    mpeg2_malloc_hooks(mpeg2_room, mpeg2_room_free);
+    self->mpeg2 = self->video_demux != NULL ? mpeg2_init() : NULL;
+    if (self->mpeg2 == NULL) {
         return;
     }
-    /* an SFD's system header gives a video bound of 0, so the streams come
-     * from a probe of the packets. its audio is ADX, which pl_mpeg would
-     * take for MP2 and search to the end for a header of: the decoders are
-     * made for the video alone, then the stream starts again */
-    plm_demux_probe(self->plm->demux, PROBE_BYTES);
-    self->plm->demux->num_audio_streams = 0;
-    self->plm->has_decoders = FALSE;
-    self->plm->video_packet_type = 0;
-    self->plm->audio_packet_type = 0;
-    if (!plm_init_decoders(self->plm)) {
-        return;
-    }
-    plm_rewind(self->plm);
-    plm_set_audio_enabled(self->plm, 0);
-    plm_set_loop(self->plm, 0);
-    plm_set_video_decode_callback(self->plm, on_video, self);
+    self->info = mpeg2_info(self->mpeg2);
+    self->frame_period = 900900; /* 29.97 frames a second, until the sequence says */
+    self->pictures = 0;
+    self->video_ended = 0;
     audio_start(self);
     self->start_blank = port_blanks;
     self->blanks = 0;
-    self->decoded = 0;
     self->clock_base = 0;
     self->clock_base_blank = port_blanks;
     self->has_frame = 0;
@@ -544,33 +622,17 @@ void mwPlyStartFrame(void)
     }
 }
 
-/* the most the player decodes to catch up, in seconds, before it skips */
-#define CATCH_UP 0.2
-
-/* decode the frames due by the clock, and end the movie at its stream's
- * end */
+/* decode the pictures due by the clock, and end the movie at its video's
+ * end. a machine too slow to decode every picture in its time skips the
+ * B-pictures while it is behind (video_decode) */
 void mwPlyExecServer(void)
 {
-    if (player.stat != MWE_PLY_STAT_PLAYING || player.plm == NULL) {
+    if (player.stat != MWE_PLY_STAT_PLAYING || player.mpeg2 == NULL) {
         return;
     }
     audio_feed(&player);
-    if (player.blanks > player.decoded) {
-        double owed = (player.blanks - player.decoded) / 60.0;
-
-        /* a machine too slow to decode every frame in its time, as xemu's
-         * emulated CPU is, drops them, as Sofdec does: past CATCH_UP behind,
-         * the player seeks to the clock's time, which decodes the keyframe
-         * before it, and else decoding all it owes would only fall further
-         * behind */
-        if (owed > CATCH_UP) {
-            plm_seek(player.plm, plm_get_time(player.plm) + owed, 0);
-        } else {
-            plm_decode(player.plm, owed);
-        }
-        player.decoded = player.blanks;
-    }
-    if (plm_has_ended(player.plm)) {
+    video_decode(&player, (Uint32)((unsigned long long)player.blanks * PERIOD_PER_BLANK / player.frame_period) + 1);
+    if (player.video_ended) {
         player.stat = MWE_PLY_STAT_PLAYEND;
     }
 }

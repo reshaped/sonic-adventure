@@ -1673,6 +1673,19 @@ int plm_buffer_has(plm_buffer_t *self, size_t count) {
 }
 
 int plm_buffer_read(plm_buffer_t *self, int count) {
+	// The port: a read of up to 24 bits with 4 bytes buffered from its byte
+	// takes them as one big-endian word, where the loop below takes a byte
+	// at a time. plm_buffer_has would say TRUE without loading: the same bits
+	{
+		size_t byte = self->bit_index >> 3;
+		if (count > 0 && count <= 24 && byte + 4 <= self->length) {
+			const uint8_t *b = self->bytes + byte;
+			uint32_t word = (uint32_t)b[0] << 24 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 8 | b[3];
+			self->bit_index += count;
+			return (int)((word << ((self->bit_index - count) & 7)) >> (32 - count));
+		}
+	}
+
 	if (!plm_buffer_has(self, count)) {
 		return 0;
 	}
@@ -1769,7 +1782,17 @@ int plm_buffer_peek_non_zero(plm_buffer_t *self, int bit_count) {
 int16_t plm_buffer_read_vlc(plm_buffer_t *self, const plm_vlc_t *table) {
 	plm_vlc_t state = {0, 0};
 	do {
-		state = table[state.index + plm_buffer_read(self, 1)];
+		// The port: a bit the buffer holds read in place, as
+		// plm_buffer_read(self, 1) reads it
+		int bit;
+		if (self->bit_index < (self->length << 3)) {
+			bit = (self->bytes[self->bit_index >> 3] >> (7 - (self->bit_index & 7))) & 1;
+			self->bit_index++;
+		}
+		else {
+			bit = plm_buffer_read(self, 1);
+		}
+		state = table[state.index + bit];
 	} while (state.index > 0);
 	return state.value;
 }

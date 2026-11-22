@@ -74,6 +74,9 @@ PC_WARNINGS := -Wall -Wno-unused -Wno-missing-braces -Wno-address -Wno-int-in-bo
 # frame, and because at -Os port_render and flush_strip were a fifth of a
 # busy stage's samples, it compiles at -O2
 PC_PORT_HOT := xbox/port/render.c
+# and its movie player, whose file holds pl_mpeg's decoder: its IDCT, motion
+# compensation and bitstream reads run per pixel, each movie frame
+PC_PORT_HOT += xbox/port/movie.c
 PC_OPTIMIZE = $(if $(filter $(GCC_HOT) $(PC_PORT_HOT),$<),-O2,-Os)
 PCFLAGS = $(PC_TARGET) $(PC_OPTIMIZE) $(PC_ZEROS_IN_DATA) $(PC_AS_SHC) $(PC_LAYOUT) $(PC_WARNINGS)
 
@@ -139,8 +142,11 @@ PC_KAMUI_KEPT := sdk/ninja/kmvertex_kamui_lib.c sdk/ninja/kmglobal_kamui_lib.c s
 PC_SHINOBI_KEPT := sdk/shinobi/ov_main.c sdk/shinobi/rfiber.c sdk/shinobi/vmsapi.c sdk/shinobi/vmscmd.c \
 	sdk/shinobi/vmsfib.c sdk/shinobi/vms_rw.c sdk/shinobi/vmsutil.c sdk/shinobi/vmsphys.c sdk/shinobi/vmsio.c \
 	sdk/shinobi/vmsasm.src $(wildcard sdk/shinobi/sd_*.c) $(wildcard sdk/shinobi/sy_g2_*.c)
-# the movie image's Sofdec, which xbox/port/movie.c takes the place of
-PC_DROPPED := modules/movie/sdk/* $(filter-out $(PC_SHINOBI_KEPT),$(wildcard sdk/shinobi/*)) $(filter-out $(PC_KAMUI_KEPT),$(wildcard sdk/ninja/*_kamui_lib.c)) \
+# the movie image's Sofdec, which xbox/port/movie.c takes the place of. its
+# njRotateViewYAbsolute, Ninja's and not Sofdec's, stays: the cast's view
+# (xbox/modules/movie/sdk/njRotateViewYAbsolute.c)
+PC_DROPPED := $(filter-out modules/movie/sdk/njRotateViewYAbsolute.c,$(wildcard modules/movie/sdk/*.c)) \
+	$(patsubst %.src,%.c,$(wildcard modules/movie/sdk/*.src)) $(filter-out $(PC_SHINOBI_KEPT),$(wildcard sdk/shinobi/*)) $(filter-out $(PC_KAMUI_KEPT),$(wildcard sdk/ninja/*_kamui_lib.c)) \
 	sdk/ninja/kmutil_workaround_for_sh_lnk.c
 PC_SKIPPED := loader
 PC_STUBBED := 1st_read

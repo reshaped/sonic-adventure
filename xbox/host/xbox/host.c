@@ -889,16 +889,18 @@ static unsigned call_kind, call_most_kind, call_most_blank;
  * calls: a frame whose calls took more than 14 ms logs its three costliest
  * kinds as the next frame begins (video_begin), and a call of more than
  * 4 ms logs itself, so that a hitch names what it was */
-static unsigned long long frame_kind_tsc[32];
-static unsigned frame_kind_calls[32];
+/* the host_api calls, one kind each, in their order */
+#define HOST_CALL_KINDS 33
+static unsigned long long frame_kind_tsc[HOST_CALL_KINDS];
+static unsigned frame_kind_calls[HOST_CALL_KINDS];
 static unsigned host_names_frame(void);
 static unsigned tsc_per_us(void);
-static const char *const host_call_names[32] = {
+static const char *const host_call_names[HOST_CALL_KINDS] = {
     "log", "exit", "file_open", "file_size", "file_read", "file_close", "dir_exists", "time_us",
     "wait_vblank", "pad_read", "set_interrupt", "get_date", "card_exists", "card_read", "card_write",
     "video_begin", "video_texture", "video_draw", "video_present", "video_fog", "aica_read", "aica_write",
     "video_textures_lost", "movie_memory", "video_vertices", "video_texture_packed", "video_texture_known",
-    "vram_commit", "video_store", "video_draw_items", "stats", "video_arena",
+    "vram_commit", "video_store", "video_draw_items", "stats", "video_arena", "video_movie_frame",
 };
 
 static unsigned long long host_irql_tsc; /* the IRQL's changes, for the profile */
@@ -931,7 +933,7 @@ static void leave_host(void)
             unsigned per_us = tsc_per_us();
             int k;
 
-            for (k = 0; k < 32; k++) {
+            for (k = 0; k < HOST_CALL_KINDS; k++) {
                 total += k == 8 ? 0 : frame_kind_tsc[k];
             }
             if (total > 14000ull * per_us) {
@@ -939,7 +941,7 @@ static void leave_host(void)
                 char line[256];
                 int at = 0;
 
-                for (k = 0; k < 32; k++) {
+                for (k = 0; k < HOST_CALL_KINDS; k++) {
                     for (j = 0; j < 3; j++) {
                         if (best[j] < 0 || frame_kind_tsc[k] > frame_kind_tsc[best[j]]) {
                             int m;
@@ -1005,7 +1007,7 @@ static void leave_host(void)
  * to PASSIVE_LEVEL, and raising it after, delivers the DPCs pending and lets
  * other threads run, which the rest need: the files, the cards, the blank's
  * wait, the pads (SDL's locks), the present and the movie's memory */
-static const unsigned char host_fast[32] = {
+static const unsigned char host_fast[HOST_CALL_KINDS] = {
     [0] = 1,  /* log */
     [7] = 1,  /* time_us */
     [15] = 1, /* video_begin */
@@ -1022,20 +1024,22 @@ static const unsigned char host_fast[32] = {
     [29] = 1, /* video_draw_items */
     [30] = 1, /* stats */
     [31] = 1, /* video_arena */
+    [32] = 1, /* video_movie_frame */
 };
 
 /* the calls by kind, and the timestamp counts lowering and raising the IRQL
  * took, for the profile */
-static unsigned host_calls[32];
+static unsigned host_calls[HOST_CALL_KINDS];
 
 void host_lower_irql(unsigned k)
 {
-    host_calls[k & 31]++;
+    k = k < HOST_CALL_KINDS ? k : 0;
+    host_calls[k]++;
     if (host_busy == 1) {
         call_started = __builtin_ia32_rdtsc();
-        call_kind = k & 31;
+        call_kind = k;
     }
-    if (!host_fast[k & 31] && KeGetCurrentIrql() > PASSIVE_LEVEL) {
+    if (!host_fast[k] && KeGetCurrentIrql() > PASSIVE_LEVEL) {
         unsigned long long t0 = __builtin_ia32_rdtsc();
 
         KfLowerIrql(PASSIVE_LEVEL);
@@ -1601,6 +1605,15 @@ static struct host_vertex *raw_video_arena(int *vertices)
     return video_arena(vertices);
 }
 
+/* a movie's frame from its planes (video.c), into a linear texture */
+static void raw_video_movie_frame(unsigned id, int width, int height, const unsigned char *y, const unsigned char *cb,
+                                  const unsigned char *cr, int y_stride, int c_stride)
+{
+    if (have_video) {
+        video_movie_frame(id, width, height, y, cb, cr, y_stride, c_stride);
+    }
+}
+
 /* since the last call, in microseconds: the waits for the NV2A and for the
  * display's blank (video.c), and the sound's emulation */
 static void raw_stats(unsigned out[4])
@@ -1683,12 +1696,12 @@ static struct host_api api = {
     raw_video_begin, raw_video_texture, raw_video_draw, raw_video_present, raw_video_fog,
     raw_aica_read, raw_aica_write, raw_video_textures_lost, raw_movie_memory, raw_video_vertices,
     raw_video_texture_packed, raw_video_texture_known, raw_vram_commit, raw_video_store, raw_video_draw_items,
-    raw_stats, raw_video_arena,
+    raw_stats, raw_video_arena, raw_video_movie_frame,
 };
 
 /* every call runs on the host's stack, through a thunk, as on the PC: the
  * game's stacks are as small as the console's */
-#define THUNKS 32
+#define THUNKS 33
 #define HOST_STACK_SIZE 0x100000
 static char host_stack[HOST_STACK_SIZE] __attribute__((aligned(16)));
 char *host_stack_low = host_stack;
@@ -1701,6 +1714,7 @@ THUNK(0); THUNK(1); THUNK(2); THUNK(3); THUNK(4); THUNK(5); THUNK(6); THUNK(7);
 THUNK(8); THUNK(9); THUNK(10); THUNK(11); THUNK(12); THUNK(13); THUNK(14); THUNK(15);
 THUNK(16); THUNK(17); THUNK(18); THUNK(19); THUNK(20); THUNK(21); THUNK(22); THUNK(23);
 THUNK(24); THUNK(25); THUNK(26); THUNK(27); THUNK(28); THUNK(29); THUNK(30); THUNK(31);
+THUNK(32);
 __asm__(".text\n"
         "host_thunk_common:\n"
         "    lock incl _host_busy\n"
@@ -1753,13 +1767,13 @@ void host_thunk_0(void), host_thunk_1(void), host_thunk_2(void), host_thunk_3(vo
     host_thunk_15(void), host_thunk_16(void), host_thunk_17(void), host_thunk_18(void), host_thunk_19(void),
     host_thunk_20(void), host_thunk_21(void), host_thunk_22(void), host_thunk_23(void), host_thunk_24(void),
     host_thunk_25(void), host_thunk_26(void), host_thunk_27(void), host_thunk_28(void), host_thunk_29(void),
-    host_thunk_30(void), host_thunk_31(void);
+    host_thunk_30(void), host_thunk_31(void), host_thunk_32(void);
 static void (*const thunks[THUNKS])(void) = {
     host_thunk_0,  host_thunk_1,  host_thunk_2,  host_thunk_3,  host_thunk_4,  host_thunk_5,  host_thunk_6,
     host_thunk_7,  host_thunk_8,  host_thunk_9,  host_thunk_10, host_thunk_11, host_thunk_12, host_thunk_13,
     host_thunk_14, host_thunk_15, host_thunk_16, host_thunk_17, host_thunk_18, host_thunk_19, host_thunk_20,
     host_thunk_21, host_thunk_22, host_thunk_23, host_thunk_24, host_thunk_25, host_thunk_26, host_thunk_27,
-    host_thunk_28, host_thunk_29, host_thunk_30, host_thunk_31,
+    host_thunk_28, host_thunk_29, host_thunk_30, host_thunk_31, host_thunk_32,
 };
 
 /* the blank's interrupt. clock_hook runs first of the kernel's clock
@@ -1798,7 +1812,20 @@ __asm__(".text\n"
         "    pushfl\n"
         "    pushal\n"
         "    cld\n"
+        /* the x87, MMX and SSE state saved around the chores, whose sound
+         * emulation computes in those registers: the game may be anywhere,
+         * its values live in them, and the port's entry saves them only
+         * after (from fix-rendering-bugs). the chores run as from a host
+         * call: an empty x87 stack, the game's control word and MXCSR */
+        "    movl %esp, %ebx\n"
+        "    subl $512, %esp\n"
+        "    andl $-16, %esp\n"
+        "    fxsave (%esp)\n"
+        "    fninit\n"
+        "    fldcw (%esp)\n"
         "    call _blank_chores_c\n"
+        "    fxrstor (%esp)\n"
+        "    movl %ebx, %esp\n"
         "    popal\n"
         "    popfl\n"
         "    jmp *_blank_entry\n"
@@ -2157,12 +2184,12 @@ static void report_host_part(void)
     {
         /* the timestamp counter's rate, by the performance counter's since
          * the start */
-        static const char *const names[32] = {
+        static const char *const names[HOST_CALL_KINDS] = {
             "log", "exit", "file_open", "file_size", "file_read", "file_close", "dir_exists", "time_us",
             "wait_vblank", "pad_read", "set_interrupt", "get_date", "card_exists", "card_read", "card_write",
             "video_begin", "video_texture", "video_draw", "video_present", "video_fog", "aica_read", "aica_write",
             "video_textures_lost", "movie_memory", "video_vertices", "video_texture_packed", "video_texture_known",
-            "vram_commit", "video_store", "video_draw_items", "stats", "video_arena",
+            "vram_commit", "video_store", "video_draw_items", "stats", "video_arena", "video_movie_frame",
         };
         static unsigned long long tsc0, qpc0;
         unsigned long long tsc = __builtin_ia32_rdtsc(), qpc = KeQueryPerformanceCounter();
@@ -2427,7 +2454,7 @@ static void blank_chores(void)
             unsigned long long tsc = __builtin_ia32_rdtsc(), qpc = KeQueryPerformanceCounter();
             unsigned total = 0, k, best[3] = {0, 0, 0};
 
-            for (k = 0; k < 32; k++) {
+            for (k = 0; k < HOST_CALL_KINDS; k++) {
                 total += host_calls[k];
                 if (host_calls[k] > host_calls[best[2]]) {
                     best[2] = k;
@@ -2783,8 +2810,6 @@ static DWORD __stdcall run_game(LPVOID unused)
     (void)unused;
     game_thread = KeGetCurrentThread();
     profiling = setting("HOST_PROFILE") != NULL && strtoul(setting("HOST_PROFILE"), NULL, 10) != 0;
-    /* the movies are off for now, as each ends as it starts (movie.c's
-     * port_movie_skip): HOST_MOVIES=1 plays them */
     {
         /* the port's counts with the profile, its log lines every 60
          * frames too (port.h's port_profile, bits 0 to 2), and the times
@@ -2863,7 +2888,10 @@ static DWORD __stdcall run_game(LPVOID unused)
         }
         logf_("host: 60 frames a second %s\n", toggles != 0 ? "on" : "asked for, but the images have no port_toggles");
     }
-    if (setting("HOST_MOVIES") == NULL || packs[PACK_MOVIES].count == 0) {
+    /* the movies play where D:\movies.pak holds them. HOST_MOVIES=0, or no
+     * pack, makes each end as it starts (movie.c's port_movie_skip) */
+    if (packs[PACK_MOVIES].count == 0 ||
+        (setting("HOST_MOVIES") != NULL && strtoul(setting("HOST_MOVIES"), NULL, 10) == 0)) {
         ULONG skip = symbol_address(&main_symbols, "port_movie_skip");
 
         if (skip != 0) {

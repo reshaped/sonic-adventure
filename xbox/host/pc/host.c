@@ -1101,7 +1101,7 @@ static char host_stack[HOST_STACK_SIZE] __attribute__((aligned(16)));
 char *host_stack_low = host_stack;
 char *host_stack_top = host_stack + HOST_STACK_SIZE;
 void *host_targets[64];
-#define THUNKS 32
+#define THUNKS 33
 
 void host_thunk_leave(void)
 {
@@ -1114,6 +1114,7 @@ THUNK(0); THUNK(1); THUNK(2); THUNK(3); THUNK(4); THUNK(5); THUNK(6); THUNK(7);
 THUNK(8); THUNK(9); THUNK(10); THUNK(11); THUNK(12); THUNK(13); THUNK(14); THUNK(15);
 THUNK(16); THUNK(17); THUNK(18); THUNK(19); THUNK(20); THUNK(21); THUNK(22); THUNK(23);
 THUNK(24); THUNK(25); THUNK(26); THUNK(27); THUNK(28); THUNK(29); THUNK(30); THUNK(31);
+THUNK(32);
 __asm__(".text\n"
         "host_thunk_common:\n"
         "    lock incl host_busy\n"
@@ -1163,13 +1164,13 @@ void host_thunk_0(void), host_thunk_1(void), host_thunk_2(void), host_thunk_3(vo
     host_thunk_15(void), host_thunk_16(void), host_thunk_17(void), host_thunk_18(void), host_thunk_19(void),
     host_thunk_20(void), host_thunk_21(void), host_thunk_22(void), host_thunk_23(void), host_thunk_24(void),
     host_thunk_25(void), host_thunk_26(void), host_thunk_27(void), host_thunk_28(void), host_thunk_29(void),
-    host_thunk_30(void), host_thunk_31(void);
+    host_thunk_30(void), host_thunk_31(void), host_thunk_32(void);
 static void (*const thunks[THUNKS])(void) = {
     host_thunk_0,  host_thunk_1,  host_thunk_2,  host_thunk_3,  host_thunk_4,  host_thunk_5,  host_thunk_6,
     host_thunk_7,  host_thunk_8,  host_thunk_9,  host_thunk_10, host_thunk_11, host_thunk_12, host_thunk_13,
     host_thunk_14, host_thunk_15, host_thunk_16, host_thunk_17, host_thunk_18, host_thunk_19, host_thunk_20,
     host_thunk_21, host_thunk_22, host_thunk_23, host_thunk_24, host_thunk_25, host_thunk_26, host_thunk_27,
-    host_thunk_28, host_thunk_29, host_thunk_30, host_thunk_31,
+    host_thunk_28, host_thunk_29, host_thunk_30, host_thunk_31, host_thunk_32,
 };
 
 /* the AICA's registers, which sound.cpp's AICA serves */
@@ -1211,6 +1212,40 @@ static void *host_movie_memory(unsigned size)
     return size != 0 && size <= PORT_MOVIE_SIZE ? (void *)(uintptr_t)PORT_MOVIE : NULL;
 }
 
+/* a movie's frame from its planes: on the PC, converted to ARGB as
+ * pl_mpeg's plm_frame_to_bgra does, and given as video_texture's */
+static void host_video_movie_frame(unsigned id, int width, int height, const unsigned char *y_plane,
+                                   const unsigned char *cb_plane, const unsigned char *cr_plane, int y_stride,
+                                   int c_stride)
+{
+    static unsigned argb[640 * 480];
+    int row, col;
+
+    if (width < 2 || height < 2 || width * height > 640 * 480) {
+        return;
+    }
+    host_busy++;
+    for (row = 0; row < height; row++) {
+        for (col = 0; col < width; col++) {
+            int cr = cr_plane[(row >> 1) * c_stride + (col >> 1)] - 128;
+            int cb = cb_plane[(row >> 1) * c_stride + (col >> 1)] - 128;
+            int y = ((y_plane[row * y_stride + col] - 16) * 76309) >> 16;
+            int r = y + ((cr * 104597) >> 16);
+            int g = y - ((cb * 25674 + cr * 53278) >> 16);
+            int b = y + ((cb * 132201) >> 16);
+
+            r = r < 0 ? 0 : r > 255 ? 255 : r;
+            g = g < 0 ? 0 : g > 255 ? 255 : g;
+            b = b < 0 ? 0 : b > 255 ? 255 : b;
+            argb[row * width + col] = 0xff000000u | (unsigned)r << 16 | (unsigned)g << 8 | (unsigned)b;
+        }
+    }
+    if (have_video) {
+        video_texture(id, width, height, argb);
+    }
+    leave_host();
+}
+
 static struct host_api api = {
     HOST_API_VERSION, host_log, host_exit, host_file_open, host_file_size, host_file_read, host_file_close,
     host_dir_exists, host_time_us, host_wait_vblank, host_pad_read, host_set_interrupt, host_get_date,
@@ -1218,7 +1253,7 @@ static struct host_api api = {
     host_video_begin, host_video_texture, host_video_draw, host_video_present, host_video_fog,
     host_aica_read, host_aica_write, host_video_textures_lost, host_movie_memory, host_video_vertices,
     host_video_texture_packed, host_video_texture_known, host_vram_commit, host_video_store, host_video_draw_items,
-    host_stats, host_video_arena,
+    host_stats, host_video_arena, host_video_movie_frame,
 };
 
 /* map size bytes at address, of memory, or of the shared RAM object where

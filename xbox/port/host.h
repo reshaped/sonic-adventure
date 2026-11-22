@@ -7,7 +7,7 @@
 #define XBOX_PORT_HOST_H
 
 #define HOST_API_SLOT 0x0c000100
-#define HOST_API_VERSION 19
+#define HOST_API_VERSION 20
 
 /* a vertex of a triangle the renderer draws: x and y in the console's 640
  * by 480 pixels, rhw the PowerVR's 1/w, which grows toward the eye, u and v
@@ -194,6 +194,12 @@ struct host_api {
      * read. it holds until the frame's video_begin, after which the call
      * gives the next frame's. a host with none gives a null pointer */
     struct host_vertex *(*video_arena)(int *vertices);
+    /* a movie's frame as id's texture, width by height, from its planes:
+     * y_plane's bytes y_stride a row, cb_plane's and cr_plane's at half the
+     * width and height, c_stride a row (pl_mpeg's). the host converts them
+     * as it likes, a texture its renderer draws as video_texture's */
+    void (*video_movie_frame)(unsigned id, int width, int height, const unsigned char *y_plane,
+                              const unsigned char *cb_plane, const unsigned char *cr_plane, int y_stride, int c_stride);
 };
 
 #define HOST (*(struct host_api *const *)HOST_API_SLOT)

@@ -1775,8 +1775,123 @@ void video_texture(unsigned id, int width, int height, const unsigned *argb)
     t->log_w = log_w;
     t->log_h = log_h;
     t->levels = 1;
+    t->pitch = 0; /* swizzled, where a movie's frame may have left it linear */
     t->u_scale = (float)width / (float)(1 << log_w);
     t->v_scale = (float)height / (float)(1 << log_h);
+    if (last_texture == id) {
+        last_texture = ~0u, constants_stale();
+    }
+}
+
+/* a movie's frame, from its Y, Cb and Cr planes (pl_mpeg's: Cb and Cr at
+ * half the width and height), into id as a linear R5G6B5 texture of
+ * width by height texels, which the NV2A reads as they lie, as the
+ * antialiased surface: no padding to a power of 2, no swizzle, and one
+ * pass, in order, over the write-combined pool. the colors are pl_mpeg's
+ * own BT.601 conversion (plm_frame_to_bgra), each channel clamped and cut
+ * to its bits by a table */
+#define MOVIE_LUT_OFFSET 512
+static USHORT movie_red[1536], movie_green[1536], movie_blue[1536];
+
+static void movie_tables(void)
+{
+    static int made;
+    int k;
+
+    if (made) {
+        return;
+    }
+    made = 1;
+    for (k = 0; k < 1536; k++) {
+        int v = k - MOVIE_LUT_OFFSET;
+        unsigned c = v < 0 ? 0u : v > 255 ? 255u : (unsigned)v;
+
+        movie_red[k] = (USHORT)((c >> 3) << 11);
+        movie_green[k] = (USHORT)((c >> 2) << 5);
+        movie_blue[k] = (USHORT)(c >> 3);
+    }
+}
+
+void video_movie_frame(unsigned id, int width, int height, const unsigned char *y_plane,
+                       const unsigned char *cb_plane, const unsigned char *cr_plane, int y_stride, int c_stride)
+{
+    struct texture *t;
+    unsigned pitch = ((unsigned)width * 2 + 63) & ~63u;
+    unsigned bytes = pitch * (unsigned)height;
+    int row, col;
+
+    if (id == 0 || id >= TEXTURES || width < 2 || height < 2 || bytes > pool_size) {
+        return;
+    }
+    movie_tables();
+    texture_uploads++;
+    t = &textures[id];
+    if (t->shared) {
+        t->texels = NULL;
+        t->shared = 0;
+        t->block = 0;
+    }
+    t->pack_index = 0;
+    if (t->texels == NULL || t->bytes < bytes) {
+        int b;
+
+        if (t->block != 0) {
+            blocks[t->block - 1].pinned = 0;
+            blocks[t->block - 1].last_used = video_frame;
+            t->block = 0;
+        }
+        t->texels = NULL;
+        b = block_take(bytes, -1, 1);
+        if (b < 0) {
+            textures_drop_all();
+            b = block_take(bytes, -1, 1);
+            if (b < 0) {
+                return;
+            }
+        }
+        t->texels = pool + blocks[b].offset;
+        t->block = b + 1;
+        t->bytes = bytes;
+        texture_uploads_new++;
+    } else if (last_texture == id) {
+        /* the NV2A may still read its old texels: the port alternates two
+         * ids, so this is rare */
+        wait_idle();
+    }
+    for (row = 0; row + 1 < height; row += 2) {
+        const unsigned char *y0 = y_plane + row * y_stride;
+        const unsigned char *y1 = y0 + y_stride;
+        const unsigned char *cb = cb_plane + (row >> 1) * c_stride;
+        const unsigned char *cr = cr_plane + (row >> 1) * c_stride;
+        uint32_t *d0 = (uint32_t *)(t->texels + row * pitch);
+        uint32_t *d1 = (uint32_t *)(t->texels + (row + 1) * pitch);
+
+        for (col = 0; col + 1 < width; col += 2) {
+            int v = cr[col >> 1] - 128;
+            int u = cb[col >> 1] - 128;
+            int r = ((v * 104597) >> 16) + MOVIE_LUT_OFFSET;
+            int g = MOVIE_LUT_OFFSET - ((u * 25674 + v * 53278) >> 16);
+            int b = ((u * 132201) >> 16) + MOVIE_LUT_OFFSET;
+            int a = ((y0[col] - 16) * 76309) >> 16;
+            int c = ((y0[col + 1] - 16) * 76309) >> 16;
+            int e = ((y1[col] - 16) * 76309) >> 16;
+            int f = ((y1[col + 1] - 16) * 76309) >> 16;
+
+            d0[col >> 1] = (uint32_t)(movie_red[a + r] | movie_green[a + g] | movie_blue[a + b]) |
+                           (uint32_t)(movie_red[c + r] | movie_green[c + g] | movie_blue[c + b]) << 16;
+            d1[col >> 1] = (uint32_t)(movie_red[e + r] | movie_green[e + g] | movie_blue[e + b]) |
+                           (uint32_t)(movie_red[f + r] | movie_green[f + g] | movie_blue[f + b]) << 16;
+        }
+    }
+    t->format = NV097_SET_TEXTURE_FORMAT_COLOR_LU_IMAGE_R5G6B5;
+    t->log_w = 0;
+    t->log_h = 0;
+    t->levels = 1;
+    t->u_scale = (float)width;
+    t->v_scale = (float)height;
+    t->pitch = pitch;
+    t->rect_w = (unsigned)width;
+    t->rect_h = (unsigned)height;
     if (last_texture == id) {
         last_texture = ~0u, constants_stale();
     }

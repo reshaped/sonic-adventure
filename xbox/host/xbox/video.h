@@ -7,6 +7,8 @@
 int video_open(void);
 void video_begin(unsigned clear);
 void video_texture(unsigned id, int width, int height, const unsigned *argb);
+void video_movie_frame(unsigned id, int width, int height, const unsigned char *y_plane,
+                       const unsigned char *cb_plane, const unsigned char *cr_plane, int y_stride, int c_stride);
 void video_vertices(const struct host_vertex *vertices, int count);
 int video_texture_packed(unsigned id, unsigned key_lo, unsigned key_hi);
 int video_texture_known(unsigned key_lo, unsigned key_hi);
