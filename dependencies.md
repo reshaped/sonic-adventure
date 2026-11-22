@@ -51,7 +51,7 @@ On an Ubuntu release whose default clang is older than 21, install a versioned o
 
 ## For stage 5, the Xbox
 
-- **nxdk**, cloned with its submodules: `git clone --recursive https://github.com/XboxDev/nxdk`. It needs `make`, `clang`, `lld`, `git` and CMake. Where CMake can't be installed system-wide, a venv's will do: `python3 -m venv nxdk-venv && nxdk-venv/bin/pip install cmake`, with `nxdk-venv/bin` on `PATH`. The port patches its pbkit with `xbox/third_party/nxdk-pbkit-back-buffers.patch` (`pb_back_buffers`, two frame buffers in place of three) and `xbox/third_party/nxdk-pbkit-lost-swap.patch` (a frame pbkit retired without showing it): `xbox/host/xbox/run.sh` applies each to the checkout the first time, with `git apply`, and rebuilds pbkit's objects.
+- **nxdk**, cloned with its submodules: `git clone --recursive https://github.com/XboxDev/nxdk`. It needs `make`, `clang`, `lld`, `git` and CMake. Where CMake can't be installed system-wide, a venv's will do: `python3 -m venv nxdk-venv && nxdk-venv/bin/pip install cmake`, with `nxdk-venv/bin` on `PATH`. The port patches its pbkit with `xbox/third_party/nxdk-pbkit-lost-swap.patch` (a frame pbkit retired without showing it): `xbox/host/xbox/run.sh` applies it to the checkout the first time, with `git apply`, and rebuilds pbkit's objects.
 - **xemu**, to run the XBE, with the Xbox's BIOS, MCPX ROM and a hard disk image.
 
 ## What the build downloads itself

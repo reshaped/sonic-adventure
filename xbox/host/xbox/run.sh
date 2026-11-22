@@ -46,15 +46,7 @@ if [ "$seconds" != stage ] && [ "$seconds" != iso ]; then
     make --no-print-directory build/pc/disc/images.txt
 fi
 
-# the port's patch to nxdk's pbkit (pb_back_buffers: the host draws on its
-# own surfaces and needs two frame buffers, not pbkit's three), applied
-# once to the nxdk checkout: its objects then build anew
-if ! grep -q pb_back_buffers "$NXDK_DIR/lib/pbkit/pbkit.h"; then
-    git -C "$NXDK_DIR" apply "$PWD/xbox/third_party/nxdk-pbkit-back-buffers.patch"
-    rm -f "$NXDK_DIR"/lib/pbkit/*.obj
-    echo "run.sh: xbox/third_party/nxdk-pbkit-back-buffers.patch applied to $NXDK_DIR"
-fi
-# and its fix of a lost swap (pb_vbl_handler retired a frame the ISR never
+# the port's fix to nxdk's pbkit of a lost swap (pb_vbl_handler retired a frame the ISR never
 # swapped in, and the back buffer was the one on the screen: XBOX.md), once
 if ! grep -q pb_lost_swap "$NXDK_DIR/lib/pbkit/pbkit.c"; then
     git -C "$NXDK_DIR" apply "$PWD/xbox/third_party/nxdk-pbkit-lost-swap.patch"

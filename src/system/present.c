@@ -181,6 +181,19 @@ extern Uint8 port_tstr;
 #else
 #define TSTR (*(volatile Uint8 *)0xffd80004)
 #endif
+
+/* the port marks the draws of the stage's sky task (src/stage/stage.c's
+ * stage_create_sky) for its renderer, which tells the backdrop apart by
+ * them: around each callback of the task, and each draw of it replayed */
+#ifdef XBOX
+extern void *port_sky_task;
+extern volatile int port_sky_drawing;
+#define SKY_BEGIN(task) (port_sky_drawing = port_sky_task != NULL && (const void *)(task) == port_sky_task)
+#define SKY_END() (port_sky_drawing = 0)
+#else
+#define SKY_BEGIN(task) ((void)0)
+#define SKY_END() ((void)0)
+#endif
 #define STR1 0x02
 
 /* frame_countdown as step 0 ends with the middle vsync still ahead. a
@@ -1624,7 +1637,9 @@ void present_draw(struct task *task, void (*draw)(struct task *task))
     if (!frame_redrawing) {
         if (draw != NULL) {
             present_wide(WIDE_MIDDLE, FALSE);
+            SKY_BEGIN(task);
             draw(task);
+            SKY_END();
             present_wide(WIDE_MIDDLE, FALSE);
         }
         return;
@@ -1653,7 +1668,9 @@ void present_draw(struct task *task, void (*draw)(struct task *task))
         }
         present_wide(WIDE_MIDDLE, FALSE);
         present_task = task;
+        SKY_BEGIN(task);
         draw(task);
+        SKY_END();
         present_task = outer;
         records_put(&keep, task);
         present_wide(WIDE_MIDDLE, FALSE);
@@ -1749,6 +1766,7 @@ static void draws_replay(struct draws *list, int second)
         if (!replays(draw, list->task[i], second)) {
             continue;
         }
+        SKY_BEGIN(list->task[i]);
         /* the draw's matrix times the move, made in the current matrix */
 #ifdef DREAMCAST
         /* no draw the replay makes leaves XMTRX changed: a model's
@@ -1790,6 +1808,7 @@ static void draws_replay(struct draws *list, int second)
             njDrawSprite3D(&copy->sprite, 0, draw->attr);
         }
     }
+    SKY_END();
     sprites_kept = TRUE;
     njSetMatrix(NULL, &current);
 }

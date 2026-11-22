@@ -12,8 +12,7 @@
  * ARM7's 22.58 MHz and of the AICA's 64 channels, its DSP and its timers. a
  * lock keeps the game's register accesses between the thread's runs. the
  * samples go to SDL's audio device, and under HOST_WAV=path to a WAV file as
- * well. HOST_SOUND_LOG=1 logs Flycast's notices, and once a second the
- * ARM's state, the channels keyed on and the loudest sample */
+ * well */
 #include <SDL2/SDL.h>
 #include <cstdarg>
 #include <cstdio>
@@ -36,56 +35,27 @@
 
 /* Flycast's options and settings, as the port has them */
 namespace config {
-Value<bool> DSPEnabled{true};
+/* the DSP, the effects, is off, as on the Xbox, whose APU has no reverb
+ * yet: on, Red Mountain's reverb ran to full scale within 20 ms and stayed
+ * there, with its ring, program and coefficients as the driver set them, by
+ * the recompiler and the interpreter alike */
+Value<bool> DSPEnabled{false};
 Value<bool> GGPOEnable{false};
 Value<bool> VmuSound{false};
 }
 flycast_settings settings;
 
+/* Flycast's log, which the port leaves silent */
 void flycast_log(const char *kind, const char *format, ...)
 {
-    static const bool on = getenv("HOST_SOUND_LOG") != nullptr;
-    va_list args;
-
-    if (!on) {
-        return;
-    }
-    fprintf(stderr, "aica: %s: ", kind);
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    fputc('\n', stderr);
+    (void)kind;
+    (void)format;
 }
 
 void flycast_die(const char *file, int line, const char *what)
 {
     fprintf(stderr, "aica: %s:%d: %s\n", file, line, what);
     abort();
-}
-
-/* dsp_check.cpp's comparison of the DSP's recompiler with its interpreter */
-extern "C" void dsp_check(void);
-
-/* HOST_AICA_READS: at the quit, the AICA registers the ARM7 read, by word,
- * from arm_mem.cpp's counts */
-namespace aica { namespace arm { extern unsigned profile_reads[0x8000 / 4], profile_writes[0x8000 / 4]; } }
-static void report_reads(void)
-{
-    unsigned reads = 0, writes = 0, channel_writes = 0;
-
-    for (unsigned k = 0; k < 0x8000 / 4; k++) {
-        reads += aica::arm::profile_reads[k];
-        writes += aica::arm::profile_writes[k];
-        channel_writes += k * 4 < 0x2000 ? aica::arm::profile_writes[k] : 0;
-    }
-    fprintf(stderr, "aica: the ARM7 read the registers %u times and wrote them %u times, %u of them a channel's\n",
-            reads, writes, channel_writes);
-    for (unsigned k = 0; k < 0x8000 / 4; k++) {
-        if (aica::arm::profile_reads[k] != 0) {
-            fprintf(stderr, "aica: the ARM7 read 0x%04x %u times%s\n", k * 4, aica::arm::profile_reads[k],
-                    k * 4 < 0x2000 ? " (a channel's)" : "");
-        }
-    }
 }
 
 /* the AICA's own timestamp counts, which arm7.cpp and sgc_if.cpp keep */
@@ -234,96 +204,10 @@ void wav_header(void)
     fflush(wav);
 }
 
-/* under HOST_SOUND_PROFILE, once a second: the share of a second of the
- * CPU's that the ARM7, the samples' step (the timers, the channels' mix and
- * the DSP) and the DSP alone took, and since the start */
-void profile_second(void)
-{
-    static const bool on = getenv("HOST_SOUND_PROFILE") != nullptr;
-    static unsigned blank_count;
-    static unsigned long long started_tsc, total_arm, total_step, total_dsp;
-    static struct timespec started_at;
-    unsigned long long now_tsc = __builtin_ia32_rdtsc();
-    struct timespec now;
-
-    if (!on) {
-        return;
-    }
-    if (blank_count++ == 0) {
-        started_tsc = now_tsc;
-        clock_gettime(CLOCK_MONOTONIC, &started_at);
-        aica::arm::profile_arm = aica::arm::profile_step = aica::sgc::profile_dsp = 0;
-        return;
-    }
-    if (blank_count % 60 != 1) {
-        return;
-    }
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    {
-        double seconds = (double)(now.tv_sec - started_at.tv_sec) + (double)(now.tv_nsec - started_at.tv_nsec) / 1e9;
-        double tsc_hz = (double)(now_tsc - started_tsc) / seconds;
-        double arm = (double)aica::arm::profile_arm / tsc_hz * 1000, step = (double)aica::arm::profile_step / tsc_hz * 1000,
-               dsp = (double)aica::sgc::profile_dsp / tsc_hz * 1000;
-
-        total_arm += aica::arm::profile_arm;
-        total_step += aica::arm::profile_step;
-        total_dsp += aica::sgc::profile_dsp;
-        fprintf(stderr, "aica: profile second %u: arm7 %.1f ms, step %.1f ms (dsp %.1f ms, mix and timers %.1f ms); "
-                "since the start %.1f, %.1f, %.1f ms a second\n",
-                blank_count / 60, arm, step, dsp, step - dsp, (double)total_arm / tsc_hz * 1000 / (blank_count / 60),
-                (double)total_step / tsc_hz * 1000 / (blank_count / 60), (double)total_dsp / tsc_hz * 1000 / (blank_count / 60));
-        fprintf(stderr, "aica:   of the step: timers %.1f ms, the sample %.1f ms (its channels %.1f ms), the interrupts %.1f ms\n",
-                (double)aica::profile_timers / tsc_hz * 1000, (double)aica::profile_sample / tsc_hz * 1000,
-                (double)aica::sgc::profile_channels / tsc_hz * 1000, (double)aica::profile_interrupts / tsc_hz * 1000);
-        aica::profile_timers = aica::profile_sample = aica::profile_interrupts = aica::sgc::profile_channels = 0;
-        aica::arm::profile_arm = aica::arm::profile_step = aica::sgc::profile_dsp = 0;
-        if ((blank_count / 60) % 10 == 0) {
-            /* the commonest PCs of the last ten seconds */
-            for (int n = 0; n < 8; n++) {
-                int best = 0;
-
-                for (int k = 1; k < 0x8000; k++) {
-                    if (aica::arm::profile_pcs[k] > aica::arm::profile_pcs[best]) {
-                        best = k;
-                    }
-                }
-                fprintf(stderr, "aica:   pc %05x: %u samples\n", best * 4, aica::arm::profile_pcs[best]);
-                aica::arm::profile_pcs[best] = 0;
-            }
-            memset(aica::arm::profile_pcs, 0, sizeof aica::arm::profile_pcs);
-        }
-    }
-}
-
-/* under HOST_SOUND_LOG, once a second: whether the ARM runs and where, the
- * channels keyed on, and the second's loudest sample */
-void log_second(void)
-{
-    static const bool on = getenv("HOST_SOUND_LOG") != nullptr;
-    static unsigned blank_count;
-    unsigned keyed = 0;
-    int loudest = 0;
-
-    if (!on || ++blank_count % 60 != 0) {
-        return;
-    }
-    for (unsigned ch = 0; ch < 64; ch++) {
-        keyed += (aica::readAicaReg<u16>(ch * 0x80) >> 14) & 1;
-    }
-    for (int16_t s : mixed) {
-        loudest = std::max(loudest, abs((int)s));
-    }
-    fprintf(stderr, "aica: second %u: arm %s at %08x, %u channels keyed on, loudest %d\n", blank_count / 60,
-            aica::arm::Arm7Enabled ? "on" : "off", aica::arm::arm_Reg[15].I, keyed, loudest);
-}
-
 void run(void)
 {
     for (;;) {
         sem_wait(&blanks);
-        if (quitting && getenv("HOST_AICA_READS") != nullptr) {
-            report_reads();
-        }
         if (quitting) {
             if (record != nullptr) {
                 fclose(record);
@@ -350,17 +234,6 @@ void run(void)
             aica::arm::run(count);
             if (record != nullptr) {
                 memcpy(record_ram.data(), &aica::aica_ram[0], ARAM_SIZE);
-            }
-            log_second();
-            profile_second();
-            {
-                /* HOST_DSP_CHECK=SECOND: dsp_check.cpp's comparison then */
-                static unsigned checked_blanks;
-                static const char *at = getenv("HOST_DSP_CHECK");
-
-                if (at != nullptr && ++checked_blanks == (unsigned)atoi(at) * 60) {
-                    dsp_check();
-                }
             }
         }
         if (device != 0) {
@@ -392,10 +265,8 @@ extern "C" int sound_open(void *ram)
 {
     aica::aica_ram.setRegion((u8 *)ram, ARAM_SIZE);
     sound_ram = (const u8 *)ram;
-    if (getenv("HOST_SOUND_NO_IDLE") == nullptr) {
-        aica::arm::idle_pc = 0x194;
-        aica::arm::idle_wait = idle_wait_checked;
-    }
+    aica::arm::idle_pc = 0x194;
+    aica::arm::idle_wait = idle_wait_checked;
     aica::init();
     aica::reset(true);
     sem_init(&blanks, 0, 0);

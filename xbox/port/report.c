@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #include "main.h"
+#include "stage/stage.h"
 #include "system/task.h"
 #include "xbox/port/host.h"
 #include "xbox/port/port.h"
@@ -186,6 +187,18 @@ static void note_where(void)
         port_where.camera_ang[1] = camera->ang.y;
         port_where.camera_ang[2] = camera->ang.z;
     }
+}
+
+int port_place_enter(void)
+{
+    if (!port_place.armed || !port_place.enter) {
+        return 0;
+    }
+    port_place.enter = 0;
+    set_character_number((Sint16)port_place.character);
+    stage_set_stage_act((Uint8)port_place.stage, (Uint8)port_place.act);
+    port_log("report: the report's stage entered from the menus");
+    return 1;
 }
 
 int port_place_take(int player, NJS_POINT3 *pos, struct angles *ang)
@@ -507,17 +520,19 @@ static void report_log(void)
         sprintf(line,
                 "report: to start here, first in HOST_POKE: 1:port_place+%u:%d,1:port_place+%u:%d,"
                 "1:port_place+%u:0x%08x,1:port_place+%u:0x%08x,1:port_place+%u:0x%08x,1:port_place+%u:%d,"
-                "1:port_place+%u:%d,1:port_place+%u:%d,1:port_place+%u:1",
+                "1:port_place+%u:%d,1:port_place+%u:%d,1:port_place+%u:%d,1:port_place+%u:1,"
+                "1:port_place+%u:1",
                 (unsigned)offsetof(struct port_place, stage), port_where.stage,
                 (unsigned)offsetof(struct port_place, act), port_where.act,
                 (unsigned)offsetof(struct port_place, pos[0]), x.u, (unsigned)offsetof(struct port_place, pos[1]), y.u,
                 (unsigned)offsetof(struct port_place, pos[2]), z.u, (unsigned)offsetof(struct port_place, ang[0]),
                 port_where.player_ang[0], (unsigned)offsetof(struct port_place, ang[1]), port_where.player_ang[1],
                 (unsigned)offsetof(struct port_place, ang[2]), port_where.player_ang[2],
-                (unsigned)offsetof(struct port_place, armed));
+                (unsigned)offsetof(struct port_place, character), port_where.character,
+                (unsigned)offsetof(struct port_place, enter), (unsigned)offsetof(struct port_place, armed));
         port_log(line);
-        sprintf(line, "report: then enter stage %d act %d as character %d", port_where.stage, port_where.act,
-                port_where.character);
+        sprintf(line, "report: which enters stage %d act %d as character %d from the menus", port_where.stage,
+                port_where.act, port_where.character);
         port_log(line);
     }
 
@@ -640,3 +655,4 @@ static void report_log(void)
         port_log(line);
     }
 }
+

@@ -165,9 +165,6 @@ static Bool push_out_of_block(struct camera_collision *collision,
                               NJS_POINT3 *pos);
 static void camera_draw_tint(void);
 static void camera_task_draw_tint(struct task *task);
-#ifdef XBOX
-static void camera_step_height(void);
-#endif
 
 void camera_set_start_mode(Sint8 mode)
 {
@@ -448,9 +445,6 @@ static void camera_task_step(struct task *task)
         }
         camera_cut = FALSE;
         camera_run_mode(work);
-#ifdef XBOX
-        camera_step_height();
-#endif
         camera_apply_view(work);
         camera_draw_tint();
         camera_settle_adjust(work, camera_last);
@@ -740,76 +734,6 @@ static void camera_run_mode(struct task_work *work)
     }
 }
 
-#ifdef XBOX
-/* the port's camera height on the right stick, which the console's pad
- * hasn't: up looks up, down looks down. the camera turns up or down
- * around a point above player 0, as on a sphere, and its pitch turns with
- * it, so he stays where he was on the screen. it changes the view alone,
- * not the camera's work, which the modes keep reading: they run as ever.
- * held to HEIGHT_LOW below the camera's own place and HEIGHT_HIGH above,
- * and to its elevation's limits; let go, it eases back */
-extern int port_right_y; /* xbox/port/pads.c: -128 to 127, down more */
-/* the port's, by the x87 (xbox/port/math.c), which no header declares */
-float sinf(float x);
-float cosf(float x);
-#define HEIGHT_RATE 0x0180 /* a step at full tilt: some 2 degrees */
-#define HEIGHT_LOW (-0x1200) /* some 25 degrees */
-#define HEIGHT_HIGH 0x2000 /* some 45 degrees */
-#define HEIGHT_PIVOT 10.0F /* the point turned about, above player 0's feet */
-static Sint32 camera_height_turn; /* the view's turn, + raises the camera */
-
-static void camera_step_height(void)
-{
-    if (port_right_y != 0) {
-        camera_height_turn += port_right_y * HEIGHT_RATE / 128;
-    } else {
-        /* let go: back to the camera's own in about a second */
-        camera_height_turn -= camera_height_turn / 8;
-        if (camera_height_turn > -0x40 && camera_height_turn < 0x40) {
-            camera_height_turn = 0;
-        }
-    }
-    if (camera_height_turn < HEIGHT_LOW) {
-        camera_height_turn = HEIGHT_LOW;
-    } else if (camera_height_turn > HEIGHT_HIGH) {
-        camera_height_turn = HEIGHT_HIGH;
-    }
-}
-
-/* pos and ang, work's, turned by camera_height_turn about player 0 */
-static void camera_turn_height(NJS_POINT3 *pos, Angle *ang_x)
-{
-    Float dx, dy, dz, across, distance, rise, turned, scale;
-
-    if (camera_height_turn == 0 || player_work[0] == NULL ||
-        camera_control->level == CAMERA_LEVEL_DEBUG) {
-        return;
-    }
-    dx = pos->x - player_work[0]->pos.x;
-    dy = pos->y - (player_work[0]->pos.y + HEIGHT_PIVOT);
-    dz = pos->z - player_work[0]->pos.z;
-    across = njSqrt((dx * dx) + (dz * dz));
-    distance = njSqrt((dx * dx) + (dy * dy) + (dz * dz));
-    if (across < 1.0F) {
-        return;
-    }
-    rise = atan2f(dy, across);
-    turned = rise + (Float)camera_height_turn / ANGLE_PER_RADIAN;
-    /* never over the top nor under the feet */
-    if (turned > 1.4F) {
-        turned = 1.4F;
-    } else if (turned < -0.5F) {
-        turned = -0.5F;
-    }
-    scale = distance * cosf(turned) / across;
-    pos->x = player_work[0]->pos.x + (dx * scale);
-    pos->z = player_work[0]->pos.z + (dz * scale);
-    pos->y = player_work[0]->pos.y + HEIGHT_PIVOT + (distance * sinf(turned));
-    /* the pitch looks up as it grows: a camera raised looks down */
-    *ang_x -= (Angle)((turned - rise) * ANGLE_PER_RADIAN);
-}
-#endif
-
 /* set Ninja's view, then the light in it. while a camera action plays, the
  * action gives the view. otherwise the view is work's, moved by the offsets
  * camera_add_offset gave, which this zeroes */
@@ -818,25 +742,12 @@ static void camera_apply_view(struct task_work *work)
     if (camera_action_state != ACTION_NONE) {
         njCameraAction(camera_action, camera_action_frame);
     } else {
-#ifdef XBOX
-        NJS_POINT3 pos = work->pos;
-        Angle ang_x = work->ang.x;
-
-        camera_turn_height(&pos, &ang_x);
-        njRotateViewZAbsolute(&view, work->ang.z);
-        njRotateViewXAbsolute(&view, ang_x);
-        njRotateViewYRelative(&view, work->ang.y);
-        njTranslateViewAbsolute(&view, pos.x + camera_control->offset.x,
-                                pos.y + camera_control->offset.y,
-                                pos.z + camera_control->offset.z);
-#else
         njRotateViewZAbsolute(&view, work->ang.z);
         njRotateViewXAbsolute(&view, work->ang.x);
         njRotateViewYRelative(&view, work->ang.y);
         njTranslateViewAbsolute(&view, work->pos.x + camera_control->offset.x,
                                 work->pos.y + camera_control->offset.y,
                                 work->pos.z + camera_control->offset.z);
-#endif
         njSetView(&view);
         camera_control->offset.x = 0.0F;
         camera_control->offset.y = 0.0F;

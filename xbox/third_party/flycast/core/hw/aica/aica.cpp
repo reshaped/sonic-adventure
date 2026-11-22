@@ -95,7 +95,7 @@ static int AicaUpdate(int tag, int cycles, int jitter, void *arg)
 
 #if defined(FLYCAST_AICA_ONLY) && defined(FLYCAST_PROFILE)
 /* the port: the timers', the sample's and the interrupts' shares of a step,
- * in the CPU's timestamp counts, for HOST_SOUND_PROFILE */
+ * in the CPU's timestamp counts, for the profile */
 unsigned long long profile_timers, profile_sample, profile_interrupts;
 #endif
 
