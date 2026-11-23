@@ -187,7 +187,12 @@ class Translate:
         self.literals = literals or {}
         self.out = []
         self.sz = False
-        self.uses_back = any(op in ('FRCHG', 'FTRV') or 'XD' in args for op, args in body.code)
+        # the back bank, XMTRX, loaded from sh4_xmtrx and stored back: for
+        # FRCHG and FTRV, an XDn operand, and FSCHG, under which an FMOV of an
+        # odd FRn moves the pair XDn-1 (pair()). without the last,
+        # njModelS.c's SimpleCalcModelLight read XMTRX as zeros, and Ninja's
+        # simple drawer lit every vertex NaN: its models drew black
+        self.uses_back = any(op in ('FRCHG', 'FTRV', 'FSCHG') or 'XD' in args for op, args in body.code)
         self.labels = {arg for op, arg in body.code if op == 'label'}
         self.temps = 0
 

@@ -296,6 +296,23 @@ static inline Bool emit_face(const Uint32 *start)
     return TRUE;
 }
 
+/* write, into the header's room before a strip's vertices, the words
+ * emit_face reads: an intensity header with no offset color, its face color
+ * color's four words, A R G B. engine/dc/sprite.c's sprite_draw_3d sends a
+ * strip's vertices before its header, as sprite.src does, so without this
+ * emit_face read whatever the room last held: a header of an earlier frame's
+ * list, or another draw's, and the strip took its colors. the Egg Carrier's
+ * mist puffs blinked, each drawn at another's alpha or none. the strip's own
+ * header, which the draw writes after the vertices, replaces these words */
+static inline void emit_face_ahead(Uint32 *room, const Uint32 *color)
+{
+    room[0] = (PCW_TYPE_POLYGON << 29) | (PCW_INTENSITY << 4);
+    room[4] = color[0];
+    room[5] = color[1];
+    room[6] = color[2];
+    room[7] = color[3];
+}
+
 /* the color an intensity header gives, which each vertex's intensity then
  * scales, as the renderer reads such a vertex (render.c's read_vertex):
  * alpha as it is, and red, green and blue times the intensity */

@@ -96,6 +96,14 @@ void sprite_draw_3d(NJS_SPRITE *sprite, Int entry, Uint32 attr)
     QACR0 = SQ_AREA(list);
     /* the first vertex, past the header's room */
     sq = (struct sprite_vertex *)((list & SQ_ADDRESS) | SQ_BASE) + 1;
+#ifdef XBOX
+    /* the colors sprite_begin's header will give, where a run of the
+     * renderer's takes the vertices (xbox/engine/sa1/emit.h) */
+    emit_face_ahead((Uint32 *)(sq - 1),
+                    (const Uint32 *)(attr & NJD_SPRITE_COLOR
+                                         ? &_nj_constant_material_
+                                         : &sprite_white));
+#endif
     if (attr & NJD_SPRITE_SCALE) {
         end = sprite_send_facing(sprite, entry, attr, sq);
     } else {
