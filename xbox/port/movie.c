@@ -622,16 +622,37 @@ void mwPlyStartFrame(void)
     }
 }
 
-/* decode the pictures due by the clock, and end the movie at its video's
- * end. a machine too slow to decode every picture in its time skips the
- * B-pictures while it is behind (video_decode) */
+/* how far the pictures may stray from the clock before the player follows
+ * it: within DRIFT of it either way, each call shows one picture */
+#define DRIFT 2
+
+/* one picture a call, and end the movie at its video's end. the movie's
+ * loop calls this once a frame period, every NVSYNC_PIC blanks, so one
+ * picture a call shows each for two blanks, as the console's Sofdec does.
+ * the clock, the ADX stream's samples played, steps as its server copies
+ * them to sound RAM: followed picture by picture, it showed pictures for
+ * one blank and three by turns, a judder. so it only corrects drift: some
+ * DRIFT pictures behind it, the player decodes up to it (skipping
+ * B-pictures while it is CATCH_UP behind, video_decode), and DRIFT ahead of
+ * it, as while the sound starts, it holds the picture shown */
 void mwPlyExecServer(void)
 {
+    Uint32 clock_due;
+    Uint32 next;
+    Sint32 off;
+
     if (player.stat != MWE_PLY_STAT_PLAYING || player.mpeg2 == NULL) {
         return;
     }
     audio_feed(&player);
-    video_decode(&player, (Uint32)((unsigned long long)player.blanks * PERIOD_PER_BLANK / player.frame_period) + 1);
+    clock_due = (Uint32)((unsigned long long)player.blanks * PERIOD_PER_BLANK / player.frame_period) + 1;
+    next = player.pictures + 1;
+    off = (Sint32)(clock_due - next);
+    if (off >= DRIFT) {
+        video_decode(&player, clock_due);
+    } else if (off > -DRIFT) {
+        video_decode(&player, next);
+    }
     if (player.video_ended) {
         player.stat = MWE_PLY_STAT_PLAYEND;
     }

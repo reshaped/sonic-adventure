@@ -31,6 +31,24 @@ void event_mover_step(struct task *task)
     NJS_VECTOR moved;
     struct angles turned;
 
+    /* @bug memory: a follow move reads base's work through null once base is
+     * destroyed while the move has steps left, as during EV0008 at Mystic
+     * Ruins, after Egg Hornet: task_free_work leaves base's work null, and
+     * MOVER_FOLLOW, MOVER_FOLLOW_ANGLES, MOVER_FOLLOW_TURN and MOVER_FACING
+     * read its place and angles from the boot ROM at 0x20 on. the console
+     * moves target there and goes on; the Xbox, with nothing mapped at 0,
+     * faults */
+#ifdef NONMATCHING
+    /* repairs the reads the tag names: a move whose base is gone ends,
+     * leaving target where the move last set it. the mode is tested first:
+     * only the follow moves set base, which the others leave at -1 */
+    if ((work->mode == MOVER_FOLLOW || work->mode == MOVER_FOLLOW_ANGLES ||
+         work->mode == MOVER_FOLLOW_TURN || work->mode == MOVER_FACING) &&
+        move != NULL && move->base != NULL && move->base->work == NULL) {
+        END_MOVE(task, move);
+        return;
+    }
+#endif
     switch (work->mode) {
     case MOVER_IDLE:
         break;
