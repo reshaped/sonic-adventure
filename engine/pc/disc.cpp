@@ -23,7 +23,10 @@ float Bytes::f32(uint32_t at)
  * a little-endian word. a word of 0 ends the stream. the word's top 13 bits
  * say how far back, and its low 3 bits give the length. where those 3 are 0,
  * the next byte gives it. two clear bits are a short copy. two more control
- * bits give its length, and the next byte gives how far back it starts */
+ * bits give its length, and the next byte gives how far back it starts. a
+ * stream that would expand past PRS_MAX_OUTPUT is rejected */
+constexpr size_t PRS_MAX_OUTPUT = 64U << 20;
+
 bool prs_decode(const std::vector<uint8_t> &in, std::vector<uint8_t> &out)
 {
     size_t at = 0;
@@ -53,7 +56,7 @@ bool prs_decode(const std::vector<uint8_t> &in, std::vector<uint8_t> &out)
             return false;
         }
         if (b == 1) {
-            if (at >= in.size()) {
+            if (at >= in.size() || out.size() >= PRS_MAX_OUTPUT) {
                 return false;
             }
             out.push_back(in[at++]);
@@ -91,7 +94,8 @@ bool prs_decode(const std::vector<uint8_t> &in, std::vector<uint8_t> &out)
             length = static_cast<uint32_t>(high << 1 | low) + 2;
             distance = static_cast<int64_t>(in[at++]) - 0x100;
         }
-        if (static_cast<int64_t>(out.size()) + distance < 0) {
+        if (static_cast<int64_t>(out.size()) + distance < 0 ||
+            length > PRS_MAX_OUTPUT - out.size()) {
             return false;
         }
         size_t from = out.size() + distance;

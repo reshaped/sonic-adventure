@@ -71,8 +71,9 @@ static int entry_nocase(const char *folder, const char *name, char *out,
     }
     while ((entry = readdir(dir))) {
         if (!strcasecmp(entry->d_name, name)) {
-            snprintf(out, size, "%s/%s", folder, entry->d_name);
-            found = 1;
+            int wrote = snprintf(out, size, "%s/%s", folder, entry->d_name);
+
+            found = wrote >= 0 && (size_t)wrote < size;
             break;
         }
     }
@@ -84,8 +85,11 @@ static int entry_nocase(const char *folder, const char *name, char *out,
 static int find_nocase(const char *name, char *out, size_t size)
 {
     char path[512];
+    int wrote = snprintf(path, sizeof path, "%s/%s", native_disc, directory);
 
-    snprintf(path, sizeof path, "%s/%s", native_disc, directory);
+    if (wrote < 0 || (size_t)wrote >= sizeof path) {
+        return 0;
+    }
     return entry_nocase(path, name, out, size);
 }
 
@@ -214,16 +218,25 @@ static int folder_nocase(const char *path, size_t held, char *out, size_t size)
 {
     char name[256], next[1024];
     size_t end;
+    int wrote = snprintf(out, size, "%s", native_disc);
 
-    snprintf(out, size, "%s", native_disc);
+    if (wrote < 0 || (size_t)wrote >= size) {
+        return 0;
+    }
     for (size_t at = 0; at < held; at = end + 1) {
         for (end = at; end < held && path[end] != '/'; end++) {
+        }
+        if (end - at >= sizeof name) {
+            return 0;
         }
         snprintf(name, sizeof name, "%.*s", (int)(end - at), path + at);
         if (!entry_nocase(out, name, next, sizeof next)) {
             return 0;
         }
-        snprintf(out, size, "%s", next);
+        wrote = snprintf(out, size, "%s", next);
+        if (wrote < 0 || (size_t)wrote >= size) {
+            return 0;
+        }
     }
     return 1;
 }
@@ -351,9 +364,16 @@ int32_t gdFsChangeDir(const char *name)
         if (!(dir = opendir(path))) {
             return GDD_ERR_NOTDIR;
         }
+        const char *base = strrchr(path, '/') + 1;
+        size_t need = (used ? 1 : 0) + strlen(base);
+
+        if (need >= sizeof directory - used) {
+            closedir(dir);
+            return GDD_ERR_NOTFOUND;
+        }
         closedir(dir);
         snprintf(directory + used, sizeof directory - used, "%s%s",
-                 used ? "/" : "", strrchr(path, '/') + 1);
+                 used ? "/" : "", base);
     }
     return GDD_ERR_OK;
 }

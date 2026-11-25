@@ -165,7 +165,8 @@ def checkout(files=None):
     """A tree make runs in: the repository's Makefile and Python tools, the
     vendored tools' files, empty, a compilers.mk that names no source,
     MODULE's tables and sources, an empty orig/, and files."""
-    tools = {f'tools/{path.name}': path.read_text() for path in (ROOT / 'tools').glob('*.py')}
+    tools = {f'tools/{path.name}': path.read_text()
+             for pattern in ('*.py', '*.sh') for path in (ROOT / 'tools').glob(pattern)}
     vendored = {path: '' for tool in vendor.TOOLS for path in vendor.copied(tool)}
     with tree({'Makefile': (ROOT / 'Makefile').read_text(), 'config/compilers.mk': COMPILERS, 'orig/.gitkeep': '',
                'SHA256SUMS': f'{HASH}  orig/1ST_READ.BIN\n', 'tools/SHA256SUMS': '', **tools, **vendored, **MODULE,

@@ -44,9 +44,9 @@ EXACT = {
     'shz_vec3_scale', 'shz_vec4_scale', 'shz_vec3_add', 'shz_vec3_sub',
     # a float's integer part and a comparison, exact
     'shz_floorf', 'shz_ceilf',
-    # a vector of floats as given
+    # a vector of floats as given, and a vector's floats as a value of another type of its size
     'shz_vec2_init', 'shz_vec3_init', 'shz_vec4_init', 'shz_vec2_vec4', 'shz_vec3_vec4', 'shz_vec3_deref',
-    'shz_vec4_deref',
+    'shz_vec4_deref', 'shz_vec3_to',
     # bytes and cache lines
     'shz_memcpy1', 'shz_memcpy4', 'shz_memset8', 'shz_dcache_alloc_line', 'SHZ_PREFETCH',
 }
@@ -179,7 +179,7 @@ class Exact(unittest.TestCase):
         self.assertEqual(idle(found), [])
 
     def test_names_a_call_off_the_list_and_none_in_a_comment(self):
-        # shz_sqrtf approximates by FSRRA, shz_fmaf is a * b + c, two roundings under -ffp-contract=off, and
+        # shz_sqrtf has a constant branch, shz_fmaf is a * b + c, two roundings under -ffp-contract=off, and
         # shz_vec3_cross sums products outside njModel.c
         text = ('/* shz_sqrtf(x) */\nfloat f(float x, shz_vec3_t a, shz_vec3_t b)\n{\n'
                 '    return shz_sqrtf(x) + shz_vec3_cross(a, b).x + shz_fmaf(x, x, x);\n}\n')

@@ -6,12 +6,13 @@
  * the screen's lines, top to bottom. CRASH and the exception's code, HANG and
  * the vblanks since the last frame, or port_stop's words and number, with
  * the name it was given on a line of its own. PC, the instruction that
- * faulted, that the vblank stopped or that port_stop returns to. a crash's
- * PR, where its function returns to. SR, the status register there. SP,
- * the stopped code's stack pointer, and
- * ADDR, the address a faulting access asked for. MODE and STAGE, the game's
- * mode, and its stage and act as stage_get_stage_act gives them. a crash
- * then shows R0 to R14, four to a line. last come the callers: each word of
+ * faulted, that the vblank stopped or that port_stop returns to. PR, where
+ * its function returns to, for a crash and for a hang captured from
+ * Shinobi's outer interrupt frame. SR, the status register there. SP,
+ * the stopped code's stack pointer, and ADDR, the address a faulting access
+ * asked for. MODE and STAGE, the game's mode, and its stage and act as
+ * stage_get_stage_act gives them. a crash then shows R0 to R14, four to a
+ * line. last come the callers: each word of
  * the stopped code's stack that addresses the instruction after a call's
  * delay slot, behind its offset from SP, nearest first. they are what the
  * stack holds, not an unwinding: a word a returned function left there shows
@@ -38,7 +39,8 @@
 #define FB_DEPTH_SHIFT 2
 #define FB_DEPTH_MASK 3
 #define VIDEO_MEMORY 0xa5000000
-#define VIDEO_OFFSET 0x007ffffc
+#define VIDEO_SIZE 0x00800000
+#define VIDEO_OFFSET (VIDEO_SIZE - 4)
 /* the CPU's registers for the exception it last took: its code, and the
  * address an address error's access asked for */
 #define EXPEVT_AT 0xff000024
@@ -73,8 +75,12 @@
 #define CELL_W ((GLYPH_W + 1) * SCALE)
 #define CELL_H ((GLYPH_H + 1) * SCALE)
 #define COLUMNS 44
+#define MAX_LINES 18
 /* the most bytes a pixel takes */
 #define PIXEL_BYTES 4
+/* the first pixel past the last cell's bottom row, from the scanout base */
+#define REPORT_END                                                             \
+    ((TOP + MAX_LINES * CELL_H - 1) * WIDTH + LEFT + COLUMNS * CELL_W)
 
 /* the vblanks with no frame and no picture that make a hang, half a minute
  * at 60 Hz, and the vblanks between its writes after that. a load takes
@@ -188,15 +194,15 @@ static void report_again(void) __attribute__((noreturn, used));
  * since an exception inside a handler finds the handler's own R0 there.
  *
  * crash_entry gives any code but the four the screen takes to Shinobi's
- * stub, with R0 put back in the jump's delay slot: TRAPA is one, which the
- * game runs on from. for one of the four it keeps the registers in saved,
+ * stub, with R0 put back in the jump's delay slot: TRAPA is one, which
+ * stays Shinobi's. for one of the four it keeps the registers in saved,
  * moves to own_stack and calls report, or report_again where a report had
  * begun */
 /* a macro's value as the assembler reads it */
 #define TEXT(value) #value
 #define AS(value) TEXT(value)
 /* clang-format off */
-__asm__("\t.section\t.text.crash_entry,\"ax\",@progbits\n"
+__asm__("\t.pushsection\t.text.crash_entry,\"ax\",@progbits\n"
         "\t.align\t2\n"
         "\t.global\t_crash_vector\n"
         "_crash_vector:\n"
@@ -266,6 +272,7 @@ __asm__("\t.section\t.text.crash_entry,\"ax\",@progbits\n"
         "7:\t.long\t%a2\n"
         "8:\t.long\t%a3\n"
         "9:\t.long\t%a4\n"
+        "\t.popsection\n"
         :
         : "i"(&taken), "i"(&saved[SAVED_WORDS]),
           "i"(&own_stack[OWN_STACK_WORDS]), "i"(report), "i"(report_again));
@@ -323,6 +330,9 @@ static void put(int column, int line, char c)
     if (second != 0 && second < first) {
         first = second;
     }
+    if (first > VIDEO_SIZE - REPORT_END * bytes) {
+        return;
+    }
     to = (volatile Uint32 *)(VIDEO_MEMORY + first +
                              ((((TOP + (line * CELL_H)) * WIDTH) + LEFT +
                                (column * CELL_W)) *
@@ -352,6 +362,9 @@ static void draw(int line, const char *text)
 {
     int column;
 
+    if (line < 0 || line >= MAX_LINES) {
+        return;
+    }
     for (column = 0; column < COLUMNS; column++) {
         put(column, line, *text ? *text++ : ' ');
     }
@@ -654,11 +667,19 @@ void crash_install(void)
     syCacheICI();
 }
 
-/* the vblank chain's handler, which the vblank interrupt runs. SPC, SSR and
- * SGR hold what the interrupt stopped, and its PR and registers are the
- * master's to restore, out of reach here */
+extern void *syIntIntStack;
+extern Sint32 syIntNestCount;
+extern void syFbrSwitchToFiber_ISR_START(void);
+
+/* the vblank chain's handler, which the vblank interrupt runs. when the
+ * vblank is the outermost interrupt on syIntIntStack, syIntMasterISR_2 saved
+ * SSR, SPC and PR at the top of that stack before any nested interrupt could
+ * overwrite SPC and SSR, unless a delayed fiber switch patched the return PC.
+ * otherwise fall back to SPC and SSR without PR */
 static void hang_vblank(void *arg)
 {
+    int imask;
+    int has_pr = FALSE;
     int line;
 
     (void)arg;
@@ -680,14 +701,29 @@ static void hang_vblank(void *arg)
         return;
     }
     again = HANG_AGAIN;
-    __asm__("stc spc,%0" : "=r"(stopped.pc));
-    __asm__("stc ssr,%0" : "=r"(stopped.sr));
+    imask = get_imask();
+    set_imask(IMASK_ALL);
     __asm__("stc sgr,%0" : "=r"(stopped.sp));
+    if (syIntIntStack != NULL && syIntNestCount == 1) {
+        const Uint32 *frame = (const Uint32 *)syIntIntStack;
+
+        if (frame[-2] != (Uint32)syFbrSwitchToFiber_ISR_START) {
+            stopped.sr = frame[-1];
+            stopped.pc = frame[-2];
+            stopped.pr = frame[-3];
+            has_pr = TRUE;
+        }
+    }
+    if (!has_pr) {
+        __asm__("stc spc,%0" : "=r"(stopped.pc));
+        __asm__("stc ssr,%0" : "=r"(stopped.sr));
+    }
     stopped.code = 0;
     line = show_what("HANG", idle, NULL);
-    line = show_where(line, FALSE);
+    line = show_where(line, has_pr);
     line = show_game(line);
     show_callers(line, stopped.sp);
+    set_imask(imask);
 }
 
 void crash_frame(void)

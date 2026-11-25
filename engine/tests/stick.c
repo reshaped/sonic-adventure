@@ -1,5 +1,5 @@
-/* run the compiled stick atan2 and the shipped runtime over every pad position
- */
+/* run the compiled stick atan2 and the shipped runtime at each pad position
+ * outside the dead zone, where the game takes a heading */
 #include <ninja.h>
 #include <shinobi.h>
 

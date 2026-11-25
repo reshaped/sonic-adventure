@@ -266,9 +266,9 @@ build/dc/modules/adv00/traffic.o: private GCCFLAGS += -fno-delayed-branch
 # No GCC code enters these: the hardware enters the two vector stubs,
 # which jump to the two masters, and the masters call the vector table's
 # handlers, syIntBrkRteRte among them. C copies the two stubs to VBR, and
-# stores only the masters' and syIntBrkRteRte's addresses
-build/dc/sdk/shinobi/syIntIsr.o: CONTRACTS := syIntExpISRTop syIntISRTop syIntMasterISR syIntMasterISR_2 \
-    syIntBrkRteRte
+# stores only the masters' and syIntBrkRteRte's addresses. syIntMasterISR's
+# tag is open, so it takes no contract
+build/dc/sdk/shinobi/syIntIsr.o: CONTRACTS := syIntExpISRTop syIntISRTop syIntMasterISR_2 syIntBrkRteRte
 # An interrupt that asked for a switch returns to syFbrSwitchToFiber_ISR_START,
 # and the file's switches jump to save_context and patch_interrupt_return
 build/dc/sdk/shinobi/sg_syf2.o: CONTRACTS := syFbrSwitchToFiber_ISR_START save_context patch_interrupt_return

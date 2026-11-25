@@ -425,7 +425,7 @@ static inline shz_vec3_t view_point(const NJS_POINT3 *p)
 {
     shz_vec4_t v = next_vector(&p, 1.0F);
 
-    return shz_xmtrx_transform_point3(shz_vec3_init(v.x, v.y, v.z));
+    return shz_xmtrx_transform_point3(v.xyz);
 }
 
 /* what the sphere tests pad the clip by, a pixel, which FLDI1 loads. FSRRA's

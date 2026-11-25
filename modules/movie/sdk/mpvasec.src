@@ -31,7 +31,7 @@ within:
 ; Sint32 MPVASEC_CheckSectionSiz(void)
 ; 0 when the linked size of each of PSGSFD00 to PSGSFD03 is near the size the
 ; decoder wants of it, as within judges near. -1 otherwise
-; @asm operand: small-constant, MOV.L wanted+12,R5 at 0x8cedc836 loads 0 from
+; @asm operand: integer-constant, MOV.L wanted+12,R5 at 0x8cedc836 loads 0 from
 ; its pool, where R10 writes MOV #0,R5
 _MPVASEC_CheckSectionSiz:
         STS.L       PR,@-R15

@@ -337,8 +337,8 @@ Float njScalor2(NJS_VECTOR *v);
 /* SHC intrinsics: fabsf, sqrtf, FSRRA, the reciprocal square root, and FSCA, an
  * angle's sine and cosine */
 #ifdef NONMATCHING
-/* GCC's builtins give FABS and FSQRT, where SH4ZAM's shz_sqrtf approximates
- * the root by FSRRA. ninja_zam.h defines _builtin_fsrra and _builtin_fsca */
+/* GCC's builtins give FABS and FSQRT, the instruction SH4ZAM's shz_sqrtf
+ * runs too. ninja_zam.h defines _builtin_fsrra and _builtin_fsca */
 #define _builtin_fabsf __builtin_fabsf
 #define _builtin_sqrtf __builtin_sqrtf
 #endif

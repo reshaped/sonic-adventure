@@ -1476,9 +1476,9 @@ void NJM_SET_ENV_X_STRIP_START(void)
 }
 
 /* load back into the second bank what NJM_SET_POLY_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR9 at 0x8c62c472 takes R15 above
- * its entry; its RTS at 0x8c62c488 returns 40 or, with SZ 1, 80 bytes higher,
- * past what NJM_SET_POLY_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c48a, leaves R15
+ * 40 or, with SZ 1, 80 bytes above its entry, past what
+ * NJM_SET_POLY_STRIP_START saved */
 #pragma inline_asm(NJM_SET_POLY_STRIP_END(size=24))
 void NJM_SET_POLY_STRIP_END(void)
 {
@@ -1497,9 +1497,9 @@ void NJM_SET_POLY_STRIP_END(void)
 }
 
 /* load back into the second bank what NJM_SET_POLY_X_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR3 at 0x8c62c48e takes R15 above
- * its entry; its RTS at 0x8c62c498 returns 16 or, with SZ 1, 32 bytes higher,
- * past what NJM_SET_POLY_X_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c49a, leaves R15
+ * 16 or, with SZ 1, 32 bytes above its entry, past what
+ * NJM_SET_POLY_X_STRIP_START saved */
 #pragma inline_asm(NJM_SET_POLY_X_STRIP_END(size=12))
 void NJM_SET_POLY_X_STRIP_END(void)
 {
@@ -1512,9 +1512,9 @@ void NJM_SET_POLY_X_STRIP_END(void)
 }
 
 /* load back into the second bank what NJM_SET_TEX_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR5 at 0x8c62c49e takes R15 above
- * its entry; its RTS at 0x8c62c4ac returns 24 or, with SZ 1, 48 bytes higher,
- * past what NJM_SET_TEX_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c4ae, leaves R15
+ * 24 or, with SZ 1, 48 bytes above its entry, past what
+ * NJM_SET_TEX_STRIP_START saved */
 #pragma inline_asm(NJM_SET_TEX_STRIP_END(size=16))
 void NJM_SET_TEX_STRIP_END(void)
 {
@@ -1529,9 +1529,9 @@ void NJM_SET_TEX_STRIP_END(void)
 }
 
 /* load back into the second bank what NJM_SET_TEX_X_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR1 at 0x8c62c4b2 takes R15 above
- * its entry; its RTS at 0x8c62c4b8 returns 8 or, with SZ 1, 16 bytes higher,
- * past what NJM_SET_TEX_X_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c4ba, leaves R15
+ * 8 or, with SZ 1, 16 bytes above its entry, past what
+ * NJM_SET_TEX_X_STRIP_START saved */
 #pragma inline_asm(NJM_SET_TEX_X_STRIP_END(size=8))
 void NJM_SET_TEX_X_STRIP_END(void)
 {
@@ -1542,9 +1542,9 @@ void NJM_SET_TEX_X_STRIP_END(void)
 }
 
 /* load back into the second bank what NJM_SET_ENV_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR15 at 0x8c62c4be takes R15 above
- * its entry; its RTS at 0x8c62c4e0 returns 64 or, with SZ 1, 128 bytes higher,
- * past what NJM_SET_ENV_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c4e2, leaves R15
+ * 64 or, with SZ 1, 128 bytes above its entry, past what
+ * NJM_SET_ENV_STRIP_START saved */
 #pragma inline_asm(NJM_SET_ENV_STRIP_END(size=36))
 void NJM_SET_ENV_STRIP_END(void)
 {
@@ -1569,9 +1569,9 @@ void NJM_SET_ENV_STRIP_END(void)
 }
 
 /* load back into the second bank what NJM_SET_ENV_X_STRIP_START saved */
-/* @asm abi: stack-above-entry, FMOV.S @R15+,FR13 at 0x8c62c4e6 takes R15 above
- * its entry; its RTS at 0x8c62c504 returns 56 or, with SZ 1, 112 bytes higher,
- * past what NJM_SET_ENV_X_STRIP_START saved */
+/* @asm abi: return-above-entry, the slot of its RTS, at 0x8c62c506, leaves R15
+ * 56 or, with SZ 1, 112 bytes above its entry, past what
+ * NJM_SET_ENV_X_STRIP_START saved */
 #pragma inline_asm(NJM_SET_ENV_X_STRIP_END(size=32))
 void NJM_SET_ENV_X_STRIP_END(void)
 {

@@ -17,13 +17,12 @@
 
 #include "shckit.h"
 
-static const char usage[] =
-    "usage: shckit apply -p PATCH ... -o OUT IN\n"
-    "       shckit check FILE...\n"
-    "       shckit lint FILE...\n"
-    "       shckit inspect --release RELEASE --mode MODE --entry LABEL\n"
-    "                      [--end LABEL] [--sz 0|1] [--all] FILE\n"
-    "       shckit translate -o OUT IN\n";
+static const char usage[] = "usage: shckit apply -p PATCH ... -o OUT IN\n"
+                            "       shckit check FILE...\n"
+                            "       shckit lint FILE...\n"
+                            "       shckit inspect --entry LABEL [--end LABEL] "
+                            "[--sz 0|1] [--all] FILE\n"
+                            "       shckit translate -o OUT IN\n";
 
 // Exit statuses. BAD is a text shckit refuses; FAILED is a command-line,
 // I/O or memory error, and outranks BAD. UNFINISHED is an inspection that
@@ -297,7 +296,6 @@ static int check_files(int argc, char **argv, ruleset *rules)
 }
 
 struct inspect_request {
-    struct shckit_producer producer;
     const char *entry;
     const char *end;
     const char *in;
@@ -309,23 +307,12 @@ static bool read_inspect_request(int argc, char **argv,
                                  struct inspect_request *request)
 {
     // parse each option once, in any order, and FILE last
-    static const struct {
-        const char *name;
-        unsigned modes;
-    } modes[] = {
-        {"machinecode", SHCKIT_MACHINECODE},
-        {"asmcode", SHCKIT_ASMCODE},
-        {"both", SHCKIT_MACHINECODE | SHCKIT_ASMCODE},
-    };
-    const char *mode = NULL;
     const char *sz = NULL;
     bool ok = true;
     struct {
         const char *name;
         const char **value;
     } options[] = {
-        {"--release", &request->producer.release},
-        {"--mode", &mode},
         {"--entry", &request->entry},
         {"--end", &request->end},
         {"--sz", &sz},
@@ -351,12 +338,6 @@ static bool read_inspect_request(int argc, char **argv,
         }
         *options[option].value = argv[++i];
     }
-    for (size_t i = 0; mode != NULL && i < sizeof modes / sizeof modes[0];
-         i++) {
-        if (strcmp(mode, modes[i].name) == 0) {
-            request->producer.modes = modes[i].modes;
-        }
-    }
     if (sz == NULL) {
         request->sz = SHCKIT_SZ_UNKNOWN;
     } else if (strcmp(sz, "0") == 0) {
@@ -366,8 +347,7 @@ static bool read_inspect_request(int argc, char **argv,
     } else {
         ok = false;
     }
-    if (!ok || request->in == NULL || request->producer.release == NULL ||
-        request->producer.modes == 0 || request->entry == NULL) {
+    if (!ok || request->in == NULL || request->entry == NULL) {
         fputs(usage, stderr);
         return false;
     }
@@ -412,6 +392,19 @@ static size_t block_end(const struct shckit_text *text, size_t first)
     return end;
 }
 
+static void print_registers(int32_t registers)
+{
+    // the registers of FR0 to FR7 a witness names, bit n for FRn
+    const char *before = " (";
+    for (int reg = 0; reg < 8; reg++) {
+        if (((uint32_t)registers >> reg) & 1U) {
+            printf("%sFR%d", before, reg);
+            before = " ";
+        }
+    }
+    putchar(')');
+}
+
 static int print_inspection(const struct inspect_request *request,
                             const struct shckit_text *text,
                             const struct shckit_function *function,
@@ -419,8 +412,7 @@ static int print_inspection(const struct inspect_request *request,
                             const struct shckit_witness *witnesses,
                             size_t count)
 {
-    // each witness, or none, then the limit. none, and a limit with no line
-    // of its own, name the entry's.
+    // each witness, or none, then the limit. none names the entry's line.
     static const char *const kinds[] = {"none", "opcode", "operand", "abi"};
 
     for (size_t i = 0; i < count; i++) {
@@ -431,8 +423,13 @@ static int print_inspection(const struct inspect_request *request,
         if (each->kind == SHCKIT_ABI && each->value != 0) {
             printf(" (SP %+" PRId32 ")", each->value);
         } else if (each->kind == SHCKIT_OPERAND &&
-                   strcmp(each->rule, "small-constant") == 0) {
+                   (strcmp(each->rule, "small-constant") == 0 ||
+                    strcmp(each->rule, "integer-constant") == 0)) {
             printf(" (#%" PRId32 ")", each->value);
+        } else if (each->kind == SHCKIT_OPERAND &&
+                   (strcmp(each->rule, "fipr-unloaded") == 0 ||
+                    strcmp(each->rule, "fipr-shared") == 0)) {
+            print_registers(each->value);
         }
         putchar('\n');
     }
@@ -442,12 +439,9 @@ static int print_inspection(const struct inspect_request *request,
                kinds[SHCKIT_NO_WITNESS]);
     }
     if (result->incomplete != NULL) {
-        size_t at = result->incomplete_index != SIZE_MAX
-                        ? result->incomplete_index
-                        : function->first;
         printf("%s:%zu: %s: incomplete: %s\n", request->in,
-               shckit_line(text, at)->input, request->entry,
-               result->incomplete);
+               shckit_line(text, result->incomplete_index)->input,
+               request->entry, result->incomplete);
     }
     errno = 0;
     if (fflush(stdout) != 0 || ferror(stdout) != 0) {
@@ -460,7 +454,7 @@ static int print_inspection(const struct inspect_request *request,
 static int inspect_file(int argc, char **argv)
 {
     // a text check refuses gets check's findings, not an inspection
-    struct inspect_request request = {{NULL, 0}, NULL, NULL, NULL, 0, false};
+    struct inspect_request request = {NULL, NULL, NULL, 0, false};
     struct shckit_function function = {0, 0, SHCKIT_SZ_UNKNOWN};
     struct shckit_inspection result;
     struct shckit_witness *witnesses = NULL;
@@ -489,10 +483,10 @@ static int inspect_file(int argc, char **argv)
     if (status == OK) {
         function.sz = request.sz;
         if (request.all) {
-            error = shckit_inspect_all(text, &request.producer, &function,
-                                       &result, &witnesses, &count);
+            error = shckit_inspect_all(text, &function, &result, &witnesses,
+                                       &count);
         } else {
-            error = shckit_inspect(text, &request.producer, &function, &result);
+            error = shckit_inspect(text, &function, &result);
         }
         if (error != SHCKIT_OK) {
             fprintf(stderr, "shckit: %s: %s\n", request.in,

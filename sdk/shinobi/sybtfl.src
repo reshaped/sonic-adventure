@@ -14,7 +14,7 @@ SYSCALL:        .EQU    H'8C0000B8
 
 ; Sint32 syBtFlGetInfo(Sint32 part, SY_BT_FL_BLKINFO *info)
 ; fill info with partition part's flash address and size
-; @asm operand: small-constant, MOV.L at 0x8c122718 loads its service, 0, from
+; @asm operand: integer-constant, MOV.L at 0x8c122718 loads its service, 0, from
 ; the pool
 _syBtFlGetInfo:
         MOV.L       #0,R7
@@ -25,7 +25,7 @@ _syBtFlGetInfo:
 
 ; Sint32 syBtFlRead(Sint32 address, void *buffer, Sint32 size)
 ; read size bytes at address into buffer
-; @asm operand: small-constant, MOV.L at 0x8c12272c loads its service, 1, from
+; @asm operand: integer-constant, MOV.L at 0x8c12272c loads its service, 1, from
 ; the pool
 _syBtFlRead:
         MOV.L       #1,R7
@@ -36,7 +36,7 @@ _syBtFlRead:
 
 ; Sint32 syBtFlWrite(Sint32 address, void *buffer, Sint32 size)
 ; write size bytes from buffer to address
-; @asm operand: small-constant, MOV.L at 0x8c122740 loads its service, 2, from
+; @asm operand: integer-constant, MOV.L at 0x8c122740 loads its service, 2, from
 ; the pool
 _syBtFlWrite:
         MOV.L       #2,R7
@@ -47,7 +47,7 @@ _syBtFlWrite:
 
 ; Sint32 syBtFlDeleteSct(Sint32 address)
 ; erase the partition that holds address
-; @asm operand: small-constant, MOV.L at 0x8c122754 loads its service, 3, from
+; @asm operand: integer-constant, MOV.L at 0x8c122754 loads its service, 3, from
 ; the pool
 _syBtFlDeleteSct:
         MOV.L       #3,R7

@@ -30,7 +30,7 @@ Call out changes to recorded hashes, code accounting, splice rules or other veri
 | `make review` | Tag checks and a list of the `@asm open` tags ([Assembly evidence](TAGS.md#assembly-evidence)). |
 | `make dc` | The GCC Dreamcast port compiles without warnings, checks the disc-derived content, imports and memory limits, and links every image anew ([Build model](PORTS.md#build-model)). |
 | `make dc-disc` | Builds a disc from the port's link, checks replaced files against the manifest and preserves the other files' placements ([Memory contract and disc](PORTS.md#memory-contract-and-disc)). |
-| `make dc-check` | Without the disc, builds and hashes the port's disc-independent objects and supporting tools in `build/dc/check.txt`, and checks the imports, census and offset tables it can read. Compare the sums across hosts at the same commit and with the same `SH_ELF` ([Build model](PORTS.md#build-model)). |
+| `make dc-check` | Without the disc, builds and hashes the port's disc-independent objects and supporting tools in `build/dc/check.txt`, and checks the imports, census and offset tables it can read. Compare the sums across hosts at the same commit, checkout path and `SH_ELF` ([Build model](PORTS.md#build-model)). |
 | `make dc-order` | Writes the record of where each warm row lies, moving only a row that no longer fits its place. `SEARCH=1` searches every place again and `PACK=1` lays the rows end to end; both move code. It writes files, not a passing check ([Coordinated link](PORTS.md#coordinated-link)). |
 | `make pc` | Builds the PC game, `play`, from the disc; it doesn't run it ([Native game](ENGINE.md#native-game)). |
 | `make native` | Runs `play` headless for 600 vsyncs from Emerald Coast's first act, and checks that missing startup symbols are rejected ([Starting the game](ENGINE.md#starting-the-game)). |
@@ -52,7 +52,7 @@ What passing doesn't show:
 - **`make dc-check` is not `make dc`.** It links no image and checks no disc-derived content. Its sums aren't reference hashes: comparison across hosts shows only whether they built the same covered objects and tools. Only `make check` verifies offset tables against stub builds.
 - **The gates don't show how either port plays.** `make dc` and `make accept` don't boot the Dreamcast disc; `make native` runs without pictures, sound or a pad. Test the disc on a console or emulator, and the PC game with `make play`. `make accept` also runs neither `make relink` nor `make shift`.
 
-CI runs `make test`, `make check` and `make lint`, and builds gdi and prskit. It has no disc, so it runs no `make dc`. A second job runs `make test` with the Dreamcast toolchain and SH4ZAM, for the tests that need them.
+CI runs `make test`, `make check` and `make lint`, and builds gdi and prskit. It has no disc, so it runs no `make dc`. A second job runs `make dc-check`, `make test` and `make engine-test` with the Dreamcast toolchain and SH4ZAM, for the checks and tests that need them.
 
 ## One source, end to end
 

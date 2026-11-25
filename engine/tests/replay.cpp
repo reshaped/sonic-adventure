@@ -78,6 +78,38 @@ int check()
         plain != std::vector<uint8_t>{'A', 'B', 'C', 'A', 'B', 'C', 'A', 'B'}) {
         return 1;
     }
+    /* a valid PRS stream of 770 + blocks * 1024 'A' bytes: 0xab gives two
+     * literals and three 256-byte long copies from 1 back, each 0xaa block
+     * gives four more 256-byte copies, and 0x02 0x00 0x00 terminates it */
+    auto make_prs_run = [](int blocks) {
+        std::vector<uint8_t> stream = {0xab, 'A', 'A'};
+        for (int j = 0; j < 3; j++) {
+            stream.push_back(0xf8);
+            stream.push_back(0xff);
+            stream.push_back(0xff);
+        }
+        for (int i = 0; i < blocks; i++) {
+            stream.push_back(0xaa);
+            for (int j = 0; j < 4; j++) {
+                stream.push_back(0xf8);
+                stream.push_back(0xff);
+                stream.push_back(0xff);
+            }
+        }
+        stream.push_back(0x02);
+        stream.push_back(0x00);
+        stream.push_back(0x00);
+        return stream;
+    };
+    if (!pc::prs_decode(make_prs_run(10), plain) ||
+        plain.size() != 770U + 10U * 1024U || plain.front() != 'A' ||
+        plain.back() != 'A') {
+        return 60;
+    }
+    /* a stream that expands past the 64 MiB output cap is rejected */
+    if (pc::prs_decode(make_prs_run(65536), plain)) {
+        return 61;
+    }
 
     /* a twiddled 4 by 4 in ARGB4444, where texel (x, y) has red x and green
      * y. its place interleaves the bits of y and x, y's lowest bit lowest */

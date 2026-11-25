@@ -118,9 +118,9 @@ _syIntISRBottom:
 ; sets FPSCR to H'40001. it then calls the latched code's handler, if USER_VECT
 ; holds one, with the code in R4. after a handler it sets SR.BL. it restores
 ; the registers and returns by RTE
-; @asm abi: stack-above-entry, MOV.L @R15+,R1 at 0x8c6716f0 pops the R1 its stub
-; pushed, which takes R15 4 bytes above its entry, where it stays to its RTE at
-; 0x8c67182c
+; @asm open: inspect meets stack-unknown at the FMOV.S at 0x8c671730, below the
+; write to FPSCR at 0x8c67172a, so no rule reads the R15 its RTE at 0x8c67182c
+; leaves 4 bytes above its entry
 _syIntMasterISR:
         MOV.L       @R15+,R1
         STC.L       SSR,@-R15

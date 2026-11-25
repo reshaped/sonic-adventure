@@ -827,8 +827,8 @@ _project_points:
 ; lit_offsets. when the first meshset's material has a specular color and
 ; ATTRS lacks NJD_FLAG_IGNORE_SPECULAR, the offset colors come from the next
 ; palette's entries instead
-; @asm opcode: fschg, FSCHG at 0x8c038392 turns FMOV to pairs for xmtrx's
-; columns
+; @asm operand: fschg-register-moves, FMOV XD0,DR0 at 0x8c038394, after the
+; FSCHG at 0x8c038392, moves a pair of xmtrx's first column between registers
 _shade_points:
         MOV.L       @(FIRST_MATERIAL,GBR),R0
         MOV         R0,R5

@@ -35,7 +35,7 @@ _c_data:
 
 # SRC with c_tail exported, in a list, so that it starts a function the tables don't name, and its tag
 TAIL = SRC.replace('        .EXPORT     _c_next\n', '        .EXPORT     _c_next, c_tail\n').replace(
-    'c_tail:\n', ('; @asm abi: stack-above-entry, its RTS at 0x0c900048 returns with R15 4\n'
+    'c_tail:\n', ('; @asm abi: return-above-entry, its RTS at 0x0c900048 returns with R15 4\n'
                   '; bytes above its entry\n'
                   'c_tail:\n'))
 
@@ -320,11 +320,12 @@ class Tags(unittest.TestCase):
                      src=SRC.replace('; @asm opcode:', '; @asm name:'))
 
     def test_takes_each_kind_s_rules(self):
-        rules = {'opcode': 'rotcl rotcr swap dmuls dmulu movca fschg cache-line sett',
-                 'operand': 'fipr-registers ftrv-registers fsca-registers small-constant zero-displacement '
-                            'fschg-pairs',
-                 'abi': 'stack-written fpscr-save stack-above-entry return-below-entry register-contract '
-                        'exception-entry exception-continuation'}
+        rules = {'opcode': 'rotcl rotcr swap dmuls dmulu movca cache-line sett cmp-str',
+                 'operand': 'fipr-registers fipr-unloaded fipr-shared ftrv-registers fsca-registers small-constant '
+                            'integer-constant zero-displacement fschg-slot fschg-pairs fschg-dt fschg-stores '
+                            'fschg-register-moves',
+                 'abi': 'stack-written fpscr-save pr-save-below-branch return-above-entry return-below-entry '
+                        'register-contract exception-entry exception-continuation'}
         for kind, words in rules.items():
             for rule in words.split():
                 check(C.replace('opcode: cache-line,', f'{kind}: {rule},'))
@@ -332,7 +333,7 @@ class Tags(unittest.TestCase):
 
     def test_wants_a_rule_of_the_tag_s_kind(self):
         form = (r'(?m)a\.c:13: not @asm opcode: <rule>, <text>, with a rule of rotcl, rotcr, swap, dmuls, dmulu, '
-                r'movca, fschg, cache-line, sett$')
+                r'movca, cache-line, sett, cmp-str$')
         for wrong in ('OCBI', 'cache-line OCBI', 'Cache-line, OCBI', 'cache-line,OCBI', 'cache-lines, OCBI',
                       'fschg-pairs, OCBI', 'epilogue, OCBI'):
             self.rejects(form, C.replace('opcode: cache-line, OCBI', f'opcode: {wrong}'))
@@ -340,7 +341,7 @@ class Tags(unittest.TestCase):
         self.rejects(r'(?m)c\.src:8: not @asm operand: <rule>, <text>, with a rule of fipr-registers, ',
                      src=SRC.replace('; @asm opcode:', '; @asm operand:'))
         self.rejects(r'(?m)c\.src:13: not @asm abi: <rule>, <text>, with a rule of stack-written, ',
-                     src=TAIL.replace('abi: stack-above-entry,', 'abi:'))
+                     src=TAIL.replace('abi: return-above-entry,', 'abi:'))
 
     def test_names_a_missing_file(self):
         with tree(TABLES), self.assertRaisesRegex(SystemExit, r'modules/mod/none\.c: No such file or directory'):

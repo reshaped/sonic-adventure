@@ -130,13 +130,13 @@ Open assembly rebuilds exactly, like everything else, and counts in the build's 
 
 Except for `open`, the text begins with its rule or evidence identifier and a comma, then explains the basis and cites the addresses it rests on. Lint takes each `0x` and eight hex digits for a cited address, so the text spells a 32-bit value another way, as `H'FF000000`. For `name`, the citation is the function's first address rather than an instruction witness. Anything after that only corroborates. By kind, the text opens with:
 
-- `opcode`: `rotcl`, `rotcr`, `swap`, `dmuls`, `dmulu`, `movca`, `fschg`, `cache-line` or `sett`;
-- `operand`: `fipr-registers`, `ftrv-registers`, `fsca-registers`, `small-constant`, `zero-displacement` or `fschg-pairs`;
-- `abi`: `stack-written`, `fpscr-save`, `stack-above-entry` or `return-below-entry`, or a contract;
+- `opcode`: `rotcl`, `rotcr`, `swap`, `dmuls`, `dmulu`, `movca`, `cache-line`, `sett` or `cmp-str`;
+- `operand`: `fipr-registers`, `fipr-unloaded`, `fipr-shared`, `ftrv-registers`, `fsca-registers`, `small-constant`, `integer-constant`, `zero-displacement`, `fschg-slot`, `fschg-pairs`, `fschg-dt`, `fschg-stores` or `fschg-register-moves`;
+- `abi`: `stack-written`, `fpscr-save`, `pr-save-below-branch`, `return-above-entry` or `return-below-entry`, or a contract;
 - `epilogue`: `dead-return` or `fill`, citing the dead `RTS` or the padding;
 - `name`: the member's name, citing the function's first address.
 
-The `opcode`, `operand` and non-contract `abi` openings are rules of `shckit inspect`, which shckit's [inspect.md](https://github.com/reshaped/shckit/blob/e0b8412e337103b59ea2f0d58dd7be52699222b9/docs/inspect.md#the-rules) defines with the releases and modes each holds for. The witness is the instruction at the cited address, in the tagged function or one its inline body expands into. `stack-above-entry` and `return-below-entry` rest on inspect's [frame argument](https://github.com/reshaped/shckit/blob/e0b8412e337103b59ea2f0d58dd7be52699222b9/docs/inspect.md#abi-rules), which is unfinished: no R10 compile of C found so far makes either witness.
+The `opcode`, `operand` and non-contract `abi` openings are rules of `shckit inspect`, which shckit's [inspect.md](https://github.com/reshaped/shckit/blob/02d9f1191426d38fb9c230a2293a36f8ed3e3996/docs/inspect.md#the-rules) defines with the evidence each rests on. A rule's claim is that no Dreamcast SHC compiler is known to write its witness from C, which is weaker than that none can. The witness is the instruction at the cited address, in the tagged function or one its inline body expands into. `return-above-entry` and `return-below-entry` rest on inspect's [frame argument](https://github.com/reshaped/shckit/blob/02d9f1191426d38fb9c230a2293a36f8ed3e3996/docs/inspect.md#abi-rules), which is unfinished and was read for R10 alone: no compile of C found so far makes either witness.
 
 An `open` tag's text is one short line saying what's missing, such as an instruction no inspect rule reads, or that every instruction is one SHC writes for C. It cites an address only where that helps.
 
@@ -163,15 +163,14 @@ For an `opcode`, `operand` or `abi` tag that opens with one of inspect's rules, 
 To reproduce an inspect finding, let `PATH` stand for the source path without its extension:
 
 1. **Build the text asmsh assembled.** For an inline body or a block, `make build/PATH.obj` writes R10's text at `build/PATH.src`; on a patched route take `build/PATH_patched.src`, or `build/PATH_aligned.src` for a source with an `ALIGN` setting. For a `.src` function, use the file itself.
-2. **Pick the release and mode.** Inline bodies and blocks take `--release 5.0R10 --mode asmcode`. A `.src` function takes the release [Releases](TOOLCHAIN.md#releases) gives its code, with `--mode machinecode`. The directory doesn't decide: `sdk/ninja/kmasm_kamui_lib.src` is one of SDK 1.30J's Kamui members, so R32.
-3. **Set the bounds.** `--entry` is the function's label and `--end` the next function's; leave `--end` out for a section's last function. R10 prefixes an external function's name with `_`, and a static one may have only an `Ln` label: check the listing, `build/PATH.lis`.
-4. **Find the witness.** `--all` prints every witness with its line in the text. The cited address less the start of its `splits.txt` row is an offset; the listing puts that offset on a line, and gives the text's line number after the object code.
+2. **Set the bounds.** `--entry` is the function's label and `--end` the next function's; leave `--end` out for a section's last function. R10 prefixes an external function's name with `_`, and a static one may have only an `Ln` label: check the listing, `build/PATH.lis`.
+3. **Find the witness.** `--all` prints every witness with its line in the text. The cited address less the start of its `splits.txt` row is an offset; the listing puts that offset on a line, and gives the text's line number after the object code.
 
 `thread_yield`'s tag in `src/system/thread.c` opens `stack-written` and cites `0x8c09f27c`:
 
 ```sh
 make build/shckit build/src/system/thread.obj
-build/shckit inspect --release 5.0R10 --mode asmcode --entry _thread_yield --end _thread_exit --all build/src/system/thread.src
+build/shckit inspect --entry _thread_yield --end _thread_exit --all build/src/system/thread.src
 ```
 
 ```text
@@ -179,7 +178,7 @@ build/src/system/thread.src:92: _thread_yield: abi: stack-written
 build/src/system/thread.src:89: _thread_yield: incomplete: call
 ```
 
-Its `P` row starts at `0x8c09f200`, so the cited address is offset `0x7c`, which the listing puts on text line 92. inspect exits 3 for the limit it met at the call on line 89; the witness holds even so ([What it reports](https://github.com/reshaped/shckit/blob/e0b8412e337103b59ea2f0d58dd7be52699222b9/docs/inspect.md#what-it-reports)).
+Its `P` row starts at `0x8c09f200`, so the cited address is offset `0x7c`, which the listing puts on text line 92. inspect exits 3 for the limit it met at the call on line 89; the witness holds even so ([What it reports](https://github.com/reshaped/shckit/blob/02d9f1191426d38fb9c230a2293a36f8ed3e3996/docs/inspect.md#what-it-reports)).
 
 ### Bases no tool checks
 

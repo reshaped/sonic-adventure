@@ -39,10 +39,13 @@ turn_rows(NJS_MATRIX *m, unsigned first, unsigned second, Float cosine,
  * the turns about x and y take their sines and cosines by the shipped
  * body's arithmetic and branches.
  *
- * a null m doesn't take SH4ZAM's shz_xmtrx_rotate_dir. that entry takes
- * radians, where ang is in FSCA's own unit. it also differs from this body
- * where v isn't unit length. about a zero v, this body turns by ang about z.
- * that entry scales XMTRX's first three columns by ang's cosine */
+ * a null m doesn't take SH4ZAM's shz_xmtrx_rotate_dir_u16. that entry takes
+ * ang in FSCA's own unit, as this body does. but it builds one matrix from
+ * v and ang by FMULs and FMACs and applies it by three FTRVs, where this
+ * body makes five turns, so the two round differently. it also differs from
+ * this body where v isn't unit length. about a zero v, this body turns by
+ * ang about z. that entry scales XMTRX's first three columns by ang's
+ * cosine */
 void njRotate(NJS_MATRIX *m, NJS_VECTOR *v, Angle ang)
 {
     Float x = v->x;

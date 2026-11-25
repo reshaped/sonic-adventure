@@ -454,14 +454,22 @@ status = printf '  %-6s %s\n' '$1' $(call quoted,$2)
 # can shorten them; tools/link.py keeps its own
 HUNG  := 600
 GRACE := 10
+export HUNG GRACE
+# CI and accept retry only a tool whose supervisor actually timed out. Their
+# wrapper writes the final attempt to the same log quiet inspects on an
+# ordinary run
+ifeq ($(RETRY_WIBO_TIMEOUT),1)
+wibo = sh tools/retry_wibo.sh $@.log $(call quoted,$(ADMITTED)) $(WIBO)
+else
 wibo = timeout --verbose -k $(GRACE) $(HUNG) $(WIBO)
+endif
 # asmsh interprets '/' as an option prefix
 dos = '$(subst /,\,$1)'
 # Keep SHC's or asmsh's output in $@.log, and print it and fail on a nonzero
 # status or on any error or warning it reports, since some warnings come with
 # status 0. A log that awk can't read fails too. ADMITTED, set for a source in
 # config/compilers.mk, is the text of one warning its compile may report once
-quiet = > $@.log 2>&1 && awk -v admitted='$(ADMITTED)' '/ \([EWF]\) / { if (admitted != "" && index($$0, admitted) && !seen++) next; exit 1 }' $@.log || (cat $@.log; false)
+quiet = $(if $(filter 1,$(RETRY_WIBO_TIMEOUT)),,> $@.log 2>&1) && awk -v admitted='$(ADMITTED)' '/ \([EWF]\) / { if (admitted != "" && index($$0, admitted) && !seen++) next; exit 1 }' $@.log || (cat $@.log; false)
 # R10 names its temporary files from its process id's digits, so two
 # compiles sharing SHC_TMP can clash; each object takes a directory of its own
 shc_tmp = $(@:build/%.obj=build/tmp/%)
@@ -789,8 +797,8 @@ ACCEPT_STATE = git rev-parse --verify HEAD && git status --porcelain --untracked
 # Each gate is a run of this make's executable with no flag but accept's -j.
 # make hands its recipes its flags in MAKEFLAGS and MFLAGS and its depth in
 # MAKELEVEL, and exports each variable its command line gives. accept unsets
-# them all for each gate, and SH_ELF, which the environment may give. dc,
-# dc-disc, engine-test and test take SH_ELF, on their command lines. pc,
+# them all for each gate, and SH_ELF, which the environment may give. dc-check,
+# dc, dc-disc, engine-test and test take SH_ELF, on their command lines. pc,
 # native and engine-test read engine/mk/native.mk, whose rules take
 # from the environment how the native slice builds, each setting in a
 # variable named NATIVE or NATIVE_ and more, as NATIVE_HOST=windows builds
@@ -803,8 +811,10 @@ ACCEPT_STATE = git rev-parse --verify HEAD && git status --porcelain --untracked
 # the gate holds that the game reaches them. test runs last, so that each
 # GCC test runs with the toolchain the dc gates used
 ACCEPT_MAKE = $(strip $(MAKE) $(filter -j%,$(MAKEFLAGS)))
-ACCEPT_GATES = lint all check $(call quoted,dc SH_ELF=$(SH_ELF)) $(call quoted,dc-disc SH_ELF=$(SH_ELF)) pc \
-	native $(call quoted,engine-test SH_ELF=$(SH_ELF)) $(call quoted,test SH_ELF=$(SH_ELF))
+ACCEPT_ENV = RETRY_WIBO_TIMEOUT=1
+ACCEPT_GATES = lint all check $(call quoted,dc-check SH_ELF=$(SH_ELF)) $(call quoted,dc SH_ELF=$(SH_ELF)) \
+	$(call quoted,dc-disc SH_ELF=$(SH_ELF)) pc native $(call quoted,engine-test SH_ELF=$(SH_ELF)) \
+	$(call quoted,test SH_ELF=$(SH_ELF))
 ACCEPT_UNSET = MAKEFLAGS MFLAGS MAKELEVEL SH_ELF $(sort $(filter NATIVE NATIVE_%,$(.VARIABLES))) $(GIVEN)
 # what the record sums once the gates pass: the manifest, 1ST_READ.BIN's
 # final ELF and each file of the disc, which the dc-disc gate builds anew
@@ -826,7 +836,7 @@ accept:
 		echo "build/accept.txt: the tree differs from $$commit"; exit 1; fi; \
 	for gate in $(ACCEPT_GATES); do \
 		printf '  %-6s %s\n' gate "$(ACCEPT_MAKE) $$gate"; \
-		env $(addprefix -u ,$(ACCEPT_UNSET)) $(ACCEPT_MAKE) $$gate; status=$$?; \
+		env $(addprefix -u ,$(ACCEPT_UNSET)) $(ACCEPT_ENV) $(ACCEPT_MAKE) $$gate; status=$$?; \
 		echo "gate     $$status  $(ACCEPT_MAKE) $$gate" >> build/accept.txt || exit 1; \
 		[ $$status = 0 ] || exit $$status; \
 	done; \

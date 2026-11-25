@@ -120,11 +120,12 @@ from tool import content, fail
 KINDS = ('opcode', 'operand', 'abi', 'epilogue', 'name', 'open')
 # each kind's rules, one of which an opcode, operand or abi tag's text opens with: shckit inspect's, and for abi also
 # three contracts with the places a function is entered from, which inspect, reading one function, can't see
-RULES = {'opcode': ('rotcl', 'rotcr', 'swap', 'dmuls', 'dmulu', 'movca', 'fschg', 'cache-line', 'sett'),
-         'operand': ('fipr-registers', 'ftrv-registers', 'fsca-registers', 'small-constant', 'zero-displacement',
-                     'fschg-pairs'),
-         'abi': ('stack-written', 'fpscr-save', 'stack-above-entry', 'return-below-entry', 'register-contract',
-                 'exception-entry', 'exception-continuation')}
+RULES = {'opcode': ('rotcl', 'rotcr', 'swap', 'dmuls', 'dmulu', 'movca', 'cache-line', 'sett', 'cmp-str'),
+         'operand': ('fipr-registers', 'fipr-unloaded', 'fipr-shared', 'ftrv-registers', 'fsca-registers',
+                     'small-constant', 'integer-constant', 'zero-displacement', 'fschg-slot', 'fschg-pairs',
+                     'fschg-dt', 'fschg-stores', 'fschg-register-moves'),
+         'abi': ('stack-written', 'fpscr-save', 'pr-save-below-branch', 'return-above-entry', 'return-below-entry',
+                 'register-contract', 'exception-entry', 'exception-continuation')}
 # the evidence an epilogue or name tag's text opens with: for epilogue, SHC's dead RTS after an inline body's return,
 # or its alignment and RTS after a body that ends in neither a return nor a tail jump; for name, the member the
 # shipped library names as assembly

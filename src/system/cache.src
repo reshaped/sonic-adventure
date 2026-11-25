@@ -139,8 +139,8 @@ _cache_empty_all:
 ; Bool matrix_load_parent(void)
 ; load the matrix below Ninja's current one on its matrix stack into
 ; XMTRX, and return TRUE. the stack stays as it is
-; @asm opcode: fschg, FSCHG at 0x8c02f292 turns FMOV to pairs for the matrix's
-; loads
+; @asm open: no inspect rule reads its FSCHG at 0x8c02f292, which R10 writes for
+; a builtin and R32, the game code's release, has no form for
 _matrix_load_parent:
         MOV         #1,R4
         SHLL2       R4

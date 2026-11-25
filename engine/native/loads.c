@@ -65,5 +65,10 @@ void native_address32(void *object, unsigned long size, int mark, void *address)
         fprintf(stderr, "sa1: mark %#x in no table\n", mark);
         exit(2);
     }
+    if ((uintptr_t)address > UINT32_MAX) {
+        fprintf(stderr, "sa1: mark %#x address %p doesn't fit in 32 bits\n",
+                mark, address);
+        exit(2);
+    }
     *word = (int32_t)(uintptr_t)address;
 }

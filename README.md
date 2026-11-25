@@ -18,7 +18,7 @@ The first complete matching decompilation of a retail Dreamcast game, including 
 
 *\*SHC's assembly for 14 of the C sources matches once [shckit](https://github.com/reshaped/shckit) patches it ([Patched R10](TOOLCHAIN.md#patched-r10)). [Accounting](TOOLCHAIN.md#accounting) explains the percentages.*
 
-Most of the assembly was handwritten in the original, not compiled from C. Compiler analysis and original symbol names already provide [evidence](TAGS.md#assembly) of handwritten origins for 62.4% of its instructions and data.
+Most of the assembly was handwritten in the original, not compiled from C. Compiler analysis and original symbol names already provide [evidence](TAGS.md#assembly) of handwritten origins for 61.4% of its instructions and data.
 <!-- /progress -->
 
 ## Build
@@ -51,7 +51,7 @@ make play      # play the PC game in a window, from Emerald Coast's start
 
 `make dc` builds the sources with GCC 16.2 and links every image anew, under `build/dc/` at the disc's paths. It needs the disc but neither SHC nor wibo. Its first run builds binutils and GCC from source ([Toolchain](PORTS.md#toolchain)); their logs are in `build/toolchain/`. `make dc-disc` needs the disc's `.gdi` and its tracks in `orig/`, not its files alone. [The port's features](#the-ports-features) describes what it adds.
 
-`make dc-check` needs neither disc nor SHC. It builds the port's disc-independent objects and writes `build/dc/check.txt`: hashes of those objects, SH4ZAM's archive, the toolchain's `libgcc.a` and two compression results. Compare the file across hosts at the same commit, with the same `SH_ELF` ([Checks](CONTRIBUTING.md#checks)). Its first run builds the toolchain and fetches SH4ZAM, as `make dc` does.
+`make dc-check` needs neither disc nor SHC. It builds the port's disc-independent objects and writes `build/dc/check.txt`: hashes of those objects, SH4ZAM's archive, the toolchain's `libgcc.a` and two compression results. Compare the file across hosts at the same commit, checkout path and `SH_ELF` ([Checks](CONTRIBUTING.md#checks)). Its first run builds the toolchain and fetches SH4ZAM, as `make dc` does.
 
 `make pc` builds the game from your disc, and `make play` runs it in a window. The engine's build goals need Python 3.9 or later; a window needs SDL3 and Vulkan. [Checks](CONTRIBUTING.md#checks) lists the other host requirements, and [Build goals](ENGINE.md#build-goals) lists the engine's commands.
 
@@ -59,7 +59,7 @@ Run one `make` invocation at a time per checkout; `-j` within it is fine. SHC is
 
 ## The port's features
 
-`make dc` adds 16:9, 60 fps, skips for movies and cutscenes, and a performance readout. The game decides when each may apply, and the engine draws them ([Dreamcast](ENGINE.md#dreamcast)).
+`make dc` adds 16:9, 60 fps, skips for movies and cutscenes, and a performance readout. The game decides when each may apply, and the engine draws them ([Dreamcast](ENGINE.md#dreamcast)). It also adds a [crash screen](#the-crash-screen), which no chord turns off.
 
 | Press, on the first pad | Does |
 |---|---|
@@ -85,6 +85,16 @@ Start skips any movie; the shipped game skips only the opening. During an event,
 ### 60 fps
 
 60 fps can split a game frame into two pictures without doubling the game's steps. It applies in play and the fade into it, not in Twinkle Circuit, Sky Chase, the Chao gardens or race, pause, other fades or game over. The PC uses the same split frame ([60 fps](ENGINE.md#60-fps)).
+
+### The crash screen
+
+The Dreamcast port draws a report of where the game stopped, and why, straight into the frame buffer the screen shows.
+
+An address error or an illegal instruction draws the report and stops the game there. The shipped game leaves both to the handler Shinobi gives every exception. What a retail console does from there isn't established, so the port may stop where a retail console wouldn't.
+
+Where a file the game can't go on without won't open or read, the port draws the report with the file's name, and stops. At an opened tray or a changed disc the game still leaves for the boot ROM. The PC game prints the failure and ends its run.
+
+A watchdog takes 1,800 vblanks (30 seconds at 60 Hz) with no frame ended and no picture sent as a hang. It draws the report then and keeps redrawing it until the game's next frame or picture. It doesn't stop the game, so the report can show over a load that recovers ([Crash screen](ENGINE.md#crash-screen)).
 
 ## How the matching build works
 
@@ -135,9 +145,10 @@ Special thanks to some amazing engineers:
 - [SH4ZAM](https://github.com/gyrovorbis/sh4zam) by Falco Girgis for hand-tuned SH-4 math functions used in the GCC Dreamcast port.
 - [sh4_fpu_approx.h](https://gist.github.com/skmp/4bd7b38149fc455978b5104201573236) by Stefanos Kornilios Mitsis Poiitidis for bit exact SH-4 FPU math.
 - [MAME](https://github.com/mamedev/mame)'s AICA emulation by ElSemi, Deunan Knute and R. Belmont for the PC port's sound tables.
+- [pl_mpeg](https://github.com/phoboslab/pl_mpeg) by Dominic Szablewski for the MPEG-1 decoder that plays the PC port's movies.
 
 ## License
 
-The Makefile, `dc.mk`, `config/compilers.mk`, `config/gcc.mk`, `config/dreamcast.mk` and the files committed to `engine/`, `tools/` and `tests/` are under the [MIT license](tools/LICENSE), except where a file carries its own notice. The rest of the repository has no license.
+The Makefile, `dc.mk`, `config/compilers.mk`, `config/gcc.mk`, `config/dreamcast.mk` and the files committed to `.github/`, `engine/`, `tools/` and `tests/` are under the [MIT license](tools/LICENSE), except where a file carries its own notice. The rest of the repository has no license.
 
 This project isn't affiliated with or endorsed by SEGA.

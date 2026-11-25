@@ -12,7 +12,7 @@ SYSCALL:        .EQU    H'8C0000B0
         .SECTION    P,CODE,ALIGN=4
 
 ; void kbCfgIni(Sint32 which)
-; @asm operand: small-constant, MOV.L at 0x8c11b7d0 loads its service, 0, from
+; @asm operand: integer-constant, MOV.L at 0x8c11b7d0 loads its service, 0, from
 ; the pool
 _kbCfgIni:
         MOV.L       #0,R7
@@ -23,7 +23,7 @@ _kbCfgIni:
 
 ; Sint32 kbCfgGetIcon(Sint32 icon, void *dest)
 ; copy icon, one of the boot ROM's icons, into dest
-; @asm operand: small-constant, MOV.L at 0x8c11b7e4 loads its service, 2, from
+; @asm operand: integer-constant, MOV.L at 0x8c11b7e4 loads its service, 2, from
 ; the pool
 _kbCfgGetIcon:
         MOV.L       #2,R7
@@ -33,7 +33,7 @@ _kbCfgGetIcon:
         NOP
 
 ; void *kbCfgGetId(void)
-; @asm operand: small-constant, MOV.L at 0x8c11b7f8 loads its service, 3, from
+; @asm operand: integer-constant, MOV.L at 0x8c11b7f8 loads its service, 3, from
 ; the pool
 _kbCfgGetId:
         MOV.L       #3,R7

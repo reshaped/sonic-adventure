@@ -381,8 +381,8 @@ build/dc/sh4zam/%.o: tools/sh4zam/source/%.c $(GCC_ID) | $(FETCHED)
 # GNU as assembles SH4ZAM's assembly as it is, little-endian under GAS_CHECKS,
 # not GASFLAGS. It pads each section to its alignment, which GASFLAGS'
 # --no-pad-sections would not: make dc's 1ST_READ.BIN and LOADER.BIN hold the
-# 7 NOPs, 14 bytes, that pad .text._shz_memcpy32_sh4_ to a multiple of 32. The
-# assembly includes no file, so it waits for no fetch but its own
+# 15 NOPs, 30 bytes, that pad .text._shz_memcpy128_sh4_ to a multiple of 32.
+# The assembly includes no file, so it waits for no fetch but its own
 build/dc/sh4zam/%.o: tools/sh4zam/source/%.s $(GCC_ID)
 	@$(call status,gas,$<)
 	$(Q)mkdir -p $(@D) && $(SH_ELF)/bin/sh-elf-as $(GAS_CHECKS) --little -o $@ $<
@@ -648,8 +648,8 @@ $(DC_COMPRESSED):
 # DC_CHECKED, for the archive, for each of DC_COMPRESSED and for the
 # toolchain's libgcc.a, whose members make dc's link takes. The lines lie in
 # the order of their paths in the C locale, as SHA256SUMS's do, so two hosts
-# that built the same files under one SH_ELF write the same text, and diff
-# names each file that differs. libgcc.a's path opens with SH_ELF, so under
+# that built the same files from one checkout path and SH_ELF write the same
+# text, and diff names each file that differs. libgcc.a's path opens with SH_ELF, so under
 # another SH_ELF its line names another path, and takes another place in the
 # order. The lines reach sort through a file, not a pipe, which would end
 # with sort's status: the recipe fails where sha256sum can't read a file.
@@ -715,9 +715,8 @@ tools/sh-elf/bin/sh-elf-gcc:
 	$(Q)rm -rf tools/sh-elf.src build/toolchain
 
 # Fetch the complete library by commit and verify each file against its hash.
-# The fork carries the FSCA output-register change in upstream PR #94 on top
-# of upstream master at 3ef3764.
-SH4ZAM_AT := https://raw.githubusercontent.com/reshaped/sh4zam/810f9b4fcd1af950449f06873829ca8c512b388c
+# The commit is upstream's own: the tree carries no change to SH4ZAM
+SH4ZAM_AT := https://raw.githubusercontent.com/gyrovorbis/sh4zam/ff395477628e89bb403db16b17c4759cf4f788ac
 $(SH4ZAM): $(if $(UNFETCHED),FORCE)
 	@$(call status,fetch,$@)
 	$(Q)rm -f $(FETCHED) && mkdir -p $(@D) && $(call fetch,$(SH4ZAM_AT)/$(@:tools/sh4zam/%=%),$@)
@@ -726,5 +725,5 @@ $(SH4ZAM): $(if $(UNFETCHED),FORCE)
 # Once every file is in place, FETCHED's recipe removes each other file
 # under tools/sh4zam/, one an earlier pin listed, then writes FETCHED
 $(FETCHED): $(SH4ZAM)
-	$(Q)rm -f $@ $(filter-out $(SH4ZAM) $(FETCHED),$(shell [ ! -d tools/sh4zam ] || find tools/sh4zam -type f))
+	$(Q)rm -f $@ $(filter-out $(SH4ZAM) $(FETCHED),$(shell [ ! -d tools/sh4zam ] || find tools/sh4zam ! -type d))
 	$(Q)mkdir -p $(@D) && $(sh4zam_sums) > $@

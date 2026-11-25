@@ -45,8 +45,8 @@ NO_FIBER:       .EQU    H'FFFFFFFF
 ; build a frame with floats at the top of the size bytes at stack, and
 ; return its lowest address, for the fiber's sp. the frame is zero but for
 ; its ssr, the caller's sr, and its spc and r4, which start func with data
-; @asm operand: small-constant, MOV.L at 0x8c617f16 loads WITH_FLOATS, 0, for
-; the frame's last word from the pool
+; @asm operand: integer-constant, MOV.L at 0x8c617f08 loads FRAME_WORDS, 64,
+; from the pool for the CMP/EQ at 0x8c617f12
 _syFbrCreateFiberMain:
         MOV         R4,R0
         ADD         R5,R0
@@ -96,8 +96,8 @@ _syFbrCreateFiberMain:
 ; would, and interrupts stay masked until the switch's rte. it jumps to
 ; save_context with the caller's r0 still pushed, for save_context to pop
 ; (MOV.L R0,@-R15 at 0x8c617f54, JMP @R0 at 0x8c617f7c)
-; @asm operand: small-constant, MOV.L at 0x8c617f74 loads WITH_FLOATS, 0, from
-; the pool
+; @asm operand: integer-constant, MOV.L at 0x8c617f60 loads SR_IMASK, H'F0,
+; from the pool for the OR at 0x8c617f62
 _syFbrSwitchToFiber:
         MOV.L       R0,@-R15
         MOV.L       R1,@-R15
@@ -137,8 +137,8 @@ _syFbrSwitchToFiber:
 ; fiber's floats out of its frame. it jumps to save_context with the
 ; caller's r0 still pushed, for save_context to pop (MOV.L R0,@-R15 at
 ; 0x8c617f94, JMP @R0 at 0x8c617fbc)
-; @asm operand: small-constant, MOV.L at 0x8c617fb4 loads NO_FLOATS, 1, from
-; the pool
+; @asm operand: integer-constant, MOV.L at 0x8c617fa0 loads SR_IMASK, H'F0,
+; from the pool for the OR at 0x8c617fa2
 _syFbrSwitchToFiber2:
         MOV.L       R0,@-R15
         MOV.L       R1,@-R15
@@ -403,8 +403,8 @@ save_context:
 ; caller's r0 and r1 still pushed, for patch_interrupt_return to pop
 ; (MOV.L R0,@-R15 and MOV.L R1,@-R15 at 0x8c618170 and 0x8c618172, JMP @R0
 ; at 0x8c61817c)
-; @asm operand: small-constant, MOV.L at 0x8c618176 loads WITH_FLOATS, 0, from
-; the pool
+; @asm open: no inspect rule reads its MOV.L of WITH_FLOATS, 0, at 0x8c618176,
+; which it only stores
 _syFbrDelayedSwitchToFiber:
         MOV.L       R0,@-R15
         MOV.L       R1,@-R15
@@ -422,8 +422,8 @@ _syFbrDelayedSwitchToFiber:
 ; void syFbrDelayedSwitchToFiber2(struct sy_fiber *fiber)
 ; in an interrupt: switch to fiber once the interrupt returns, leaving the
 ; running fiber's floats out. it runs on into patch_interrupt_return
-; @asm open: inspect meets pool-word at the MOV.L at 0x8c61818e, since
-; delayed_without's run of data holds labels .DATA items name, such as floats
+; @asm open: no inspect rule reads its MOV.L of NO_FLOATS, 1, at 0x8c61818e,
+; which it only stores
 _syFbrDelayedSwitchToFiber2:
         MOV.L       R0,@-R15
         MOV.L       R1,@-R15
@@ -438,9 +438,8 @@ _syFbrDelayedSwitchToFiber2:
 ; in the sr the interrupt returns with, so no interrupt comes before the
 ; switch's rte. a later patch in the same interrupt finds the pc patched
 ; already, and changes only the fiber
-; @asm abi: stack-above-entry, MOV.L @R15+,R1 at 0x8c6181c6, its third pop,
-; takes R15 above its entry, and its RTS at 0x8c6181ca returns 8 bytes above it,
-; past the R0 and R1 its callers pushed
+; @asm abi: return-above-entry, the slot of its RTS, at 0x8c6181cc, leaves R15 8
+; bytes above its entry, past the R0 and R1 its callers pushed
 patch_interrupt_return:
         MOV.L       R2,@-R15
         MOV.L       R3,@-R15

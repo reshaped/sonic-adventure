@@ -23,8 +23,8 @@ GDC_VECTOR:     .EQU    H'8C0000BC
 
         .SECTION    P,CODE,ALIGN=4
 
-; @asm operand: small-constant, MOV.L at 0x8c122616 loads its call, 0, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c122616 loads its call, 0, from
+; the pool
 _gdGdcReqCmd:
         MOV         #0,R6
         MOV.L       #0,R7
@@ -33,8 +33,8 @@ _gdGdcReqCmd:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c12262a loads its call, 1, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c12262a loads its call, 1, from
+; the pool
 _gdGdcGetCmdStat:
         MOV         #0,R6
         MOV.L       #1,R7
@@ -43,8 +43,8 @@ _gdGdcGetCmdStat:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c12263e loads its call, 2, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c12263e loads its call, 2, from
+; the pool
 _gdGdcExecServer:
         MOV         #0,R6
         MOV.L       #2,R7
@@ -53,8 +53,8 @@ _gdGdcExecServer:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c122652 loads its call, 3, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c122652 loads its call, 3, from
+; the pool
 _gdGdcInitSystem:
         MOV         #0,R6
         MOV.L       #3,R7
@@ -63,8 +63,8 @@ _gdGdcInitSystem:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c122666 loads its call, 4, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c122666 loads its call, 4, from
+; the pool
 _gdGdcGetDrvStat:
         MOV         #0,R6
         MOV.L       #4,R7
@@ -73,8 +73,8 @@ _gdGdcGetDrvStat:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c12267a loads its call, 5, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c12267a loads its call, 5, from
+; the pool
 _gdGdcG1DmaEnd:
         MOV         #0,R6
         MOV.L       #5,R7
@@ -83,8 +83,8 @@ _gdGdcG1DmaEnd:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c12268e loads its call, 6, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c12268e loads its call, 6, from
+; the pool
 _gdGdcReqDmaTrans:
         MOV         #0,R6
         MOV.L       #6,R7
@@ -93,8 +93,8 @@ _gdGdcReqDmaTrans:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c1226a2 loads its call, 7, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c1226a2 loads its call, 7, from
+; the pool
 _gdGdcCheckDmaTrans:
         MOV         #0,R6
         MOV.L       #7,R7
@@ -103,8 +103,8 @@ _gdGdcCheckDmaTrans:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c1226b6 loads its call, 8, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c1226b6 loads its call, 8, from
+; the pool
 _gdGdcReadAbort:
         MOV         #0,R6
         MOV.L       #8,R7
@@ -113,8 +113,8 @@ _gdGdcReadAbort:
         JMP         @R0
         NOP
 
-; @asm operand: small-constant, MOV.L at 0x8c1226ca loads its call, 9, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c1226ca loads its call, 9, from
+; the pool
 _gdGdcReset:
         MOV         #0,R6
         MOV.L       #9,R7
@@ -126,7 +126,7 @@ _gdGdcReset:
 ; Sint32 gdGdcChangeDataType(Sint32 *param)
 ; change the type and size of the sectors the drive reads, as param gives
 ; them
-; @asm operand: small-constant, MOV.L at 0x8c1226de loads its call, 10, from
+; @asm operand: integer-constant, MOV.L at 0x8c1226de loads its call, 10, from
 ; the pool
 _gdGdcChangeDataType:
         MOV         #0,R6
@@ -138,8 +138,8 @@ _gdGdcChangeDataType:
 
 ; Sint32 gdBtGdcReInitEntry(void)
 ; initialize the boot ROM's drive entry again
-; @asm operand: small-constant, MOV.L at 0x8c1226f2 loads its call, 0, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c1226f2 loads its call, 0, from
+; the pool
 _gdBtGdcReInitEntry:
         MOV         #-1,R6
         MOV.L       #0,R7
@@ -150,8 +150,8 @@ _gdBtGdcReInitEntry:
 
 ; Sint32 gdBtGdcAddDesc(Sint32 descriptor, Uint32 address)
 ; add descriptor, with address, to the boot ROM's descriptors
-; @asm operand: small-constant, MOV.L at 0x8c122706 loads its call, 1, from the
-; pool
+; @asm operand: integer-constant, MOV.L at 0x8c122706 loads its call, 1, from
+; the pool
 _gdBtGdcAddDesc:
         MOV         #-1,R6
         MOV.L       #1,R7

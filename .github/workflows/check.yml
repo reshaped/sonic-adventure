@@ -7,25 +7,26 @@ permissions:
 
 jobs:
   check:
+    timeout-minutes: 120
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
       - run: make test
-      - run: |
-          make -j"$(nproc)" check || {
-            echo "::warning::make check failed; retrying once."
-            make -j"$(nproc)" check
-          }
+      - name: Check matching objects
+        run: make -j"$(nproc)" check
+        env:
+          RETRY_WIBO_TIMEOUT: '1'
       - run: make -j"$(nproc)" lint
       # check and lint build shckit; without the disc, nothing builds these
       - run: make build/gdi build/prskit
 
-  # make test and make engine-test with make dc's toolchain and SH4ZAM, which
-  # the check job lacks, so the tests that need them run here. Without the
-  # disc, it builds no image
+  # make dc-check, make test and make engine-test with make dc's toolchain and
+  # SH4ZAM, which the check job lacks, so the checks that need them run here.
+  # Without the disc, it builds no image
   gcc:
+    timeout-minutes: 240
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -52,12 +53,11 @@ jobs:
         with:
           path: tools/sh-elf
           key: ${{ steps.toolchain.outputs.key }}
-      # SH4ZAM's files, cached by their lines of tools/SHA256SUMS and their
-      # patches'. make fetches and patches them where the cache holds none,
-      # and else finds them fetched
+      # SH4ZAM's files, cached by their lines of tools/SHA256SUMS. make
+      # fetches them where the cache holds none, and else finds them fetched
       - id: sh4zam
         run: |
-          sum=$(grep -E ' tools/sh4zam(-patches)?/' tools/SHA256SUMS | sha256sum)
+          sum=$(grep ' tools/sh4zam/' tools/SHA256SUMS | sha256sum)
           echo "key=sh4zam-${sum%% *}" >> "$GITHUB_OUTPUT"
       - id: sh4zam-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
@@ -70,10 +70,15 @@ jobs:
         with:
           path: tools/sh4zam
           key: ${{ steps.sh4zam.outputs.key }}
+      - id: dc-check
+        name: Check disc-free Dreamcast objects
+        run: make -j"$(nproc)" dc-check SH_ELF=tools/sh-elf
       # The tests take tools/sh-elf by default, and skip a test that needs a
       # tool it lacks. With SH_ELF set, that test fails instead
-      - run: make test SH_ELF=tools/sh-elf
+      - if: success() || (!cancelled() && steps.dc-check.outcome == 'failure')
+        run: make test SH_ELF=tools/sh-elf
       # The engine's tests need Clang and a C++17 compiler, and no disc. They
       # run in this job for SH4ZAM and the SH-4 GCC, which the easy walk's
       # sends and the capture's SH-4 layout take
-      - run: make -j"$(nproc)" engine-test SH_ELF=tools/sh-elf
+      - if: success() || (!cancelled() && steps.dc-check.outcome == 'failure')
+        run: make -j"$(nproc)" engine-test SH_ELF=tools/sh-elf

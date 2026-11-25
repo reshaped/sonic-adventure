@@ -87,7 +87,7 @@ The engine refuses an overfull arena, event ring or resource table. It doesn't s
 
 ## Numbers
 
-Play math targets the same bits on every host. The Dreamcast port makes one exception for the analog stick. Its seven-term SH4ZAM atan2 differs from the original by at most one unit in a 65,536-unit turn (0.00549°) after quantization. The PC retains the original stick path. Recorded pads use the same decoder as live input. The [Dreamcast test](engine/tests/dreamcast.py) compares the compiled routines over all 65,536 stick positions. Math used only to produce a picture may use the backend's native arithmetic.
+Play math targets the same bits on every host. The Dreamcast port makes one exception for the analog stick. Its seven-term SH4ZAM atan2 differs from the original by at most one unit in a 65,536-unit turn (0.00549°) after quantization. The PC retains the original stick path. Recorded pads use the same decoder as live input. The [Dreamcast test](engine/tests/dreamcast.py) compares the compiled routines at the 64,911 stick positions outside the dead zone, where the game takes a heading. It doesn't compare the 625 inside, where the game takes none. Math used only to produce a picture may use the backend's native arithmetic.
 
 The Dreamcast executes the SH-4's instructions. A host uses play math, declared by [`play_math.h`](engine/numeric/play_math.h), wherever its own arithmetic would give other bits: FTRV, FIPR, FSCA, FSRRA, FMAC, conversions, comparisons and the scalar operations, under the game's rounding. The library depends on neither the engine nor the game, and gives the same bits whatever the host FPU's mode.
 
@@ -123,7 +123,7 @@ The Dreamcast backend uses SH4ZAM where its SH-4 math routines fit. [`batch.h`](
 
 The model walk, sprites and screen draws send PowerVR geometry during the call. The model walk caches land models' baked palette entries across pictures, keyed by model address and light; it clears the cache when another land loads or the cache fills.
 
-The adapters are inline because calls and loading Ninja's state through pointers cost measurably on SH-4. They read the game's state by its original symbols and reach the drawing kernels without another dispatch. Format-specific headers keep incompatible drawers out of one object. The batch kernels take points, colors and matrices, with no dependency on SA1's tasks or Ninja's object types.
+The adapters are inline because calls and loading Ninja's state through pointers cost measurably in a model of the console. There the pointers would cost 91 to 393 cycles a draw ([`live.h`](engine/dc/sa1/live.h)); a console's own counts still want comparison. The adapters read the game's state by its original symbols and reach the drawing kernels without another dispatch. Format-specific headers keep incompatible drawers out of one object. The batch kernels take points, colors and matrices, with no dependency on SA1's tasks or Ninja's object types.
 
 ### Submission
 
@@ -144,6 +144,16 @@ The presenter splits frames after enough consecutive frames have time to spare. 
 ### The readout
 
 [`overlay.c`](engine/dc/overlay.c) draws the readout: pictures per second, frame times, the 16:9 and 60 fps modes, and pages for per-step times and SH-4 cache counters. The game's chord changes pages ([The readout](README.md#the-readout)).
+
+### Crash screen
+
+[`crash.c`](engine/dc/crash.c) draws where the game stopped, and why, straight into the frame buffer the screen shows. It draws 3 by 5 glyphs, a word of video memory at a time, and calls nothing of the renderer's, so an exception or the vblank interrupt can run it whatever the game was doing. Its lines give what stopped the game, the PC, SR and stack pointer, the game's mode, its stage and act, and the words of the stack that may be callers. A hang adds PR when captured from Shinobi's outer interrupt frame; a crash adds PR, the address an address error asked for, and R0 to R14. The callers are what the stack holds, not an unwinding: a word a returned function left there shows too.
+
+`syIntInit` makes `syIntBrkRteRte` the handler of every exception and interrupt code from 0x40 to 0x800. That handler puts back the registers its master saved and jumps to H'AC000010 ([`syIntIsr.src`](sdk/shinobi/syIntIsr.src)). What a retail console does there isn't established. `sbInitSystem` calls `crash_install`, which copies a trampoline over Shinobi's stub at the general exception vector. An address error or an illegal instruction then reaches the screen, which draws on a stack of its own and stops the game there. So the port may stop where a retail console wouldn't. Every other exception, TRAPA among them, still goes to Shinobi's stub.
+
+`port_stop` draws the screen for a failure the game names, and stops there too. `loader_failed` calls it where a file the game can't go on without won't open, give its size or read, and the report names the file. [`loader.h`](src/system/loader.h) and [`must_load.h`](src/system/must_load.h) say which files those are: a program the game then runs, the data a stage, a character or a demo plays from, and a file's sectors once the file has opened. At an opened tray or a changed disc the game leaves for the boot ROM instead, as it does at a frame's end. On PC, `port_stop` prints the failure and ends the run with status 2 ([`runner.c`](engine/native/runner.c)).
+
+The hang watch joins the vblank chain when the first frame ends. It counts the vblanks in which no frame ends and the game asks for no flip. At 1,800, which is 30 seconds at 60 Hz, it draws a report from the interrupt, and then again with 30 vblanks between writes, until a frame ends or the game asks for a flip. It doesn't stop the game, so a report can show over a load that recovers. It finds no stop with interrupts masked, and none inside a handler the chain runs ahead of its own.
 
 ## Native game
 

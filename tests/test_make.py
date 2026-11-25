@@ -652,6 +652,26 @@ class Hung(unittest.TestCase):
             self.assertEqual((root / 'ran').read_text().splitlines()[:2],
                              ['tools/shc-v5.0r32/asmsh.exe', r'modules\mod\b.src'])
 
+    @unittest.skipUnless(TIMEOUT, "PATH finds no timeout, and the tests' stand-in for one sets no limit")
+    def test_retry_wibo_timeout_retries_only_a_timed_out_run(self):
+        # with RETRY_WIBO_TIMEOUT=1, a wibo invocation that hangs once is retried once and succeeds; a deterministic
+        # failure with exit 124 (not killed by timeout) is not retried
+        hang_once = ('#!/bin/sh\nif [ ! -f tried ]; then touch tried; sleep 2; fi\n'
+                     'touch build/modules/mod/b.obj\n')
+        fake_124 = '#!/bin/sh\necho x >> tries\nexit 124\n'
+        with checkout({**SEARCHED, WIBO: hang_once, 'tools/shc-v5.0r32/shc.exe': ''}) as root:
+            (root / WIBO).chmod(0o755)
+            with mock.patch.dict(os.environ, {'RETRY_WIBO_TIMEOUT': '1'}):
+                status, output = make(root, 'build/modules/mod/b.obj', 'HUNG=0.5', 'GRACE=0.5')
+            self.assertEqual(status, 0, output)
+            self.assertIn('retrying once', output)
+        with checkout({**SEARCHED, WIBO: fake_124, 'tools/shc-v5.0r32/shc.exe': ''}) as root:
+            (root / WIBO).chmod(0o755)
+            with mock.patch.dict(os.environ, {'RETRY_WIBO_TIMEOUT': '1'}):
+                status, output = make(root, 'build/modules/mod/b.obj', 'HUNG=2', 'GRACE=1')
+            self.assertNotEqual(status, 0, output)
+            self.assertEqual((root / 'tries').read_text().splitlines(), ['x'])
+
 
 # BUILT's goals: make check, the links of a.c, the gen/ range and g.c, and MOD.BIN and its content
 CHECK, FULL, GEN = 'check', 'build/mod/modules/mod/a.bin', 'build/mod/gen/mod/d_0c900180.bin'
@@ -1968,8 +1988,8 @@ GATED_SUMS = [f'sum      {hashlib.sha256(text.encode()).hexdigest()}  {path}' fo
 class Accept(unittest.TestCase):
     # accept's gates in the order it runs them, each with the SH_ELF its command line takes from GATE_MAKE's
     # environment
-    GATES = ('lint', 'all', 'check', 'dc SH_ELF=gcc', 'dc-disc SH_ELF=gcc', 'pc', 'native', 'engine-test SH_ELF=gcc',
-             'test SH_ELF=gcc')
+    GATES = ('lint', 'all', 'check', 'dc-check SH_ELF=gcc', 'dc SH_ELF=gcc', 'dc-disc SH_ELF=gcc', 'pc', 'native',
+             'engine-test SH_ELF=gcc', 'test SH_ELF=gcc')
 
     @contextlib.contextmanager
     def candidate(self):

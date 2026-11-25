@@ -10,7 +10,8 @@
         .SECTION    PSG,CODE,ALIGN=32
 
 ; PKMDWORD kmiMemCopy8(PKMDWORD dstPtr, PKMDWORD SrcAdr, KMDWORD Size)
-; @asm opcode: fschg, FSCHG at 0x8c66386a turns FMOV to pairs for the copy
+; @asm operand: fschg-dt, DT R6 at 0x8c663872 counts the copy's pairs after the
+; FSCHG at 0x8c66386a; the one in its RTS's slot, at 0x8c66387c, is fschg-slot's
 _kmiMemCopy8:
         MOV         R4,R0
         OR          R5,R0

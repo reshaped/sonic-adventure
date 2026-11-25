@@ -7,6 +7,7 @@
  * write cut short leaves the save as it was */
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string>
 #include <sys/stat.h>
@@ -40,6 +41,26 @@
 
 namespace {
 
+/* flush the directory holding name after renaming a save into place */
+void sync_parent(const char *name)
+{
+#ifndef _WIN32
+    std::string path(name);
+    size_t slash = path.find_last_of(SLASHES);
+    std::string dir = slash == std::string::npos
+                          ? "."
+                          : (slash == 0 ? "/" : path.substr(0, slash));
+    int fd = open(dir.c_str(), O_RDONLY | O_CLOEXEC);
+
+    if (fd >= 0) {
+        (void)fsync(fd);
+        close(fd);
+    }
+#else
+    (void)name;
+#endif
+}
+
 /* take a request's handle where its event has room */
 sa_result begin(sa_engine &engine, sa_handle &handle)
 {
@@ -71,7 +92,7 @@ sa_result end(sa_engine &engine, sa_handle handle, uint32_t bytes,
 /* path's file, made to write, and each directory above it where none is */
 int made(std::string path)
 {
-    const int flags = O_WRONLY | O_CREAT | O_TRUNC | FLAGS;
+    const int flags = O_WRONLY | O_CREAT | O_EXCL | FLAGS;
     int fd = open(path.c_str(), flags, 0644);
 
     if (fd < 0 && errno == ENOENT) {
@@ -118,7 +139,8 @@ sa_result sa_storage_read(sa_engine *engine, const char *name, void *buffer,
     bool whole;
 
     if (engine == nullptr || name == nullptr || request == nullptr ||
-        (buffer == nullptr && bytes != 0)) {
+        (buffer == nullptr && bytes != 0) ||
+        bytes > static_cast<uint32_t>(INT32_MAX)) {
         return SA_ERR_INVALID;
     }
     if (!(in = fopen(name, "rb"))) {
@@ -128,7 +150,7 @@ sa_result sa_storage_read(sa_engine *engine, const char *name, void *buffer,
         fclose(in);
         return SA_ERR_IO;
     }
-    if (static_cast<uint64_t>(about.st_size) > bytes) {
+    if (about.st_size < 0 || static_cast<uint64_t>(about.st_size) > bytes) {
         fclose(in);
         return SA_ERR_FULL;
     }
@@ -156,13 +178,16 @@ sa_result sa_storage_write(sa_engine *engine, const char *name,
     bool done;
 
     if (engine == nullptr || name == nullptr || request == nullptr ||
-        (data == nullptr && bytes != 0)) {
+        (data == nullptr && bytes != 0) ||
+        bytes > static_cast<uint32_t>(INT32_MAX)) {
         return SA_ERR_INVALID;
     }
     if ((result = begin(*engine, handle)) != SA_OK) {
         return result;
     }
     fresh = std::string(name) + ".new";
+    /* clear any stale temp file left by an interrupted save before O_EXCL */
+    (void)unlink(fresh.c_str());
     fd = made(fresh);
     done = fd >= 0 && written(fd, static_cast<const uint8_t *>(data), bytes) &&
            fsync(fd) == 0;
@@ -174,5 +199,6 @@ sa_result sa_storage_write(sa_engine *engine, const char *name,
         engine->resources.give(handle);
         return SA_ERR_IO;
     }
+    sync_parent(name);
     return end(*engine, handle, bytes, request);
 }

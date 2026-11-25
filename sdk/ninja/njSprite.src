@@ -101,7 +101,7 @@ _njInitSprite:
 ; and -1/pri otherwise. NJD_SPRITE_ALPHA sends it to the translucent list.
 ; NJD_SPRITE_COLOR colors the strip with _nj_constant_material_ in place of
 ; white
-; @asm operand: small-constant, MOV.L at 0x8c6236e8, and at 0x8ce0d27c in
+; @asm operand: integer-constant, MOV.L at 0x8c6236e8, and at 0x8ce0d27c in
 ; LOADER.BIN, loads NJD_SPRITE_ALPHA, 32, from the pool
 _njDrawSprite2D:
         FMOV.S      FR12,@-R15
@@ -185,7 +185,7 @@ _njDrawSprite2D:
 ; NJD_SPRITE_COLOR act as in njDrawSprite2D. when the emitter sends nothing,
 ; njEndVertex isn't called, and the list's write pointer stays at the
 ; header's start
-; @asm operand: small-constant, MOV.L at 0x8c6237a2, and at 0x8ce0d336 in
+; @asm operand: integer-constant, MOV.L at 0x8c6237a2, and at 0x8ce0d336 in
 ; LOADER.BIN, loads NJD_SPRITE_ALPHA, 32, from the pool
 _njDrawSprite3D:
         MOV.L       R10,@-R15

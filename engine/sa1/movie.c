@@ -154,20 +154,45 @@ static int movie_open(struct player *p, const char *name)
         return 0;
     }
     if (fread(bytes, 1, (size_t)size, file) != (size_t)size) {
-        size = 0;
+        fclose(file);
+        free(bytes);
+        return 0;
     }
     fclose(file);
     in = plm_buffer_create_with_memory(bytes, (size_t)size, 0);
-    demux = plm_demux_create(in, 1);
-    video = plm_buffer_create_for_appending((size_t)size);
-    p->adx = malloc(adx_room);
+    demux = in ? plm_demux_create(in, 1) : NULL;
+    video = demux ? plm_buffer_create_for_appending((size_t)size) : NULL;
+    p->adx = video ? malloc(adx_room) : NULL;
+    if (!p->adx) {
+        if (video) {
+            plm_buffer_destroy(video);
+        }
+        if (demux) {
+            plm_demux_destroy(demux);
+        } else if (in) {
+            plm_buffer_destroy(in);
+        }
+        free(bytes);
+        return 0;
+    }
     while ((packet = plm_demux_decode(demux))) {
         if (packet->type == PLM_DEMUX_PACKET_VIDEO_1) {
             plm_buffer_write(video, packet->data, packet->length);
         } else if (packet->type == PLM_DEMUX_PACKET_AUDIO_1) {
             if (adx_bytes + packet->length > adx_room) {
-                adx_room = 2 * (adx_bytes + packet->length);
-                p->adx = realloc(p->adx, adx_room);
+                size_t next_room = 2 * (adx_bytes + packet->length);
+                uint8_t *grown = realloc(p->adx, next_room);
+
+                if (!grown) {
+                    plm_demux_destroy(demux);
+                    free(bytes);
+                    plm_buffer_destroy(video);
+                    free(p->adx);
+                    p->adx = NULL;
+                    return 0;
+                }
+                p->adx = grown;
+                adx_room = next_room;
             }
             memcpy(p->adx + adx_bytes, packet->data, packet->length);
             adx_bytes += packet->length;
@@ -183,6 +208,12 @@ static int movie_open(struct player *p, const char *name)
                        video->bytes[i + 2] == 1 && video->bytes[i + 3] == 0;
     }
     p->video = plm_video_create_with_buffer(video, 1);
+    if (!p->video) {
+        plm_buffer_destroy(video);
+        free(p->adx);
+        p->adx = NULL;
+        return 0;
+    }
     p->rate = plm_video_get_framerate(p->video);
     if (!sa1_adx_whole(p->adx, adx_bytes)) {
         free(p->adx);
@@ -218,6 +249,7 @@ static double movie_time(const struct player *p, Sint32 *ncount, Sint32 *tscale)
 static void movie_picture(struct player *p, int number)
 {
     plm_frame_t *frame = NULL;
+    uint16_t *grown;
     int w, h;
 
     while (p->decoded <= number) {
@@ -231,7 +263,11 @@ static void movie_picture(struct player *p, int number)
     }
     w = (int)frame->width;
     h = (int)frame->height;
-    texels = realloc(texels, (size_t)w * (size_t)h * 2);
+    grown = realloc(texels, (size_t)w * (size_t)h * 2);
+    if (!grown) {
+        return;
+    }
+    texels = grown;
     for (int y = 0; y < h; y++) {
         const uint8_t *luma = frame->y.data + y * frame->y.width;
         const uint8_t *u = frame->cb.data + (y / 2) * frame->cb.width;
@@ -505,7 +541,9 @@ static void movie_run(int list, int current)
             }
         }
         time = movie_time(&p, &ncount, &tscale);
-        if (movie_fade_step(&p, list, current, ncount * 100 / tscale)) {
+        if (movie_fade_step(&p, list, current,
+                            tscale > 0 ? (int)((int64_t)ncount * 100 / tscale)
+                                       : 0)) {
             break;
         }
         /* the movie ends with its sound */
@@ -535,6 +573,9 @@ int movie_entry(int list)
 {
     KMVERTEXCONTEXT context = *_nj_current_ctx_;
 
+    if (list < 0 || list >= (int)(sizeof lists / sizeof lists[0])) {
+        return 0;
+    }
     if (list == LIST_OPENING && native_target_stage >= 0 &&
         native_hook_opening()) {
         stage_set_stage_act((uint8_t)native_target_stage,
